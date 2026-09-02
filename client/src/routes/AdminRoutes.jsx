@@ -1,5 +1,6 @@
+// client/src/routes/AdminRoutes.jsx
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import AdminLayout from '../components/layout/AdminLayout';
 
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage';
@@ -21,24 +22,27 @@ const AdminRoutes = () => {
   return (
     <Routes>
       <Route element={<AdminLayout />}>
-        <Route path="/" element={<AdminDashboardPage />} />
-        <Route path="/dashboard" element={<AdminDashboardPage />} />
-        <Route path="/members" element={<AdminMembersPage />} />
-        <Route path="/members/:id" element={<AdminMembersPage />} />
-        <Route path="/packages" element={<AdminPackagesPage />} />
-        <Route path="/products" element={<AdminProductsPage />} />
-        <Route path="/orders" element={<AdminOrdersPage />} />
-        <Route path="/orders/:id" element={<AdminOrdersPage />} />
-        <Route path="/withdrawals" element={<AdminWithdrawalsPage />} />
-        <Route path="/withdrawals/:id" element={<AdminWithdrawalsPage />} />
-        <Route path="/ranks" element={<AdminRanksPage />} />
-        <Route path="/funds" element={<AdminFundsPage />} />
-        <Route path="/rules" element={<AdminRulesPage />} />
-        <Route path="/reports" element={<AdminReportsPage />} />
-        <Route path="/campaigns" element={<AdminCampaignsPage />} />
-        <Route path="/notifications" element={<AdminNotificationsPage />} />
-        <Route path="/settings" element={<AdminSettingsPage />} />
-        <Route path="/audit" element={<AdminAuditLogsPage />} />
+        <Route index element={<AdminDashboardPage />} />
+        <Route path="dashboard" element={<AdminDashboardPage />} />
+        <Route path="members" element={<AdminMembersPage />} />
+        <Route path="members/:id" element={<AdminMembersPage />} />
+        <Route path="packages" element={<AdminPackagesPage />} />
+        <Route path="products" element={<AdminProductsPage />} />
+        <Route path="orders" element={<AdminOrdersPage />} />
+        <Route path="orders/:id" element={<AdminOrdersPage />} />
+        <Route path="withdrawals" element={<AdminWithdrawalsPage />} />
+        <Route path="withdrawals/:id" element={<AdminWithdrawalsPage />} />
+        <Route path="ranks" element={<AdminRanksPage />} />
+        <Route path="funds" element={<AdminFundsPage />} />
+        <Route path="rules" element={<AdminRulesPage />} />
+        <Route path="reports" element={<AdminReportsPage />} />
+        <Route path="campaigns" element={<AdminCampaignsPage />} />
+        <Route path="notifications" element={<AdminNotificationsPage />} />
+        <Route path="settings" element={<AdminSettingsPage />} />
+        <Route path="audit" element={<AdminAuditLogsPage />} />
+        
+        {/* Catch unmatched subroutes inside /admin/* */}
+        <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
       </Route>
     </Routes>
   );
