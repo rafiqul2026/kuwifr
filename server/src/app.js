@@ -6,7 +6,7 @@ const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 
-// Import config
+// Import configuration
 const { validateEnv } = require('./config/env');
 const connectDB = require('./config/db');
 
@@ -25,9 +25,9 @@ const paymentRoutes = require('./routes/payment.routes');
 const orderRoutes = require('./routes/order.routes');
 const walletRoutes = require('./routes/wallet.routes');
 const incomeRoutes = require('./routes/income.routes');
-const rankRoutes = require('./routes/rank.routes');  
-const fundRoutes = require('./routes/fund.routes');  
-const withdrawalRoutes = require('./routes/withdrawal.routes');      
+const rankRoutes = require('./routes/rank.routes');
+const fundRoutes = require('./routes/fund.routes');
+const withdrawalRoutes = require('./routes/withdrawal.routes');
 const repurchaseRoutes = require('./routes/repurchase.routes');
 const bonanzaRoutes = require('./routes/bonanza.routes');
 const notificationRoutes = require('./routes/notification.routes');
@@ -39,7 +39,7 @@ const adminRoutes = require('./routes/admin.routes');
 // Validate environment variables
 validateEnv();
 
-// Connect to database
+// Connect to MongoDB
 connectDB();
 
 // ============================================================
@@ -47,20 +47,66 @@ connectDB();
 // ============================================================
 const app = express();
 
-// ==================== MIDDLEWARE ====================
+// Enable proxy trust for Render / Cloudflare reverse proxies
+app.set('trust proxy', 1);
 
-// Security headers
-app.use(helmet());
+// ==================== CORS CONFIGURATION ====================
+// Build allowed origins list from environment and production frontend domains
+const defaultAllowedOrigins = [
+  'https://kuwifr.vercel.app',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000'
+];
 
-// CORS configuration
-app.use(cors({
-  origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:5173', 'http://127.0.0.1:5173'],
+const envAllowedOrigins = [
+  process.env.CLIENT_URL,
+  ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : [])
+].filter(Boolean);
+
+const allowedOrigins = Array.from(new Set([...defaultAllowedOrigins, ...envAllowedOrigins]));
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (e.g. mobile apps, curl, Postman, server-to-server)
+    if (!origin) return callback(null, true);
+
+    // Check if origin is explicitly allowed or a Vercel preview deployment
+    const isAllowed =
+      allowedOrigins.includes(origin) ||
+      /^https:\/\/kuwifr.*\.vercel\.app$/.test(origin);
+
+    if (isAllowed) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS policy error: Origin ${origin} is not allowed.`));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
-}));
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'Accept',
+    'X-Requested-With',
+    'Origin'
+  ],
+  exposedHeaders: ['Set-Cookie']
+};
 
-// Rate limiting (configured with higher limit to prevent 429 errors during dashboard sync)
+// Apply CORS before any other middleware or route
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Handle all HTTP preflight requests
+
+// ==================== SECURITY & PARSING ====================
+// Configure Helmet security headers without blocking cross-origin API assets
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
+  })
+);
+
+// Rate limiting (configured to support frequent dashboard stat polls without 429 errors)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 1000,
@@ -73,7 +119,7 @@ const limiter = rateLimit({
 });
 app.use('/api', limiter);
 
-// Body parser
+// Body parsers
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -83,9 +129,9 @@ app.use(cookieParser());
 // Request logger
 app.use(requestLogger);
 
-// ==================== ROUTES ====================
+// ==================== SYSTEM ROUTES ====================
 
-// 🌐 WELCOME ROUTE (Root URL)
+// 🌐 ROOT STATUS ROUTE
 app.get('/', (req, res) => {
   res.json({
     success: true,
@@ -125,7 +171,7 @@ app.get('/api/test', (req, res) => {
 });
 
 // ============================================================
-// ✅ MOUNTED API ENDPOINTS
+// ✅ MOUNTED API ROUTERS
 // ============================================================
 
 // Authentication
@@ -149,7 +195,7 @@ app.use('/api/payment', paymentRoutes);
 // Orders
 app.use('/api/orders', orderRoutes);
 
-// Wallets
+// Wallets (Income, Repurchase, and Salary 1% TTO)
 app.use('/api/wallet', walletRoutes);
 
 // Income & Overrides
@@ -158,7 +204,7 @@ app.use('/api/income', incomeRoutes);
 // Bonanza Offers
 app.use('/api/bonanza', bonanzaRoutes);
 
-// Repurchase Store & 10-Level Matrix
+// Repurchase Store & Matrix
 app.use('/api/repurchase', repurchaseRoutes);
 
 // Life Tension Free Funds
@@ -175,8 +221,6 @@ app.use('/api/reports', reportRoutes);
 
 // Contact & Support
 app.use('/api/contact', contactRoutes);
-
-// Mount under /api/support
 app.use('/api/support', supportRoutes);
 
 // Admin Control Panel
@@ -184,7 +228,7 @@ app.use('/api/admin', adminRoutes);
 
 // ==================== ERROR HANDLING ====================
 
-// 404 handler
+// 404 handler for unknown endpoints
 app.use(notFoundHandler);
 
 // Global error handler
