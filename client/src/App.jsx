@@ -40,11 +40,9 @@ function App() {
                 <WishlistSlideOver />
 
                 <Routes>
-                  {/* Public Website & Store Routes */}
-                  <Route path="/*" element={<PublicRoutes />} />
-                  
-                  {/* Authentication Routes */}
+                  {/* Public Authentication Routes */}
                   <Route path="/login" element={<LoginPage />} />
+                  <Route path="/admin/login" element={<LoginPage isAdminLogin={true} />} />
                   <Route path="/register" element={<RegisterPage />} />
                   <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                   <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
@@ -69,6 +67,9 @@ function App() {
                       </ProtectedRoute>
                     } 
                   />
+
+                  {/* Catch-all Public Website & Store Routes (MUST be last) */}
+                  <Route path="/*" element={<PublicRoutes />} />
                 </Routes>
               </div>
             </BrowserRouter>
