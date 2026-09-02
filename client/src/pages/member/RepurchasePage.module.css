@@ -1,0 +1,1218 @@
+/* client/src/pages/member/RepurchasePage.module.css */
+
+.repurchaseContainer {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 12px 16px 40px 16px;
+  box-sizing: border-box;
+}
+
+/* Header */
+.pageHeader {
+  margin-bottom: 24px;
+}
+
+.headerTitleWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pillBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid #bfdbfe;
+  width: fit-content;
+}
+
+.pageTitle {
+  font-size: 26px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.025em;
+}
+
+.pageSubtitle {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* ================= 3 WALLET CARDS ================= */
+.walletGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.walletCard {
+  position: relative;
+  padding: 20px 22px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+}
+
+.walletCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.08);
+}
+
+.walletTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.walletIcon {
+  font-size: 22px;
+}
+
+.walletChip {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.walletAmount {
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1.15;
+  margin-bottom: 12px;
+}
+
+.walletAmount small {
+  font-size: 18px;
+  font-weight: 700;
+  margin-right: 2px;
+}
+
+.walletFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding-top: 10px;
+  font-size: 12px;
+  margin-top: auto;
+}
+
+.totalWallet {
+  background: linear-gradient(145deg, #0f172a 0%, #1e293b 100%);
+  color: #ffffff;
+  border: 1px solid #334155;
+}
+.totalWallet .walletChip {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+.totalWallet .walletAmount {
+  color: #38bdf8;
+}
+.totalWallet .walletFooter {
+  border-top-color: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+}
+.totalWallet .walletFooter strong {
+  color: #e2e8f0;
+}
+
+.selfWallet {
+  background: linear-gradient(145deg, #ffffff 0%, #f0fdf4 100%);
+  border: 1px solid #bbf7d0;
+}
+.selfWallet .walletChip {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+.selfWallet .walletAmount {
+  color: #15803d;
+}
+.selfWallet .walletFooter {
+  color: #475569;
+}
+.selfWallet .walletFooter strong {
+  color: #166534;
+}
+
+.downlineWallet {
+  background: linear-gradient(145deg, #ffffff 0%, #eff6ff 100%);
+  border: 1px solid #bfdbfe;
+}
+.downlineWallet .walletChip {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+}
+.downlineWallet .walletAmount {
+  color: #1d4ed8;
+}
+.downlineWallet .walletFooter {
+  color: #475569;
+}
+.downlineWallet .walletFooter strong {
+  color: #1e40af;
+}
+
+/* ================= FEATURE CARDS (NAV CONTROLLERS) ================= */
+.featureCardsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.featureCard {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.featureCard:hover {
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.04);
+}
+
+.featureCardActive {
+  background: #ffffff;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12), 0 4px 16px rgba(37, 99, 235, 0.08);
+}
+
+.featureCardIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.featureCardActive .featureCardIcon {
+  background: #eff6ff;
+}
+
+.featureCardInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.featureCardInfo h4 {
+  margin: 0 0 2px 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.featureCardInfo p {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.featureBadgeCount {
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.featureCardActive .featureBadgeCount {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.pensionActiveBadge {
+  background: #dcfce7 !important;
+  color: #15803d !important;
+}
+
+/* ================= STORE TAB ================= */
+.storeContainer {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.storeMain {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.filterToolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 16px;
+  border-radius: 14px;
+}
+
+.searchBox {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 14px;
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+.searchBox input {
+  width: 100%;
+  padding: 11px 36px 11px 36px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+.searchBox input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.clearBtn {
+  position: absolute;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.categoryWrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.categoryChip {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.categoryChip:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+.categoryActive {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+/* 3 PER ROW GRID */
+.productGrid3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.modernCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.modernCard:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.04);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.prodCat {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.kbpPointBadge {
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid #bfdbfe;
+}
+
+.prodTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 12px 0;
+  line-height: 1.35;
+  min-height: 38px;
+}
+
+.pricingRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 14px;
+}
+
+.priceLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kspLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  margin-right: 2px;
+}
+
+.kspPrice {
+  font-size: 17px;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.mrpPrice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.discountTag {
+  color: #ef4444;
+  font-weight: 700;
+  font-size: 10px;
+}
+
+.cashbackPill {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  background: #f0fdf4;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid #bbf7d0;
+}
+
+.cashbackLabel {
+  font-size: 9px;
+  font-weight: 700;
+  color: #16a34a;
+  text-transform: uppercase;
+}
+
+.cashbackVal {
+  font-size: 11px;
+  font-weight: 800;
+  color: #15803d;
+}
+
+.cardAction {
+  margin-top: auto;
+}
+
+.addCartBtn {
+  width: 100%;
+  padding: 8px;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.15s ease;
+}
+.addCartBtn:hover {
+  background: #1d4ed8;
+}
+
+.qtyControl {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 2px 6px;
+}
+
+.qtyControl button {
+  background: #f1f5f9;
+  border: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.qtyControl button:hover {
+  background: #e2e8f0;
+}
+
+.qtyNumber {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+/* Sticky Checkout Summary */
+.checkoutSidebar {
+  position: sticky;
+  top: 20px;
+}
+
+.checkoutCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.checkoutHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.checkoutHead h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.cartCountPill {
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.unlimitedNotice {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0 0 14px 0;
+}
+
+.summaryBreakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.summaryItem {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #334155;
+}
+
+.highlightKBP {
+  color: #2563eb;
+  font-weight: 800;
+}
+
+.cashbackHighlight {
+  background: #f0fdf4;
+  border: 1.5px solid #bbf7d0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  margin-top: 4px;
+}
+
+.cashbackHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #15803d;
+  margin-bottom: 2px;
+}
+
+.cashbackAmount {
+  font-size: 13px;
+  font-weight: 900;
+  color: #15803d;
+}
+
+.cashbackHighlight small {
+  font-size: 10px;
+  color: #166534;
+  display: block;
+}
+
+.checkoutButton {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+  transition: opacity 0.2s ease;
+}
+.checkoutButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ================= TAB 2: LEVELS ================= */
+.levelsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.matrixRibbon {
+  background: #0f172a;
+  border-radius: 14px;
+  padding: 16px 20px;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ribbonHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ribbonIcon {
+  font-size: 22px;
+}
+
+.ribbonHeader h4 {
+  margin: 0 0 2px 0;
+  font-size: 15px;
+  color: #f8fafc;
+}
+
+.ribbonHeader p {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.ribbonBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.matrixPill {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  display: flex;
+  gap: 4px;
+}
+.matrixPill strong {
+  color: #38bdf8;
+}
+
+.levelCardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.levelCardModern {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.levelCardModern:hover {
+  border-color: #2563eb;
+  transform: translateY(-2px);
+}
+.levelCardActive {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  background: #f8fafc;
+}
+
+.lvlCardTop {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.lvlTitleBadge {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.lvlRateBadge {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.lvlMetrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.metricBox small {
+  display: block;
+  font-size: 10px;
+  color: #64748b;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.metricBox strong {
+  font-size: 12px;
+  color: #0f172a;
+}
+
+.lvlExpandPrompt {
+  font-size: 11px;
+  color: #2563eb;
+  font-weight: 700;
+  text-align: center;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 8px;
+}
+
+/* Data Table */
+.tableCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.tableHeadWrap {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.tableHeadWrap h3 {
+  margin: 0;
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.tableRateInfo {
+  font-size: 12px;
+  color: #64748b;
+}
+.tableRateInfo strong {
+  color: #2563eb;
+}
+
+.tableResponsive {
+  overflow-x: auto;
+}
+
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+
+.dataTable th {
+  background: #f8fafc;
+  padding: 10px 12px;
+  color: #475569;
+  font-weight: 700;
+  border-bottom: 1.5px solid #e2e8f0;
+}
+
+.dataTable td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.memberIdBadge {
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #0f172a;
+  font-family: monospace;
+}
+
+.contactCell {
+  display: flex;
+  flex-direction: column;
+}
+.contactCell small {
+  color: #94a3b8;
+}
+
+.kbpPointChip {
+  background: #eff6ff;
+  color: #2563eb;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.statusChip {
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.statusActive {
+  background: #dcfce7;
+  color: #15803d;
+}
+.statusInactive {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.emptyTable {
+  text-align: center;
+  padding: 28px;
+  color: #94a3b8;
+}
+.emptyTable span {
+  font-size: 28px;
+  display: block;
+  margin-bottom: 6px;
+}
+
+/* ================= TAB 3: FUNDS (3-COLUMN GRID & DYNAMIC CARDS) ================= */
+.fundsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.fundsHero {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 18px 22px;
+  border-radius: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.fundsHeroContent h3 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  color: #0f172a;
+}
+.fundsHeroContent p {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.recheckBtn {
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.recheckBtn:hover {
+  background: #1e293b;
+}
+
+.trophyBanner {
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.trophyIcon {
+  font-size: 28px;
+}
+.trophyBody h4 {
+  margin: 0 0 2px 0;
+  font-size: 15px;
+  color: #15803d;
+}
+.trophyBody p {
+  margin: 0;
+  font-size: 12px;
+  color: #166534;
+}
+
+.pensionCardModern {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1.5px solid #fde68a;
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.pensionIconWrap {
+  font-size: 28px;
+}
+.pensionText h4 {
+  margin: 0 0 2px 0;
+  font-size: 14px;
+  color: #92400e;
+}
+.pensionText p {
+  margin: 0;
+  font-size: 12px;
+  color: #b45309;
+}
+.pensionLiveBadge {
+  margin-left: auto;
+  background: #10b981;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+/* STRICT 3-COLUMN FUNDS GRID */
+.fundsCardGrid3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.fundModernCard {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  transition: all 0.2s ease;
+}
+.fundModernCard:hover {
+  transform: translateY(-2px);
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+}
+.fundQualified {
+  border-color: #86efac;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.08);
+}
+
+.fundCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.fundAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.fundHeaderInfo {
+  flex: 1;
+  min-width: 0;
+}
+.fundHeaderInfo h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+.fundCodeTag {
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.fundStateBadge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.stateQualified {
+  background: #dcfce7;
+  color: #15803d;
+}
+.stateLocked {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.formulaBox {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1e293b;
+  background: #f8fafc;
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  line-height: 1.35;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+}
+
+.matchingTrackers {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.trackerGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trackerLabel {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #475569;
+  font-weight: 600;
+}
+.trackerLabel strong {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.trackerTrack {
+  height: 6px;
+  background: #f1f5f9;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.trackerFill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.volumeStatusText {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 700;
+  color: #2563eb;
+  margin-top: 1px;
+}
+
+.totalCompletionWrap {
+  background: #f8fafc;
+  padding: 10px 12px;
+  border-radius: 10px;
+  margin-bottom: 14px;
+  border: 1px solid #e2e8f0;
+}
+
+.completionBar {
+  height: 7px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.completionFill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.completionText {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.fundCriteriaGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 12px;
+  margin-top: auto;
+}
+
+.criteriaItem small {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.criteriaItem span {
+  font-size: 11px;
+  font-weight: 800;
+  color: #0f172a;
+}
+.maintainRule {
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  color: #475569 !important;
+}
+
+/* ================= GLOBAL LOADER ================= */
+.loadingWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 380px;
+  gap: 12px;
+}
+
+.modernSpinner {
+  width: 40px;
+  height: 40px;
+  border: 3.5px solid #e2e8f0;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ================= MEDIA RESPONSIVENESS ================= */
+@media (max-width: 1180px) {
+  .productGrid3,
+  .fundsCardGrid3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 992px) {
+  .walletGrid,
+  .featureCardsGrid {
+    grid-template-columns: 1fr;
+  }
+  .storeContainer {
+    grid-template-columns: 1fr;
+  }
+  .checkoutSidebar {
+    position: static;
+  }
+  .productGrid3,
+  .fundsCardGrid3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 680px) {
+  .productGrid3,
+  .fundsCardGrid3 {
+    grid-template-columns: 1fr;
+  }
+}

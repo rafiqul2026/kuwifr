@@ -1,0 +1,217 @@
+/* client/src/components/layout/Footer.module.css */
+
+.footer {
+  background-color: #0b1329;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  width: 100%;
+}
+
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* ==================== MAIN FOOTER LINKS ==================== */
+.mainFooter {
+  padding: 4.5rem 0 2rem;
+}
+
+.footerGrid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1.2fr 1.2fr;
+  gap: 2.5rem;
+  margin-bottom: 3.5rem;
+}
+
+/* Brand Column */
+.brandCol .logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  margin-bottom: 1.25rem;
+}
+
+.logoIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2563eb;
+}
+
+.logoText {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: -0.03em;
+}
+
+.brandDesc {
+  line-height: 1.65;
+  color: #94a3b8;
+  margin-bottom: 1.5rem;
+  max-width: 340px;
+}
+
+.socialIcons {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.socialIcons a {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #1e293b;
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.socialIcons a:hover {
+  background: #2563eb;
+  color: #ffffff;
+  transform: translateY(-3px);
+}
+
+/* Columns */
+.linksCol h4 {
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 1.25rem 0;
+  letter-spacing: -0.01em;
+}
+
+.linksCol ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.linksCol a {
+  color: #94a3b8;
+  text-decoration: none;
+  transition: color 0.15s ease, transform 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.88rem;
+}
+
+/* Professional Dot Bullet */
+.dotIcon {
+  width: 5px;
+  height: 5px;
+  background-color: #475569;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.linksCol a:hover {
+  color: #ffffff;
+  transform: translateX(3px);
+}
+
+.linksCol a:hover .dotIcon {
+  background-color: #38bdf8;
+  transform: scale(1.4);
+}
+
+/* ==================== MIDDLE STRIP ==================== */
+.middleStrip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  padding: 1.75rem 0;
+  border-top: 1px solid #1e293b;
+  border-bottom: 1px solid #1e293b;
+}
+
+.contactDetails {
+  display: flex;
+  gap: 1.75rem;
+  flex-wrap: wrap;
+  color: #cbd5e1;
+  font-weight: 500;
+  font-size: 0.88rem;
+}
+
+.contactDetails span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.contactDetails span svg {
+  color: #64748b;
+}
+
+/* ==================== PAYMENT METHODS ==================== */
+.paymentMethods {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.payCard {
+  background: #ffffff;
+  padding: 0.3rem 0.65rem;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease;
+  cursor: default;
+}
+
+.payCard:hover {
+  transform: translateY(-2px);
+}
+
+/* ==================== BOTTOM STRIP ==================== */
+.bottomStrip {
+  text-align: center;
+  padding-top: 1.75rem;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.bottomStrip p {
+  margin: 0;
+}
+
+/* ==================== RESPONSIVE ==================== */
+@media (max-width: 1024px) {
+  .footerGrid {
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .footerGrid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+  .middleStrip {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .contactDetails {
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+}

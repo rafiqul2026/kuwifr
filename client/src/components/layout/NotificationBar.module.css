@@ -1,0 +1,78 @@
+.notificationBar {
+  position: fixed;
+  top: 70px;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  padding: 10px 0;
+  background: var(--primary);
+  color: white;
+  animation: slideDown 0.5s ease;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.notificationBar.info {
+  background: var(--primary);
+}
+
+.notificationBar.success {
+  background: var(--success);
+}
+
+.notificationBar.warning {
+  background: var(--warning);
+}
+
+.notificationBar.error {
+  background: var(--error);
+}
+
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.message {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0 10px;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.closeBtn:hover {
+  opacity: 1;
+}
+
+@media (max-width: 768px) {
+  .notificationBar {
+    top: 60px;
+    padding: 8px 0;
+  }
+  
+  .message {
+    font-size: 12px;
+  }
+}

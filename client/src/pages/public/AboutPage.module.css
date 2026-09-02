@@ -1,0 +1,132 @@
+/* client/src/pages/public/AboutPage.module.css */
+.aboutPage {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+.heroSection {
+  padding: 5rem 0 4rem;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  text-align: center;
+}
+
+.badge {
+  display: inline-block;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  margin-bottom: 1rem;
+  border: 1px solid #bfdbfe;
+}
+
+.title {
+  font-size: 2.75rem;
+  font-weight: 800;
+  max-width: 850px;
+  margin: 0 auto 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.highlight {
+  color: #2563eb;
+}
+
+.subtitle {
+  font-size: 1.15rem;
+  color: #64748b;
+  max-width: 680px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.valuesSection {
+  padding: 4rem 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+}
+
+.valueCard {
+  background: #f8fafc;
+  padding: 2.25rem;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.iconWrap {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.valueCard h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.valueCard p {
+  color: #64748b;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.missionSection {
+  padding: 2rem 0 6rem;
+}
+
+.missionGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.missionBox {
+  background: #0f172a;
+  color: #ffffff;
+  padding: 3rem;
+  border-radius: 20px;
+}
+
+.boxTag {
+  color: #38bdf8;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.missionBox h2 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  margin: 0.75rem 0 1rem;
+}
+
+.missionBox p {
+  color: #94a3b8;
+  line-height: 1.7;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+@media (max-width: 860px) {
+  .grid, .missionGrid {
+    grid-template-columns: 1fr;
+  }
+  .title {
+    font-size: 2.1rem;
+  }
+}

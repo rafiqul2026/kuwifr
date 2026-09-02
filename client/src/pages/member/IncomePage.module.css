@@ -1,0 +1,271 @@
+/* client/src/pages/member/IncomePage.module.css */
+
+.incomeContainer {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 12px 16px 40px 16px;
+  box-sizing: border-box;
+}
+
+/* Header */
+.pageHeader {
+  margin-bottom: 24px;
+}
+
+.headerTitleWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pillBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid #bfdbfe;
+  width: fit-content;
+}
+
+.pageTitle {
+  font-size: 26px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.025em;
+}
+
+.pageSubtitle {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* ================= INCOME GRID CARDS ================= */
+.incomeGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-bottom: 28px;
+}
+
+.incomeCard {
+  position: relative;
+  padding: 22px 24px;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+}
+
+.incomeCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.08);
+}
+
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.cardIcon {
+  font-size: 24px;
+}
+
+.cardChip {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.cardAmount {
+  font-size: 32px;
+  font-weight: 900;
+  line-height: 1.1;
+  margin-bottom: 16px;
+}
+
+.cardAmount small {
+  font-size: 20px;
+  font-weight: 700;
+  margin-right: 2px;
+}
+
+.cardFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding-top: 12px;
+  font-size: 12px;
+  margin-top: auto;
+}
+
+/* Card Themes */
+.totalCard {
+  background: linear-gradient(145deg, #0f172a 0%, #1e293b 100%);
+  color: #ffffff;
+  border: 1px solid #334155;
+}
+.totalCard .cardChip {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+.totalCard .cardAmount {
+  color: #38bdf8;
+}
+.totalCard .cardFooter {
+  border-top-color: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+}
+.totalCard .cardFooter strong {
+  color: #e2e8f0;
+}
+
+.directCard {
+  background: linear-gradient(145deg, #ffffff 0%, #eff6ff 100%);
+  border: 1px solid #bfdbfe;
+}
+.directCard .cardChip {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+}
+.directCard .cardAmount {
+  color: #1d4ed8;
+}
+.directCard .cardFooter {
+  color: #475569;
+}
+.directCard .cardFooter strong {
+  color: #1e40af;
+}
+
+.matchingCard {
+  background: linear-gradient(145deg, #ffffff 0%, #f0fdf4 100%);
+  border: 1px solid #bbf7d0;
+}
+.matchingCard .cardChip {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+.matchingCard .cardAmount {
+  color: #15803d;
+}
+.matchingCard .cardFooter {
+  color: #475569;
+}
+.matchingCard .cardFooter strong {
+  color: #166534;
+}
+
+/* ================= REPURCHASE NOTICE BANNER ================= */
+.repurchaseNoticeBox {
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 16px;
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.repurchaseNoticeBox:hover {
+  border-color: #2563eb;
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.08);
+  transform: translateY(-1px);
+}
+
+.noticeIconWrap {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.noticeContent {
+  flex: 1;
+}
+
+.noticeContent h4 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.noticeContent p {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.noticeAction {
+  font-size: 13px;
+  font-weight: 700;
+  color: #2563eb;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ================= GLOBAL LOADER ================= */
+.loadingWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 380px;
+  gap: 12px;
+}
+
+.modernSpinner {
+  width: 40px;
+  height: 40px;
+  border: 3.5px solid #e2e8f0;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ================= MEDIA RESPONSIVENESS ================= */
+@media (max-width: 992px) {
+  .incomeGrid {
+    grid-template-columns: 1fr;
+  }
+  .repurchaseNoticeBox {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .noticeAction {
+    width: 100%;
+    text-align: right;
+  }
+}

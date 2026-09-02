@@ -1,0 +1,806 @@
+/* ============================================================
+   AUTH PAGES - COMPLETE STYLING
+   ============================================================ */
+
+.authPage {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f0f4ff 0%, #e8eeff 50%, #f5f0ff 100%);
+  padding: 20px;
+  padding-top: 100px;
+  padding-bottom: 40px;
+}
+
+.authContainer {
+  width: 100%;
+  max-width: 440px;
+}
+
+.authCard {
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 40px 36px;
+  box-shadow: 0 20px 60px rgba(37, 99, 235, 0.10);
+  border: 1px solid rgba(37, 99, 235, 0.06);
+  animation: slideUp 0.5s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============ HEADER ============ */
+.authHeader {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.authLogo {
+  font-size: 48px;
+  margin-bottom: 12px;
+  display: block;
+  animation: bounce 2s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.authHeader h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.authHeader p {
+  font-size: 15px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* ============ FORM ============ */
+.authForm {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.formGroup label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.required {
+  color: #ef4444;
+}
+
+.formGroup input {
+  padding: 12px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  background: #f8fafc;
+  color: #0f172a;
+  transition: all 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.formGroup input:focus {
+  outline: none;
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+}
+
+.formGroup input::placeholder {
+  color: #94a3b8;
+}
+
+.formGroup input.error {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.formGroup input.error:focus {
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.08);
+}
+
+.formGroup input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ============ PASSWORD ============ */
+.passwordWrapper {
+  position: relative;
+}
+
+.passwordWrapper input {
+  padding-right: 48px;
+}
+
+.passwordToggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.passwordToggle:hover {
+  opacity: 1;
+}
+
+/* ============ PASSWORD STRENGTH ============ */
+.passwordStrength {
+  margin-top: 4px;
+}
+
+.strengthLabel {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.strengthBar {
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 2px;
+  margin-top: 4px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.strengthFill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease, background 0.3s ease;
+}
+
+.strengthFill.weak {
+  background: #ef4444;
+}
+
+.strengthFill.medium {
+  background: #f59e0b;
+}
+
+.strengthFill.strong {
+  background: #22c55e;
+}
+
+/* ============ MESSAGES ============ */
+.errorMessage {
+  font-size: 12px;
+  color: #ef4444;
+  margin-top: 2px;
+}
+
+.successMessage {
+  font-size: 12px;
+  color: #22c55e;
+  margin-top: 2px;
+}
+
+/* ============ SUBMIT BUTTON ============ */
+.submitBtn {
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 4px;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.submitBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(37, 99, 235, 0.30);
+}
+
+.submitBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ============ LOADING SPINNER ============ */
+.loadingSpinner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============ TERMS ============ */
+.termsText {
+  text-align: center;
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 4px;
+  line-height: 1.6;
+}
+
+.termsText a {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.termsText a:hover {
+  text-decoration: underline;
+}
+
+/* ============ FOOTER ============ */
+.authFooter {
+  text-align: center;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.authFooter p {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+}
+
+.authFooter a {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.authFooter a:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width: 480px) {
+  .authCard {
+    padding: 28px 20px;
+  }
+
+  .authHeader h1 {
+    font-size: 24px;
+  }
+
+  .authPage {
+    padding-top: 80px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .authLogo {
+    font-size: 36px;
+  }
+}
+
+/* ============ LOGIN SPECIFIC ============ */
+
+.formOptions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.rememberMe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.rememberMe input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+.forgotLink {
+  font-size: 14px;
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.forgotLink:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+/* ============ PASSWORD WRAPPER (Shared with Register) ============ */
+
+.passwordWrapper {
+  position: relative;
+}
+
+.passwordWrapper input {
+  padding-right: 48px;
+}
+
+.passwordToggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.passwordToggle:hover {
+  opacity: 1;
+}
+
+/* ============ AUTH LOGO ============ */
+
+.authLogo {
+  font-size: 48px;
+  margin-bottom: 12px;
+  display: block;
+  animation: bounce 2s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+/* ============ RESEND VERIFICATION ============ */
+
+.resendSection {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.resendDivider {
+  position: relative;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.resendDivider span {
+  background: #ffffff;
+  padding: 0 12px;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.resendMessage {
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 12px;
+}
+
+.resendStatus {
+  font-size: 13px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.successText {
+  color: #22c55e;
+}
+
+.errorText {
+  color: #ef4444;
+}
+
+.resendBtn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.resendBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(37, 99, 235, 0.3);
+}
+
+.resendBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.hideResendBtn {
+  display: block;
+  margin: 8px auto 0;
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.hideResendBtn:hover {
+  color: #1e293b;
+}
+
+/* ============ VERIFICATION HELP LINK ============ */
+
+.verificationHelp {
+  text-align: center;
+  margin-top: 12px;
+}
+
+.verifyHelpBtn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.verifyHelpBtn:hover {
+  color: #2563eb;
+}
+
+/* ============ LOADING SPINNER (Shared) ============ */
+
+.loadingSpinner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============ RESPONSIVE ============ */
+
+@media (max-width: 480px) {
+  .authCard {
+    padding: 28px 20px;
+  }
+
+  .authHeader h1 {
+    font-size: 24px;
+  }
+
+  .authPage {
+    padding-top: 80px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .authLogo {
+    font-size: 36px;
+  }
+
+  .formOptions {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .resendBtn {
+    width: 100%;
+  }
+}
+
+
+/* ============================================================
+   WELCOME CREDENTIALS POP-UP MODAL
+   ============================================================ */
+
+.welcomeModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+  padding: 16px;
+}
+
+.welcomeModalCard {
+  background: #ffffff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  animation: popInModal 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popInModal {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.welcomeModalHeader {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  padding: 26px 20px 22px 20px;
+  text-align: center;
+  color: #ffffff;
+}
+
+.welcomeModalIcon {
+  font-size: 38px;
+  margin-bottom: 4px;
+}
+
+.welcomeModalHeader h2 {
+  margin: 0 0 6px 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.welcomeCompanyBadge {
+  display: inline-block;
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  letter-spacing: 0.05em;
+}
+
+.welcomeModalBody {
+  padding: 24px;
+}
+
+.welcomeMessageBlock {
+  font-size: 13.5px;
+  color: #475569;
+  line-height: 1.5;
+  margin-bottom: 18px;
+}
+
+.welcomeMessageBlock p {
+  margin: 0 0 8px 0;
+}
+
+.saveNotice {
+  color: #b45309 !important;
+  font-weight: 700;
+  font-size: 12px !important;
+  margin-top: 10px !important;
+}
+
+/* Credentials Box */
+.credentialsDisplayBox {
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+
+.credItemRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13.5px;
+}
+
+.credFieldLabel {
+  color: #64748b;
+  font-weight: 700;
+}
+
+.credFieldValue {
+  font-size: 17px;
+  font-family: monospace;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.credItemDivider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 10px 0;
+}
+
+/* Actions */
+.welcomeModalActions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.copyCredBtn {
+  width: 100%;
+  padding: 12px;
+  background: #eff6ff;
+  border: 1.5px solid #bfdbfe;
+  color: #2563eb;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.copyCredBtn:hover {
+  background: #dbeafe;
+}
+
+.proceedLoginBtn {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: none;
+  color: #ffffff;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+  transition: transform 0.15s ease;
+}
+
+.proceedLoginBtn:hover {
+  transform: translateY(-1px);
+}
+
+/* ============ SPONSOR BANNER ============ */
+.sponsorBanner {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05));
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.sponsorIcon {
+  font-size: 28px;
+}
+
+.sponsorInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.sponsorName {
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.sponsorName strong {
+  color: #22c55e;
+}
+
+.sponsorCode {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.sponsorLoading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: rgba(37, 99, 235, 0.06);
+  border-radius: 10px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.spinnerSmall {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e2e8f0;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.sponsorFound {
+  border-color: #22c55e !important;
+  background: rgba(34, 197, 94, 0.04) !important;
+}
+
+.sponsorVerified {
+  font-size: 12px;
+  color: #22c55e;
+  margin-top: 4px;
+}

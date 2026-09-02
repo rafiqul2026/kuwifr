@@ -1,0 +1,17 @@
+.publicLayout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background);
+}
+
+.mainContent {
+  flex: 1;
+  padding-top: 80px; /* Space for fixed header */
+}
+
+@media (max-width: 768px) {
+  .mainContent {
+    padding-top: 70px;
+  }
+}

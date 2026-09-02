@@ -1,0 +1,494 @@
+/* ============================================================
+   WITHDRAWALS PAGE - MODERN PROFESSIONAL DESIGN
+   ============================================================ */
+
+.withdrawalsPage {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ============ PAGE HEADER ============ */
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.pageTitle {
+  font-size: 26px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+}
+
+.pageSubtitle {
+  font-size: 15px;
+  color: #64748b;
+  margin: 0;
+}
+
+.balanceCard {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  border-radius: 14px;
+  padding: 14px 24px;
+  text-align: center;
+  min-width: 160px;
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.25);
+}
+
+.balanceLabel {
+  display: block;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.balanceValue {
+  display: block;
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-top: 2px;
+}
+
+/* ============ CONTENT GRID ============ */
+.contentGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+/* ============ REQUEST SECTION ============ */
+.requestSection {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  border-radius: 14px;
+  padding: 24px;
+}
+
+.requestSection h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 20px 0;
+}
+
+.requestForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.formGroup label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.required {
+  color: #ef4444;
+}
+
+.formGroup input {
+  padding: 10px 14px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  background: #f8fafc;
+  color: #0f172a;
+  transition: all 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.formGroup input:focus {
+  outline: none;
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+}
+
+.formGroup input.error {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.formGroup input.error:focus {
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.08);
+}
+
+.amountInputWrapper {
+  position: relative;
+}
+
+.currencySymbol {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.amountInputWrapper input {
+  padding-left: 32px;
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.errorMessage {
+  font-size: 12px;
+  color: #ef4444;
+}
+
+.helperText {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.submitBtn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 8px;
+}
+
+.submitBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(37, 99, 235, 0.3);
+}
+
+.submitBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.btnSpinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============ HISTORY SECTION ============ */
+.historySection {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  border-radius: 14px;
+  padding: 24px;
+}
+
+.historyHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.historyHeader h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0;
+}
+
+.historyCount {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 40px 20px;
+  color: #94a3b8;
+}
+
+.emptyState span:first-child {
+  font-size: 40px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.emptyState p {
+  font-size: 15px;
+  color: #64748b;
+  margin: 0;
+}
+
+.emptySubtext {
+  font-size: 13px;
+  color: #94a3b8;
+  display: block;
+  margin-top: 4px;
+}
+
+.withdrawalList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.withdrawalList::-webkit-scrollbar {
+  width: 4px;
+}
+
+.withdrawalList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.withdrawalList::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.withdrawalItem {
+  background: rgba(248, 250, 252, 0.6);
+  border-radius: 10px;
+  padding: 14px 16px;
+  border: 1px solid rgba(226, 232, 240, 0.4);
+}
+
+.wdHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.wdNumber {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.wdStatus {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 12px;
+  border-radius: 12px;
+}
+
+.statusPending {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.statusApproved {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.statusRejected {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.statusProcessed {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.statusCancelled {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.wdBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wdAmounts {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.wdAmounts > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.wdLabel {
+  font-size: 10px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.wdGross {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.wdDeductions {
+  font-size: 14px;
+  font-weight: 500;
+  color: #ef4444;
+}
+
+.wdNet {
+  font-size: 14px;
+  font-weight: 600;
+  color: #22c55e;
+}
+
+.wdMeta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.wdReason {
+  color: #ef4444;
+}
+
+/* ============ LOADING ============ */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 16px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e2e8f0;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width: 1024px) {
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .pageHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .balanceCard {
+    min-width: unset;
+  }
+
+  .balanceValue {
+    font-size: 22px;
+  }
+
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+
+  .requestSection,
+  .historySection {
+    padding: 16px;
+  }
+
+  .wdAmounts {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .withdrawalList {
+    max-height: 400px;
+  }
+
+  .submitBtn {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .pageTitle {
+    font-size: 22px;
+  }
+
+  .wdHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .wdAmounts {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .wdMeta {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .requestSection,
+  .historySection {
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  .formGroup input {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .amountInputWrapper input {
+    padding-left: 28px;
+  }
+
+  .currencySymbol {
+    left: 10px;
+    font-size: 14px;
+  }
+}
