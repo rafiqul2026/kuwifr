@@ -1,12 +1,19 @@
 /* client/src/components/layout/Footer.module.css */
 
+/* Full-Screen Edge-to-Edge Footer View */
 .footerEdgeToEdge {
   background-color: #0b1329;
   color: #94a3b8;
   font-size: 0.9rem;
-  width: 100%;
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
   box-sizing: border-box;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow-x: hidden;
 }
 
 .footerMain {
@@ -14,7 +21,6 @@
   width: 100%;
 }
 
-/* Fluid Interior Grid */
 .footerFluidGrid {
   width: 100%;
   max-width: 100%;
@@ -32,7 +38,7 @@
   align-items: center;
   gap: 8px;
   text-decoration: none;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .logoRocket {
@@ -72,14 +78,12 @@
   font-size: 11px;
   font-weight: 750;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .socialBtn:hover {
   background: #2563eb;
   color: #ffffff;
   transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(37, 99, 235, 0.3);
 }
 
 /* Navigation Columns */
@@ -87,7 +91,7 @@
   color: #ffffff;
   font-size: 15px;
   font-weight: 750;
-  margin: 0 0 18px 0;
+  margin: 0 0 16px 0;
   letter-spacing: -0.01em;
 }
 
@@ -110,7 +114,7 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .navLinksList a {
@@ -123,6 +127,23 @@
   font-size: 13px;
 }
 
+/* Track Order Button Trigger */
+.trackerBtnLink {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: #94a3b8;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
 .dot {
   width: 5px;
   height: 5px;
@@ -132,12 +153,14 @@
   transition: all 0.2s ease;
 }
 
-.navLinksList a:hover {
+.navLinksList a:hover,
+.trackerBtnLink:hover {
   color: #ffffff;
   transform: translateX(4px);
 }
 
-.navLinksList a:hover .dot {
+.navLinksList a:hover .dot,
+.trackerBtnLink:hover .dot {
   background-color: #38bdf8;
   transform: scale(1.4);
 }
@@ -164,7 +187,7 @@
 
 .contactGroup {
   display: flex;
-  gap: 22px;
+  gap: 20px;
   flex-wrap: wrap;
   color: #cbd5e1;
   font-weight: 500;
@@ -185,7 +208,6 @@
   color: #cbd5e1;
   text-decoration: none;
   font-weight: 600;
-  transition: color 0.15s ease;
 }
 
 .contactItem a:hover {
@@ -203,13 +225,13 @@
 .payBadge {
   background: #ffffff;
   padding: 3px 8px;
-  border-radius: 6px;
+  border-radius: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  transition: transform 0.2s ease;
   cursor: default;
+  transition: transform 0.2s ease;
 }
 
 .payBadge:hover {
@@ -230,7 +252,7 @@
   margin: 0;
 }
 
-/* ==================== TABLET & MOBILE RESPONSIVENESS ==================== */
+/* ==================== TABLET & MOBILE BREAKPOINTS ==================== */
 @media (max-width: 1024px) {
   .footerFluidGrid {
     grid-template-columns: 1fr 1fr;
@@ -239,12 +261,12 @@
 
 @media (max-width: 680px) {
   .footerMain {
-    padding: 36px 0 16px 0;
+    padding: 32px 0 14px 0;
   }
 
   .footerFluidGrid {
     grid-template-columns: 1fr;
-    gap: 14px;
+    gap: 10px;
   }
 
   .colHeaderMobile {
@@ -255,16 +277,18 @@
 
   .colHeading {
     margin: 0;
+    font-size: 14px;
   }
 
   .accordionIcon {
     display: inline-block;
   }
 
-  /* Accordion collapse behavior on mobile */
+  /* Accordion collapse logic */
   .navLinksList {
     display: none;
-    padding-top: 12px;
+    padding-top: 10px;
+    padding-bottom: 8px;
     padding-left: 4px;
   }
 
