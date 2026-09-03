@@ -6,23 +6,31 @@
   overflow-x: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .container {
-  width: min(100% - 32px, 1380px);
+  width: 100%;
+  max-width: 1380px;
   margin: 0 auto;
+  padding: 0 16px;
+  box-sizing: border-box;
 }
 
 /* ==================== 1. HERO SECTION ==================== */
 .hero {
   position: relative;
-  min-height: 88vh;
+  min-height: 85vh;
   display: flex;
   align-items: center;
-  padding: 56px 0 64px 0;
+  padding: clamp(32px, 5vw, 64px) 0;
   background-color: #ffffff;
   border-bottom: 1px solid #f1f5f9;
   overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+  touch-action: pan-y;
 }
 
 .heroBackgroundMesh {
@@ -38,17 +46,21 @@
 
 .heroGrid {
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
   align-items: center;
-  gap: 48px;
+  gap: clamp(24px, 4vw, 48px);
   position: relative;
   z-index: 1;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .heroContent {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  min-width: 0;
+  width: 100%;
 }
 
 .trustBadge {
@@ -60,10 +72,11 @@
   padding: 6px 14px;
   border-radius: 999px;
   font-weight: 700;
-  font-size: 13px;
-  margin-bottom: 20px;
+  font-size: clamp(11px, 2.8vw, 13px);
+  margin-bottom: 18px;
   border: 1px solid #dbeafe;
   box-shadow: 0 1px 2px rgba(37, 99, 235, 0.05);
+  max-width: 100%;
 }
 
 .badgeSpark {
@@ -71,56 +84,63 @@
 }
 
 .heroTitle {
-  font-size: clamp(32px, 4.4vw, 54px);
+  font-size: clamp(26px, 4.4vw, 52px);
   line-height: 1.14;
   font-weight: 850;
   color: #0b1228;
   letter-spacing: -0.03em;
-  margin: 0 0 20px 0;
+  margin: 0 0 18px 0;
+  width: 100%;
+  overflow-wrap: break-word;
 }
 
 .highlight {
   background: linear-gradient(135deg, #2563eb 0%, #4338ca 100%);
   background-clip: text;
+  -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   display: inline;
 }
 
 .heroSubtitle {
-  font-size: 16px;
+  font-size: clamp(14px, 2vw, 16px);
   line-height: 1.65;
   color: #475569;
   max-width: 580px;
-  margin: 0 0 32px 0;
+  margin: 0 0 28px 0;
+  overflow-wrap: break-word;
 }
 
 .heroButtons {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 36px;
+  margin-bottom: 32px;
+  width: 100%;
 }
 
 .primaryBtn {
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   color: #ffffff;
-  padding: 14px 28px;
+  padding: 13px 26px;
   border-radius: 10px;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  box-shadow: 0 10px 20px -4px rgba(37, 99, 235, 0.35);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 8px 18px -4px rgba(37, 99, 235, 0.35);
+  transition: all 0.2s ease;
   border: none;
   cursor: pointer;
+  min-height: 44px;
 }
 
 .primaryBtn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 14px 28px -4px rgba(37, 99, 235, 0.45);
+  box-shadow: 0 12px 24px -4px rgba(37, 99, 235, 0.45);
 }
 
 .primaryBtn:active {
@@ -139,13 +159,17 @@
   background: #ffffff;
   color: #1e293b;
   border: 1px solid #cbd5e1;
-  padding: 14px 24px;
+  padding: 13px 22px;
   border-radius: 10px;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 14px;
   text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   transition: all 0.2s ease;
+  min-height: 44px;
 }
 
 .secondaryBtn:hover {
@@ -158,27 +182,30 @@
 .heroHighlights {
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding-top: 24px;
+  gap: 16px;
+  padding-top: 20px;
   border-top: 1px solid #e2e8f0;
   width: 100%;
+  flex-wrap: wrap;
 }
 
 .highlightItem {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .highlightItem strong {
-  font-size: 19px;
+  font-size: clamp(16px, 2.8vw, 19px);
   color: #0f172a;
   font-weight: 850;
 }
 
 .highlightItem span {
-  font-size: 12px;
+  font-size: clamp(11px, 2.2vw, 12px);
   color: #64748b;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .highlightDivider {
@@ -191,53 +218,58 @@
 .heroVisual {
   position: relative;
   perspective: 1000px;
+  width: 100%;
+  min-width: 0;
 }
 
 .imageCard {
   position: relative;
-  border-radius: 20px;
+  border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 24px 48px -12px rgba(11, 18, 40, 0.14),
+  box-shadow: 0 20px 40px -12px rgba(11, 18, 40, 0.14),
               0 0 0 1px rgba(226, 232, 240, 0.8);
-  transform: rotateY(-3deg) rotateX(2deg);
+  transform: rotateY(-2deg) rotateX(1deg);
   transition: transform 0.4s ease, box-shadow 0.4s ease;
+  max-width: 580px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .imageCard:hover {
   transform: rotateY(0deg) rotateX(0deg);
-  box-shadow: 0 32px 56px -12px rgba(11, 18, 40, 0.2);
+  box-shadow: 0 28px 50px -12px rgba(11, 18, 40, 0.2);
 }
 
 .heroImg {
   width: 100%;
-  height: 460px;
+  height: clamp(260px, 42vw, 440px);
   object-fit: cover;
   display: block;
 }
 
 .floatingCard {
   position: absolute;
-  bottom: 22px;
-  left: 22px;
-  right: 22px;
+  bottom: 14px;
+  left: 14px;
+  right: 14px;
   background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  padding: 14px 18px;
-  border-radius: 14px;
+  padding: 10px 14px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
-  gap: 14px;
-  box-shadow: 0 12px 24px -6px rgba(11, 18, 40, 0.15);
+  gap: 12px;
+  box-shadow: 0 10px 22px -6px rgba(11, 18, 40, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.85);
 }
 
 .floatingIcon {
-  font-size: 20px;
+  font-size: 18px;
   background: #fffbeb;
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -246,28 +278,28 @@
 
 .floatingCard strong {
   display: block;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 750;
   color: #0f172a;
 }
 
 .floatingCard p {
-  font-size: 12px;
+  font-size: 11px;
   color: #64748b;
   margin: 2px 0 0 0;
 }
 
 .floatingPillBadge {
   position: absolute;
-  top: 18px;
-  right: 18px;
+  top: 14px;
+  right: 14px;
   background: rgba(11, 18, 40, 0.82);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   color: #ffffff;
-  padding: 6px 14px;
+  padding: 4px 12px;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -276,27 +308,30 @@
 .trustStrip {
   background: #ffffff;
   border-bottom: 1px solid #eef2f6;
-  padding: 24px 0;
+  padding: 22px 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .trustGrid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
   align-items: center;
 }
 
 .trustItem {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  min-width: 0;
 }
 
 .trustIcon {
-  font-size: 22px;
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
+  font-size: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
   background: #f8fafc;
   display: flex;
   align-items: center;
@@ -305,24 +340,36 @@
   flex-shrink: 0;
 }
 
+.trustText {
+  min-width: 0;
+}
+
 .trustText h4 {
   font-size: 13px;
   font-weight: 750;
   color: #0f172a;
   margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .trustText p {
   font-size: 11px;
   color: #64748b;
   margin: 2px 0 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ==================== SECTION HEADERS ==================== */
 .sectionHeader {
   text-align: center;
   max-width: 660px;
-  margin: 0 auto 44px auto;
+  margin: 0 auto 40px auto;
+  padding: 0 16px;
+  box-sizing: border-box;
 }
 
 .subHeading {
@@ -336,34 +383,37 @@
 }
 
 .sectionTitle {
-  font-size: clamp(26px, 3.2vw, 36px);
+  font-size: clamp(24px, 3.2vw, 36px);
   font-weight: 850;
   color: #0b1228;
   letter-spacing: -0.02em;
   margin: 0 0 10px 0;
+  overflow-wrap: break-word;
 }
 
 .sectionDesc {
   color: #64748b;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.5;
   margin: 0;
 }
 
 /* ==================== 3. CATEGORIES SECTION ==================== */
 .categorySection {
-  padding: 72px 0 80px 0;
+  padding: 60px 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .categoryGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
 }
 
 .categoryCard {
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 14px;
   overflow: hidden;
   border: 1px solid #e2e8f0;
   box-shadow: 0 2px 8px rgba(11, 18, 40, 0.03);
@@ -374,14 +424,14 @@
 }
 
 .categoryCard:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 18px 36px -6px rgba(11, 18, 40, 0.1);
+  transform: translateY(-5px);
+  box-shadow: 0 16px 32px -6px rgba(11, 18, 40, 0.1);
   border-color: #cbd5e1;
 }
 
 .categoryImageWrapper {
   position: relative;
-  height: 200px;
+  height: 190px;
   overflow: hidden;
 }
 
@@ -404,28 +454,28 @@
 
 .categoryBadgeIcon {
   position: absolute;
-  top: 14px;
-  left: 14px;
-  width: 36px;
-  height: 36px;
+  top: 12px;
+  left: 12px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.95);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 16px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .categoryContent {
-  padding: 20px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
   flex: 1;
 }
 
 .categoryTitle {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 750;
   color: #0f172a;
   margin: 0 0 6px 0;
@@ -434,7 +484,7 @@
 .categoryDesc {
   font-size: 13px;
   color: #64748b;
-  margin: 0 0 16px 0;
+  margin: 0 0 14px 0;
   line-height: 1.45;
   flex: 1;
 }
@@ -458,26 +508,30 @@
 
 /* ==================== 4. PRODUCTS CATALOG WRAPPER ==================== */
 .productsSectionWrapper {
-  padding: 20px 0 60px 0;
+  padding: 20px 0 50px 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* ==================== 5. PROMOTIONAL HERO BANNER ==================== */
 .promoBannerSection {
-  padding: 40px 0 80px 0;
+  padding: 30px 0 60px 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .promoCard {
   background: linear-gradient(135deg, #0b1228 0%, #1e293b 100%);
-  border-radius: 20px;
+  border-radius: 18px;
   overflow: hidden;
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
   align-items: center;
-  box-shadow: 0 24px 48px -12px rgba(11, 18, 40, 0.22);
+  box-shadow: 0 20px 40px -12px rgba(11, 18, 40, 0.22);
 }
 
 .promoContent {
-  padding: 56px;
+  padding: clamp(24px, 4vw, 48px);
   color: #ffffff;
 }
 
@@ -487,40 +541,44 @@
   letter-spacing: 0.1em;
   color: #60a5fa;
   display: block;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .promoTitle {
-  font-size: clamp(24px, 2.8vw, 36px);
+  font-size: clamp(22px, 2.6vw, 34px);
   font-weight: 850;
   line-height: 1.25;
-  margin: 0 0 16px 0;
+  margin: 0 0 14px 0;
+  overflow-wrap: break-word;
 }
 
 .promoParagraph {
   font-size: 14px;
-  line-height: 1.65;
+  line-height: 1.6;
   color: #94a3b8;
-  margin: 0 0 32px 0;
+  margin: 0 0 28px 0;
   max-width: 520px;
 }
 
 .promoActions {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
 .promoPrimaryBtn {
   background: #2563eb;
   color: #ffffff;
-  padding: 12px 24px;
+  padding: 12px 22px;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 700;
   text-decoration: none;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: background 0.15s ease;
+  min-height: 44px;
 }
 
 .promoPrimaryBtn:hover {
@@ -531,13 +589,16 @@
   background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 12px 22px;
+  padding: 12px 20px;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: background 0.15s ease;
+  min-height: 44px;
 }
 
 .promoGhostBtn:hover {
@@ -546,7 +607,7 @@
 
 .promoVisual {
   height: 100%;
-  min-height: 380px;
+  min-height: 320px;
 }
 
 .promoImage {
@@ -558,41 +619,43 @@
 
 /* ==================== 6. FEATURES ==================== */
 .features {
-  padding: 70px 0;
+  padding: 60px 0;
   background: #ffffff;
   border-top: 1px solid #f1f5f9;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .featuresGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
 }
 
 .featureCard {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 26px;
+  border-radius: 12px;
+  padding: 24px;
   transition: all 0.2s ease;
 }
 
 .featureCard:hover {
   transform: translateY(-3px);
   border-color: #cbd5e1;
-  box-shadow: 0 10px 20px -4px rgba(11, 18, 40, 0.05);
+  box-shadow: 0 8px 18px -4px rgba(11, 18, 40, 0.05);
 }
 
 .featureIcon {
-  font-size: 26px;
-  margin-bottom: 12px;
+  font-size: 24px;
+  margin-bottom: 10px;
 }
 
 .featureCard h3 {
-  font-size: 16px;
+  font-size: 15px;
   color: #0f172a;
   font-weight: 750;
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
 }
 
 .featureCard p {
@@ -604,55 +667,59 @@
 
 /* ==================== 7. BRAND STORY ==================== */
 .brandSection {
-  padding: 80px 0;
+  padding: 64px 0;
   background: #ffffff;
   border-top: 1px solid #f1f5f9;
   border-bottom: 1px solid #f1f5f9;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .brandGrid {
   display: grid;
-  grid-template-columns: 0.95fr 1.05fr;
-  gap: 60px;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: clamp(24px, 4vw, 52px);
   align-items: center;
 }
 
 .brandVisualCol {
   position: relative;
+  width: 100%;
 }
 
 .brandImageStack {
   position: relative;
+  width: 100%;
 }
 
 .brandImage {
   width: 100%;
-  border-radius: 16px;
-  box-shadow: 0 20px 40px -10px rgba(11, 18, 40, 0.12);
+  border-radius: 14px;
+  box-shadow: 0 16px 36px -10px rgba(11, 18, 40, 0.12);
   display: block;
 }
 
 .brandBadge {
   position: absolute;
-  bottom: -18px;
-  right: -18px;
+  bottom: -12px;
+  right: -12px;
   background: #0b1228;
   color: #ffffff;
-  padding: 16px 22px;
-  border-radius: 12px;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+  padding: 12px 18px;
+  border-radius: 10px;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
   text-align: center;
 }
 
 .brandBadgeNumber {
   display: block;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 850;
   color: #60a5fa;
 }
 
 .brandBadgeLabel {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   color: #94a3b8;
 }
@@ -660,21 +727,23 @@
 .brandTextCol {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .brandTitle {
-  font-size: clamp(26px, 3vw, 36px);
+  font-size: clamp(24px, 3vw, 34px);
   font-weight: 850;
   color: #0b1228;
-  margin: 0 0 18px 0;
+  margin: 0 0 16px 0;
   letter-spacing: -0.02em;
+  overflow-wrap: break-word;
 }
 
 .brandParagraph {
   font-size: 14px;
   line-height: 1.65;
   color: #475569;
-  margin: 0 0 16px 0;
+  margin: 0 0 14px 0;
 }
 
 .brandActions {
@@ -696,47 +765,49 @@
 
 /* ==================== 8. TESTIMONIALS ==================== */
 .testimonials {
-  padding: 72px 0;
+  padding: 60px 0;
   background: #f8fafc;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .testimonialsGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
 }
 
 .testimonialCard {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 24px;
+  border-radius: 12px;
+  padding: 22px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
 
 .stars {
   color: #f59e0b;
-  margin-bottom: 12px;
-  font-size: 15px;
+  margin-bottom: 10px;
+  font-size: 14px;
 }
 
 .testimonialText {
-  font-size: 14px;
+  font-size: 13px;
   color: #334155;
   line-height: 1.6;
   font-style: italic;
-  margin: 0 0 20px 0;
+  margin: 0 0 18px 0;
 }
 
 .testimonialAuthor {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .authorAvatar {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   background: #eff6ff;
   color: #2563eb;
@@ -744,88 +815,103 @@
   align-items: center;
   justify-content: center;
   font-weight: 750;
-  font-size: 13px;
+  font-size: 12px;
   flex-shrink: 0;
 }
 
 .testimonialAuthor h4 {
-  font-size: 14px;
+  font-size: 13px;
   color: #0f172a;
   font-weight: 700;
   margin: 0;
 }
 
 .authorTitle {
-  font-size: 12px;
+  font-size: 11px;
   color: #64748b;
   margin: 2px 0 0 0;
 }
 
 /* ==================== 9. CTA SECTION ==================== */
 .cta {
-  padding: 48px 0 72px 0;
+  padding: 40px 16px 64px 16px;
   background: #f8fafc;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .ctaBox {
   background: linear-gradient(135deg, #1d4ed8 0%, #0b1228 100%);
-  border-radius: 20px;
-  padding: 56px 24px;
+  border-radius: 16px;
+  padding: clamp(32px, 5vw, 48px) 16px;
   text-align: center;
   color: #ffffff;
-  box-shadow: 0 20px 40px -10px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 16px 36px -8px rgba(37, 99, 235, 0.3);
+  max-width: 780px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .ctaHeading {
-  font-size: clamp(26px, 3.2vw, 38px);
+  font-size: clamp(22px, 3.4vw, 36px);
   font-weight: 850;
-  margin: 0 0 12px 0;
+  margin: 0 0 10px 0;
   letter-spacing: -0.02em;
+  overflow-wrap: break-word;
 }
 
 .ctaDesc {
-  font-size: 15px;
+  font-size: 14px;
   color: #dbeafe;
-  max-width: 600px;
-  margin: 0 auto 28px auto;
+  max-width: 540px;
+  margin: 0 auto 24px auto;
   line-height: 1.5;
 }
 
 .ctaActions {
   display: flex;
   justify-content: center;
-  gap: 14px;
+  gap: 12px;
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .ctaBtnPrimary {
   background: #ffffff;
   color: #0b1228;
-  padding: 13px 32px;
-  border-radius: 9px;
+  padding: 12px 28px;
+  border-radius: 8px;
   font-weight: 800;
   font-size: 14px;
   text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.2s ease;
+  min-height: 44px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .ctaBtnPrimary:hover {
   background: #f8fafc;
   transform: translateY(-2px);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
 }
 
 .ctaBtnSecondary {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.14);
   color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  padding: 13px 28px;
-  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 12px 24px;
+  border-radius: 8px;
   font-weight: 700;
   font-size: 14px;
   text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.2s ease;
+  min-height: 44px;
 }
 
 .ctaBtnSecondary:hover {
@@ -837,67 +923,63 @@
 @media (max-width: 1024px) {
   .heroGrid {
     grid-template-columns: 1fr;
-    gap: 40px;
+    gap: 36px;
   }
   .heroContent {
-    align-items: center;
-    text-align: center;
+    align-items: flex-start;
+    text-align: left;
   }
   .heroSubtitle {
     max-width: 100%;
   }
-  .heroButtons, .heroHighlights {
-    justify-content: center;
-  }
-  .heroVisual {
-    max-width: 580px;
-    margin: 0 auto;
-    width: 100%;
-  }
   .trustGrid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .categoryGrid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .featuresGrid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .promoCard {
     grid-template-columns: 1fr;
   }
   .promoVisual {
-    min-height: 240px;
+    min-height: 220px;
   }
   .brandGrid {
     grid-template-columns: 1fr;
-    gap: 40px;
+    gap: 36px;
   }
   .brandBadge {
-    bottom: 10px;
-    right: 10px;
+    bottom: 8px;
+    right: 8px;
   }
 }
 
 @media (max-width: 768px) {
   .trustGrid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .testimonialsGrid {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 480px) {
   .hero {
-    padding: 36px 0;
+    padding: 24px 0;
   }
-  .heroImg {
-    height: 320px;
+  .heroButtons {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .primaryBtn,
+  .secondaryBtn {
+    width: 100%;
   }
   .heroHighlights {
-    flex-wrap: wrap;
-    gap: 14px;
+    gap: 12px;
   }
   .highlightDivider {
     display: none;
@@ -909,9 +991,13 @@
     grid-template-columns: 1fr;
   }
   .promoContent {
-    padding: 36px 20px;
+    padding: 28px 16px;
   }
-  .ctaBox {
-    padding: 40px 18px;
+  .ctaActions {
+    flex-direction: column;
+  }
+  .ctaBtnPrimary,
+  .ctaBtnSecondary {
+    width: 100%;
   }
 }

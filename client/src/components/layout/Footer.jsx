@@ -244,7 +244,6 @@ const Footer = () => {
                   </Link>
                 </li>
                 <li>
-                  {/* Opens OrderTrackingModal directly */}
                   <button
                     type="button"
                     onClick={handleOpenTracker}
@@ -289,7 +288,7 @@ const Footer = () => {
             {/* Official Payment Representations */}
             <div className={styles.paymentMethods}>
               <div className={styles.payBadge} title="UPI">
-                <svg width="42" height="20" viewBox="0 0 120 50" fill="none">
+                <svg width="40" height="18" viewBox="0 0 120 50" fill="none">
                   <path d="M15 10L35 25L15 40V10Z" fill="#097939" />
                   <path d="M35 10L55 25L35 40V10Z" fill="#ED7524" />
                   <text x="60" y="32" fill="#000000" fontFamily="sans-serif" fontWeight="900" fontSize="24">UPI</text>
@@ -297,7 +296,7 @@ const Footer = () => {
               </div>
 
               <div className={styles.payBadge} title="Razorpay">
-                <svg width="64" height="20" viewBox="0 0 140 40" fill="none">
+                <svg width="58" height="18" viewBox="0 0 140 40" fill="none">
                   <path d="M25 5L10 35H20L30 15L25 5Z" fill="#0C2340" />
                   <path d="M32 5L20 28H28L38 8L32 5Z" fill="#3395FF" />
                   <text x="42" y="27" fill="#0C2340" fontFamily="sans-serif" fontWeight="800" fontSize="20">Razorpay</text>
@@ -305,7 +304,7 @@ const Footer = () => {
               </div>
 
               <div className={styles.payBadge} title="RuPay">
-                <svg width="54" height="20" viewBox="0 0 120 40" fill="none">
+                <svg width="50" height="18" viewBox="0 0 120 40" fill="none">
                   <text x="5" y="28" fill="#1A365D" fontFamily="sans-serif" fontWeight="900" fontSize="22" fontStyle="italic">RuPay</text>
                   <path d="M85 8L105 20L95 32H85L95 20L85 8Z" fill="#F37021" />
                   <path d="M98 8L118 20L108 32H98L108 20L98 8Z" fill="#0072BC" />
@@ -313,20 +312,20 @@ const Footer = () => {
               </div>
 
               <div className={styles.payBadge} title="VISA">
-                <svg width="42" height="20" viewBox="0 0 100 40" fill="none">
+                <svg width="38" height="18" viewBox="0 0 100 40" fill="none">
                   <text x="5" y="30" fill="#1A1F71" fontFamily="sans-serif" fontWeight="900" fontSize="28" fontStyle="italic">VISA</text>
                 </svg>
               </div>
 
               <div className={styles.payBadge} title="MasterCard">
-                <svg width="38" height="20" viewBox="0 0 80 50" fill="none">
+                <svg width="34" height="18" viewBox="0 0 80 50" fill="none">
                   <circle cx="28" cy="25" r="22" fill="#EB001B" />
                   <circle cx="52" cy="25" r="22" fill="#F79E1B" fillOpacity="0.85" />
                 </svg>
               </div>
 
               <div className={styles.payBadge} title="Net Banking">
-                <svg width="78" height="20" viewBox="0 0 150 40" fill="none">
+                <svg width="68" height="18" viewBox="0 0 150 40" fill="none">
                   <rect x="5" y="8" width="22" height="24" rx="4" fill="#0F172A" />
                   <path d="M10 14h12M10 20h12M10 26h8" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
                   <text x="34" y="26" fill="#0F172A" fontFamily="sans-serif" fontWeight="700" fontSize="16">NetBanking</text>
@@ -342,7 +341,6 @@ const Footer = () => {
         </div>
       </footer>
 
-      {/* Render the modal when user clicks Track Order */}
       {showTracker && <OrderTrackingModal onClose={() => setShowTracker(false)} />}
     </>
   );

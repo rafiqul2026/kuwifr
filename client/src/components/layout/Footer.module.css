@@ -1,40 +1,43 @@
 /* client/src/components/layout/Footer.module.css */
 
-/* Full-Screen Edge-to-Edge Footer View */
+/* Full-Screen Edge-to-Edge Footer View (No 100vw blowout) */
 .footerEdgeToEdge {
   background-color: #0b1329;
   color: #94a3b8;
   font-size: 0.9rem;
-  width: 100vw;
-  position: relative;
-  left: 50%;
-  right: 50%;
-  margin-left: -50vw;
-  margin-right: -50vw;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow-x: hidden;
 }
 
 .footerMain {
-  padding: 64px 0 36px 0;
+  padding: 56px 0 28px 0;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .footerFluidGrid {
   width: 100%;
-  max-width: 100%;
-  padding: 0 clamp(16px, 4vw, 64px);
+  max-width: 1400px;
+  padding: 0 clamp(16px, 4vw, 48px);
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 1.5fr 1fr 1.2fr 1.2fr;
-  gap: clamp(24px, 3vw, 48px);
+  grid-template-columns: 1.4fr 1fr 1.2fr 1.2fr;
+  gap: clamp(20px, 3vw, 40px);
   box-sizing: border-box;
 }
 
 /* Brand Column */
+.brandCol {
+  min-width: 0;
+}
+
 .brandLogo {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   text-decoration: none;
@@ -56,13 +59,14 @@
   line-height: 1.65;
   color: #94a3b8;
   font-size: 13px;
-  margin: 0 0 20px 0;
+  margin: 0 0 18px 0;
   max-width: 360px;
 }
 
 .socialRow {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .socialBtn {
@@ -87,6 +91,10 @@
 }
 
 /* Navigation Columns */
+.navCol {
+  min-width: 0;
+}
+
 .colHeading {
   color: #ffffff;
   font-size: 15px;
@@ -167,15 +175,17 @@
 
 /* Middle Contact & Payment Strip */
 .contactPaymentStrip {
-  padding: 20px 0;
-  border-top: 1px solid #1e293b;
-  border-bottom: 1px solid #1e293b;
+  padding: 18px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   width: 100%;
+  box-sizing: border-box;
 }
 
 .contactPaymentFluid {
   width: 100%;
-  padding: 0 clamp(16px, 4vw, 64px);
+  max-width: 1400px;
+  padding: 0 clamp(16px, 4vw, 48px);
   margin: 0 auto;
   display: flex;
   justify-content: space-between;
@@ -187,7 +197,7 @@
 
 .contactGroup {
   display: flex;
-  gap: 20px;
+  gap: 18px;
   flex-wrap: wrap;
   color: #cbd5e1;
   font-weight: 500;
@@ -202,6 +212,7 @@
 
 .contactItem svg {
   color: #64748b;
+  flex-shrink: 0;
 }
 
 .contactItem a {
@@ -214,24 +225,26 @@
   color: #60a5fa;
 }
 
-/* Payment Badges */
+/* Payment Badges - Responsive Wrapping */
 .paymentMethods {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
+  max-width: 100%;
 }
 
 .payBadge {
   background: #ffffff;
-  padding: 3px 8px;
-  border-radius: 5px;
+  padding: 3px 6px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   cursor: default;
   transition: transform 0.2s ease;
+  flex-shrink: 0;
 }
 
 .payBadge:hover {
@@ -241,7 +254,7 @@
 /* Bottom Legal Strip */
 .copyrightStrip {
   text-align: center;
-  padding: 20px clamp(16px, 4vw, 64px);
+  padding: 20px 16px;
   font-size: 12px;
   color: #64748b;
   width: 100%;
@@ -266,7 +279,8 @@
 
   .footerFluidGrid {
     grid-template-columns: 1fr;
-    gap: 10px;
+    gap: 12px;
+    padding: 0 16px;
   }
 
   .colHeaderMobile {
@@ -299,10 +313,18 @@
   .contactPaymentFluid {
     flex-direction: column;
     align-items: flex-start;
+    gap: 14px;
+    padding: 0 16px;
   }
 
   .contactGroup {
     flex-direction: column;
     gap: 8px;
+  }
+
+  .paymentMethods {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 6px;
   }
 }
