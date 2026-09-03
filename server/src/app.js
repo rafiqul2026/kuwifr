@@ -188,6 +188,7 @@ app.use('/api/products', productRoutes);
 
 // Membership Packages
 app.use('/api/packages', packageRoutes);
+app.use('/api/admin/packages', packageRoutes);
 
 // Payment Gateway Integration
 app.use('/api/payment', paymentRoutes);

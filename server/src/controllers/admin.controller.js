@@ -13,8 +13,8 @@ const Fund = require('../models/Fund');
 const getDashboardStats = async (req, res, next) => {
   try {
     const [totalUsers, activeUsers, pendingKYC, totalOrders] = await Promise.all([
-      User.countDocuments(),
-      User.countDocuments({ status: 'ACTIVE' }),
+      User.countDocuments({ role: { $ne: 'ADMIN' } }),
+      User.countDocuments({ role: { $ne: 'ADMIN' }, status: 'ACTIVE' }),
       User.countDocuments({ 'kyc.status': 'PENDING' }),
       Order.countDocuments()
     ]);
@@ -34,39 +34,57 @@ const getDashboardStats = async (req, res, next) => {
 };
 
 /**
- * Get all members with pagination and status filter
- * GET /api/admin/users
+ * Get all members with pagination, search, status filter, and populated sponsor info
+ * GET /api/admin/users and GET /api/admin/members
  */
 const getAllUsers = async (req, res, next) => {
   try {
     const { page = 1, limit = 20, search, status } = req.query;
-    const query = {};
+    const query = { role: { $ne: 'ADMIN' } };
 
-    if (status) query.status = status;
-    if (search) {
+    if (status && status !== 'ALL') {
+      query.status = status;
+    }
+
+    if (search && search.trim()) {
+      const sanitized = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       query.$or = [
-        { fullName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { memberId: { $regex: search, $options: 'i' } },
-        { phoneNumber: { $regex: search, $options: 'i' } }
+        { fullName: { $regex: sanitized, $options: 'i' } },
+        { email: { $regex: sanitized, $options: 'i' } },
+        { memberId: { $regex: sanitized, $options: 'i' } },
+        { phoneNumber: { $regex: sanitized, $options: 'i' } }
       ];
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const pageNum = Math.max(1, parseInt(page, 10));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
+    const skip = (pageNum - 1) * limitNum;
+
+    // Fetch members with populated sponsor details
     const [users, total] = await Promise.all([
-      User.find(query).sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)).lean(),
+      User.find(query)
+        .select('-password -resetPasswordToken -resetPasswordExpire')
+        .populate('sponsorId', 'fullName memberId email phoneNumber')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
       User.countDocuments(query)
     ]);
 
+    const totalPages = Math.ceil(total / limitNum) || 1;
+
+    // Return both 'members' and 'users' for complete frontend compatibility
     res.json({
       success: true,
       data: {
+        members: users || [],
         users: users || [],
         pagination: {
           total,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(total / parseInt(limit))
+          page: pageNum,
+          limit: limitNum,
+          pages: totalPages
         }
       }
     });
@@ -76,22 +94,42 @@ const getAllUsers = async (req, res, next) => {
 };
 
 /**
- * Update member account status (ACTIVE, BLOCKED, SUSPENDED)
- * PUT /api/admin/users/:id/status
+ * Update member account status (ACTIVE, INACTIVE, BLOCKED, SUSPENDED, DEACTIVATED)
+ * PUT /api/admin/users/:id/status or PUT /api/admin/members/:id/status
  */
 const updateUserStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
 
-    const user = await User.findByIdAndUpdate(id, { status }, { new: true });
+    const validStatuses = [
+      'ACTIVE',
+      'INACTIVE',
+      'SUSPENDED',
+      'DEACTIVATED',
+      'BLOCKED',
+      'PENDING_VERIFICATION'
+    ];
+
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status type' });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    )
+      .select('-password -resetPasswordToken -resetPasswordExpire')
+      .populate('sponsorId', 'fullName memberId email phoneNumber');
+
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+      return res.status(404).json({ success: false, message: 'Member not found' });
     }
 
     res.json({
       success: true,
-      message: `User status updated to ${status}`,
+      message: `Member status updated to ${status}`,
       data: { user }
     });
   } catch (error) {
@@ -106,14 +144,17 @@ const updateUserStatus = async (req, res, next) => {
 const getPendingKYC = async (req, res, next) => {
   try {
     const { page = 1, limit = 20, status = 'PENDING' } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const pageNum = Math.max(1, parseInt(page, 10));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
+    const skip = (pageNum - 1) * limitNum;
 
     const [users, total] = await Promise.all([
       User.find({ 'kyc.status': status })
         .select('fullName email phoneNumber memberId kyc createdAt')
+        .populate('sponsorId', 'fullName memberId')
         .sort({ 'kyc.submittedAt': -1 })
         .skip(skip)
-        .limit(parseInt(limit))
+        .limit(limitNum)
         .lean(),
       User.countDocuments({ 'kyc.status': status })
     ]);
@@ -124,9 +165,9 @@ const getPendingKYC = async (req, res, next) => {
         submissions: users || [],
         pagination: {
           total,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(total / parseInt(limit))
+          page: pageNum,
+          limit: limitNum,
+          pages: Math.ceil(total / limitNum) || 1
         }
       }
     });
@@ -146,7 +187,7 @@ const reviewKYC = async (req, res, next) => {
 
     const user = await User.findById(targetId);
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+      return res.status(404).json({ success: false, message: 'Member not found' });
     }
 
     if (!user.kyc) user.kyc = {};
@@ -172,7 +213,11 @@ const reviewKYC = async (req, res, next) => {
  */
 const adjustWallet = async (req, res, next) => {
   try {
-    const { userId, amount, type, description } = req.body;
+    const { userId, amount, type } = req.body;
+
+    if (!userId || !amount || Number(amount) <= 0 || !['CREDIT', 'DEBIT'].includes(type)) {
+      return res.status(400).json({ success: false, message: 'Invalid adjustment parameters' });
+    }
 
     const wallet = await Wallet.findOne({ userId });
     if (!wallet) {
@@ -183,7 +228,10 @@ const adjustWallet = async (req, res, next) => {
     if (type === 'CREDIT') {
       wallet.incomeBalance = (wallet.incomeBalance || 0) + numAmount;
     } else {
-      wallet.incomeBalance = Math.max(0, (wallet.incomeBalance || 0) - numAmount);
+      if ((wallet.incomeBalance || 0) < numAmount) {
+        return res.status(400).json({ success: false, message: 'Insufficient wallet balance for debit' });
+      }
+      wallet.incomeBalance -= numAmount;
     }
 
     await wallet.save();

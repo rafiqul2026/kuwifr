@@ -1,0 +1,397 @@
+/* client/src/components/layout/Navbar.module.css */
+
+/* Announcement Bar - Edge to Edge */
+.announcementBar {
+  background: #0b1228;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 8px 16px;
+  text-align: center;
+  width: 100%;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.announcementContent {
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Header - Full Viewport Width */
+.header {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid #eef2f6;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.headerScrolled {
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 4px 20px -2px rgba(11, 18, 40, 0.06);
+  border-bottom-color: #e2e8f0;
+}
+
+/* Fluid Container spanning full width with responsive edge margins */
+.navFluidContainer {
+  width: 100%;
+  max-width: 100%;
+  padding: 0 clamp(16px, 4vw, 56px);
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  gap: 20px;
+}
+
+/* Brand Logo */
+.brandLogo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.rocketIcon {
+  font-size: 22px;
+}
+
+.brandTitle {
+  font-size: 22px;
+  font-weight: 850;
+  letter-spacing: -0.02em;
+  color: #1e3a8a;
+}
+
+/* Desktop Navigation Links */
+.desktopNavigation {
+  display: flex;
+  align-items: center;
+  gap: clamp(16px, 2.2vw, 32px);
+}
+
+.navLink {
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+  transition: all 0.15s ease;
+  position: relative;
+  padding: 6px 0;
+  white-space: nowrap;
+}
+
+.navLink:hover {
+  color: #2563eb;
+}
+
+.navLinkActive {
+  color: #2563eb;
+}
+
+.navLinkActive::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #2563eb;
+  border-radius: 2px;
+}
+
+/* Action Buttons Group */
+.actionGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.iconButton {
+  background: transparent;
+  border: none;
+  color: #1e293b;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.iconButton:hover {
+  background: #f1f5f9;
+  color: #2563eb;
+  transform: translateY(-1px);
+}
+
+.accountBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+  padding: 7px 14px;
+  border-radius: 20px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.accountBtn:hover {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #2563eb;
+}
+
+/* Search Dropdown / Form */
+.searchWrapper {
+  position: relative;
+}
+
+.searchFormActive {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1.5px solid #2563eb;
+  border-radius: 20px;
+  padding: 4px 12px;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.15);
+  position: absolute;
+  right: 0;
+  top: -18px;
+  z-index: 10;
+  background: #ffffff;
+}
+
+.searchDropdownInput {
+  border: none;
+  outline: none;
+  font-size: 13px;
+  width: clamp(160px, 20vw, 260px);
+  color: #0f172a;
+  background: transparent;
+}
+
+.searchCancelBtn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 4px;
+}
+
+/* Mobile Toggle Hamburger */
+.mobileToggleBtn {
+  display: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  flex-direction: column;
+  gap: 5px;
+  padding: 6px;
+  margin-right: 4px;
+}
+
+.hamburgerLine {
+  width: 22px;
+  height: 2px;
+  background: #0f172a;
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+/* ==================== 3. MOBILE DRAWER ==================== */
+.drawerBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 18, 40, 0.55);
+  backdrop-filter: blur(4px);
+  z-index: 999;
+}
+
+.drawerPanel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(85vw, 340px);
+  background: #ffffff;
+  box-shadow: 16px 0 32px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  box-sizing: border-box;
+  animation: slideDrawer 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow-y: auto;
+}
+
+@keyframes slideDrawer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.drawerTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.drawerLogo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drawerClose {
+  background: #f1f5f9;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 16px;
+  cursor: pointer;
+  color: #475569;
+}
+
+.drawerSearchBox {
+  display: flex;
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 6px 12px;
+  margin-bottom: 20px;
+}
+
+.drawerSearchInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+}
+
+.drawerSearchBtn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.drawerNav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+
+.drawerHeading {
+  font-size: 11px;
+  font-weight: 750;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.drawerItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  color: #1e293b;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.drawerItemActive,
+.drawerItem:hover {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.chevron {
+  color: #94a3b8;
+  font-size: 16px;
+}
+
+.drawerSubItem {
+  padding: 8px 12px;
+  color: #475569;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.drawerSubItem:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.drawerBottom {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 18px;
+  margin-top: 24px;
+}
+
+.drawerAuthBtn {
+  display: block;
+  text-align: center;
+  background: #2563eb;
+  color: #ffffff;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.drawerContactHint {
+  text-align: center;
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 12px;
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 960px) {
+  .desktopNavigation {
+    display: none;
+  }
+  .mobileToggleBtn {
+    display: flex;
+  }
+  .accountBtnText {
+    display: none;
+  }
+  .accountBtn {
+    padding: 8px;
+    border-radius: 50%;
+  }
+}

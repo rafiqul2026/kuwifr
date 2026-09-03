@@ -1,45 +1,233 @@
-.adminLayout {
-  min-height: 100vh;
+/* client/src/components/layout/AdminLayout.module.css */
+
+.layoutWrapper {
   display: flex;
-  flex-direction: column;
-  background: var(--background);
+  min-height: 100vh;
+  background-color: #f8fafc;
+  width: 100%;
+  overflow-x: hidden;
+  position: relative;
 }
 
-/* ============ HEADER ============ */
-.header {
+/* Mobile Header (Hidden on Desktop) */
+.mobileTopBar {
+  display: none;
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
+  height: 56px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
   z-index: 100;
-  height: 60px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hamburgerBtn {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  width: 38px;
+  height: 38px;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #0f172a;
+}
+
+.brandTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.adminRolePill {
+  font-size: 11px;
+  background: #eff6ff;
+  color: #2563eb;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 240px;
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebarHeader {
+  padding: 20px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.headerLeft {
+.brand {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
 }
 
-.menuBtn {
-  display: none;
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: var(--text);
-}
-
-.logo {
+.brandIcon {
   font-size: 20px;
+}
+
+.brandName {
+  font-size: 17px;
+  font-weight: 800;
+  color: #1e3a8a;
+  letter-spacing: -0.02em;
+}
+
+.badgePanel {
+  font-size: 11px;
+  background: #eff6ff;
+  color: #2563eb;
   font-weight: 700;
-  color: var(--primary);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.navMenu {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  color: #475569;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.navLink:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.navLinkActive {
+  background: #eff6ff;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.navIcon {
+  font-size: 16px;
+}
+
+.sidebarFooter {
+  padding: 14px 16px;
+  border-top: 1px solid #f1f5f9;
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.adminMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.adminAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #2563eb;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.adminText {
+  flex: 1;
+  overflow: hidden;
+}
+
+.adminName {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.adminRole {
+  font-size: 10px;
+  color: #64748b;
+  display: block;
+}
+
+.logoutBtn {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #ef4444;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.logoutBtn:hover {
+  background: #fef2f2;
+}
+
+/* Main Content Area */
+.mainContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-x: hidden;
+  width: 100%;
+}
+
+.desktopHeader {
+  height: 60px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.systemStatus {
+  color: #059669;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .headerRight {
@@ -48,171 +236,67 @@
   gap: 16px;
 }
 
-.notificationBtn {
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 50%;
-  transition: background 0.3s ease;
-  position: relative;
-}
-
-.notificationBtn:hover {
-  background: var(--primary-surface);
-}
-
-.userInfo {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-}
-
-.userName {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.userRole {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.logoutBtn {
-  padding: 6px 16px;
-  border: none;
-  border-radius: 6px;
-  background: var(--error-surface);
-  color: var(--error);
+.adminEmail {
   font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
+  color: #64748b;
 }
 
-.logoutBtn:hover {
-  background: var(--error);
-  color: white;
-}
-
-/* ============ SIDEBAR ============ */
-.sidebar {
-  position: fixed;
-  top: 60px;
-  left: 0;
-  bottom: 0;
-  width: 240px;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
-  padding: 16px 0;
-  overflow-y: auto;
-  transition: transform 0.3s ease;
-  z-index: 99;
-}
-
-.sidebarNav {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.navItem {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 20px;
-  background: none;
-  border: none;
-  width: 100%;
-  text-align: left;
-  cursor: pointer;
-  color: var(--text-muted);
-  font-size: 14px;
-  border-radius: 8px;
-  transition: all 0.3s ease;
-}
-
-.navItem:hover {
-  background: var(--primary-surface);
-  color: var(--primary);
-}
-
-.navItem.active {
-  background: var(--primary-surface);
-  color: var(--primary);
+.desktopLogout {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 600;
+  cursor: pointer;
 }
 
-.navIcon {
-  font-size: 18px;
-  width: 28px;
-  text-align: center;
+.desktopLogout:hover {
+  background: #f8fafc;
 }
 
-.navLabel {
+.contentBody {
   flex: 1;
+  width: 100%;
 }
 
-/* ============ MAIN CONTENT ============ */
-.mainContent {
-  margin-top: 60px;
-  margin-left: 240px;
-  padding: 24px;
-  flex: 1;
-  min-height: calc(100vh - 60px);
-}
-
-/* ============ OVERLAY ============ */
-.overlay {
-  position: fixed;
-  top: 60px;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 98;
-}
-
-/* ============ RESPONSIVE ============ */
-@media (max-width: 1024px) {
-  .sidebar {
-    transform: translateX(-100%);
+/* Mobile Rules (Below 860px) */
+@media (max-width: 860px) {
+  .mobileTopBar {
+    display: flex;
   }
 
-  .sidebar.open {
+  .desktopHeader {
+    display: none;
+  }
+
+  .mainContent {
+    margin-top: 56px;
+    width: 100%;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    bottom: 0;
+    height: calc(100vh - 56px);
+    transform: translateX(-100%);
+    box-shadow: 10px 0 25px rgba(0, 0, 0, 0.1);
+  }
+
+  .sidebarOpen {
     transform: translateX(0);
   }
 
-  .menuBtn {
-    display: block;
-  }
-
-  .mainContent {
-    margin-left: 0;
-  }
-}
-
-@media (max-width: 768px) {
-  .header {
-    padding: 0 12px;
-  }
-
-  .userName {
-    font-size: 13px;
-  }
-
-  .logoutBtn {
-    padding: 4px 12px;
-    font-size: 12px;
-  }
-
-  .mainContent {
-    padding: 16px;
-  }
-
-  .logo {
-    font-size: 16px;
+  .mobileBackdrop {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(2px);
+    z-index: 40;
   }
 }
