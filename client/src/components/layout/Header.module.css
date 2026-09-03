@@ -466,64 +466,106 @@
   border-radius: 2px;
 }
 
-/* Mobile Drawer */
+/* ==================== 3. MOBILE DRAWER (COMPACT CARD, BORDER-RADIUS: 5px) ==================== */
 .drawerOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(11, 18, 40, 0.6);
-  backdrop-filter: blur(4px);
+  background: rgba(11, 18, 40, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 999;
+  transition: opacity 0.25s ease;
+  display: flex;
+  align-items: flex-start;
 }
 
 .drawerSidebar {
   position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: min(85vw, 320px);
-  background: #ffffff;
-  box-shadow: 16px 0 36px rgba(0, 0, 0, 0.16);
+  top: 12px;
+  left: 12px;
+  /* Not full screen height: fits content up to login button with safety max-height */
+  height: auto;
+  max-height: calc(100vh - 24px);
+  width: min(88vw, 340px);
+  
+  /* Modern distinct slate/indigo gradient with subtle radial glow */
+  background: 
+    radial-gradient(circle at 100% 0%, rgba(37, 99, 235, 0.18) 0%, transparent 50%),
+    radial-gradient(circle at 0% 100%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+    linear-gradient(165deg, #0f172a 0%, #1e293b 60%, #0b1329 100%);
+    
+  /* Exact requested 5px border radius */
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    0 20px 40px -10px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+    
   display: flex;
   flex-direction: column;
-  padding: 18px;
+  padding: 18px 16px;
   box-sizing: border-box;
-  animation: slideDrawer 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideDrawerCompact 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
-@keyframes slideDrawer {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(0); }
+@keyframes slideDrawerCompact {
+  from {
+    transform: translateX(-110%) scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
 }
 
+/* Header Area */
 .drawerHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.drawerHeader .logoText {
+  color: #ffffff;
 }
 
 .drawerCloseBtn {
-  background: #f1f5f9;
-  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   width: 30px;
   height: 30px;
-  border-radius: 50%;
-  font-size: 15px;
+  border-radius: 5px;
+  font-size: 14px;
   cursor: pointer;
-  color: #475569;
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
 }
 
+.drawerCloseBtn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  transform: rotate(90deg);
+}
+
+/* Search Bar inside Drawer */
 .drawerSearchForm {
   display: flex;
   align-items: center;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 6px 10px;
-  margin-bottom: 16px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  padding: 7px 12px;
+  margin-bottom: 14px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .drawerSearchInput {
@@ -532,6 +574,8 @@
   background: transparent;
   outline: none;
   font-size: 13px;
+  color: #0f172a;
+  font-weight: 500;
 }
 
 .drawerSearchSubmit {
@@ -539,86 +583,122 @@
   border: none;
   cursor: pointer;
   font-size: 13px;
+  color: #2563eb;
+  padding: 0;
 }
 
+/* Body Tiles Container */
 .drawerScrollBody {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 5px;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .drawerSectionLabel {
   font-size: 10px;
-  font-weight: 750;
+  font-weight: 800;
   color: #94a3b8;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 4px;
+  letter-spacing: 0.08em;
+  margin: 10px 0 4px 2px;
 }
 
+/* Clean White Navigation Tiles on Contrast Background */
 .drawerNavLink {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 9px 10px;
+  padding: 10px 12px;
   font-size: 13px;
-  font-weight: 600;
-  color: #1e293b;
+  font-weight: 700;
+  color: #0f172a;
   text-decoration: none;
-  background: none;
-  border: none;
+  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.8);
   width: 100%;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.18s ease;
   text-align: left;
+  box-sizing: border-box;
 }
 
-.drawerNavLink:hover {
+.drawerNavLink:hover,
+.drawerNavLinkActive {
   background: #eff6ff;
-  color: #2563eb;
+  color: #1d4ed8;
+  border-color: #93c5fd;
+  transform: translateX(3px);
 }
 
 .drawerArrow {
-  color: #94a3b8;
+  color: #64748b;
   font-size: 15px;
+  font-weight: 700;
 }
 
+/* Category & Services Tiles */
 .drawerCategoryBtn {
-  background: none;
-  border: none;
+  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.7);
   text-align: left;
-  padding: 8px 10px;
+  padding: 9px 12px;
   font-size: 13px;
-  font-weight: 500;
-  color: #475569;
+  font-weight: 600;
+  color: #1e293b;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 5px;
   font-family: inherit;
   width: 100%;
+  box-sizing: border-box;
+  transition: all 0.18s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 .drawerCategoryBtn:hover {
-  background: #f8fafc;
-  color: #0f172a;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  transform: translateX(3px);
 }
 
-.drawerFooter {
-  border-top: 1px solid #f1f5f9;
-  padding-top: 14px;
-  margin-top: 18px;
+/* Auth Section wrapper directly terminating the card */
+.drawerAuthInlineWrapper {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.15);
 }
 
 .drawerAuthBtn {
-  display: block;
-  text-align: center;
-  background: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   color: #ffffff;
-  padding: 11px;
-  border-radius: 8px;
+  padding: 12px 16px;
+  border-radius: 5px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 800;
   text-decoration: none;
+  letter-spacing: 0.02em;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 8px 18px -3px rgba(37, 99, 235, 0.5);
+  transition: all 0.2s ease;
+}
+
+.drawerAuthBtn:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  box-shadow: 0 10px 22px -3px rgba(37, 99, 235, 0.6);
+  transform: translateY(-1px);
+}
+
+.drawerAuthBtn:active {
+  transform: translateY(0);
 }
 
 /* Responsive Rules */
