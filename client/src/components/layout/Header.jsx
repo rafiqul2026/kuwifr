@@ -1,5 +1,5 @@
 // client/src/components/layout/Header.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useShop } from '../../context/ShopContext';
 import { useAuth } from '../../context/AuthContext';
@@ -17,7 +17,7 @@ const Header = () => {
 
   const shopContext = useShop ? useShop() : {};
   const {
-    products = [],
+    products,
     cartCount = 0,
     wishlistCount = 0,
     setIsCartOpen,
@@ -25,6 +25,11 @@ const Header = () => {
     setActiveCategoryFilter,
     activeCategoryFilter = 'ALL'
   } = shopContext;
+
+  // Stabilize products array reference to prevent infinite re-renders
+  const safeProducts = useMemo(() => {
+    return Array.isArray(products) ? products : [];
+  }, [products]);
 
   const { user, isAuthenticated, logout } = useAuth
     ? useAuth()
@@ -43,13 +48,16 @@ const Header = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Close drawers & clean queries on route change
   useEffect(() => {
     setMobileMenuOpen(false);
     setSearchOpen(false);
     setShowAccountDropdown(false);
     setSearchQuery('');
+    setSearchSuggestions([]);
   }, [location.pathname]);
 
+  // Click outside to dismiss menus
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (searchRef.current && !searchRef.current.contains(event.target)) {
@@ -63,6 +71,7 @@ const Header = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Prevent background scroll when mobile menu is open
   useEffect(() => {
     if (mobileMenuOpen) {
       document.body.style.overflow = 'hidden';
@@ -74,12 +83,11 @@ const Header = () => {
     };
   }, [mobileMenuOpen]);
 
-  // Live search suggestion filtering
+  // Live search filtering with stable dependencies
   useEffect(() => {
-    if (searchQuery.trim().length >= 2) {
-      const q = searchQuery.toLowerCase();
-      const productList = Array.isArray(products) ? products : [];
-      const matches = productList
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length >= 2) {
+      const matches = safeProducts
         .filter(
           (p) =>
             p.name?.toLowerCase().includes(q) ||
@@ -90,7 +98,7 @@ const Header = () => {
     } else {
       setSearchSuggestions([]);
     }
-  }, [searchQuery, products]);
+  }, [searchQuery, safeProducts]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -103,7 +111,6 @@ const Header = () => {
     }
   };
 
-  // Navigates and filters categories without showing blank screens
   const handleNavClick = (categoryName) => {
     if (typeof setActiveCategoryFilter === 'function') {
       setActiveCategoryFilter(categoryName);
@@ -135,18 +142,17 @@ const Header = () => {
 
   return (
     <>
-      {/* 1. Full-Width Announcement Bar */}
+      {/* 1. Top Announcement Bar */}
       <div className={styles.announcementBar}>
         <div className={styles.announcementText}>
           ✨ Free Express Shipping on All Orders Above ₹999 | 100% Genuine Guaranteed
         </div>
       </div>
 
-      {/* 2. Full-Width Sticky Navbar */}
+      {/* 2. Full-Width Header */}
       <header className={`${styles.header} ${scrolled ? styles.headerScrolled : ''}`}>
         <div className={styles.navContainer}>
           <div className={styles.navLeft}>
-            {/* Mobile Hamburger Button */}
             <button
               className={styles.mobileHamburger}
               onClick={() => setMobileMenuOpen(true)}
@@ -157,14 +163,12 @@ const Header = () => {
               <span className={styles.hamburgerBar}></span>
             </button>
 
-            {/* Brand Logo */}
             <Link to="/" className={styles.brandLogo} aria-label="KUWIFR Home">
               <span className={styles.logoRocket}>🚀</span>
               <span className={styles.logoText}>KUWIFR</span>
             </Link>
           </div>
 
-          {/* Desktop Navigation Links */}
           <nav className={styles.desktopNav} aria-label="Main Navigation">
             {navItems.map((item, idx) => (
               <button
@@ -182,9 +186,8 @@ const Header = () => {
             ))}
           </nav>
 
-          {/* Right Action Icons */}
           <div className={styles.actionGroup}>
-            {/* Search Button & Dropdown */}
+            {/* Search */}
             <div className={styles.searchWrapper} ref={searchRef}>
               {searchOpen ? (
                 <div className={styles.searchFlyout}>
@@ -264,7 +267,7 @@ const Header = () => {
               )}
             </div>
 
-            {/* Wishlist Button */}
+            {/* Wishlist */}
             <button
               onClick={() => setIsWishlistOpen && setIsWishlistOpen(true)}
               className={`${styles.actionIconBtn} ${styles.desktopOnlyIcon}`}
@@ -277,7 +280,7 @@ const Header = () => {
               {wishlistCount > 0 && <span className={styles.countBadge}>{wishlistCount}</span>}
             </button>
 
-            {/* Cart Button */}
+            {/* Cart */}
             <button
               onClick={() => setIsCartOpen && setIsCartOpen(true)}
               className={styles.actionIconBtn}
@@ -290,7 +293,7 @@ const Header = () => {
               {cartCount > 0 && <span className={styles.countBadge}>{cartCount}</span>}
             </button>
 
-            {/* Account / User Menu */}
+            {/* Account Trigger & Dropdown */}
             <div className={`${styles.accountWrapper} ${styles.desktopOnlyIcon}`} ref={accountRef}>
               <button
                 onClick={() => setShowAccountDropdown(!showAccountDropdown)}
@@ -383,7 +386,7 @@ const Header = () => {
         </div>
       </header>
 
-      {/* 3. Full-Screen Mobile Drawer */}
+      {/* 3. Mobile Navigation Drawer */}
       {mobileMenuOpen && (
         <div
           className={styles.drawerOverlay}
@@ -447,37 +450,37 @@ const Header = () => {
                 Featured Collections
               </div>
               <button
-                onClick={() => handleNavClick('Health & Wellness')}
+                onClick={() => handleCategoryNav('Health & Wellness')}
                 className={styles.drawerCategoryBtn}
               >
                 🌿 Health & Wellness
               </button>
               <button
-                onClick={() => handleNavClick('Alkaline Water Devices')}
+                onClick={() => handleCategoryNav('Alkaline Water Devices')}
                 className={styles.drawerCategoryBtn}
               >
                 💧 Alkaline Water Devices
               </button>
               <button
-                onClick={() => handleNavClick('Designer Modern Sarees')}
+                onClick={() => handleCategoryNav('Designer Modern Sarees')}
                 className={styles.drawerCategoryBtn}
               >
                 ✨ Designer Modern Sarees
               </button>
               <button
-                onClick={() => handleNavClick('Gents Premium Wear')}
+                onClick={() => handleCategoryNav('Gents Premium Wear')}
                 className={styles.drawerCategoryBtn}
               >
                 👔 Gents Premium Wear
               </button>
               <button
-                onClick={() => handleNavClick('Smart EV Scooty')}
+                onClick={() => handleCategoryNav('Smart EV Scooty')}
                 className={styles.drawerCategoryBtn}
               >
                 ⚡ Smart EV Scooty
               </button>
               <button
-                onClick={() => handleNavClick('Hair Care & Serums')}
+                onClick={() => handleCategoryNav('Hair Care & Serums')}
                 className={styles.drawerCategoryBtn}
               >
                 🧴 Hair Care & Serums
@@ -504,16 +507,17 @@ const Header = () => {
               >
                 ♡ My Wishlist ({wishlistCount})
               </button>
-            </div>
 
-            <div className={styles.drawerFooter}>
-              <Link
-                to={isAuthenticated ? (user?.role === 'ADMIN' ? '/admin' : '/dashboard') : '/login'}
-                onClick={() => setMobileMenuOpen(false)}
-                className={styles.drawerAuthBtn}
-              >
-                {isAuthenticated ? '👤 Access Account / Portal' : '🔐 Sign In / Register'}
-              </Link>
+              {/* Login / Register Button placed directly below My Wishlist */}
+              <div className={styles.drawerAuthInlineWrapper}>
+                <Link
+                  to={isAuthenticated ? (user?.role === 'ADMIN' ? '/admin' : '/dashboard') : '/login'}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={styles.drawerAuthBtn}
+                >
+                  {isAuthenticated ? '👤 Access Account / Portal' : '🔐 Sign In / Register'}
+                </Link>
+              </div>
             </div>
           </aside>
         </div>
