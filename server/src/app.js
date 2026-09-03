@@ -6,6 +6,7 @@ const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 
+
 // Import configuration
 const { validateEnv } = require('./config/env');
 const connectDB = require('./config/db');
@@ -185,6 +186,7 @@ app.use('/api/ranks', rankRoutes);
 
 // Products
 app.use('/api/products', productRoutes);
+app.use('/api/admin/products', productRoutes);
 
 // Membership Packages
 app.use('/api/packages', packageRoutes);
@@ -226,6 +228,10 @@ app.use('/api/support', supportRoutes);
 
 // Admin Control Panel
 app.use('/api/admin', adminRoutes);
+
+// Increase JSON and urlencoded limits for base64 image uploads
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ==================== ERROR HANDLING ====================
 
