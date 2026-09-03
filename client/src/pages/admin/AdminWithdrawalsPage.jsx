@@ -1,244 +1,585 @@
-import React, { useState, useEffect } from 'react';
+// client/src/pages/admin/AdminWithdrawalsPage.jsx
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './AdminWithdrawalsPage.module.css';
+
+const STATUS_FILTERS = ['ALL', 'PENDING', 'APPROVED', 'PROCESSED', 'REJECTED'];
+
+const DEFAULT_PAGINATION = {
+  page: 1,
+  limit: 20,
+  total: 0,
+  pages: 1
+};
 
 const AdminWithdrawalsPage = () => {
   const [withdrawals, setWithdrawals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filterStatus, setFilterStatus] = useState('PENDING');
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, pages: 0 });
-  const { showNotification } = useNotification();
+  const [filterStatus, setFilterStatus] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [pagination, setPagination] = useState(DEFAULT_PAGINATION);
+  const [selectedPayout, setSelectedPayout] = useState(null);
+  const [modalAction, setModalAction] = useState(null); // 'APPROVE' | 'REJECT' | 'PROCESS' | 'RECONCILE'
+  const [actionInput, setActionInput] = useState('');
+  const [actionNotes, setActionNotes] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  useEffect(() => {
-    fetchWithdrawals();
-  }, [filterStatus, pagination.page]);
+  const { showNotification } = useNotification ? useNotification() : {
+    showNotification: (msg, type) => console.log(`[${type}] ${msg}`)
+  };
 
-  const fetchWithdrawals = async () => {
+  const fetchWithdrawals = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      
-      let endpoint = '/api/admin/withdrawals';
-      if (filterStatus === 'PENDING') {
-        endpoint = '/api/admin/withdrawals/pending';
-      }
-      
+
       const params = new URLSearchParams({
-        page: pagination.page,
-        limit: pagination.limit
+        page: String(pagination.page || 1),
+        limit: String(pagination.limit || 20),
+        ...(filterStatus !== 'ALL' && { status: filterStatus }),
+        ...(searchQuery.trim() && { search: searchQuery.trim() })
       });
-      
-      const response = await api.get(`${endpoint}?${params}`);
-      if (response.data.success) {
-        setWithdrawals(response.data.data.withdrawals || []);
-        setPagination(response.data.data.pagination);
+
+      let response;
+      if (filterStatus === 'PENDING') {
+        try {
+          response = await api.get(`/api/admin/withdrawals/pending?${params}`);
+        } catch {
+          response = await api.get(`/api/withdrawals/admin/pending?${params}`);
+        }
+      } else {
+        try {
+          response = await api.get(`/api/admin/withdrawals?${params}`);
+        } catch {
+          try {
+            response = await api.get(`/api/withdrawals/admin/all?${params}`);
+          } catch {
+            response = await api.get(`/api/withdrawals?${params}`);
+          }
+        }
       }
-    } catch (error) {
-      console.error('Failed to fetch withdrawals:', error);
-      setError('Failed to load withdrawals');
+
+      if (response && response.data) {
+        const rawList = response.data?.data?.withdrawals || response.data?.withdrawals || response.data?.data || [];
+        setWithdrawals(Array.isArray(rawList) ? rawList : []);
+
+        const pageData = response.data?.data?.pagination || response.data?.pagination;
+        if (pageData && typeof pageData.pages === 'number') {
+          setPagination(pageData);
+        } else {
+          setPagination({
+            page: 1,
+            limit: 20,
+            total: Array.isArray(rawList) ? rawList.length : 0,
+            pages: 1
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch withdrawals:', err);
+      setError('Failed to load withdrawals from cloud cluster.');
     } finally {
       setLoading(false);
     }
+  }, [filterStatus, pagination.page, pagination.limit, searchQuery]);
+
+  useEffect(() => {
+    fetchWithdrawals();
+  }, [fetchWithdrawals]);
+
+  // Real-time catalog filtering
+  const filteredWithdrawals = useMemo(() => {
+    return withdrawals.filter((w) => {
+      const q = searchQuery.toLowerCase().trim();
+      const holder = w.bankDetails?.accountHolder || w.userId?.fullName || '';
+      const num = w.withdrawalNumber || w.transactionId || '';
+      const bank = w.bankDetails?.bankName || '';
+
+      const matchesSearch =
+        !q ||
+        holder.toLowerCase().includes(q) ||
+        num.toLowerCase().includes(q) ||
+        bank.toLowerCase().includes(q);
+
+      const matchesStatus =
+        filterStatus === 'ALL' || (w.status || '').toUpperCase() === filterStatus;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [withdrawals, searchQuery, filterStatus]);
+
+  // Financial KPI Metrics
+  const stats = useMemo(() => {
+    const totalCount = withdrawals.length;
+    const grossTotal = withdrawals.reduce((acc, w) => acc + Number(w.grossAmount || w.amount || 0), 0);
+    const tdsTotal = withdrawals.reduce((acc, w) => acc + Number(w.tdsAmount || 0), 0);
+    const netTotal = withdrawals.reduce((acc, w) => acc + Number(w.netAmount || w.amount || 0), 0);
+    const pendingCount = withdrawals.filter((w) => (w.status || '').toUpperCase() === 'PENDING').length;
+
+    return { totalCount, grossTotal, tdsTotal, netTotal, pendingCount };
+  }, [withdrawals]);
+
+  const openActionModal = (payout, actionType) => {
+    setSelectedPayout(payout);
+    setModalAction(actionType);
+    setActionInput('');
+    setActionNotes('');
   };
 
-  const handleApprove = async (withdrawalId) => {
-    try {
-      await api.put(`/api/admin/withdrawals/${withdrawalId}/approve`, { notes: 'Approved by admin' });
-      showNotification('Withdrawal approved', 'success');
-      fetchWithdrawals();
-    } catch (error) {
-      showNotification('Failed to approve withdrawal', 'error');
-    }
+  const closeActionModal = () => {
+    setSelectedPayout(null);
+    setModalAction(null);
+    setActionInput('');
+    setActionNotes('');
   };
 
-  const handleReject = async (withdrawalId) => {
-    const reason = prompt('Enter rejection reason:');
-    if (!reason) return;
-    
-    try {
-      await api.put(`/api/admin/withdrawals/${withdrawalId}/reject`, { reason });
-      showNotification('Withdrawal rejected', 'success');
-      fetchWithdrawals();
-    } catch (error) {
-      showNotification('Failed to reject withdrawal', 'error');
-    }
-  };
+  const handleExecuteModalAction = async () => {
+    if (!selectedPayout || !modalAction) return;
+    const id = selectedPayout._id || selectedPayout.id;
+    setIsProcessing(true);
 
-  const handleProcess = async (withdrawalId) => {
     try {
-      const utrNumber = prompt('Enter UTR number:');
-      if (!utrNumber) return;
-      
-      await api.put(`/api/admin/withdrawals/${withdrawalId}/process`, { 
-        utrNumber,
-        paymentMethod: 'BANK_TRANSFER'
-      });
-      showNotification('Withdrawal processed', 'success');
-      fetchWithdrawals();
-    } catch (error) {
-      showNotification('Failed to process withdrawal', 'error');
-    }
-  };
+      if (modalAction === 'APPROVE') {
+        try {
+          await api.put(`/api/admin/withdrawals/${id}/approve`, { notes: actionNotes || 'Approved by admin' });
+        } catch {
+          await api.put(`/api/withdrawals/admin/${id}/approve`, { notes: actionNotes || 'Approved by admin' });
+        }
+        showNotification('Withdrawal approved successfully', 'success');
+      } else if (modalAction === 'REJECT') {
+        if (!actionInput.trim()) {
+          showNotification('Please provide a reason for rejection', 'warning');
+          setIsProcessing(false);
+          return;
+        }
+        try {
+          await api.put(`/api/admin/withdrawals/${id}/reject`, { reason: actionInput });
+        } catch {
+          await api.put(`/api/withdrawals/admin/${id}/reject`, { reason: actionInput });
+        }
+        showNotification('Withdrawal rejected and refunded to wallet', 'success');
+      } else if (modalAction === 'PROCESS') {
+        if (!actionInput.trim()) {
+          showNotification('Please enter Bank UTR / IMPS Reference Number', 'warning');
+          setIsProcessing(false);
+          return;
+        }
+        try {
+          await api.put(`/api/admin/withdrawals/${id}/process`, {
+            utrNumber: actionInput.trim(),
+            paymentMethod: 'IMPS_BANK_TRANSFER'
+          });
+        } catch {
+          await api.put(`/api/withdrawals/admin/${id}/process`, {
+            utrNumber: actionInput.trim(),
+            paymentMethod: 'IMPS_BANK_TRANSFER'
+          });
+        }
+        showNotification('Payout confirmed and marked as PROCESSED', 'success');
+      } else if (modalAction === 'RECONCILE') {
+        if (!actionInput.trim()) {
+          showNotification('Please enter the Tax Deducted Reference Number', 'warning');
+          setIsProcessing(false);
+          return;
+        }
+        try {
+          await api.put(`/api/admin/withdrawals/${id}/reconcile-tds`, {
+            referenceNumber: actionInput.trim(),
+            notes: actionNotes || 'Statutory TDS Reconciled'
+          });
+        } catch {
+          await api.put(`/api/withdrawals/admin/${id}/reconcile-tds`, {
+            referenceNumber: actionInput.trim(),
+            notes: actionNotes || 'Statutory TDS Reconciled'
+          });
+        }
+        showNotification('TDS reference reconciled successfully', 'success');
+      }
 
-  const handleReconcileTDS = async (withdrawalId) => {
-    try {
-      const refNumber = prompt('Enter TDS reference number:');
-      if (!refNumber) return;
-      
-      await api.put(`/api/admin/withdrawals/${withdrawalId}/reconcile-tds`, { 
-        referenceNumber: refNumber,
-        notes: 'TDS reconciled'
-      });
-      showNotification('TDS reconciled', 'success');
+      closeActionModal();
       fetchWithdrawals();
-    } catch (error) {
-      showNotification('Failed to reconcile TDS', 'error');
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Operation failed. Please retry.';
+      showNotification(msg, 'error');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const getStatusBadge = (status) => {
-    const colors = {
-      'PENDING': '#f59e0b',
-      'APPROVED': '#22c55e',
-      'REJECTED': '#ef4444',
-      'PROCESSED': '#3b82f6',
-      'CANCELLED': '#64748b'
-    };
-    return colors[status] || '#64748b';
+    switch ((status || '').toUpperCase()) {
+      case 'PROCESSED':
+      case 'PAID':
+        return styles.badgeGreen;
+      case 'APPROVED':
+        return styles.badgeBlue;
+      case 'REJECTED':
+      case 'CANCELLED':
+        return styles.badgeRed;
+      default:
+        return styles.badgeAmber;
+    }
   };
-
-  if (loading) {
-    return (
-      <div className={styles.loading}>
-        <div className={styles.spinner}></div>
-        <p>Loading withdrawals...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className={styles.errorContainer}>
-        <span>⚠️</span>
-        <p>{error}</p>
-        <button onClick={fetchWithdrawals} className={styles.retryBtn}>Retry</button>
-      </div>
-    );
-  }
 
   return (
     <div className={styles.withdrawalsPage}>
+      {/* 1. Header Toolbar */}
       <div className={styles.header}>
-        <h1>Withdrawal Management</h1>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className={styles.filterSelect}
-        >
-          <option value="PENDING">Pending</option>
-          <option value="APPROVED">Approved</option>
-          <option value="REJECTED">Rejected</option>
-          <option value="PROCESSED">Processed</option>
-          <option value="ALL">All</option>
-        </select>
+        <div>
+          <div className={styles.statusPill}>
+            <span className={styles.pulseDot}></span>
+            <span>Cluster Production Database</span>
+          </div>
+          <h1 className={styles.title}>Withdrawal Management</h1>
+          <p className={styles.subtitle}>
+            Audit member payouts, automated 5% TDS and 10% Admin deductions, and record bank IMPS references.
+          </p>
+        </div>
+
+        <button onClick={fetchWithdrawals} className={styles.refreshBtn} title="Sync database">
+          ↻ Refresh Ledger
+        </button>
       </div>
 
+      {/* 2. KPI Metrics Grid */}
+      <div className={styles.statsGrid}>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>Pending Disbursals</span>
+          <strong className={`${styles.statValue} ${stats.pendingCount > 0 ? styles.amberText : ''}`}>
+            {stats.pendingCount}
+          </strong>
+          <span className={styles.statHelp}>Requiring admin audit</span>
+        </div>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>Gross Payout Volume</span>
+          <strong className={styles.statValue}>
+            ₹{stats.grossTotal.toLocaleString('en-IN')}
+          </strong>
+          <span className={styles.statHelp}>{stats.totalCount} total withdrawal claims</span>
+        </div>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>Statutory TDS (5%)</span>
+          <strong className={`${styles.statValue} ${styles.blueText}`}>
+            ₹{stats.tdsTotal.toLocaleString('en-IN')}
+          </strong>
+          <span className={styles.statHelp}>Government tax compliance</span>
+        </div>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>Net Disbursed Amount</span>
+          <strong className={`${styles.statValue} ${styles.greenText}`}>
+            ₹{stats.netTotal.toLocaleString('en-IN')}
+          </strong>
+          <span className={styles.statHelp}>Net payable to members</span>
+        </div>
+      </div>
+
+      {/* 3. Search & Filter Bar */}
+      <div className={styles.filterStrip}>
+        <div className={styles.searchWrap}>
+          <span className={styles.searchIcon}>🔍</span>
+          <input
+            type="text"
+            placeholder="Search by ID, Beneficiary Name, Account #..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className={styles.searchInput}
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className={styles.clearSearch}>✕</button>
+          )}
+        </div>
+
+        <div className={styles.statusPillsRow}>
+          {STATUS_FILTERS.map((st) => (
+            <button
+              key={st}
+              onClick={() => {
+                setFilterStatus(st);
+                setPagination((prev) => ({ ...prev, page: 1 }));
+              }}
+              className={`${styles.filterPill} ${filterStatus === st ? styles.filterPillActive : ''}`}
+            >
+              {st}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 4. Table Wrapper */}
       <div className={styles.tableWrapper}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Member</th>
-              <th>Gross Amount</th>
-              <th>Admin Charge</th>
-              <th>TDS</th>
-              <th>Net Amount</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {withdrawals.length === 0 ? (
+        {loading ? (
+          <div className={styles.loadingArea}>
+            <div className={styles.spinner}></div>
+            <p>Syncing banking ledger from cluster...</p>
+          </div>
+        ) : error ? (
+          <div className={styles.errorContainer}>
+            <span className={styles.errorIcon}>⚠️</span>
+            <p>{error}</p>
+            <button onClick={fetchWithdrawals} className={styles.retryBtn}>Retry Connection</button>
+          </div>
+        ) : filteredWithdrawals.length === 0 ? (
+          <div className={styles.emptyArea}>
+            <span className={styles.emptyIcon}>💳</span>
+            <h3>No withdrawal records found</h3>
+            <p>There are no payouts matching the current filter selection.</p>
+          </div>
+        ) : (
+          <table className={styles.table}>
+            <thead>
               <tr>
-                <td colSpan="8" className={styles.emptyState}>No withdrawals found</td>
+                <th>TRANSACTION #</th>
+                <th>BENEFICIARY MEMBER</th>
+                <th>GROSS AMOUNT</th>
+                <th>ADMIN FEE (10%)</th>
+                <th>TDS (5%)</th>
+                <th>NET PAYABLE</th>
+                <th>STATUS</th>
+                <th style={{ textAlign: 'right' }}>ACTIONS</th>
               </tr>
-            ) : (
-              withdrawals.map((w) => (
-                <tr key={w._id}>
-                  <td>{w.withdrawalNumber}</td>
-                  <td>{w.userId?.fullName || 'N/A'}</td>
-                  <td>₹{w.grossAmount?.toLocaleString()}</td>
-                  <td>₹{w.adminCharge?.toLocaleString()}</td>
-                  <td>₹{w.tdsAmount?.toLocaleString()}</td>
-                  <td>₹{w.netAmount?.toLocaleString()}</td>
-                  <td>
-                    <span 
-                      className={styles.statusBadge}
-                      style={{ background: getStatusBadge(w.status) }}
-                    >
-                      {w.status}
-                    </span>
-                  </td>
-                  <td>
-                    <div className={styles.actionButtons}>
-                      {w.status === 'PENDING' && (
-                        <>
-                          <button 
-                            className={styles.approveBtn}
-                            onClick={() => handleApprove(w._id)}
+            </thead>
+            <tbody>
+              {filteredWithdrawals.map((w) => {
+                const id = w._id || w.id;
+                const status = (w.status || 'PENDING').toUpperCase();
+                const holder = w.bankDetails?.accountHolder || w.userId?.fullName || 'Active Member';
+                const memberId = w.userId?.memberId ? `ID: ${w.userId.memberId}` : w.userId?.email || 'Direct';
+
+                return (
+                  <tr key={id}>
+                    <td>
+                      <strong className={styles.transId}>{w.withdrawalNumber}</strong>
+                      <span className={styles.dateText}>
+                        {w.createdAt ? new Date(w.createdAt).toLocaleDateString('en-IN') : 'Recent'}
+                      </span>
+                    </td>
+                    <td>
+                      <div className={styles.beneficiaryMeta}>
+                        <span className={styles.holderName}>{holder}</span>
+                        <span className={styles.memberSub}>{memberId}</span>
+                        <span className={styles.bankDetailSnippet}>
+                          {w.bankDetails?.bankName || 'IMPS'} • {w.bankDetails?.accountNumber || w.bankDetails?.upiId || 'A/C Verified'}
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <strong className={styles.grossText}>
+                        ₹{Number(w.grossAmount || w.amount || 0).toLocaleString('en-IN')}
+                      </strong>
+                    </td>
+                    <td className={styles.deductText}>
+                      -₹{Number(w.adminCharge || 0).toLocaleString('en-IN')}
+                    </td>
+                    <td className={styles.deductText}>
+                      -₹{Number(w.tdsAmount || 0).toLocaleString('en-IN')}
+                    </td>
+                    <td>
+                      <strong className={styles.netText}>
+                        ₹{Number(w.netAmount || 0).toLocaleString('en-IN')}
+                      </strong>
+                    </td>
+                    <td>
+                      <span className={`${styles.statusBadge} ${getStatusBadge(status)}`}>
+                        {status}
+                      </span>
+                      {w.utrNumber && (
+                        <small className={styles.utrLabel}>UTR: {w.utrNumber}</small>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div className={styles.actionButtons}>
+                        {status === 'PENDING' && (
+                          <>
+                            <button
+                              className={styles.approveBtn}
+                              onClick={() => openActionModal(w, 'APPROVE')}
+                              title="Approve request"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              className={styles.rejectBtn}
+                              onClick={() => openActionModal(w, 'REJECT')}
+                              title="Reject & refund"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                        {status === 'APPROVED' && (
+                          <button
+                            className={styles.processBtn}
+                            onClick={() => openActionModal(w, 'PROCESS')}
+                            title="Enter UTR & pay"
                           >
-                            Approve
+                            Disburse
                           </button>
-                          <button 
-                            className={styles.rejectBtn}
-                            onClick={() => handleReject(w._id)}
+                        )}
+                        {status === 'PROCESSED' && (
+                          <button
+                            className={styles.reconcileBtn}
+                            onClick={() => openActionModal(w, 'RECONCILE')}
+                            title="Audit TDS reference"
                           >
-                            Reject
+                            Reconcile TDS
                           </button>
-                        </>
-                      )}
-                      {w.status === 'APPROVED' && (
-                        <button 
-                          className={styles.processBtn}
-                          onClick={() => handleProcess(w._id)}
-                        >
-                          Process
-                        </button>
-                      )}
-                      {w.status === 'PROCESSED' && (
-                        <button 
-                          className={styles.reconcileBtn}
-                          onClick={() => handleReconcileTDS(w._id)}
-                        >
-                          Reconcile TDS
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
 
+      {/* 5. Pagination */}
       <div className={styles.pagination}>
         <button
           disabled={pagination.page <= 1}
-          onClick={() => setPagination({ ...pagination, page: pagination.page - 1 })}
+          onClick={() => setPagination((prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
         >
           Previous
         </button>
-        <span>Page {pagination.page} of {pagination.pages}</span>
+        <span>
+          Page {pagination.page || 1} of {pagination.pages || 1} ({pagination.total || withdrawals.length} Total Requests)
+        </span>
         <button
           disabled={pagination.page >= pagination.pages}
-          onClick={() => setPagination({ ...pagination, page: pagination.page + 1 })}
+          onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
         >
           Next
         </button>
       </div>
+
+      {/* 6. Action Modal */}
+      {selectedPayout && modalAction && (
+        <div className={styles.modalOverlay} onClick={() => !isProcessing && closeActionModal()}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div>
+                <h2>
+                  {modalAction === 'APPROVE' && `Approve Payout #${selectedPayout.withdrawalNumber}`}
+                  {modalAction === 'REJECT' && `Reject Payout #${selectedPayout.withdrawalNumber}`}
+                  {modalAction === 'PROCESS' && `Disburse Payout #${selectedPayout.withdrawalNumber}`}
+                  {modalAction === 'RECONCILE' && `Reconcile TDS #${selectedPayout.withdrawalNumber}`}
+                </h2>
+                <p className={styles.modalSub}>
+                  Beneficiary: {selectedPayout.bankDetails?.accountHolder || selectedPayout.userId?.fullName} | Net: ₹{Number(selectedPayout.netAmount).toLocaleString('en-IN')}
+                </p>
+              </div>
+              <button
+                className={styles.closeModalBtn}
+                onClick={closeActionModal}
+                disabled={isProcessing}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className={styles.modalBody}>
+              {/* Financial Snapshot */}
+              <div className={styles.financialSnapshot}>
+                <div>
+                  <small>Gross</small>
+                  <strong>₹{Number(selectedPayout.grossAmount || selectedPayout.amount).toLocaleString('en-IN')}</strong>
+                </div>
+                <div>
+                  <small>TDS (5%)</small>
+                  <span className={styles.redNumber}>-₹{Number(selectedPayout.tdsAmount).toLocaleString('en-IN')}</span>
+                </div>
+                <div>
+                  <small>Admin (10%)</small>
+                  <span className={styles.redNumber}>-₹{Number(selectedPayout.adminCharge).toLocaleString('en-IN')}</span>
+                </div>
+                <div>
+                  <small>Net Payable</small>
+                  <strong className={styles.greenNumber}>₹{Number(selectedPayout.netAmount).toLocaleString('en-IN')}</strong>
+                </div>
+              </div>
+
+              {/* Dynamic Inputs */}
+              {modalAction === 'REJECT' && (
+                <div className={styles.inputGroup}>
+                  <label>Reason for Rejection *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Incomplete KYC / Invalid Bank Account"
+                    value={actionInput}
+                    onChange={(e) => setActionInput(e.target.value)}
+                    required
+                    className={styles.modalInput}
+                  />
+                  <small className={styles.helperText}>The full amount will be refunded back to the member's wallet balance.</small>
+                </div>
+              )}
+
+              {modalAction === 'PROCESS' && (
+                <div className={styles.inputGroup}>
+                  <label>Bank UTR / IMPS Reference Number *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. UTR-HDFC-992104921"
+                    value={actionInput}
+                    onChange={(e) => setActionInput(e.target.value)}
+                    required
+                    className={styles.modalInput}
+                  />
+                </div>
+              )}
+
+              {modalAction === 'RECONCILE' && (
+                <div className={styles.inputGroup}>
+                  <label>TDS Challan / Reference Number *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. TDS-CHALLAN-2026-Q2"
+                    value={actionInput}
+                    onChange={(e) => setActionInput(e.target.value)}
+                    required
+                    className={styles.modalInput}
+                  />
+                </div>
+              )}
+
+              <div className={styles.inputGroup}>
+                <label>Administrative Audit Note (Optional)</label>
+                <textarea
+                  rows="2"
+                  placeholder="Add optional notes for the financial ledger..."
+                  value={actionNotes}
+                  onChange={(e) => setActionNotes(e.target.value)}
+                  className={styles.modalTextarea}
+                />
+              </div>
+
+              <div className={styles.modalActions}>
+                <button
+                  type="button"
+                  className={styles.cancelBtn}
+                  onClick={closeActionModal}
+                  disabled={isProcessing}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteModalAction}
+                  disabled={isProcessing}
+                  className={`${styles.submitBtn} ${
+                    modalAction === 'REJECT' ? styles.submitReject : styles.submitApprove
+                  }`}
+                >
+                  {isProcessing ? 'Processing Transaction...' : 'Confirm Action'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
