@@ -1,173 +1,208 @@
 /* client/src/components/layout/Footer.module.css */
 
-.footer {
+.footerEdgeToEdge {
   background-color: #0b1329;
   color: #94a3b8;
   font-size: 0.9rem;
   width: 100%;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-.container {
-  max-width: 1280px;
+.footerMain {
+  padding: 64px 0 36px 0;
+  width: 100%;
+}
+
+/* Fluid Interior Grid */
+.footerFluidGrid {
+  width: 100%;
+  max-width: 100%;
+  padding: 0 clamp(16px, 4vw, 64px);
   margin: 0 auto;
-  padding: 0 1.5rem;
-}
-
-/* ==================== MAIN FOOTER LINKS ==================== */
-.mainFooter {
-  padding: 4.5rem 0 2rem;
-}
-
-.footerGrid {
   display: grid;
   grid-template-columns: 1.5fr 1fr 1.2fr 1.2fr;
-  gap: 2.5rem;
-  margin-bottom: 3.5rem;
+  gap: clamp(24px, 3vw, 48px);
+  box-sizing: border-box;
 }
 
 /* Brand Column */
-.brandCol .logo {
+.brandLogo {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
   text-decoration: none;
-  margin-bottom: 1.25rem;
+  margin-bottom: 16px;
 }
 
-.logoIcon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #2563eb;
+.logoRocket {
+  font-size: 22px;
 }
 
 .logoText {
-  font-size: 1.6rem;
-  font-weight: 900;
+  font-size: 24px;
+  font-weight: 850;
   color: #ffffff;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.025em;
 }
 
-.brandDesc {
+.brandDescription {
   line-height: 1.65;
   color: #94a3b8;
-  margin-bottom: 1.5rem;
-  max-width: 340px;
+  font-size: 13px;
+  margin: 0 0 20px 0;
+  max-width: 360px;
 }
 
-.socialIcons {
+.socialRow {
   display: flex;
-  gap: 0.75rem;
+  gap: 10px;
 }
 
-.socialIcons a {
-  width: 36px;
-  height: 36px;
+.socialBtn {
+  width: 38px;
+  height: 38px;
   border-radius: 8px;
   background: #1e293b;
   color: #cbd5e1;
   display: flex;
   align-items: center;
   justify-content: center;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 750;
   transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.socialIcons a:hover {
+.socialBtn:hover {
   background: #2563eb;
   color: #ffffff;
-  transform: translateY(-3px);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(37, 99, 235, 0.3);
 }
 
-/* Columns */
-.linksCol h4 {
+/* Navigation Columns */
+.colHeading {
   color: #ffffff;
-  font-size: 1rem;
-  font-weight: 700;
-  margin: 0 0 1.25rem 0;
+  font-size: 15px;
+  font-weight: 750;
+  margin: 0 0 18px 0;
   letter-spacing: -0.01em;
 }
 
-.linksCol ul {
+.colHeaderMobile {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.accordionIcon {
+  display: none;
+  font-size: 18px;
+  font-weight: 700;
+  color: #60a5fa;
+}
+
+.navLinksList {
   list-style: none;
   padding: 0;
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 12px;
 }
 
-.linksCol a {
+.navLinksList a {
   color: #94a3b8;
   text-decoration: none;
-  transition: color 0.15s ease, transform 0.15s ease;
+  transition: all 0.15s ease;
   display: inline-flex;
   align-items: center;
-  gap: 0.65rem;
-  font-size: 0.88rem;
+  gap: 8px;
+  font-size: 13px;
 }
 
-/* Professional Dot Bullet */
-.dotIcon {
+.dot {
   width: 5px;
   height: 5px;
   background-color: #475569;
   border-radius: 50%;
   flex-shrink: 0;
-  transition: background-color 0.2s ease, transform 0.2s ease;
+  transition: all 0.2s ease;
 }
 
-.linksCol a:hover {
+.navLinksList a:hover {
   color: #ffffff;
-  transform: translateX(3px);
+  transform: translateX(4px);
 }
 
-.linksCol a:hover .dotIcon {
+.navLinksList a:hover .dot {
   background-color: #38bdf8;
   transform: scale(1.4);
 }
 
-/* ==================== MIDDLE STRIP ==================== */
-.middleStrip {
+/* Middle Contact & Payment Strip */
+.contactPaymentStrip {
+  padding: 20px 0;
+  border-top: 1px solid #1e293b;
+  border-bottom: 1px solid #1e293b;
+  width: 100%;
+}
+
+.contactPaymentFluid {
+  width: 100%;
+  padding: 0 clamp(16px, 4vw, 64px);
+  margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 1.5rem;
-  padding: 1.75rem 0;
-  border-top: 1px solid #1e293b;
-  border-bottom: 1px solid #1e293b;
+  gap: 16px;
+  box-sizing: border-box;
 }
 
-.contactDetails {
+.contactGroup {
   display: flex;
-  gap: 1.75rem;
+  gap: 22px;
   flex-wrap: wrap;
   color: #cbd5e1;
   font-weight: 500;
-  font-size: 0.88rem;
+  font-size: 13px;
 }
 
-.contactDetails span {
+.contactItem {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 6px;
 }
 
-.contactDetails span svg {
+.contactItem svg {
   color: #64748b;
 }
 
-/* ==================== PAYMENT METHODS ==================== */
+.contactItem a {
+  color: #cbd5e1;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.15s ease;
+}
+
+.contactItem a:hover {
+  color: #60a5fa;
+}
+
+/* Payment Badges */
 .paymentMethods {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
-.payCard {
+.payBadge {
   background: #ffffff;
-  padding: 0.3rem 0.65rem;
+  padding: 3px 8px;
   border-radius: 6px;
   display: flex;
   align-items: center;
@@ -177,41 +212,73 @@
   cursor: default;
 }
 
-.payCard:hover {
+.payBadge:hover {
   transform: translateY(-2px);
 }
 
-/* ==================== BOTTOM STRIP ==================== */
-.bottomStrip {
+/* Bottom Legal Strip */
+.copyrightStrip {
   text-align: center;
-  padding-top: 1.75rem;
-  font-size: 0.82rem;
+  padding: 20px clamp(16px, 4vw, 64px);
+  font-size: 12px;
   color: #64748b;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.bottomStrip p {
+.copyrightStrip p {
   margin: 0;
 }
 
-/* ==================== RESPONSIVE ==================== */
+/* ==================== TABLET & MOBILE RESPONSIVENESS ==================== */
 @media (max-width: 1024px) {
-  .footerGrid {
+  .footerFluidGrid {
     grid-template-columns: 1fr 1fr;
-    gap: 2rem;
   }
 }
 
-@media (max-width: 640px) {
-  .footerGrid {
-    grid-template-columns: 1fr;
-    gap: 2rem;
+@media (max-width: 680px) {
+  .footerMain {
+    padding: 36px 0 16px 0;
   }
-  .middleStrip {
+
+  .footerFluidGrid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .colHeaderMobile {
+    cursor: pointer;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .colHeading {
+    margin: 0;
+  }
+
+  .accordionIcon {
+    display: inline-block;
+  }
+
+  /* Accordion collapse behavior on mobile */
+  .navLinksList {
+    display: none;
+    padding-top: 12px;
+    padding-left: 4px;
+  }
+
+  .navLinksListOpen {
+    display: flex;
+  }
+
+  .contactPaymentFluid {
     flex-direction: column;
     align-items: flex-start;
   }
-  .contactDetails {
+
+  .contactGroup {
     flex-direction: column;
-    gap: 0.65rem;
+    gap: 8px;
   }
 }

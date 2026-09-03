@@ -1,283 +1,564 @@
 // client/src/components/layout/Header.jsx
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import styles from './Header.module.css';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useShop } from '../../context/ShopContext';
-import { KUWIFR_PRODUCTS } from '../../constants/productsData';
+import { useAuth } from '../../context/AuthContext';
+import api from '../../services/api';
 import OrderTrackingModal from '../public/OrderTrackingModal';
+import styles from './Header.module.css';
 
 const Header = () => {
-  const { 
-    cartCount, 
-    wishlistCount, 
-    setIsCartOpen, 
-    setIsWishlistOpen, 
-    setActiveCategoryFilter 
-  } = useShop();
-
-  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [showAccountDropdown, setShowAccountDropdown] = useState(false);
   const [showTracker, setShowTracker] = useState(false);
 
-  const dropdownRef = useRef(null);
+  const {
+    cartCount = 0,
+    wishlistCount = 0,
+    setIsCartOpen,
+    setIsWishlistOpen,
+    setActiveCategoryFilter
+  } = useShop ? useShop() : {};
+
+  const { user, isAuthenticated, logout } = useAuth
+    ? useAuth()
+    : { user: null, isAuthenticated: false, logout: () => {} };
+
   const navigate = useNavigate();
   const location = useLocation();
+  const searchRef = useRef(null);
+  const accountRef = useRef(null);
 
-  // Close dropdown on outside click
+  // Elevation and compacting effect on scroll
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setUserDropdownOpen(false);
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Close modals & dropdowns on route changes
+  useEffect(() => {
+    setMobileMenuOpen(false);
+    setSearchOpen(false);
+    setShowAccountDropdown(false);
+    setSearchQuery('');
+  }, [location.pathname, location.search]);
+
+  // Handle click outside for search suggestions and account menu
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setSearchSuggestions([]);
+      }
+      if (accountRef.current && !accountRef.current.contains(event.target)) {
+        setShowAccountDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Filter products live as user types
+  // Prevent background scroll when mobile drawer is open
   useEffect(() => {
-    if (searchQuery.trim().length > 1) {
-      const results = KUWIFR_PRODUCTS.filter(p =>
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.categoryLabel.toLowerCase().includes(searchQuery.toLowerCase())
-      ).slice(0, 5);
-      setSearchResults(results);
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
     } else {
-      setSearchResults([]);
+      document.body.style.overflow = '';
     }
-  }, [searchQuery]);
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen]);
 
-  const handleCategoryClick = (category) => {
-    setActiveCategoryFilter(category);
-    if (location.pathname !== '/') {
-      navigate('/');
-      setTimeout(() => {
-        const el = document.getElementById('products');
-        if (el) el.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    } else {
-      const el = document.getElementById('products');
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
+  // Live search suggestions via API with safe debounce
+  useEffect(() => {
+    if (!searchQuery || searchQuery.trim().length < 2) {
+      setSearchSuggestions([]);
+      return;
     }
-  };
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.get(`/api/products?search=${encodeURIComponent(searchQuery.trim())}&limit=5`);
+        const payload = res.data?.data?.products || res.data?.products || (Array.isArray(res.data) ? res.data : []);
+        setSearchSuggestions(payload.slice(0, 5));
+      } catch (err) {
+        setSearchSuggestions([]);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    if (!searchQuery.trim()) return;
-    setSearchOpen(false);
-    handleCategoryClick('ALL');
+    if (searchQuery.trim()) {
+      navigate(`/shop?search=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchOpen(false);
+      setMobileMenuOpen(false);
+      setSearchSuggestions([]);
+      setSearchQuery('');
+    }
   };
+
+  const handleCategoryNav = (categoryName) => {
+    if (typeof setActiveCategoryFilter === 'function') {
+      setActiveCategoryFilter(categoryName);
+    }
+    navigate(`/shop?category=${encodeURIComponent(categoryName)}`);
+    setMobileMenuOpen(false);
+  };
+
+  const navItems = [
+    { label: 'Home', path: '/' },
+    { label: 'Shop All', path: '/shop' },
+    { label: 'Health & Wellness', category: 'Health & Wellness' },
+    { label: 'Alkaline Tech', category: 'Alkaline Water Devices' },
+    { label: 'Fashion & EV', category: 'Smart EV Scooty' },
+  ];
 
   return (
     <>
-      <header className={styles.header}>
-        {/* Top Announcement Bar */}
-        <div className={styles.topStrip}>
-          <span>✨ Free Express Shipping on All Orders Above ₹999 | 100% Genuine Guaranteed</span>
+      {/* 1. Full-Width Top Announcement Bar */}
+      <div className={styles.announcementBar}>
+        <div className={styles.announcementContainer}>
+          <span className={styles.announcementText}>
+            ✨ Free Express Shipping on All Orders Above ₹999 | 100% Genuine Guaranteed
+          </span>
         </div>
+      </div>
 
-        {/* Main Nav */}
-        <div className={styles.mainNav}>
-          <div className={styles.container}>
-            {/* Logo */}
-            <Link to="/" className={styles.logo} onClick={() => handleCategoryClick('ALL')}>
-              <span className={styles.logoIcon}>🚀</span>
-              <span className={styles.logoText}>KUWIFR</span>
-            </Link>
+      {/* 2. Full-Width Sticky Two-Level Header */}
+      <header className={`${styles.header} ${scrolled ? styles.headerScrolled : ''}`}>
+        <div className={styles.navContainer}>
+          {/* Mobile Menu Hamburger Trigger */}
+          <button
+            className={styles.mobileHamburger}
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Open Navigation Menu"
+          >
+            <span className={styles.hamburgerBar}></span>
+            <span className={styles.hamburgerBar}></span>
+            <span className={styles.hamburgerBar}></span>
+          </button>
 
-            {/* Nav Menu */}
-            <nav className={styles.navMenu}>
-              <Link 
-                to="/" 
-                className={`${styles.navLink} ${location.pathname === '/' ? styles.active : ''}`}
-                onClick={() => handleCategoryClick('ALL')}
-              >
-                Home
-              </Link>
-              <button 
-                type="button" 
-                className={styles.navLinkBtn}
-                onClick={() => handleCategoryClick('ALL')}
-              >
-                Shop All
-              </button>
-              <button 
-                type="button" 
-                className={styles.navLinkBtn}
-                onClick={() => handleCategoryClick('HEALTH_SUPPLEMENT')}
-              >
-                Health & Wellness
-              </button>
-              <button 
-                type="button" 
-                className={styles.navLinkBtn}
-                onClick={() => handleCategoryClick('WATER_PURIFIER')}
-              >
-                Alkaline Tech
-              </button>
-              <button 
-                type="button" 
-                className={styles.navLinkBtn}
-                onClick={() => handleCategoryClick('CLOTHING')}
-              >
-                Fashion & EV
-              </button>
-            </nav>
+          {/* Left: Brand Logo */}
+          <Link to="/" className={styles.brandLogo} aria-label="KUWIFR Home">
+            <span className={styles.logoRocket}>🚀</span>
+            <span className={styles.logoText}>KUWIFR</span>
+          </Link>
 
-            {/* Action Buttons */}
-            <div className={styles.actionIcons}>
-              {/* Search Toggle */}
-              <button 
-                type="button"
-                className={styles.iconBtn} 
-                onClick={() => setSearchOpen(!searchOpen)} 
-                title="Search"
-                aria-label="Search Products"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="11" cy="11" r="8"></circle>
-                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                </svg>
-              </button>
-
-              {/* Wishlist Drawer Trigger */}
-              <button 
-                type="button"
-                className={styles.iconBtn} 
-                onClick={() => setIsWishlistOpen(true)}
-                title="Wishlist"
-                aria-label="View Wishlist"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-                </svg>
-                {wishlistCount > 0 && <span className={styles.badge}>{wishlistCount}</span>}
-              </button>
-
-              {/* Cart Drawer Trigger */}
-              <button 
-                type="button"
-                className={styles.iconBtn} 
-                onClick={() => setIsCartOpen(true)}
-                title="Shopping Bag"
-                aria-label="View Cart"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
-                  <line x1="3" y1="6" x2="21" y2="6"></line>
-                  <path d="M16 10a4 4 0 0 1-8 0"></path>
-                </svg>
-                {cartCount > 0 && <span className={styles.badge}>{cartCount}</span>}
-              </button>
-
-              {/* User Dropdown */}
-              <div className={styles.userMenuWrapper} ref={dropdownRef}>
-                <button 
-                  type="button"
-                  className={`${styles.iconBtn} ${styles.userBtn}`} 
-                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  title="My Account"
-                  aria-label="User Menu"
+          {/* Center: Desktop Navigation Links */}
+          <nav className={styles.desktopNav} aria-label="Main Navigation">
+            {navItems.map((item, idx) =>
+              item.path ? (
+                <NavLink
+                  key={idx}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `${styles.navItem} ${isActive ? styles.navItemActive : ''}`
+                  }
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
+                  {item.label}
+                </NavLink>
+              ) : (
+                <button
+                  key={idx}
+                  onClick={() => handleCategoryNav(item.category)}
+                  className={styles.navItemBtn}
+                >
+                  {item.label}
+                </button>
+              )
+            )}
+          </nav>
+
+          {/* Right: Search, Wishlist, Cart & Account Actions */}
+          <div className={styles.actionGroup}>
+            {/* Desktop / Tablet Expandable Search */}
+            <div className={styles.searchWrapper} ref={searchRef}>
+              {searchOpen ? (
+                <div className={styles.searchFlyout}>
+                  <form onSubmit={handleSearchSubmit} className={styles.searchForm}>
+                    <span className={styles.searchIconInside}>🔍</span>
+                    <input
+                      type="text"
+                      placeholder="Search wellness, alkaline devices, sarees..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className={styles.searchInput}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchOpen(false);
+                        setSearchSuggestions([]);
+                      }}
+                      className={styles.searchCloseBtn}
+                      aria-label="Close search"
+                    >
+                      ✕
+                    </button>
+                  </form>
+
+                  {/* Live Search Suggestions Dropdown */}
+                  {searchSuggestions.length > 0 && (
+                    <div className={styles.suggestionsCard}>
+                      <div className={styles.suggestionsHeader}>Products Matching Search</div>
+                      {searchSuggestions.map((prod) => (
+                        <div
+                          key={prod.id || prod._id}
+                          className={styles.suggestionRow}
+                          onClick={() => {
+                            navigate(`/product/${prod.id || prod._id}`);
+                            setSearchOpen(false);
+                            setSearchSuggestions([]);
+                          }}
+                        >
+                          <img
+                            src={prod.image || prod.images?.[0] || 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=100&q=80'}
+                            alt={prod.name}
+                            className={styles.suggestionThumb}
+                          />
+                          <div className={styles.suggestionInfo}>
+                            <div className={styles.suggestionName}>{prod.name}</div>
+                            <div className={styles.suggestionPrice}>₹{(prod.price || prod.sellingPrice || 0).toLocaleString()}</div>
+                          </div>
+                        </div>
+                      ))}
+                      <button
+                        onClick={handleSearchSubmit}
+                        className={styles.viewAllResultsBtn}
+                      >
+                        View all search results →
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button
+                  onClick={() => setSearchOpen(true)}
+                  className={styles.actionIconBtn}
+                  aria-label="Search"
+                  title="Search Store"
+                >
+                  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </button>
+              )}
+            </div>
 
-                {userDropdownOpen && (
-                  <div className={styles.dropdownMenu}>
-                    <div className={styles.dropdownHeader}>
-                      <p>Welcome to KUWIFR</p>
-                      <small>Manage your account & orders</small>
-                    </div>
-                    <div className={styles.dropdownDivider} />
-                    <Link to="/login" className={styles.dropdownItem} onClick={() => setUserDropdownOpen(false)}>
-                      <span className={styles.itemIcon}>➔</span> Sign In
-                    </Link>
-                    <Link to="/register" className={styles.dropdownItem} onClick={() => setUserDropdownOpen(false)}>
-                      <span className={styles.itemIcon}>👤</span> Register
-                    </Link>
-                    <button 
-                      type="button" 
-                      className={styles.dropdownItemBtn} 
-                      onClick={() => { setUserDropdownOpen(false); setIsCartOpen(true); }}
-                    >
-                      <span className={styles.itemIcon}>🛍️</span> My Cart ({cartCount})
-                    </button>
-                    <button 
-                      type="button" 
-                      className={styles.dropdownItemBtn} 
-                      onClick={() => { setUserDropdownOpen(false); setIsWishlistOpen(true); }}
-                    >
-                      <span className={styles.itemIcon}>♡</span> My Wishlist ({wishlistCount})
-                    </button>
-                    <button 
-                      type="button" 
-                      className={styles.dropdownItemBtn} 
-                      onClick={() => { setUserDropdownOpen(false); setShowTracker(true); }}
-                    >
-                      <span className={styles.itemIcon}>🚚</span> Track Your Order
-                    </button>
+            {/* Wishlist Button with Badge */}
+            <button
+              onClick={() => setIsWishlistOpen && setIsWishlistOpen(true)}
+              className={styles.actionIconBtn}
+              aria-label={`Wishlist (${wishlistCount} items)`}
+              title="View Wishlist"
+            >
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+              {wishlistCount > 0 && (
+                <span className={styles.countBadge}>{wishlistCount}</span>
+              )}
+            </button>
+
+            {/* Cart Button with Badge */}
+            <button
+              onClick={() => setIsCartOpen && setIsCartOpen(true)}
+              className={styles.actionIconBtn}
+              aria-label={`Cart (${cartCount} items)`}
+              title="View Cart"
+            >
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
+              {cartCount > 0 && (
+                <span className={styles.countBadge}>{cartCount}</span>
+              )}
+            </button>
+
+            {/* Account / User Floating Card Menu */}
+            <div className={styles.accountWrapper} ref={accountRef}>
+              <button
+                onClick={() => setShowAccountDropdown(!showAccountDropdown)}
+                className={styles.accountTrigger}
+                aria-expanded={showAccountDropdown}
+                aria-label="Account Menu"
+              >
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span className={styles.accountLabel}>
+                  {isAuthenticated ? (user?.fullName?.split(' ')[0] || 'Account') : 'Sign In'}
+                </span>
+                <span className={styles.dropdownCaret}>▾</span>
+              </button>
+
+              {/* Account Floating Card */}
+              {showAccountDropdown && (
+                <div className={styles.accountDropdownCard}>
+                  <div className={styles.accountCardHeader}>
+                    <span className={styles.welcomeText}>Welcome to KUWIFR</span>
+                    <p className={styles.welcomeSub}>Manage your account, orders & tracking</p>
                   </div>
-                )}
-              </div>
+
+                  {!isAuthenticated ? (
+                    <div className={styles.authActionRow}>
+                      <Link to="/login" className={styles.loginCardBtn}>
+                        Sign In
+                      </Link>
+                      <Link to="/register" className={styles.registerCardBtn}>
+                        Register
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className={styles.userProfilePill}>
+                      <div className={styles.userInitials}>
+                        {(user?.fullName || 'U')[0].toUpperCase()}
+                      </div>
+                      <div className={styles.userDetails}>
+                        <div className={styles.userNameText}>{user?.fullName || 'Distributor'}</div>
+                        <span className={styles.userRoleText}>{user?.role || 'MEMBER'}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className={styles.cardDivider}></div>
+
+                  <div className={styles.dropdownMenuList}>
+                    {isAuthenticated && (
+                      <Link
+                        to={user?.role === 'ADMIN' ? '/admin' : '/dashboard'}
+                        className={styles.dropdownItem}
+                      >
+                        <span>📊</span>
+                        <span>{user?.role === 'ADMIN' ? 'Admin Portal' : 'Member Dashboard'}</span>
+                      </Link>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        setShowAccountDropdown(false);
+                        if (setIsCartOpen) setIsCartOpen(true);
+                      }}
+                      className={styles.dropdownItem}
+                    >
+                      <span>🛍️</span>
+                      <span>My Shopping Cart</span>
+                      {cartCount > 0 && <span className={styles.itemCounter}>{cartCount}</span>}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowAccountDropdown(false);
+                        if (setIsWishlistOpen) setIsWishlistOpen(true);
+                      }}
+                      className={styles.dropdownItem}
+                    >
+                      <span>♡</span>
+                      <span>My Wishlist</span>
+                      {wishlistCount > 0 && <span className={styles.itemCounter}>{wishlistCount}</span>}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowAccountDropdown(false);
+                        setShowTracker(true);
+                      }}
+                      className={styles.dropdownItem}
+                    >
+                      <span>📦</span>
+                      <span>Track Your Order</span>
+                    </button>
+
+                    {isAuthenticated && (
+                      <>
+                        <div className={styles.cardDivider}></div>
+                        <button
+                          onClick={() => {
+                            if (logout) logout();
+                            setShowAccountDropdown(false);
+                            navigate('/login');
+                          }}
+                          className={`${styles.dropdownItem} ${styles.logoutItem}`}
+                        >
+                          <span>🚪</span>
+                          <span>Log Out</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Interactive Search Bar */}
-          {searchOpen && (
-            <div className={styles.searchBarWrapper}>
-              <div className={styles.container}>
-                <form onSubmit={handleSearchSubmit} className={styles.searchInner}>
-                  <input 
-                    type="text" 
-                    placeholder="Search for Shilajit, Protein, Alkaline Water, Sarees, Scooty..." 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    autoFocus 
-                  />
-                  <button type="submit" className={styles.searchSubmitBtn}>Search</button>
-                  <button 
-                    type="button" 
-                    className={styles.searchCloseBtn} 
-                    onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
-                  >
-                    ✕
-                  </button>
-                </form>
-
-                {/* Instant Search Suggestions */}
-                {searchResults.length > 0 && (
-                  <div className={styles.searchDropdown}>
-                    {searchResults.map((item) => (
-                      <div 
-                        key={item.id} 
-                        className={styles.searchResultItem}
-                        onClick={() => {
-                          setSearchOpen(false);
-                          setSearchQuery('');
-                          handleCategoryClick(item.category);
-                        }}
-                      >
-                        <img src={item.image} alt={item.name} />
-                        <div>
-                          <strong>{item.name}</strong>
-                          <small>₹{item.ksp.toLocaleString()}</small>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </header>
 
-      {/* Track Order Modal */}
+      {/* 3. Slide-In Full-Height Mobile Drawer */}
+      {mobileMenuOpen && (
+        <div
+          className={styles.drawerOverlay}
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden="true"
+        >
+          <aside
+            className={styles.drawerSidebar}
+            onClick={(e) => e.stopPropagation()}
+            aria-label="Mobile Navigation"
+          >
+            {/* Drawer Header */}
+            <div className={styles.drawerHeader}>
+              <Link to="/" className={styles.brandLogo} onClick={() => setMobileMenuOpen(false)}>
+                <span className={styles.logoRocket}>🚀</span>
+                <span className={styles.brandTitle}>KUWIFR</span>
+              </Link>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className={styles.drawerCloseBtn}
+                aria-label="Close menu"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Mobile Search Form */}
+            <form onSubmit={handleSearchSubmit} className={styles.drawerSearchForm}>
+              <input
+                type="text"
+                placeholder="Search products, alkaline devices..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={styles.drawerSearchInput}
+              />
+              <button type="submit" className={styles.drawerSearchSubmit} aria-label="Search">
+                🔍
+              </button>
+            </form>
+
+            {/* Drawer Navigation Links */}
+            <div className={styles.drawerScrollBody}>
+              <div className={styles.drawerSectionLabel}>Main Store</div>
+              <NavLink
+                to="/"
+                onClick={() => setMobileMenuOpen(false)}
+                className={({ isActive }) =>
+                  `${styles.drawerNavLink} ${isActive ? styles.drawerNavLinkActive : ''}`
+                }
+              >
+                <span>🏠 Home</span>
+                <span className={styles.drawerArrow}>›</span>
+              </NavLink>
+
+              <NavLink
+                to="/shop"
+                onClick={() => setMobileMenuOpen(false)}
+                className={({ isActive }) =>
+                  `${styles.drawerNavLink} ${isActive ? styles.drawerNavLinkActive : ''}`
+                }
+              >
+                <span>🛍️ Shop All Products</span>
+                <span className={styles.drawerArrow}>›</span>
+              </NavLink>
+
+              <div className={styles.drawerSectionLabel} style={{ marginTop: '20px' }}>
+                Categories
+              </div>
+              <button
+                onClick={() => handleCategoryNav('Health & Wellness')}
+                className={styles.drawerCategoryBtn}
+              >
+                🌿 Health & Wellness
+              </button>
+              <button
+                onClick={() => handleCategoryNav('Alkaline Water Devices')}
+                className={styles.drawerCategoryBtn}
+              >
+                💧 Alkaline Water Devices
+              </button>
+              <button
+                onClick={() => handleCategoryNav('Designer Modern Sarees')}
+                className={styles.drawerCategoryBtn}
+              >
+                ✨ Designer Modern Sarees
+              </button>
+              <button
+                onClick={() => handleCategoryNav('Gents Premium Wear')}
+                className={styles.drawerCategoryBtn}
+              >
+                👔 Gents Premium Wear
+              </button>
+              <button
+                onClick={() => handleCategoryNav('Smart EV Scooty')}
+                className={styles.drawerCategoryBtn}
+              >
+                ⚡ Smart EV Scooty
+              </button>
+              <button
+                onClick={() => handleCategoryNav('Hair Care & Serums')}
+                className={styles.drawerCategoryBtn}
+              >
+                🧴 Hair Care & Serums
+              </button>
+
+              <div className={styles.drawerSectionLabel} style={{ marginTop: '20px' }}>
+                Account & Orders
+              </div>
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setShowTracker(true);
+                }}
+                className={styles.drawerCategoryBtn}
+              >
+                📦 Track Your Order
+              </button>
+
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (setIsWishlistOpen) setIsWishlistOpen(true);
+                }}
+                className={styles.drawerCategoryBtn}
+              >
+                ♡ My Wishlist ({wishlistCount})
+              </button>
+
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (setIsCartOpen) setIsCartOpen(true);
+                }}
+                className={styles.drawerCategoryBtn}
+              >
+                🛍️ My Cart ({cartCount})
+              </button>
+            </div>
+
+            {/* Drawer Bottom Actions */}
+            <div className={styles.drawerFooter}>
+              <Link
+                to={isAuthenticated ? (user?.role === 'ADMIN' ? '/admin' : '/dashboard') : '/login'}
+                onClick={() => setMobileMenuOpen(false)}
+                className={styles.drawerAuthBtn}
+              >
+                {isAuthenticated ? '👤 Access Portal / Account' : '🔐 Sign In / Register'}
+              </Link>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {/* 4. Connected Order Tracking Modal */}
       {showTracker && <OrderTrackingModal onClose={() => setShowTracker(false)} />}
     </>
   );
