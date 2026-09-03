@@ -225,6 +225,7 @@ app.use('/api/notifications', notificationRoutes);
 
 // Reports & Statistics
 app.use('/api/reports', reportRoutes);
+app.use('/api/admin/reports', reportRoutes);
 
 // Contact & Support
 app.use('/api/contact', contactRoutes);
