@@ -15,7 +15,8 @@ const DEFAULT_PACKAGES = [
     directBonus: 200,
     weeklyCap: 10500,
     monthlyCap: 45000,
-    description: 'Perfect entry package with 1,000 KBP and instant account activation.',
+    description: 'Perfect entry package for beginners to start earning in KUWIFR.',
+    badge: 'Popular Choice',
     isActive: true,
     isPopular: true
   },
@@ -29,6 +30,7 @@ const DEFAULT_PACKAGES = [
     weeklyCap: 49000,
     monthlyCap: 210000,
     description: 'Designed for ambitious members scaling their binary team network.',
+    badge: 'Growth Plan',
     isActive: true,
     isPopular: false
   },
@@ -42,6 +44,7 @@ const DEFAULT_PACKAGES = [
     weeklyCap: 105000,
     monthlyCap: 450000,
     description: 'Comprehensive health & alkaline water purification solutions.',
+    badge: 'Health Choice',
     isActive: true,
     isPopular: false
   },
@@ -55,6 +58,7 @@ const DEFAULT_PACKAGES = [
     weeklyCap: 140000,
     monthlyCap: 600000,
     description: 'Premium alkaline filtration with high daily earning caps for elite performers.',
+    badge: 'High Earner',
     isActive: true,
     isPopular: false
   },
@@ -68,6 +72,7 @@ const DEFAULT_PACKAGES = [
     weeklyCap: 350000,
     monthlyCap: 1500000,
     description: 'The ultimate pinnacle tier with Electric Vehicle benefit and maximum capping.',
+    badge: 'Executive VIP',
     isActive: true,
     isPopular: false
   }
@@ -93,13 +98,20 @@ const seedPackagesIfEmpty = async () => {
 const getAllPackages = async (req, res, next) => {
   try {
     await seedPackagesIfEmpty();
-    let packages = await Package.find({ isActive: true }).sort({ price: 1 }).lean();
-    if (!packages || packages.length === 0) {
-      packages = DEFAULT_PACKAGES;
-    }
+    // Return all documents where isActive is not explicitly false
+    const packages = await Package.find({
+      $or: [
+        { isActive: true },
+        { status: 'ACTIVE' },
+        { status: 'Active (Visible)' }
+      ]
+    })
+      .sort({ price: 1 })
+      .lean();
+
     res.json({
       success: true,
-      data: { packages }
+      data: { packages: packages && packages.length > 0 ? packages : DEFAULT_PACKAGES }
     });
   } catch (error) {
     next(error);
@@ -148,58 +160,78 @@ const getPackageById = async (req, res, next) => {
 
 /**
  * Admin: Create a new package
- * POST /api/admin/packages
+ * POST /api/packages
  */
 const createPackage = async (req, res, next) => {
   try {
     const {
       name,
+      packageName,
       type,
+      packageType,
       price,
       kbp,
+      kbpPoints,
       dailyCap,
+      dailyBinaryCap,
       directBonus,
+      directSponsorBonus,
       weeklyCap,
       monthlyCap,
       description,
+      entitlements,
       isActive,
+      status,
+      badge,
+      displayBadge,
       isPopular
     } = req.body;
 
-    if (!name || price === undefined || kbp === undefined) {
+    const resolvedName = (name || packageName || '').trim();
+    const resolvedPrice = Number(price);
+    const resolvedKbp = Number(kbp !== undefined ? kbp : kbpPoints);
+
+    if (!resolvedName || isNaN(resolvedPrice) || isNaN(resolvedKbp)) {
       return res.status(400).json({
         success: false,
         message: 'Package Name, Price, and KBP points are required.'
       });
     }
 
-    const packageType = (type || name.replace(/\s+/g, '_')).toUpperCase();
+    const resolvedType = (type || packageType || resolvedName.replace(/\s+/g, '_')).toUpperCase();
 
     const existing = await Package.findOne({
-      $or: [{ name: name.trim() }, { type: packageType }]
+      $or: [{ name: resolvedName }, { type: resolvedType }]
     });
 
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: `Package with name "${name}" or type "${packageType}" already exists.`
+        message: `Package with name "${resolvedName}" or type "${resolvedType}" already exists.`
       });
     }
 
-    const numPrice = Number(price);
-    const numDailyCap = dailyCap !== undefined ? Number(dailyCap) : numPrice * 1.5;
+    const resolvedDailyCap = Number(dailyCap !== undefined ? dailyCap : (dailyBinaryCap !== undefined ? dailyBinaryCap : resolvedPrice));
+    const resolvedDirectBonus = Number(directBonus !== undefined ? directBonus : (directSponsorBonus || 0));
+    const resolvedWeeklyCap = Number(weeklyCap !== undefined ? weeklyCap : resolvedDailyCap * 7);
+    const resolvedMonthlyCap = Number(monthlyCap !== undefined ? monthlyCap : resolvedDailyCap * 30);
+    const resolvedDesc = description || entitlements || '';
+    const resolvedBadge = displayBadge || badge || '';
+    const resolvedIsActive = status ? (status === 'ACTIVE' || status === 'Active (Visible)') : (isActive !== undefined ? Boolean(isActive) : true);
 
     const newPackage = await Package.create({
-      name: name.trim(),
-      type: packageType,
-      price: numPrice,
-      kbp: Number(kbp),
-      dailyCap: numDailyCap,
-      directBonus: Number(directBonus || 0),
-      weeklyCap: weeklyCap !== undefined ? Number(weeklyCap) : numDailyCap * 7,
-      monthlyCap: monthlyCap !== undefined ? Number(monthlyCap) : numDailyCap * 30,
-      description: description || '',
-      isActive: isActive !== undefined ? Boolean(isActive) : true,
+      name: resolvedName,
+      type: resolvedType,
+      price: resolvedPrice,
+      kbp: resolvedKbp,
+      dailyCap: resolvedDailyCap,
+      directBonus: resolvedDirectBonus,
+      weeklyCap: resolvedWeeklyCap,
+      monthlyCap: resolvedMonthlyCap,
+      description: resolvedDesc,
+      badge: resolvedBadge,
+      status: resolvedIsActive ? 'ACTIVE' : 'INACTIVE',
+      isActive: resolvedIsActive,
       isPopular: Boolean(isPopular)
     });
 
@@ -215,7 +247,7 @@ const createPackage = async (req, res, next) => {
 
 /**
  * Admin: Update an existing package
- * PUT /api/admin/packages/:id
+ * PUT /api/packages/:id
  */
 const updatePackage = async (req, res, next) => {
   try {
@@ -229,15 +261,31 @@ const updatePackage = async (req, res, next) => {
       });
     }
 
-    const updates = { ...req.body };
-    if (updates.price !== undefined) updates.price = Number(updates.price);
-    if (updates.kbp !== undefined) updates.kbp = Number(updates.kbp);
-    if (updates.dailyCap !== undefined) updates.dailyCap = Number(updates.dailyCap);
-    if (updates.directBonus !== undefined) updates.directBonus = Number(updates.directBonus);
-    if (updates.weeklyCap !== undefined) updates.weeklyCap = Number(updates.weeklyCap);
-    if (updates.monthlyCap !== undefined) updates.monthlyCap = Number(updates.monthlyCap);
+    const b = req.body;
+    const updates = {};
 
-    const updatedPackage = await Package.findByIdAndUpdate(id, updates, {
+    if (b.name !== undefined || b.packageName !== undefined) updates.name = (b.name || b.packageName).trim();
+    if (b.type !== undefined || b.packageType !== undefined) updates.type = (b.type || b.packageType).toUpperCase();
+    if (b.price !== undefined) updates.price = Number(b.price);
+    if (b.kbp !== undefined || b.kbpPoints !== undefined) updates.kbp = Number(b.kbp !== undefined ? b.kbp : b.kbpPoints);
+    if (b.dailyCap !== undefined || b.dailyBinaryCap !== undefined) updates.dailyCap = Number(b.dailyCap !== undefined ? b.dailyCap : b.dailyBinaryCap);
+    if (b.directBonus !== undefined || b.directSponsorBonus !== undefined) updates.directBonus = Number(b.directBonus !== undefined ? b.directBonus : b.directSponsorBonus);
+    if (b.weeklyCap !== undefined) updates.weeklyCap = Number(b.weeklyCap);
+    if (b.monthlyCap !== undefined) updates.monthlyCap = Number(b.monthlyCap);
+    if (b.description !== undefined || b.entitlements !== undefined) updates.description = b.description !== undefined ? b.description : b.entitlements;
+    if (b.badge !== undefined || b.displayBadge !== undefined) updates.badge = b.displayBadge !== undefined ? b.displayBadge : b.badge;
+
+    if (b.status !== undefined) {
+      updates.status = b.status;
+      updates.isActive = b.status === 'ACTIVE' || b.status === 'Active (Visible)';
+    } else if (b.isActive !== undefined) {
+      updates.isActive = Boolean(b.isActive);
+      updates.status = updates.isActive ? 'ACTIVE' : 'INACTIVE';
+    }
+
+    if (b.isPopular !== undefined) updates.isPopular = Boolean(b.isPopular);
+
+    const updatedPackage = await Package.findByIdAndUpdate(id, { $set: updates }, {
       new: true,
       runValidators: true
     });
@@ -254,7 +302,7 @@ const updatePackage = async (req, res, next) => {
 
 /**
  * Admin: Toggle active status
- * PUT /api/admin/packages/:id/toggle
+ * PUT /api/packages/:id/toggle
  */
 const togglePackageStatus = async (req, res, next) => {
   try {
@@ -269,6 +317,7 @@ const togglePackageStatus = async (req, res, next) => {
     }
 
     pkg.isActive = !pkg.isActive;
+    pkg.status = pkg.isActive ? 'ACTIVE' : 'INACTIVE';
     await pkg.save();
 
     res.json({
@@ -283,7 +332,7 @@ const togglePackageStatus = async (req, res, next) => {
 
 /**
  * Admin: Delete a package
- * DELETE /api/admin/packages/:id
+ * DELETE /api/packages/:id
  */
 const deletePackage = async (req, res, next) => {
   try {
@@ -308,7 +357,6 @@ const deletePackage = async (req, res, next) => {
 
 /**
  * Package Purchase & Activation Engine
- * Transitions user status: INACTIVE -> ACTIVE
  * POST /api/packages/purchase
  */
 const purchasePackage = async (req, res, next) => {
@@ -338,7 +386,6 @@ const purchasePackage = async (req, res, next) => {
     const packageKBP = Number(kbp) || selectedPackage.kbp || 1000;
     const directBonus = selectedPackage.directBonus || 200;
 
-    // 1. Activate member account
     user.status = 'ACTIVE';
     user.activationDate = new Date();
     if (selectedPackage._id && String(selectedPackage._id).length === 24) {
@@ -347,10 +394,8 @@ const purchasePackage = async (req, res, next) => {
     user.totalKBP = (user.totalKBP || 0) + packageKBP;
     await user.save();
 
-    // 2. Mark unilevel referral records active in genealogy
     await Referral.updateMany({ userId: user._id }, { $set: { isActive: true } });
 
-    // 3. Credit Direct Sponsor Bonus to upline sponsor
     if (user.sponsorId && directBonus > 0) {
       const sponsorWallet = await Wallet.findOne({ userId: user.sponsorId });
       if (sponsorWallet) {
@@ -361,7 +406,6 @@ const purchasePackage = async (req, res, next) => {
       }
     }
 
-    // 4. Propagate KBP volume up the binary tree and trigger pair matching
     try {
       if (BinaryService && typeof BinaryService.updateVolumes === 'function') {
         await BinaryService.updateVolumes(user._id, packageKBP);

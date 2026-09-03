@@ -466,51 +466,52 @@
   border-radius: 2px;
 }
 
-/* ==================== 3. MOBILE DRAWER (COMPACT CARD, BORDER-RADIUS: 5px) ==================== */
+/* ==================== 3. MOBILE DRAWER (PREMIUM 3D EXECUTIVE UI) ==================== */
 .drawerOverlay {
   position: fixed;
   inset: 0;
   background: rgba(11, 18, 40, 0.65);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 999;
-  transition: opacity 0.25s ease;
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   align-items: flex-start;
+  padding: 14px;
 }
 
 .drawerSidebar {
   position: fixed;
-  top: 12px;
-  left: 12px;
-  /* Not full screen height: fits content up to login button with safety max-height */
-  height: auto;
-  max-height: calc(100vh - 24px);
+  top: 14px;
+  left: 14px;
   width: min(88vw, 340px);
+  max-height: calc(100vh - 28px);
+  max-height: calc(100dvh - 28px);
   
-  /* Modern distinct slate/indigo gradient with subtle radial glow */
+  /* Deep Navy & Obsidian Glass with Subtle Gold/Emerald Radial Ambience */
   background: 
-    radial-gradient(circle at 100% 0%, rgba(37, 99, 235, 0.18) 0%, transparent 50%),
-    radial-gradient(circle at 0% 100%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
-    linear-gradient(165deg, #0f172a 0%, #1e293b 60%, #0b1329 100%);
+    radial-gradient(circle at 100% 0%, rgba(212, 175, 55, 0.12) 0%, transparent 45%),
+    radial-gradient(circle at 0% 100%, rgba(26, 71, 42, 0.25) 0%, transparent 50%),
+    linear-gradient(170deg, #0d1629 0%, #080d1a 100%);
     
-  /* Exact requested 5px border radius */
-  border-radius: 5px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 
-    0 20px 40px -10px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.08);
-    
+    0 24px 48px -10px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+
   display: flex;
   flex-direction: column;
-  padding: 18px 16px;
+  padding: 20px 16px 16px 16px;
   box-sizing: border-box;
-  animation: slideDrawerCompact 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideDrawer3D 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   overflow-y: auto;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
-@keyframes slideDrawerCompact {
+@keyframes slideDrawer3D {
   from {
     transform: translateX(-110%) scale(0.96);
     opacity: 0;
@@ -521,51 +522,70 @@
   }
 }
 
-/* Header Area */
+/* Header with Brand Logo & Minimalist Close Button */
 .drawerHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.drawerHeader .brandLogo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drawerHeader .logoRocket {
+  font-size: 20px;
 }
 
 .drawerHeader .logoText {
   color: #ffffff;
+  font-size: 20px;
+  font-weight: 850;
+  letter-spacing: -0.02em;
 }
 
 .drawerCloseBtn {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  width: 30px;
-  height: 30px;
-  border-radius: 5px;
-  font-size: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 13px;
   cursor: pointer;
-  color: #cbd5e1;
+  color: #94a3b8;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
 }
 
-.drawerCloseBtn:hover {
-  background: rgba(255, 255, 255, 0.2);
+.drawerCloseBtn:active {
+  background: rgba(255, 255, 255, 0.15);
   color: #ffffff;
-  transform: rotate(90deg);
+  transform: scale(0.92);
 }
 
-/* Search Bar inside Drawer */
+/* Inset Search Field */
 .drawerSearchForm {
   display: flex;
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: 5px;
-  padding: 7px 12px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 8px 12px;
   margin-bottom: 14px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+}
+
+.drawerSearchForm:focus-within {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #d4af37;
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.15);
 }
 
 .drawerSearchInput {
@@ -574,8 +594,12 @@
   background: transparent;
   outline: none;
   font-size: 13px;
-  color: #0f172a;
+  color: #ffffff;
   font-weight: 500;
+}
+
+.drawerSearchInput::placeholder {
+  color: #64748b;
 }
 
 .drawerSearchSubmit {
@@ -583,94 +607,94 @@
   border: none;
   cursor: pointer;
   font-size: 13px;
-  color: #2563eb;
-  padding: 0;
+  color: #d4af37;
+  padding: 0 2px;
 }
 
-/* Body Tiles Container */
+/* Drawer Body & Section Titles */
 .drawerScrollBody {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 5px;
-  overflow-y: auto;
   padding-right: 2px;
 }
 
 .drawerSectionLabel {
   font-size: 10px;
   font-weight: 800;
-  color: #94a3b8;
+  color: #d4af37;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  margin: 10px 0 4px 2px;
+  margin: 12px 0 4px 4px;
 }
 
-/* Clean White Navigation Tiles on Contrast Background */
+/* Polished Frosted Navigation Tiles */
 .drawerNavLink {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #0f172a;
+  padding: 11px 14px;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: #f1f5f9;
   text-decoration: none;
-  background: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   width: 100%;
   cursor: pointer;
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: all 0.18s ease;
-  text-align: left;
+  border-radius: 8px;
   box-sizing: border-box;
+  transition: all 0.18s ease;
 }
 
 .drawerNavLink:hover,
 .drawerNavLinkActive {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border-color: #93c5fd;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border-color: rgba(212, 175, 55, 0.4);
   transform: translateX(3px);
 }
 
 .drawerArrow {
   color: #64748b;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
 }
 
-/* Category & Services Tiles */
+/* Category Buttons */
 .drawerCategoryBtn {
-  background: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   text-align: left;
-  padding: 9px 12px;
+  padding: 10px 14px;
   font-size: 13px;
-  font-weight: 600;
-  color: #1e293b;
+  font-weight: 550;
+  color: #cbd5e1;
   cursor: pointer;
-  border-radius: 5px;
+  border-radius: 8px;
   font-family: inherit;
   width: 100%;
   box-sizing: border-box;
   transition: all 0.18s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
-.drawerCategoryBtn:hover {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border-color: #bfdbfe;
+.drawerCategoryBtn:hover,
+.drawerCategoryBtn:active {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.15);
   transform: translateX(3px);
 }
 
-/* Auth Section wrapper directly terminating the card */
+/* Auth CTA Button */
 .drawerAuthInlineWrapper {
   margin-top: 14px;
   padding-top: 12px;
-  border-top: 1px dashed rgba(255, 255, 255, 0.15);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .drawerAuthBtn {
@@ -678,27 +702,22 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  color: #ffffff;
+  background: linear-gradient(135deg, #d4af37 0%, #b89324 100%);
+  color: #0b1228;
   padding: 12px 16px;
-  border-radius: 5px;
-  font-size: 13px;
+  border-radius: 8px;
+  font-size: 13.5px;
   font-weight: 800;
   text-decoration: none;
   letter-spacing: 0.02em;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  box-shadow: 0 8px 18px -3px rgba(37, 99, 235, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 20px -4px rgba(212, 175, 55, 0.35);
   transition: all 0.2s ease;
 }
 
-.drawerAuthBtn:hover {
-  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
-  box-shadow: 0 10px 22px -3px rgba(37, 99, 235, 0.6);
-  transform: translateY(-1px);
-}
-
 .drawerAuthBtn:active {
-  transform: translateY(0);
+  transform: translateY(1px);
+  box-shadow: 0 4px 10px rgba(212, 175, 55, 0.25);
 }
 
 /* Responsive Rules */

@@ -183,6 +183,7 @@ app.use('/api/users', userRoutes);
 
 // Ranks & Kuwi Stars Progression
 app.use('/api/ranks', rankRoutes);
+app.use('/api/admin/ranks', rankRoutes);
 
 // Products
 app.use('/api/products', productRoutes);
@@ -197,6 +198,7 @@ app.use('/api/payment', paymentRoutes);
 
 // Orders
 app.use('/api/orders', orderRoutes);
+app.use('/api/admin/orders', orderRoutes);
 
 // Wallets (Income, Repurchase, and Salary 1% TTO)
 app.use('/api/wallet', walletRoutes);
@@ -212,9 +214,11 @@ app.use('/api/repurchase', repurchaseRoutes);
 
 // Life Tension Free Funds
 app.use('/api/funds', fundRoutes);
+app.use('/api/admin/funds', fundRoutes);
 
 // Withdrawals
 app.use('/api/withdrawals', withdrawalRoutes);
+app.use('/api/admin/withdrawals', withdrawalRoutes);
 
 // Notifications
 app.use('/api/notifications', notificationRoutes);
