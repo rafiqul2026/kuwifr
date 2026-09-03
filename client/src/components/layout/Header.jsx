@@ -1,9 +1,8 @@
 // client/src/components/layout/Header.jsx
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useShop } from '../../context/ShopContext';
 import { useAuth } from '../../context/AuthContext';
-import api from '../../services/api';
 import OrderTrackingModal from '../public/OrderTrackingModal';
 import styles from './Header.module.css';
 
@@ -16,13 +15,16 @@ const Header = () => {
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
   const [showTracker, setShowTracker] = useState(false);
 
+  const shopContext = useShop ? useShop() : {};
   const {
+    products = [],
     cartCount = 0,
     wishlistCount = 0,
     setIsCartOpen,
     setIsWishlistOpen,
-    setActiveCategoryFilter
-  } = useShop ? useShop() : {};
+    setActiveCategoryFilter,
+    activeCategoryFilter = 'ALL'
+  } = shopContext;
 
   const { user, isAuthenticated, logout } = useAuth
     ? useAuth()
@@ -33,24 +35,21 @@ const Header = () => {
   const searchRef = useRef(null);
   const accountRef = useRef(null);
 
-  // Elevation and compacting effect on scroll
   useEffect(() => {
     const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
+      setScrolled(window.scrollY > 15);
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Close modals & dropdowns on route changes
   useEffect(() => {
     setMobileMenuOpen(false);
     setSearchOpen(false);
     setShowAccountDropdown(false);
     setSearchQuery('');
-  }, [location.pathname, location.search]);
+  }, [location.pathname]);
 
-  // Handle click outside for search suggestions and account menu
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (searchRef.current && !searchRef.current.contains(event.target)) {
@@ -64,7 +63,6 @@ const Header = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Prevent background scroll when mobile drawer is open
   useEffect(() => {
     if (mobileMenuOpen) {
       document.body.style.overflow = 'hidden';
@@ -76,25 +74,23 @@ const Header = () => {
     };
   }, [mobileMenuOpen]);
 
-  // Live search suggestions via API with safe debounce
+  // Live search suggestion filtering
   useEffect(() => {
-    if (!searchQuery || searchQuery.trim().length < 2) {
+    if (searchQuery.trim().length >= 2) {
+      const q = searchQuery.toLowerCase();
+      const productList = Array.isArray(products) ? products : [];
+      const matches = productList
+        .filter(
+          (p) =>
+            p.name?.toLowerCase().includes(q) ||
+            p.category?.toLowerCase().includes(q)
+        )
+        .slice(0, 5);
+      setSearchSuggestions(matches);
+    } else {
       setSearchSuggestions([]);
-      return;
     }
-
-    const timer = setTimeout(async () => {
-      try {
-        const res = await api.get(`/api/products?search=${encodeURIComponent(searchQuery.trim())}&limit=5`);
-        const payload = res.data?.data?.products || res.data?.products || (Array.isArray(res.data) ? res.data : []);
-        setSearchSuggestions(payload.slice(0, 5));
-      } catch (err) {
-        setSearchSuggestions([]);
-      }
-    }, 250);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, products]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -107,81 +103,88 @@ const Header = () => {
     }
   };
 
-  const handleCategoryNav = (categoryName) => {
+  // Navigates and filters categories without showing blank screens
+  const handleNavClick = (categoryName) => {
     if (typeof setActiveCategoryFilter === 'function') {
       setActiveCategoryFilter(categoryName);
     }
-    navigate(`/shop?category=${encodeURIComponent(categoryName)}`);
     setMobileMenuOpen(false);
+
+    if (location.pathname === '/') {
+      const el = document.getElementById('products');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
+    }
+
+    if (categoryName === 'ALL') {
+      navigate('/shop');
+    } else {
+      navigate(`/shop?category=${encodeURIComponent(categoryName)}`);
+    }
   };
 
   const navItems = [
-    { label: 'Home', path: '/' },
-    { label: 'Shop All', path: '/shop' },
-    { label: 'Health & Wellness', category: 'Health & Wellness' },
-    { label: 'Alkaline Tech', category: 'Alkaline Water Devices' },
-    { label: 'Fashion & EV', category: 'Smart EV Scooty' },
+    { label: 'Home', action: () => navigate('/') },
+    { label: 'Shop All', action: () => handleNavClick('ALL'), key: 'ALL' },
+    { label: 'Health & Wellness', action: () => handleNavClick('Health & Wellness'), key: 'Health & Wellness' },
+    { label: 'Alkaline Tech', action: () => handleNavClick('Alkaline Water Devices'), key: 'Alkaline Water Devices' },
+    { label: 'Fashion & EV', action: () => handleNavClick('Smart EV Scooty'), key: 'Smart EV Scooty' },
   ];
 
   return (
     <>
-      {/* 1. Full-Width Top Announcement Bar */}
+      {/* 1. Full-Width Announcement Bar */}
       <div className={styles.announcementBar}>
-        <div className={styles.announcementContainer}>
-          <span className={styles.announcementText}>
-            ✨ Free Express Shipping on All Orders Above ₹999 | 100% Genuine Guaranteed
-          </span>
+        <div className={styles.announcementText}>
+          ✨ Free Express Shipping on All Orders Above ₹999 | 100% Genuine Guaranteed
         </div>
       </div>
 
-      {/* 2. Full-Width Sticky Two-Level Header */}
+      {/* 2. Full-Width Sticky Navbar */}
       <header className={`${styles.header} ${scrolled ? styles.headerScrolled : ''}`}>
         <div className={styles.navContainer}>
-          {/* Mobile Menu Hamburger Trigger */}
-          <button
-            className={styles.mobileHamburger}
-            onClick={() => setMobileMenuOpen(true)}
-            aria-label="Open Navigation Menu"
-          >
-            <span className={styles.hamburgerBar}></span>
-            <span className={styles.hamburgerBar}></span>
-            <span className={styles.hamburgerBar}></span>
-          </button>
+          <div className={styles.navLeft}>
+            {/* Mobile Hamburger Button */}
+            <button
+              className={styles.mobileHamburger}
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Open Navigation Menu"
+            >
+              <span className={styles.hamburgerBar}></span>
+              <span className={styles.hamburgerBar}></span>
+              <span className={styles.hamburgerBar}></span>
+            </button>
 
-          {/* Left: Brand Logo */}
-          <Link to="/" className={styles.brandLogo} aria-label="KUWIFR Home">
-            <span className={styles.logoRocket}>🚀</span>
-            <span className={styles.logoText}>KUWIFR</span>
-          </Link>
+            {/* Brand Logo */}
+            <Link to="/" className={styles.brandLogo} aria-label="KUWIFR Home">
+              <span className={styles.logoRocket}>🚀</span>
+              <span className={styles.logoText}>KUWIFR</span>
+            </Link>
+          </div>
 
-          {/* Center: Desktop Navigation Links */}
+          {/* Desktop Navigation Links */}
           <nav className={styles.desktopNav} aria-label="Main Navigation">
-            {navItems.map((item, idx) =>
-              item.path ? (
-                <NavLink
-                  key={idx}
-                  to={item.path}
-                  className={({ isActive }) =>
-                    `${styles.navItem} ${isActive ? styles.navItemActive : ''}`
-                  }
-                >
-                  {item.label}
-                </NavLink>
-              ) : (
-                <button
-                  key={idx}
-                  onClick={() => handleCategoryNav(item.category)}
-                  className={styles.navItemBtn}
-                >
-                  {item.label}
-                </button>
-              )
-            )}
+            {navItems.map((item, idx) => (
+              <button
+                key={idx}
+                onClick={item.action}
+                className={`${styles.navItemBtn} ${
+                  (item.key && activeCategoryFilter === item.key) ||
+                  (item.label === 'Home' && location.pathname === '/')
+                    ? styles.navItemActive
+                    : ''
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
           </nav>
 
-          {/* Right: Search, Wishlist, Cart & Account Actions */}
+          {/* Right Action Icons */}
           <div className={styles.actionGroup}>
-            {/* Desktop / Tablet Expandable Search */}
+            {/* Search Button & Dropdown */}
             <div className={styles.searchWrapper} ref={searchRef}>
               {searchOpen ? (
                 <div className={styles.searchFlyout}>
@@ -189,7 +192,7 @@ const Header = () => {
                     <span className={styles.searchIconInside}>🔍</span>
                     <input
                       type="text"
-                      placeholder="Search wellness, alkaline devices, sarees..."
+                      placeholder="Search store..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className={styles.searchInput}
@@ -208,10 +211,9 @@ const Header = () => {
                     </button>
                   </form>
 
-                  {/* Live Search Suggestions Dropdown */}
                   {searchSuggestions.length > 0 && (
                     <div className={styles.suggestionsCard}>
-                      <div className={styles.suggestionsHeader}>Products Matching Search</div>
+                      <div className={styles.suggestionsHeader}>Matching Products</div>
                       {searchSuggestions.map((prod) => (
                         <div
                           key={prod.id || prod._id}
@@ -223,13 +225,19 @@ const Header = () => {
                           }}
                         >
                           <img
-                            src={prod.image || prod.images?.[0] || 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=100&q=80'}
+                            src={
+                              prod.image ||
+                              prod.images?.[0] ||
+                              'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=100&q=80'
+                            }
                             alt={prod.name}
                             className={styles.suggestionThumb}
                           />
                           <div className={styles.suggestionInfo}>
                             <div className={styles.suggestionName}>{prod.name}</div>
-                            <div className={styles.suggestionPrice}>₹{(prod.price || prod.sellingPrice || 0).toLocaleString()}</div>
+                            <div className={styles.suggestionPrice}>
+                              ₹{(prod.price || prod.sellingPrice || 0).toLocaleString()}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -237,7 +245,7 @@ const Header = () => {
                         onClick={handleSearchSubmit}
                         className={styles.viewAllResultsBtn}
                       >
-                        View all search results →
+                        View all results →
                       </button>
                     </div>
                   )}
@@ -249,45 +257,41 @@ const Header = () => {
                   aria-label="Search"
                   title="Search Store"
                 >
-                  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg width="21" height="21" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </button>
               )}
             </div>
 
-            {/* Wishlist Button with Badge */}
+            {/* Wishlist Button */}
             <button
               onClick={() => setIsWishlistOpen && setIsWishlistOpen(true)}
-              className={styles.actionIconBtn}
+              className={`${styles.actionIconBtn} ${styles.desktopOnlyIcon}`}
               aria-label={`Wishlist (${wishlistCount} items)`}
               title="View Wishlist"
             >
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg width="21" height="21" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
               </svg>
-              {wishlistCount > 0 && (
-                <span className={styles.countBadge}>{wishlistCount}</span>
-              )}
+              {wishlistCount > 0 && <span className={styles.countBadge}>{wishlistCount}</span>}
             </button>
 
-            {/* Cart Button with Badge */}
+            {/* Cart Button */}
             <button
               onClick={() => setIsCartOpen && setIsCartOpen(true)}
               className={styles.actionIconBtn}
               aria-label={`Cart (${cartCount} items)`}
               title="View Cart"
             >
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg width="21" height="21" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
               </svg>
-              {cartCount > 0 && (
-                <span className={styles.countBadge}>{cartCount}</span>
-              )}
+              {cartCount > 0 && <span className={styles.countBadge}>{cartCount}</span>}
             </button>
 
-            {/* Account / User Floating Card Menu */}
-            <div className={styles.accountWrapper} ref={accountRef}>
+            {/* Account / User Menu */}
+            <div className={`${styles.accountWrapper} ${styles.desktopOnlyIcon}`} ref={accountRef}>
               <button
                 onClick={() => setShowAccountDropdown(!showAccountDropdown)}
                 className={styles.accountTrigger}
@@ -303,7 +307,6 @@ const Header = () => {
                 <span className={styles.dropdownCaret}>▾</span>
               </button>
 
-              {/* Account Floating Card */}
               {showAccountDropdown && (
                 <div className={styles.accountDropdownCard}>
                   <div className={styles.accountCardHeader}>
@@ -348,30 +351,6 @@ const Header = () => {
                     <button
                       onClick={() => {
                         setShowAccountDropdown(false);
-                        if (setIsCartOpen) setIsCartOpen(true);
-                      }}
-                      className={styles.dropdownItem}
-                    >
-                      <span>🛍️</span>
-                      <span>My Shopping Cart</span>
-                      {cartCount > 0 && <span className={styles.itemCounter}>{cartCount}</span>}
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setShowAccountDropdown(false);
-                        if (setIsWishlistOpen) setIsWishlistOpen(true);
-                      }}
-                      className={styles.dropdownItem}
-                    >
-                      <span>♡</span>
-                      <span>My Wishlist</span>
-                      {wishlistCount > 0 && <span className={styles.itemCounter}>{wishlistCount}</span>}
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setShowAccountDropdown(false);
                         setShowTracker(true);
                       }}
                       className={styles.dropdownItem}
@@ -404,7 +383,7 @@ const Header = () => {
         </div>
       </header>
 
-      {/* 3. Slide-In Full-Height Mobile Drawer */}
+      {/* 3. Full-Screen Mobile Drawer */}
       {mobileMenuOpen && (
         <div
           className={styles.drawerOverlay}
@@ -416,7 +395,6 @@ const Header = () => {
             onClick={(e) => e.stopPropagation()}
             aria-label="Mobile Navigation"
           >
-            {/* Drawer Header */}
             <div className={styles.drawerHeader}>
               <Link to="/" className={styles.brandLogo} onClick={() => setMobileMenuOpen(false)}>
                 <span className={styles.logoRocket}>🚀</span>
@@ -431,11 +409,10 @@ const Header = () => {
               </button>
             </div>
 
-            {/* Mobile Search Form */}
             <form onSubmit={handleSearchSubmit} className={styles.drawerSearchForm}>
               <input
                 type="text"
-                placeholder="Search products, alkaline devices..."
+                placeholder="Search products..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className={styles.drawerSearchInput}
@@ -445,73 +422,69 @@ const Header = () => {
               </button>
             </form>
 
-            {/* Drawer Navigation Links */}
             <div className={styles.drawerScrollBody}>
               <div className={styles.drawerSectionLabel}>Main Store</div>
-              <NavLink
-                to="/"
-                onClick={() => setMobileMenuOpen(false)}
-                className={({ isActive }) =>
-                  `${styles.drawerNavLink} ${isActive ? styles.drawerNavLinkActive : ''}`
-                }
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  navigate('/');
+                }}
+                className={styles.drawerNavLink}
               >
                 <span>🏠 Home</span>
                 <span className={styles.drawerArrow}>›</span>
-              </NavLink>
+              </button>
 
-              <NavLink
-                to="/shop"
-                onClick={() => setMobileMenuOpen(false)}
-                className={({ isActive }) =>
-                  `${styles.drawerNavLink} ${isActive ? styles.drawerNavLinkActive : ''}`
-                }
+              <button
+                onClick={() => handleNavClick('ALL')}
+                className={styles.drawerNavLink}
               >
                 <span>🛍️ Shop All Products</span>
                 <span className={styles.drawerArrow}>›</span>
-              </NavLink>
+              </button>
 
-              <div className={styles.drawerSectionLabel} style={{ marginTop: '20px' }}>
-                Categories
+              <div className={styles.drawerSectionLabel} style={{ marginTop: '18px' }}>
+                Featured Collections
               </div>
               <button
-                onClick={() => handleCategoryNav('Health & Wellness')}
+                onClick={() => handleNavClick('Health & Wellness')}
                 className={styles.drawerCategoryBtn}
               >
                 🌿 Health & Wellness
               </button>
               <button
-                onClick={() => handleCategoryNav('Alkaline Water Devices')}
+                onClick={() => handleNavClick('Alkaline Water Devices')}
                 className={styles.drawerCategoryBtn}
               >
                 💧 Alkaline Water Devices
               </button>
               <button
-                onClick={() => handleCategoryNav('Designer Modern Sarees')}
+                onClick={() => handleNavClick('Designer Modern Sarees')}
                 className={styles.drawerCategoryBtn}
               >
                 ✨ Designer Modern Sarees
               </button>
               <button
-                onClick={() => handleCategoryNav('Gents Premium Wear')}
+                onClick={() => handleNavClick('Gents Premium Wear')}
                 className={styles.drawerCategoryBtn}
               >
                 👔 Gents Premium Wear
               </button>
               <button
-                onClick={() => handleCategoryNav('Smart EV Scooty')}
+                onClick={() => handleNavClick('Smart EV Scooty')}
                 className={styles.drawerCategoryBtn}
               >
                 ⚡ Smart EV Scooty
               </button>
               <button
-                onClick={() => handleCategoryNav('Hair Care & Serums')}
+                onClick={() => handleNavClick('Hair Care & Serums')}
                 className={styles.drawerCategoryBtn}
               >
                 🧴 Hair Care & Serums
               </button>
 
-              <div className={styles.drawerSectionLabel} style={{ marginTop: '20px' }}>
-                Account & Orders
+              <div className={styles.drawerSectionLabel} style={{ marginTop: '18px' }}>
+                User Services
               </div>
               <button
                 onClick={() => {
@@ -520,9 +493,8 @@ const Header = () => {
                 }}
                 className={styles.drawerCategoryBtn}
               >
-                📦 Track Your Order
+                📦 Track Order
               </button>
-
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
@@ -532,33 +504,22 @@ const Header = () => {
               >
                 ♡ My Wishlist ({wishlistCount})
               </button>
-
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  if (setIsCartOpen) setIsCartOpen(true);
-                }}
-                className={styles.drawerCategoryBtn}
-              >
-                🛍️ My Cart ({cartCount})
-              </button>
             </div>
 
-            {/* Drawer Bottom Actions */}
             <div className={styles.drawerFooter}>
               <Link
                 to={isAuthenticated ? (user?.role === 'ADMIN' ? '/admin' : '/dashboard') : '/login'}
                 onClick={() => setMobileMenuOpen(false)}
                 className={styles.drawerAuthBtn}
               >
-                {isAuthenticated ? '👤 Access Portal / Account' : '🔐 Sign In / Register'}
+                {isAuthenticated ? '👤 Access Account / Portal' : '🔐 Sign In / Register'}
               </Link>
             </div>
           </aside>
         </div>
       )}
 
-      {/* 4. Connected Order Tracking Modal */}
+      {/* 4. Order Tracking Modal */}
       {showTracker && <OrderTrackingModal onClose={() => setShowTracker(false)} />}
     </>
   );

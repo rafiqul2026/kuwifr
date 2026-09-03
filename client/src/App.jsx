@@ -11,6 +11,7 @@ import { ShopProvider } from './context/ShopContext';
 // Global E-Commerce Slide-Over Drawers
 import CartSlideOver from './components/public/CartSlideOver';
 import WishlistSlideOver from './components/public/WishlistSlideOver';
+import ShopPage from './pages/public/ShopPage';
 
 // Public & Auth Routes / Pages
 import PublicRoutes from './routes/PublicRoutes';
@@ -47,6 +48,7 @@ function App() {
                   <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                   <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
                   <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
+                  <Route path="/shop" element={<ShopPage />} />
                   
                   {/* Protected Member Dashboard */}
                   <Route 
