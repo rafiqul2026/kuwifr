@@ -37,6 +37,8 @@ const reportRoutes = require('./routes/report.routes');
 const contactRoutes = require('./routes/contact.routes');
 const supportRoutes = require('./routes/support.routes');
 const adminRoutes = require('./routes/admin.routes');
+const settingRoutes = require('./routes/setting.routes');
+const auditLogRoutes = require('./routes/auditLog.routes');
 
 // Validate environment variables
 validateEnv();
@@ -239,6 +241,14 @@ app.use('/api/admin', adminRoutes);
 // Mount routes
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/admin/campaigns', campaignRoutes);
+
+// Setting
+app.use('/api/settings', settingRoutes);
+app.use('/api/admin/settings', settingRoutes);
+
+// Audit Logs
+app.use('/api/audit', auditLogRoutes);
+app.use('/api/admin/audit', auditLogRoutes);
 
 // Increase JSON and urlencoded limits for base64 image uploads
 app.use(express.json({ limit: '10mb' }));

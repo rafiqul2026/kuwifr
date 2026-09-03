@@ -3,15 +3,6 @@ const mongoose = require('mongoose');
 
 const auditLogSchema = new mongoose.Schema(
   {
-    adminId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true
-    },
-    adminEmail: {
-      type: String,
-      required: true
-    },
     action: {
       type: String,
       required: true,
@@ -19,41 +10,34 @@ const auditLogSchema = new mongoose.Schema(
     },
     module: {
       type: String,
-      required: true,
-      enum: [
-        'AUTH',
-        'MEMBERS',
-        'PACKAGES',
-        'PRODUCTS',
-        'ORDERS',
-        'WITHDRAWALS',
-        'RANKS',
-        'FUNDS',
-        'RULES',
-        'CAMPAIGNS',
-        'SETTINGS'
-      ]
+      enum: ['AUTH', 'ORDERS', 'WITHDRAWALS', 'PRODUCTS', 'RANKS', 'FUNDS', 'RULES', 'CAMPAIGNS', 'NOTIFICATIONS', 'SETTINGS', 'MEMBERS'],
+      default: 'SETTINGS'
     },
-    targetId: {
+    adminId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    adminEmail: {
       type: String,
-      default: null
-    },
-    previousData: {
-      type: mongoose.Schema.Types.Mixed,
-      default: null
-    },
-    newData: {
-      type: mongoose.Schema.Types.Mixed,
-      default: null
+      default: 'admin@kuwifr.com'
     },
     ipAddress: {
       type: String,
-      default: null
+      default: '127.0.0.1'
     },
-    status: {
+    severity: {
       type: String,
-      enum: ['SUCCESS', 'FAILURE'],
-      default: 'SUCCESS'
+      enum: ['INFO', 'WARNING', 'CRITICAL'],
+      default: 'INFO'
+    },
+    details: {
+      type: String,
+      default: ''
+    },
+    metadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
     }
   },
   {
@@ -61,7 +45,4 @@ const auditLogSchema = new mongoose.Schema(
   }
 );
 
-auditLogSchema.index({ module: 1, createdAt: -1 });
-auditLogSchema.index({ adminId: 1, createdAt: -1 });
-
-module.exports = mongoose.model('AuditLog', auditLogSchema);
+module.exports = mongoose.models.AuditLog || mongoose.model('AuditLog', auditLogSchema);
