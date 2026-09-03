@@ -20,6 +20,7 @@ const { requestLogger } = require('./middleware/logger');
 // ============================================================
 const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
+const campaignRoutes = require('./routes/campaign.routes');
 const productRoutes = require('./routes/product.routes');
 const packageRoutes = require('./routes/package.routes');
 const paymentRoutes = require('./routes/payment.routes');
@@ -233,6 +234,10 @@ app.use('/api/support', supportRoutes);
 
 // Admin Control Panel
 app.use('/api/admin', adminRoutes);
+
+// Mount routes
+app.use('/api/campaigns', campaignRoutes);
+app.use('/api/admin/campaigns', campaignRoutes);
 
 // Increase JSON and urlencoded limits for base64 image uploads
 app.use(express.json({ limit: '10mb' }));

@@ -1,57 +1,228 @@
-import React, { useState, useEffect } from 'react';
+// client/src/pages/admin/AdminCampaignsPage.jsx
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './AdminCampaignsPage.module.css';
 
+const CAMPAIGN_TYPES = ['MONTHLY', 'QUARTERLY', 'SPECIAL', 'REFERRAL', 'REPURCHASE', 'RANK'];
+
+const TARGET_UNITS = [
+  { value: 'INCOME', label: 'Income Earned (₹)' },
+  { value: 'KBP', label: 'Binary KBP Volume' },
+  { value: 'REFERRALS', label: 'Direct Referrals' },
+  { value: 'SALES', label: 'Sales Revenue (₹)' },
+  { value: 'RANK', label: 'Matching Star Pairs' }
+];
+
+const REWARD_TYPES = ['CASH', 'PRODUCT', 'TRIP', 'MERCHANDISE', 'RECOGNITION'];
+
+const INITIAL_FORM = {
+  name: '',
+  code: '',
+  description: '',
+  type: 'MONTHLY',
+  targets: [{ name: 'Star Pairs Matching', value: '10', unit: 'RANK' }],
+  reward: {
+    type: 'TRIP',
+    value: '',
+    description: '',
+    imageUrl: ''
+  },
+  startDate: new Date().toISOString().split('T')[0],
+  endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+  status: 'ACTIVE',
+  isActive: true
+};
+
 const AdminCampaignsPage = () => {
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState('ALL');
   const [showModal, setShowModal] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    code: '',
-    description: '',
-    type: 'MONTHLY',
-    targets: [{ name: '', value: '', unit: 'INCOME' }],
-    reward: {
-      type: 'CASH',
-      value: '',
-      description: ''
-    },
-    startDate: '',
-    endDate: '',
-    status: 'DRAFT',
-    isActive: true
-  });
-  const { showNotification } = useNotification();
+  const [formData, setFormData] = useState(INITIAL_FORM);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchCampaigns();
-  }, []);
+  const fileInputRef = useRef(null);
+  const { showNotification } = useNotification ? useNotification() : {
+    showNotification: (msg, type) => console.log(`[${type}] ${msg}`)
+  };
 
-  const fetchCampaigns = async () => {
+  // Resilient multi-route fetch
+  const fetchCampaigns = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await api.get('/api/admin/campaigns');
-      if (response.data.success) {
-        setCampaigns(response.data.data.campaigns || []);
+      let res;
+      try {
+        res = await api.get('/api/admin/campaigns');
+      } catch {
+        try {
+          res = await api.get('/api/campaigns/all');
+        } catch {
+          res = await api.get('/api/campaigns');
+        }
+      }
+
+      if (res.data?.success || Array.isArray(res.data)) {
+        const list = res.data?.data?.campaigns || res.data?.campaigns || (Array.isArray(res.data) ? res.data : []);
+        setCampaigns(Array.isArray(list) ? list : []);
       }
     } catch (error) {
-      showNotification('Failed to fetch campaigns', 'error');
+      console.error('Failed to fetch campaigns:', error);
+      showNotification('Unable to fetch campaigns.', 'warning');
     } finally {
       setLoading(false);
     }
+  }, [showNotification]);
+
+  useEffect(() => {
+    fetchCampaigns();
+  }, [fetchCampaigns]);
+
+  // One-click seed campaigns
+  const handleInitialize = async () => {
+    try {
+      setIsSubmitting(true);
+      let res;
+      try {
+        res = await api.post('/api/admin/campaigns/initialize');
+      } catch {
+        res = await api.post('/api/campaigns/initialize');
+      }
+
+      if (res.data?.success) {
+        showNotification('Campaigns initialized successfully!', 'success');
+        fetchCampaigns();
+      }
+    } catch (err) {
+      showNotification('Failed to initialize campaigns.', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
+  // Filtered dataset
+  const filteredCampaigns = useMemo(() => {
+    return campaigns.filter((c) => {
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        c.name?.toLowerCase().includes(q) ||
+        c.code?.toLowerCase().includes(q) ||
+        c.description?.toLowerCase().includes(q) ||
+        c.reward?.description?.toLowerCase().includes(q);
+
+      const matchesType = filterType === 'ALL' || c.type === filterType;
+      return matchesSearch && matchesType;
+    });
+  }, [campaigns, searchQuery, filterType]);
+
+  // Financial KPI Metrics
+  const kpis = useMemo(() => {
+    const total = campaigns.length;
+    const active = campaigns.filter((c) => c.status === 'ACTIVE').length;
+    const totalQualifiers = campaigns.reduce(
+      (sum, c) => sum + Number(c.progress?.achievedParticipants || c.qualifierCount || 0),
+      0
+    );
+    const totalPrizePool = campaigns.reduce(
+      (sum, c) => sum + Number(c.reward?.value || c.rewardValue || 0),
+      0
+    );
+    return { total, active, totalQualifiers, totalPrizePool };
+  }, [campaigns]);
+
+  // Image Upload to Base64
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      showNotification('Image size should be less than 2MB', 'warning');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFormData((prev) => ({
+        ...prev,
+        reward: { ...prev.reward, imageUrl: reader.result }
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleOpenCreate = () => {
+    setEditingCampaign(null);
+    setFormData(INITIAL_FORM);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setShowModal(true);
+  };
+
+  const handleOpenEdit = (c) => {
+    setEditingCampaign(c);
+    setFormData({
+      name: c.name || '',
+      code: c.code || '',
+      description: c.description || '',
+      type: c.type || 'MONTHLY',
+      targets: Array.isArray(c.targets) && c.targets.length > 0
+        ? c.targets.map((t) => ({ name: t.name, value: String(t.value), unit: t.unit || 'INCOME' }))
+        : [{ name: 'Target', value: '10', unit: 'INCOME' }],
+      reward: {
+        type: c.reward?.type || 'CASH',
+        value: c.reward?.value !== undefined ? String(c.reward.value) : '',
+        description: c.reward?.description || '',
+        imageUrl: c.reward?.imageUrl || ''
+      },
+      startDate: c.startDate ? new Date(c.startDate).toISOString().split('T')[0] : '',
+      endDate: c.endDate ? new Date(c.endDate).toISOString().split('T')[0] : '',
+      status: c.status || 'ACTIVE',
+      isActive: c.isActive !== undefined ? c.isActive : true
+    });
+    setShowModal(true);
+  };
+
+  // Target Array Builders
+  const addTarget = () => {
+    setFormData((prev) => ({
+      ...prev,
+      targets: [...prev.targets, { name: '', value: '', unit: 'KBP' }]
+    }));
+  };
+
+  const removeTarget = (index) => {
+    if (formData.targets.length <= 1) return;
+    setFormData((prev) => ({
+      ...prev,
+      targets: prev.targets.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateTarget = (index, field, value) => {
+    const updated = [...formData.targets];
+    updated[index][field] = value;
+    setFormData((prev) => ({ ...prev, targets: updated }));
+  };
+
+  // Form Submission
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.name || !formData.code || !formData.endDate) {
+      showNotification('Campaign Name, Code, and End Date are required.', 'warning');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      const data = {
+      const payload = {
         ...formData,
-        targets: formData.targets.map(t => ({
-          ...t,
-          value: parseFloat(t.value)
+        code: formData.code.trim().toUpperCase().replace(/\s+/g, '_'),
+        targets: formData.targets.map((t) => ({
+          name: t.name || 'Target Requirement',
+          value: parseFloat(t.value) || 0,
+          unit: t.unit || 'INCOME'
         })),
         reward: {
           ...formData.reward,
@@ -60,395 +231,530 @@ const AdminCampaignsPage = () => {
       };
 
       if (editingCampaign) {
-        await api.put(`/api/admin/campaigns/${editingCampaign._id}`, data);
-        showNotification('Campaign updated successfully', 'success');
+        const id = editingCampaign._id || editingCampaign.id;
+        try {
+          await api.put(`/api/admin/campaigns/${id}`, payload);
+        } catch {
+          await api.put(`/api/campaigns/${id}`, payload);
+        }
+        showNotification('Campaign updated successfully!', 'success');
       } else {
-        await api.post('/api/admin/campaigns', data);
-        showNotification('Campaign created successfully', 'success');
+        try {
+          await api.post('/api/admin/campaigns', payload);
+        } catch {
+          await api.post('/api/campaigns', payload);
+        }
+        showNotification('Campaign created and activated!', 'success');
       }
+
       setShowModal(false);
-      setEditingCampaign(null);
-      resetForm();
       fetchCampaigns();
-    } catch (error) {
-      showNotification(error.response?.data?.message || 'Operation failed', 'error');
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Operation failed.';
+      showNotification(msg, 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this campaign?')) return;
-    try {
-      await api.delete(`/api/admin/campaigns/${id}`);
-      showNotification('Campaign deleted', 'success');
-      fetchCampaigns();
-    } catch (error) {
-      showNotification('Failed to delete campaign', 'error');
-    }
-  };
-
+  // Status Transitions
   const handleStatusChange = async (id, status) => {
     try {
-      await api.put(`/api/admin/campaigns/${id}/status`, { status });
-      showNotification(`Campaign ${status}`, 'success');
+      try {
+        await api.put(`/api/admin/campaigns/${id}/status`, { status });
+      } catch {
+        await api.put(`/api/campaigns/${id}/status`, { status });
+      }
+      showNotification(`Campaign set to ${status}`, 'success');
       fetchCampaigns();
-    } catch (error) {
+    } catch (err) {
       showNotification('Failed to update status', 'error');
     }
   };
 
-  const handleEdit = (campaign) => {
-    setEditingCampaign(campaign);
-    setFormData({
-      name: campaign.name || '',
-      code: campaign.code || '',
-      description: campaign.description || '',
-      type: campaign.type || 'MONTHLY',
-      targets: campaign.targets || [{ name: '', value: '', unit: 'INCOME' }],
-      reward: campaign.reward || { type: 'CASH', value: '', description: '' },
-      startDate: campaign.startDate ? campaign.startDate.split('T')[0] : '',
-      endDate: campaign.endDate ? campaign.endDate.split('T')[0] : '',
-      status: campaign.status || 'DRAFT',
-      isActive: campaign.isActive !== undefined ? campaign.isActive : true
-    });
-    setShowModal(true);
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this promotional campaign?')) return;
+    try {
+      try {
+        await api.delete(`/api/admin/campaigns/${id}`);
+      } catch {
+        await api.delete(`/api/campaigns/${id}`);
+      }
+      showNotification('Campaign deleted', 'success');
+      setCampaigns((prev) => prev.filter((c) => (c._id || c.id) !== id));
+    } catch (err) {
+      showNotification('Failed to delete campaign', 'error');
+    }
   };
 
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      code: '',
-      description: '',
-      type: 'MONTHLY',
-      targets: [{ name: '', value: '', unit: 'INCOME' }],
-      reward: { type: 'CASH', value: '', description: '' },
-      startDate: '',
-      endDate: '',
-      status: 'DRAFT',
-      isActive: true
-    });
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'ACTIVE':
+        return styles.badgeGreen;
+      case 'PAUSED':
+        return styles.badgeAmber;
+      case 'COMPLETED':
+        return styles.badgeBlue;
+      case 'CANCELLED':
+        return styles.badgeRed;
+      default:
+        return styles.badgeGray;
+    }
   };
 
-  const addTarget = () => {
-    setFormData({
-      ...formData,
-      targets: [...formData.targets, { name: '', value: '', unit: 'INCOME' }]
-    });
+  const calculateDaysLeft = (end) => {
+    const diff = new Date(end) - new Date();
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    return days > 0 ? `${days} Days Left` : 'Ended';
   };
-
-  const removeTarget = (index) => {
-    if (formData.targets.length <= 1) return;
-    setFormData({
-      ...formData,
-      targets: formData.targets.filter((_, i) => i !== index)
-    });
-  };
-
-  const updateTarget = (index, field, value) => {
-    const updatedTargets = [...formData.targets];
-    updatedTargets[index][field] = value;
-    setFormData({ ...formData, targets: updatedTargets });
-  };
-
-  const getStatusColor = (status) => {
-    const colors = {
-      'DRAFT': '#94a3b8',
-      'ACTIVE': '#22c55e',
-      'PAUSED': '#f59e0b',
-      'COMPLETED': '#3b82f6',
-      'CANCELLED': '#ef4444'
-    };
-    return colors[status] || '#94a3b8';
-  };
-
-  if (loading) {
-    return (
-      <div className={styles.loading}>
-        <div className={styles.spinner}></div>
-        <p>Loading campaigns...</p>
-      </div>
-    );
-  }
 
   return (
     <div className={styles.campaignsPage}>
+      {/* 1. Header Toolbar */}
       <div className={styles.header}>
-        <h1>Campaign Management</h1>
-        <button 
-          className={styles.createBtn}
-          onClick={() => {
-            setEditingCampaign(null);
-            resetForm();
-            setShowModal(true);
-          }}
-        >
-          + New Campaign
-        </button>
+        <div>
+          <div className={styles.statusPill}>
+            <span className={styles.pulseDot}></span>
+            <span>Cluster Production Database</span>
+          </div>
+          <h1 className={styles.title}>Campaign Management</h1>
+          <p className={styles.subtitle}>
+            Configure performance bonanzas, leadership foreign retreats, festive rewards, and rank sprint milestones.
+          </p>
+        </div>
+
+        <div className={styles.topActions}>
+          <button
+            onClick={handleInitialize}
+            disabled={isSubmitting}
+            className={styles.initBtn}
+            title="Seed 4 standard promotional campaigns"
+          >
+            ⚡ Initialize Campaigns
+          </button>
+          <button onClick={fetchCampaigns} className={styles.refreshBtn} title="Sync database">
+            ↻ Refresh
+          </button>
+          <button onClick={handleOpenCreate} className={styles.createBtn}>
+            + New Campaign
+          </button>
+        </div>
       </div>
 
-      <div className={styles.campaignsGrid}>
-        {campaigns.length === 0 ? (
-          <div className={styles.emptyState}>
-            <span>🎯</span>
-            <p>No campaigns created yet</p>
-          </div>
-        ) : (
-          campaigns.map((campaign) => (
-            <div key={campaign._id} className={styles.campaignCard}>
-              <div className={styles.campaignHeader}>
-                <div className={styles.campaignInfo}>
-                  <h3>{campaign.name}</h3>
-                  <span className={styles.campaignCode}>{campaign.code}</span>
+      {/* 2. KPI Metrics Grid */}
+      <div className={styles.statsGrid}>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>Total Campaigns</span>
+          <strong className={styles.statValue}>{kpis.total}</strong>
+          <span className={styles.statHelp}>All-time configured</span>
+        </div>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>Active Sprints</span>
+          <strong className={`${styles.statValue} ${styles.greenText}`}>{kpis.active}</strong>
+          <span className={styles.statHelp}>Currently open for members</span>
+        </div>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>Achieved Qualifiers</span>
+          <strong className={`${styles.statValue} ${styles.blueText}`}>{kpis.totalQualifiers}</strong>
+          <span className={styles.statHelp}>Winners verified</span>
+        </div>
+        <div className={styles.statCard}>
+          <span className={styles.statLabel}>Total Prize Allocation</span>
+          <strong className={`${styles.statValue} ${styles.amberText}`}>
+            ₹{kpis.totalPrizePool.toLocaleString('en-IN')}
+          </strong>
+          <span className={styles.statHelp}>Cumulative incentives</span>
+        </div>
+      </div>
+
+      {/* 3. Search & Category Filters */}
+      <div className={styles.filterStrip}>
+        <div className={styles.searchWrap}>
+          <span className={styles.searchIcon}>🔍</span>
+          <input
+            type="text"
+            placeholder="Search by Name, Code, Target, or Reward..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className={styles.searchInput}
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className={styles.clearSearch}>✕</button>
+          )}
+        </div>
+
+        <div className={styles.categoryPillsRow}>
+          {['ALL', ...CAMPAIGN_TYPES].map((t) => (
+            <button
+              key={t}
+              onClick={() => setFilterType(t)}
+              className={`${styles.filterPill} ${filterType === t ? styles.filterPillActive : ''}`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 4. Campaigns Cards Grid */}
+      {loading ? (
+        <div className={styles.loadingArea}>
+          <div className={styles.spinner}></div>
+          <p>Syncing promotional campaigns from cluster...</p>
+        </div>
+      ) : filteredCampaigns.length === 0 ? (
+        <div className={styles.emptyArea}>
+          <span className={styles.emptyIcon}>🎯</span>
+          <h3>No campaigns found</h3>
+          <p>Click "Initialize Campaigns" to seed the 4 standard KUWIFR promotional bonanzas.</p>
+          <button onClick={handleInitialize} className={styles.initBtn} style={{ marginTop: '12px' }}>
+            ⚡ Initialize Campaigns Now
+          </button>
+        </div>
+      ) : (
+        <div className={styles.campaignsGrid}>
+          {filteredCampaigns.map((c) => {
+            const id = c._id || c.id;
+            const rewardImg = c.reward?.imageUrl || 'https://images.unsplash.com/photo-1511556532299-8f662fc26c06?w=600&auto=format&fit=crop&q=80';
+
+            return (
+              <div key={id} className={styles.campaignCard}>
+                <div className={styles.cardCover}>
+                  <img src={rewardImg} alt={c.name} className={styles.coverImg} />
+                  <span className={styles.typeBadge}>{c.type}</span>
+                  <span className={`${styles.statusBadge} ${getStatusBadge(c.status)}`}>
+                    {c.status}
+                  </span>
                 </div>
-                <span 
-                  className={styles.campaignStatus}
-                  style={{ background: getStatusColor(campaign.status) }}
-                >
-                  {campaign.status}
-                </span>
-              </div>
-              <div className={styles.campaignBody}>
-                <p className={styles.campaignDescription}>{campaign.description}</p>
-                <div className={styles.campaignDetails}>
-                  <div className={styles.detailItem}>
-                    <span>Type</span>
-                    <span>{campaign.type}</span>
+
+                <div className={styles.cardBody}>
+                  <h3 className={styles.campaignTitle}>{c.name}</h3>
+                  <code className={styles.campaignCode}>{c.code}</code>
+                  <p className={styles.campaignDescription}>{c.description}</p>
+
+                  {/* Target & Reward Block */}
+                  <div className={styles.detailsBlock}>
+                    <div className={styles.detailRow}>
+                      <span className={styles.detailLabel}>TARGET</span>
+                      <strong>
+                        {c.targets?.map((t) => `${t.name}: ${t.value} ${t.unit}`).join(' • ') || 'Active Participation'}
+                      </strong>
+                    </div>
+
+                    <div className={styles.detailRow}>
+                      <span className={styles.detailLabel}>REWARD</span>
+                      <strong className={styles.rewardHighlight}>
+                        {c.reward?.type}: {c.reward?.description} {c.reward?.value ? `(₹${Number(c.reward.value).toLocaleString('en-IN')})` : ''}
+                      </strong>
+                    </div>
                   </div>
-                  <div className={styles.detailItem}>
-                    <span>Duration</span>
+
+                  {/* Progress & Timing */}
+                  <div className={styles.progressRow}>
+                    <span>⏳ {calculateDaysLeft(c.endDate)}</span>
                     <span>
-                      {new Date(campaign.startDate).toLocaleDateString()} - {new Date(campaign.endDate).toLocaleDateString()}
+                      👥 {c.progress?.achievedParticipants || 0} / {c.progress?.totalParticipants || 0} Qualifiers
                     </span>
                   </div>
-                  <div className={styles.detailItem}>
-                    <span>Targets</span>
-                    <span>
-                      {campaign.targets?.map(t => `${t.name}: ${t.value} ${t.unit}`).join(', ')}
-                    </span>
-                  </div>
-                  <div className={styles.detailItem}>
-                    <span>Reward</span>
-                    <span>{campaign.reward?.description}</span>
-                  </div>
-                  <div className={styles.detailItem}>
-                    <span>Progress</span>
-                    <span>
-                      {campaign.progress?.percentageComplete || 0}% 
-                      ({campaign.progress?.achievedParticipants || 0}/{campaign.progress?.totalParticipants || 0})
-                    </span>
-                  </div>
-                </div>
-                <div className={styles.campaignActions}>
-                  <button 
-                    className={styles.editBtn}
-                    onClick={() => handleEdit(campaign)}
-                  >
-                    Edit
-                  </button>
-                  {campaign.status === 'DRAFT' && (
-                    <button 
-                      className={styles.activateBtn}
-                      onClick={() => handleStatusChange(campaign._id, 'ACTIVE')}
-                    >
-                      Activate
+
+                  {/* Action Buttons */}
+                  <div className={styles.campaignActions}>
+                    <button className={styles.editBtn} onClick={() => handleOpenEdit(c)}>
+                      Edit
                     </button>
-                  )}
-                  {campaign.status === 'ACTIVE' && (
-                    <>
-                      <button 
+
+                    {c.status === 'DRAFT' && (
+                      <button
+                        className={styles.activateBtn}
+                        onClick={() => handleStatusChange(id, 'ACTIVE')}
+                      >
+                        Activate
+                      </button>
+                    )}
+
+                    {c.status === 'ACTIVE' && (
+                      <button
                         className={styles.pauseBtn}
-                        onClick={() => handleStatusChange(campaign._id, 'PAUSED')}
+                        onClick={() => handleStatusChange(id, 'PAUSED')}
                       >
                         Pause
                       </button>
-                      <button 
-                        className={styles.completeBtn}
-                        onClick={() => handleStatusChange(campaign._id, 'COMPLETED')}
+                    )}
+
+                    {c.status === 'PAUSED' && (
+                      <button
+                        className={styles.activateBtn}
+                        onClick={() => handleStatusChange(id, 'ACTIVE')}
                       >
-                        Complete
+                        Resume
                       </button>
-                    </>
-                  )}
-                  <button 
-                    className={styles.deleteBtn}
-                    onClick={() => handleDelete(campaign._id)}
-                  >
-                    Delete
-                  </button>
+                    )}
+
+                    <button className={styles.deleteBtn} onClick={() => handleDelete(id)}>
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
-        )}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
-      {/* Modal */}
+      {/* 5. Production Modal Card */}
       {showModal && (
-        <div className={styles.modalOverlay} onClick={() => setShowModal(false)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.modalOverlay} onClick={() => !isSubmitting && setShowModal(false)}>
+          <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
-              <h2>{editingCampaign ? 'Edit Campaign' : 'New Campaign'}</h2>
-              <button className={styles.closeModalBtn} onClick={() => setShowModal(false)}>✕</button>
+              <div>
+                <h2>{editingCampaign ? `Edit ${editingCampaign.name}` : 'Create New Campaign'}</h2>
+                <p>Configure qualification thresholds, promotional rewards, and campaign dates.</p>
+              </div>
+              <button
+                className={styles.closeModalBtn}
+                onClick={() => setShowModal(false)}
+                disabled={isSubmitting}
+              >
+                ✕
+              </button>
             </div>
-            <form onSubmit={handleSubmit}>
+
+            <form onSubmit={handleSubmit} className={styles.modalForm}>
               <div className={styles.formGrid}>
-                <div className={styles.formGroup}>
+                {/* Name */}
+                <div className={`${styles.formGroup} ${styles.colSpan2}`}>
                   <label>Campaign Name *</label>
                   <input
                     type="text"
                     value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
+                    placeholder="e.g. Goa Leadership Convention 2026"
                   />
                 </div>
+
+                {/* Code */}
                 <div className={styles.formGroup}>
-                  <label>Code *</label>
+                  <label>Unique Code *</label>
                   <input
                     type="text"
                     value={formData.code}
-                    onChange={(e) => setFormData({...formData, code: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
                     required
+                    placeholder="e.g. GOA_BONANZA_2026"
                   />
                 </div>
+
+                {/* Type */}
                 <div className={styles.formGroup}>
-                  <label>Description *</label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    rows="2"
-                    required
-                  />
-                </div>
-                <div className={styles.formGroup}>
-                  <label>Type</label>
+                  <label>Campaign Type *</label>
                   <select
                     value={formData.type}
-                    onChange={(e) => setFormData({...formData, type: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                   >
-                    <option value="MONTHLY">Monthly</option>
-                    <option value="QUARTERLY">Quarterly</option>
-                    <option value="SPECIAL">Special</option>
-                    <option value="REFERRAL">Referral</option>
-                    <option value="REPURCHASE">Repurchase</option>
-                    <option value="RANK">Rank</option>
+                    {CAMPAIGN_TYPES.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
                   </select>
                 </div>
+
+                {/* Start Date */}
                 <div className={styles.formGroup}>
                   <label>Start Date *</label>
                   <input
                     type="date"
                     value={formData.startDate}
-                    onChange={(e) => setFormData({...formData, startDate: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                     required
                   />
                 </div>
+
+                {/* End Date */}
                 <div className={styles.formGroup}>
                   <label>End Date *</label>
                   <input
                     type="date"
                     value={formData.endDate}
-                    onChange={(e) => setFormData({...formData, endDate: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                     required
                   />
                 </div>
+
+                {/* Status */}
                 <div className={styles.formGroup}>
-                  <label>Status</label>
+                  <label>Initial Status</label>
                   <select
                     value={formData.status}
-                    onChange={(e) => setFormData({...formData, status: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                   >
-                    <option value="DRAFT">Draft</option>
-                    <option value="ACTIVE">Active</option>
-                    <option value="PAUSED">Paused</option>
-                    <option value="COMPLETED">Completed</option>
+                    <option value="DRAFT">DRAFT</option>
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="PAUSED">PAUSED</option>
+                    <option value="COMPLETED">COMPLETED</option>
                   </select>
+                </div>
+
+                {/* Reward Image URL & Upload */}
+                <div className={styles.formGroup}>
+                  <label>Reward Image URL / Upload</label>
+                  <div className={styles.imageInputRow}>
+                    <input
+                      type="text"
+                      placeholder="Paste Image URL..."
+                      value={formData.reward.imageUrl}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          reward: { ...formData.reward, imageUrl: e.target.value }
+                        })
+                      }
+                    />
+                    <label htmlFor="campImgUpload" className={styles.uploadFileBtn}>
+                      📁
+                    </label>
+                    <input
+                      type="file"
+                      id="campImgUpload"
+                      ref={fileInputRef}
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      style={{ display: 'none' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div className={`${styles.formGroup} ${styles.colSpan2}`}>
+                  <label>Description & Purpose *</label>
+                  <textarea
+                    rows="2"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    required
+                    placeholder="Describe eligibility conditions and qualifying guidelines..."
+                  />
                 </div>
               </div>
 
-              <div className={styles.targetsSection}>
-                <h3>Targets</h3>
-                {formData.targets.map((target, index) => (
-                  <div key={index} className={styles.targetRow}>
-                    <input
-                      type="text"
-                      placeholder="Target name"
-                      value={target.name}
-                      onChange={(e) => updateTarget(index, 'name', e.target.value)}
-                    />
-                    <input
-                      type="number"
-                      placeholder="Value"
-                      value={target.value}
-                      onChange={(e) => updateTarget(index, 'value', e.target.value)}
-                    />
-                    <select
-                      value={target.unit}
-                      onChange={(e) => updateTarget(index, 'unit', e.target.value)}
-                    >
-                      <option value="INCOME">Income</option>
-                      <option value="KBP">KBP</option>
-                      <option value="REFERRALS">Referrals</option>
-                      <option value="SALES">Sales</option>
-                      <option value="RANK">Rank</option>
-                    </select>
-                    <button type="button" onClick={() => removeTarget(index)}>✕</button>
-                  </div>
-                ))}
-                <button type="button" className={styles.addTargetBtn} onClick={addTarget}>
-                  + Add Target
-                </button>
+              {/* Dynamic Targets Builder */}
+              <div className={styles.sectionDivider}>
+                <div className={styles.sectionHeader}>
+                  <h3>Qualification Target Milestones</h3>
+                  <button type="button" onClick={addTarget} className={styles.addTargetBtn}>
+                    + Add Target
+                  </button>
+                </div>
+
+                <div className={styles.targetsList}>
+                  {formData.targets.map((t, idx) => (
+                    <div key={idx} className={styles.targetRow}>
+                      <input
+                        type="text"
+                        placeholder="Target Name (e.g. Star Pairs)"
+                        value={t.name}
+                        onChange={(e) => updateTarget(idx, 'name', e.target.value)}
+                        required
+                        className={styles.targetNameInput}
+                      />
+                      <input
+                        type="number"
+                        placeholder="Target Value"
+                        value={t.value}
+                        onChange={(e) => updateTarget(idx, 'value', e.target.value)}
+                        required
+                        className={styles.targetValueInput}
+                      />
+                      <select
+                        value={t.unit}
+                        onChange={(e) => updateTarget(idx, 'unit', e.target.value)}
+                        className={styles.targetUnitSelect}
+                      >
+                        {TARGET_UNITS.map((u) => (
+                          <option key={u.value} value={u.value}>{u.label}</option>
+                        ))}
+                      </select>
+                      {formData.targets.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeTarget(idx)}
+                          className={styles.removeTargetBtn}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              <div className={styles.rewardSection}>
-                <h3>Reward</h3>
+              {/* Reward Specification */}
+              <div className={styles.sectionDivider}>
+                <div className={styles.sectionHeader}>
+                  <h3>Incentive Reward Specification</h3>
+                </div>
+
                 <div className={styles.formGrid}>
                   <div className={styles.formGroup}>
-                    <label>Reward Type</label>
+                    <label>Reward Category *</label>
                     <select
                       value={formData.reward.type}
-                      onChange={(e) => setFormData({
-                        ...formData, 
-                        reward: {...formData.reward, type: e.target.value}
-                      })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          reward: { ...formData.reward, type: e.target.value }
+                        })
+                      }
                     >
-                      <option value="CASH">Cash</option>
-                      <option value="PRODUCT">Product</option>
-                      <option value="TRIP">Trip</option>
-                      <option value="MERCHANDISE">Merchandise</option>
-                      <option value="RECOGNITION">Recognition</option>
+                      {REWARD_TYPES.map((rt) => (
+                        <option key={rt} value={rt}>{rt}</option>
+                      ))}
                     </select>
                   </div>
+
                   <div className={styles.formGroup}>
-                    <label>Value (₹)</label>
+                    <label>Monetary Valuation (₹)</label>
                     <input
                       type="number"
                       value={formData.reward.value}
-                      onChange={(e) => setFormData({
-                        ...formData, 
-                        reward: {...formData.reward, value: e.target.value}
-                      })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          reward: { ...formData.reward, value: e.target.value }
+                        })
+                      }
+                      placeholder="e.g. 45000"
                     />
                   </div>
-                  <div className={styles.formGroup}>
-                    <label>Description *</label>
+
+                  <div className={`${styles.formGroup} ${styles.colSpan2}`}>
+                    <label>Prize Description *</label>
                     <input
                       type="text"
                       value={formData.reward.description}
-                      onChange={(e) => setFormData({
-                        ...formData, 
-                        reward: {...formData.reward, description: e.target.value}
-                      })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          reward: { ...formData.reward, description: e.target.value }
+                        })
+                      }
                       required
+                      placeholder="e.g. 3N/4D 5-Star Luxury Goa Stay + Airfare"
                     />
                   </div>
                 </div>
               </div>
 
               <div className={styles.modalActions}>
-                <button type="button" className={styles.cancelBtn} onClick={() => setShowModal(false)}>
+                <button
+                  type="button"
+                  className={styles.cancelBtn}
+                  onClick={() => setShowModal(false)}
+                  disabled={isSubmitting}
+                >
                   Cancel
                 </button>
-                <button type="submit" className={styles.saveBtn}>
-                  {editingCampaign ? 'Update' : 'Create'}
+                <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>
+                  {isSubmitting ? 'Saving Campaign...' : editingCampaign ? 'Update Campaign' : 'Launch Campaign'}
                 </button>
               </div>
             </form>
