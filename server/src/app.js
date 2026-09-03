@@ -223,6 +223,7 @@ app.use('/api/admin/withdrawals', withdrawalRoutes);
 
 // Notifications
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/admin/notifications', notificationRoutes);
 
 // Reports & Statistics
 app.use('/api/reports', reportRoutes);
