@@ -4,19 +4,17 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import styles from "./MemberLayout.module.css";
 
-// ============================================================
-// 🧭 MEMBER NAVIGATION STRUCTURE
-// ============================================================
+// 🧭 FULL MEMBER NAVIGATION CONFIGURATION
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: "📊", path: "/member/dashboard" },
   { id: "profile", label: "Profile", icon: "👤", path: "/member/profile" },
   { id: "kyc", label: "KYC Verification", icon: "🪪", path: "/member/kyc" },
-  { id: "wallet", label: "Wallet", icon: "💰", path: "/member/wallet" },
-  { id: "bonanza", label: "Bonanza", icon: "🎯", path: "/member/bonanza" },
-  { id: "repurchase", label: "Repurchase", icon: "🛍️", path: "/member/repurchase" },
-  { id: "income", label: "Income", icon: "📈", path: "/member/income" },
-  { id: "team", label: "Team", icon: "👥", path: "/member/team" },
-  { id: "binary", label: "Binary", icon: "🌳", path: "/member/binary" },
+  { id: "wallet", label: "Wallet & Payouts", icon: "💰", path: "/member/wallet" },
+  { id: "bonanza", label: "Bonanza Offers", icon: "🎯", path: "/member/bonanza" },
+  { id: "repurchase", label: "Repurchase Store", icon: "🛍️", path: "/member/repurchase" },
+  { id: "income", label: "Income Stream", icon: "📈", path: "/member/income" },
+  { id: "team", label: "My Team", icon: "👥", path: "/member/team" },
+  { id: "binary", label: "Binary Tree", icon: "🌳", path: "/member/binary" },
   {
     id: "package_group",
     label: "Package",
@@ -30,7 +28,7 @@ const navItems = [
   },
   { id: "orders", label: "Orders", icon: "🛒", path: "/member/orders" },
   { id: "withdrawals", label: "Withdrawals", icon: "💸", path: "/member/withdrawals" },
-  { id: "ranks", label: "Ranks", icon: "🏆", path: "/member/ranks" },
+  { id: "ranks", label: "Ranks & Stars", icon: "🏆", path: "/member/ranks" },
   { id: "notifications", label: "Notifications", icon: "🔔", path: "/member/notifications" },
   { id: "support", label: "Help & Support", icon: "🎧", path: "/member/support" }
 ];
@@ -44,7 +42,7 @@ const MemberLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Screen resize detection
+  // Screen size detection
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth <= 1024;
@@ -61,7 +59,7 @@ const MemberLayout = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Body scroll lock when mobile sidebar or bottom drawer is active
+  // Lock body scroll when mobile drawer or full sidebar is active
   useEffect(() => {
     const isMenuOpen = isMobile && (sidebarOpen || mobileDrawerOpen);
     if (isMenuOpen) {
@@ -78,7 +76,7 @@ const MemberLayout = () => {
     };
   }, [isMobile, sidebarOpen, mobileDrawerOpen]);
 
-  // Close menus on page route changes
+  // Auto-close menus on page route changes
   useEffect(() => {
     if (isMobile) {
       setSidebarOpen(false);
@@ -112,7 +110,7 @@ const MemberLayout = () => {
 
   return (
     <div className={styles.memberLayout}>
-      {/* ================= HEADER ================= */}
+      {/* ================= TOP HEADER ================= */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>
           <button
@@ -131,7 +129,7 @@ const MemberLayout = () => {
           >
             <span className={styles.logoIcon}>🚀</span>
             <span className={styles.logoText}>KUWIFR</span>
-            <span className={styles.envTag}>Cluster</span>
+            <span className={styles.envTag}>Member</span>
           </div>
         </div>
 
@@ -266,38 +264,104 @@ const MemberLayout = () => {
         <Outlet />
       </main>
 
-      {/* ================= MOBILE BOTTOM NAVIGATION ================= */}
-      <nav className={styles.bottomNav}>
-        {navItems.slice(0, 4).map((item) => (
+      {/* ================= 📱 AIRTEL-INSPIRED FLOATING BOTTOM MENU ================= */}
+      <div className={styles.bottomNavContainer}>
+        <nav className={styles.bottomNavIsland}>
+          {/* 1. Home */}
           <button
-            key={item.id}
             type="button"
-            className={`${styles.bottomNavItem} ${isActive(item.path) ? styles.bottomActive : ""}`}
+            className={`${styles.bottomNavItem} ${isActive("/member/dashboard") ? styles.bottomActive : ""}`}
             onClick={() => {
-              navigate(item.path);
+              navigate("/member/dashboard");
               closeAllMenus();
             }}
           >
-            <span className={styles.bottomNavIcon}>{item.icon}</span>
-            <span className={styles.bottomNavLabel}>{item.label}</span>
+            <div className={styles.iconCircle}>
+              <svg className={styles.navSvg} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+            </div>
+            <span className={styles.bottomNavLabel}>Home</span>
           </button>
-        ))}
 
-        <button
-          type="button"
-          className={`${styles.bottomNavItem} ${mobileDrawerOpen ? styles.bottomActive : ""}`}
-          onClick={toggleMobileDrawer}
-          aria-label="More Navigation"
-        >
-          <span className={styles.bottomNavIcon}>📋</span>
-          <span className={styles.bottomNavLabel}>More</span>
-        </button>
-      </nav>
+          {/* 2. Income */}
+          <button
+            type="button"
+            className={`${styles.bottomNavItem} ${isActive("/member/income") || isActive("/member/wallet") ? styles.bottomActive : ""}`}
+            onClick={() => {
+              navigate("/member/income");
+              closeAllMenus();
+            }}
+          >
+            <div className={styles.iconCircle}>
+              <svg className={styles.navSvg} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V6m0 10v2m0-6c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <span className={styles.bottomNavLabel}>Income</span>
+          </button>
 
-      {/* ================= MOBILE BOTTOM DRAWER MENU ================= */}
+          {/* 3. My Team */}
+          <button
+            type="button"
+            className={`${styles.bottomNavItem} ${isActive("/member/team") || isActive("/member/binary") ? styles.bottomActive : ""}`}
+            onClick={() => {
+              navigate("/member/team");
+              closeAllMenus();
+            }}
+          >
+            <div className={styles.iconCircle}>
+              <svg className={styles.navSvg} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <span className={styles.bottomNavLabel}>My Team</span>
+          </button>
+
+          {/* 4. Buy Package */}
+          <button
+            type="button"
+            className={`${styles.bottomNavItem} ${isPackageGroupActive ? styles.bottomActive : ""}`}
+            onClick={() => {
+              navigate("/member/packages");
+              closeAllMenus();
+            }}
+          >
+            <div className={styles.iconCircle}>
+              <svg className={styles.navSvg} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+            </div>
+            <span className={styles.bottomNavLabel}>Buy Package</span>
+          </button>
+
+          {/* 5. More */}
+          <button
+            type="button"
+            className={`${styles.bottomNavItem} ${mobileDrawerOpen ? styles.bottomActive : ""}`}
+            onClick={toggleMobileDrawer}
+            aria-label="More Features"
+          >
+            <div className={styles.iconCircle}>
+              <svg className={styles.navSvg} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7" />
+              </svg>
+            </div>
+            <span className={styles.bottomNavLabel}>More</span>
+          </button>
+        </nav>
+      </div>
+
+     {/* ================= MOBILE BOTTOM DRAWER MENU ================= */}
       <div className={`${styles.mobileDrawer} ${mobileDrawerOpen ? styles.drawerOpen : ""}`}>
+        {/* Mobile Pull Handle Indicator */}
+        <div className={styles.drawerHandleBar}></div>
+
         <div className={styles.drawerHeader}>
-          <h3>All Navigation</h3>
+          <div className={styles.drawerHeaderTitle}>
+            <span className={styles.drawerPill}>KUWIFR Executive Hub</span>
+            <h3>Quick Services & Navigation</h3>
+          </div>
           <button
             type="button"
             onClick={toggleMobileDrawer}
@@ -309,7 +373,7 @@ const MemberLayout = () => {
         </div>
 
         <nav className={styles.drawerNav}>
-          {navItems.slice(4).map((item) => {
+          {navItems.map((item) => {
             if (item.isDropdown) {
               return (
                 <div key={item.id} className={styles.drawerSubmenuGroup}>
@@ -327,7 +391,7 @@ const MemberLayout = () => {
                       }}
                     >
                       <span className={styles.drawerNavIcon}>{sub.icon}</span>
-                      <span>{sub.label}</span>
+                      <span className={styles.drawerNavText}>{sub.label}</span>
                     </button>
                   ))}
                 </div>
@@ -345,7 +409,7 @@ const MemberLayout = () => {
                 }}
               >
                 <span className={styles.drawerNavIcon}>{item.icon}</span>
-                <span>{item.label}</span>
+                <span className={styles.drawerNavText}>{item.label}</span>
               </button>
             );
           })}
@@ -354,7 +418,7 @@ const MemberLayout = () => {
 
           <button type="button" className={styles.drawerLogoutBtn} onClick={handleLogout}>
             <span className={styles.drawerNavIcon}>🚪</span>
-            <span>Logout</span>
+            <span>Logout from Account</span>
           </button>
         </nav>
       </div>

@@ -5,12 +5,12 @@
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: #f8fafc;
+  background: #f4f6fb;
   position: relative;
 }
 
 /* ============================================================
-   1. FIXED HEADER
+   1. TOP HEADER
    ============================================================ */
 .header {
   position: fixed;
@@ -19,7 +19,7 @@
   right: 0;
   z-index: 1000;
   height: 64px;
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid #e2e8f0;
@@ -88,7 +88,7 @@
 .logoText {
   font-size: 18px;
   font-weight: 850;
-  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  background: linear-gradient(135deg, #e11d48 0%, #2563eb 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -193,13 +193,12 @@
   will-change: transform;
 }
 
-/* Independent Scroll Engine */
 .sidebarInnerScroll {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain; /* Prevents scroll chaining to background */
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   padding: 14px 10px 24px;
@@ -214,7 +213,6 @@
   border-radius: 4px;
 }
 
-/* User Card */
 .sidebarUser {
   display: flex;
   align-items: center;
@@ -230,7 +228,7 @@
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  background: linear-gradient(135deg, #e11d48, #2563eb);
   color: #ffffff;
   display: flex;
   align-items: center;
@@ -269,7 +267,6 @@
   font-family: monospace;
 }
 
-/* Nav Menu */
 .sidebarNav {
   display: flex;
   flex-direction: column;
@@ -325,7 +322,6 @@
   background: #ffffff;
 }
 
-/* Dropdown */
 .dropdownGroup {
   display: flex;
   flex-direction: column;
@@ -380,7 +376,6 @@
   font-size: 13px;
 }
 
-/* Sidebar Footer */
 .sidebarFooter {
   padding-top: 12px;
   margin-top: 14px;
@@ -432,8 +427,8 @@
   position: fixed;
   inset: 0;
   background: rgba(11, 18, 40, 0.65);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
   z-index: 1050;
   opacity: 0;
   visibility: hidden;
@@ -446,187 +441,284 @@
 }
 
 /* ============================================================
-   5. MOBILE BOTTOM NAVIGATION BAR
+   5. 📱 AIRTEL-STYLE FLOATING PILL BOTTOM NAVIGATION
    ============================================================ */
-.bottomNav {
+.bottomNavContainer {
   display: none;
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   z-index: 1000;
+  padding: 0 10px calc(12px + env(safe-area-inset-bottom));
+  pointer-events: none;
+  justify-content: center;
+}
+
+.bottomNavIsland {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 480px;
+  height: 64px;
   background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid #e2e8f0;
-  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 36px;
+  box-shadow: 0 12px 32px -4px rgba(15, 23, 42, 0.18), 0 2px 8px rgba(0, 0, 0, 0.04);
+  display: flex;
+  align-items: center;
   justify-content: space-around;
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.05);
+  padding: 4px 6px;
+  position: relative;
 }
 
 .bottomNavItem {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 2px;
   background: transparent;
   border: none;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 4px 6px;
   color: #64748b;
-  font-size: 10px;
-  font-weight: 650;
-  border-radius: 8px;
-  min-width: 50px;
-  transition: all 0.15s ease;
+  border-radius: 20px;
+  flex: 1;
+  max-width: 86px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
 }
 
-.bottomNavIcon {
-  font-size: 18px;
-  line-height: 1;
+.iconCircle {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.navSvg {
+  width: 20px;
+  height: 20px;
+  stroke: #475569;
+  transition: stroke 0.2s ease;
 }
 
 .bottomNavLabel {
-  letter-spacing: 0.02em;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: #64748b;
+  white-space: nowrap;
+  transition: color 0.2s ease;
 }
 
-.bottomActive {
-  color: #2563eb;
+/* Active State */
+.bottomActive .bottomNavLabel {
+  color: #e11d48;
+  font-weight: 800;
 }
 
-.bottomActive .bottomNavIcon {
-  transform: translateY(-1px) scale(1.1);
+.bottomActive .navSvg {
+  stroke: #e11d48;
+}
+
+.bottomActive .iconCircle {
+  background: rgba(225, 29, 72, 0.1);
+  transform: translateY(-2px);
 }
 
 /* ============================================================
-   6. MOBILE BOTTOM DRAWER
+   6. 🌌 EXECUTIVE DARK SLATE MOBILE BOTTOM DRAWER
    ============================================================ */
 .mobileDrawer {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  max-height: 72vh;
-  max-height: 72dvh;
-  background: #ffffff;
-  border-radius: 20px 20px 0 0;
-  padding: 16px 18px calc(24px + env(safe-area-inset-bottom));
+  max-height: 78vh;
+  max-height: 78dvh;
+  /* Deep obsidian navy gradient */
+  background: linear-gradient(180deg, #0f172a 0%, #0b1329 100%);
+  border-radius: 28px 28px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 12px 18px calc(30px + env(safe-area-inset-bottom));
   transform: translateY(105%);
-  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   z-index: 1100;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .drawerOpen {
   transform: translateY(0);
 }
 
+/* iOS/Android Pull Handle Indicator */
+.drawerHandleBar {
+  width: 42px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 4px;
+  margin: 0 auto 12px auto;
+}
+
 .drawerHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f1f5f9;
-  margin-bottom: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 14px;
 }
 
-.drawerHeader h3 {
+.drawerHeaderTitle h3 {
   font-size: 16px;
   font-weight: 850;
-  color: #0f172a;
-  margin: 0;
+  color: #f8fafc;
+  margin: 4px 0 0 0;
+  letter-spacing: -0.01em;
+}
+
+.drawerPill {
+  font-size: 10px;
+  font-weight: 850;
+  color: #fb7185;
+  background: rgba(225, 29, 72, 0.15);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  padding: 2px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .closeDrawerBtn {
-  background: #f1f5f9;
-  border: none;
-  width: 28px;
-  height: 28px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
-  color: #64748b;
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.closeDrawerBtn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
 }
 
 .drawerNav {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 5px;
 }
 
+/* Individual Item Cards */
 .drawerNavItem {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 11px 14px;
-  background: transparent;
-  border: none;
+  gap: 14px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.04);
   width: 100%;
   text-align: left;
   cursor: pointer;
-  color: #334155;
+  color: #cbd5e1;
   font-size: 13.5px;
   font-weight: 650;
-  border-radius: 8px;
+  border-radius: 12px;
+  transition: all 0.15s ease;
+  user-select: none;
 }
 
-.drawerNavItem:hover {
-  background: #f8fafc;
-  color: #0f172a;
+.drawerNavItem:hover,
+.drawerNavItem:active {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateX(3px);
 }
 
+/* Active Highlight */
 .drawerActive {
-  background: #eff6ff !important;
-  color: #2563eb !important;
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.25) 0%, rgba(37, 99, 235, 0.2) 100%) !important;
+  border: 1px solid rgba(244, 63, 94, 0.45) !important;
+  color: #ffffff !important;
   font-weight: 800;
+  box-shadow: 0 4px 16px rgba(225, 29, 72, 0.2);
 }
 
 .drawerNavIcon {
   font-size: 18px;
-  width: 24px;
-  text-align: center;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drawerNavText {
+  flex: 1;
 }
 
 .drawerSubmenuGroup {
   display: flex;
   flex-direction: column;
+  margin: 4px 0;
 }
 
 .drawerSubmenuHeader {
-  padding: 8px 14px 4px;
+  padding: 10px 14px 4px;
   font-size: 11px;
   font-weight: 800;
-  color: #94a3b8;
+  color: #64748b;
   text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .drawerSubItem {
-  padding-left: 32px;
+  padding-left: 36px;
   font-size: 13px;
 }
 
 .drawerDivider {
   height: 1px;
-  background: #f1f5f9;
-  margin: 8px 0;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 12px 0 8px 0;
 }
 
 .drawerLogoutBtn {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 11px 14px;
-  background: #fee2e2;
-  border: 1px solid #fecaca;
+  gap: 14px;
+  padding: 13px 16px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
   width: 100%;
-  color: #dc2626;
+  color: #fca5a5;
   font-size: 13.5px;
   font-weight: 750;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.drawerLogoutBtn:hover,
+.drawerLogoutBtn:active {
+  background: #dc2626;
+  color: #ffffff;
 }
 
 /* ============================================================
@@ -645,8 +737,7 @@
   }
 
   .sidebarInnerScroll {
-    /* Safe padding at the bottom so the last items are visible above the mobile bar */
-    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+    padding-bottom: calc(90px + env(safe-area-inset-bottom));
   }
 
   .menuBtn {
@@ -657,10 +748,10 @@
     margin-left: 0;
     margin-top: 56px;
     padding: 16px;
-    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+    padding-bottom: calc(90px + env(safe-area-inset-bottom));
   }
 
-  .bottomNav {
+  .bottomNavContainer {
     display: flex;
   }
 
