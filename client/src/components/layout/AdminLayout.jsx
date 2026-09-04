@@ -9,10 +9,13 @@ const AdminLayout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  // Navigation Items for Admin Suite
   const navItems = [
     { label: 'Dashboard', path: '/admin/dashboard', icon: '📊' },
     { label: 'Members', path: '/admin/members', icon: '👥' },
     { label: 'Packages', path: '/admin/packages', icon: '📦' },
+    // 📈 Dedicated Package Sales & Activations Intelligence
+    { label: 'Package Sales & Activations', path: '/admin/package-sales', icon: '📈' },
     { label: 'Products', path: '/admin/products', icon: '🛍️' },
     { label: 'Orders', path: '/admin/orders', icon: '🛒' },
     { label: 'Withdrawals', path: '/admin/withdrawals', icon: '💸' },
@@ -26,16 +29,17 @@ const AdminLayout = () => {
     { label: 'Audit Logs', path: '/admin/audit', icon: '🛡️' }
   ];
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
+  const handleLogout = async () => {
+    await logout();
+    navigate('/admin/login');
   };
 
   return (
     <div className={styles.layoutWrapper}>
-      {/* Mobile Header Bar */}
+      {/* Mobile Top Header Bar */}
       <header className={styles.mobileTopBar}>
         <button
+          type="button"
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className={styles.hamburgerBtn}
           aria-label="Toggle Navigation"
@@ -48,15 +52,16 @@ const AdminLayout = () => {
         </div>
       </header>
 
-      {/* Backdrop for Mobile */}
+      {/* Mobile Backdrop */}
       {sidebarOpen && (
         <div
           className={styles.mobileBackdrop}
           onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
         />
       )}
 
-      {/* Responsive Sidebar */}
+      {/* Responsive Admin Sidebar */}
       <aside className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : ''}`}>
         <div className={styles.sidebarHeader}>
           <div className={styles.brand}>
@@ -82,6 +87,7 @@ const AdminLayout = () => {
           ))}
         </nav>
 
+        {/* Sidebar Footer with Admin Profile & Logout */}
         <div className={styles.sidebarFooter}>
           <div className={styles.adminMeta}>
             <div className={styles.adminAvatar}>
@@ -92,7 +98,7 @@ const AdminLayout = () => {
               <span className={styles.adminRole}>Administrator</span>
             </div>
           </div>
-          <button onClick={handleLogout} className={styles.logoutBtn}>
+          <button type="button" onClick={handleLogout} className={styles.logoutBtn}>
             Logout
           </button>
         </div>
@@ -107,12 +113,13 @@ const AdminLayout = () => {
           </div>
           <div className={styles.headerRight}>
             <span className={styles.adminEmail}>{user?.email || 'admin@kuwifr.com'}</span>
-            <button onClick={handleLogout} className={styles.desktopLogout}>
+            <button type="button" onClick={handleLogout} className={styles.desktopLogout}>
               Logout
             </button>
           </div>
         </header>
 
+        {/* Active Route Outlet */}
         <div className={styles.contentBody}>
           <Outlet />
         </div>

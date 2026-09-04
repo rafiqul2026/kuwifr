@@ -8,12 +8,12 @@ import { ThemeProvider } from './context/ThemeContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { ShopProvider } from './context/ShopContext';
 
-// Global E-Commerce Slide-Over Drawers
+// Global E-Commerce Drawers
 import CartSlideOver from './components/public/CartSlideOver';
 import WishlistSlideOver from './components/public/WishlistSlideOver';
 import ShopPage from './pages/public/ShopPage';
 
-// Public & Auth Routes / Pages
+// Public & Authentication Pages
 import PublicRoutes from './routes/PublicRoutes';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
@@ -21,7 +21,7 @@ import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import VerifyEmailPage from './pages/auth/VerifyEmailPage';
 
-// Protected Dashboards
+// Protected Routes
 import MemberRoutes from './routes/MemberRoutes';
 import AdminRoutes from './routes/AdminRoutes';
 import ProtectedRoute from './routes/ProtectedRoute';
@@ -36,12 +36,12 @@ function App() {
           <ShopProvider>
             <BrowserRouter>
               <div className="app">
-                {/* Global Drawers accessible from Header on any page */}
+                {/* Global Slide-Over Drawers */}
                 <CartSlideOver />
                 <WishlistSlideOver />
 
                 <Routes>
-                  {/* Public Authentication Routes */}
+                  {/* ================= PUBLIC & AUTHENTICATION ================= */}
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/admin/login" element={<LoginPage isAdminLogin={true} />} />
                   <Route path="/register" element={<RegisterPage />} />
@@ -49,28 +49,29 @@ function App() {
                   <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
                   <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
                   <Route path="/shop" element={<ShopPage />} />
-                  
-                  {/* Protected Member Dashboard */}
-                  <Route 
-                    path="/member/*" 
+
+                  {/* ================= PROTECTED MEMBER PORTAL ================= */}
+                  <Route
+                    path="/member/*"
                     element={
                       <ProtectedRoute requiredRole="MEMBER">
                         <MemberRoutes />
                       </ProtectedRoute>
-                    } 
+                    }
                   />
-                  
-                  {/* Protected Admin Dashboard */}
-                  <Route 
-                    path="/admin/*" 
+
+                  {/* ================= PROTECTED ADMIN PORTAL ================= */}
+                  {/* Serves all /admin/* paths including /admin/package-sales inside AdminLayout */}
+                  <Route
+                    path="/admin/*"
                     element={
                       <ProtectedRoute requiredRole="ADMIN">
                         <AdminRoutes />
                       </ProtectedRoute>
-                    } 
+                    }
                   />
 
-                  {/* Catch-all Public Website & Store Routes (MUST be last) */}
+                  {/* ================= CATCH-ALL PUBLIC STOREFRONT ================= */}
                   <Route path="/*" element={<PublicRoutes />} />
                 </Routes>
               </div>
