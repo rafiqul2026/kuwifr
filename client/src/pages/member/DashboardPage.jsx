@@ -16,6 +16,7 @@ const DashboardPage = () => {
   const [error, setError] = useState(null);
   const [copiedSide, setCopiedSide] = useState(null);
 
+  // Fetch Member Dashboard Analytics
   const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
@@ -48,24 +49,19 @@ const DashboardPage = () => {
     }).format(num);
   };
 
-  // 🌐 Dynamic Production Origin Resolution
-  // Ensures links dynamically point to https://www.kuwifr.in or current domain rather than localhost:5173
-  const dynamicOrigin = typeof window !== 'undefined'
-    ? window.location.origin
-    : (import.meta.env.VITE_APP_URL || 'https://www.kuwifr.in');
-
-  const sponsorId = user?.memberId || stats?.memberId || 'KFR------';
+  // ============================================================
+  // 🌐 PERMANENT PRODUCTION DOMAIN RESOLUTION FOR REFERRAL LINKS
+  // Ensures links always use https://www.kuwifr.in
+  // ============================================================
+  const LIVE_PRODUCTION_DOMAIN = 'https://www.kuwifr.in';
+  const sponsorId = user?.memberId || stats?.memberId || 'KFR665384';
 
   const referralLinks = useMemo(() => {
-    // If backend provides a code or path, use it; otherwise, build standardized production referral URLs
-    const leftCode = stats?.referralLinks?.left?.code || sponsorId;
-    const rightCode = stats?.referralLinks?.right?.code || sponsorId;
-
     return {
-      left: `${dynamicOrigin}/register?ref=${leftCode}&pos=L`,
-      right: `${dynamicOrigin}/register?ref=${rightCode}&pos=R`
+      left: `${LIVE_PRODUCTION_DOMAIN}/register?ref=${sponsorId}&pos=L`,
+      right: `${LIVE_PRODUCTION_DOMAIN}/register?ref=${sponsorId}&pos=R`
     };
-  }, [dynamicOrigin, sponsorId, stats?.referralLinks]);
+  }, [sponsorId]);
 
   // Robust Cross-Device Copy to Clipboard
   const handleCopyLink = async (side, url) => {
@@ -85,17 +81,17 @@ const DashboardPage = () => {
       showNotification(`${side.toUpperCase()} team referral link copied to clipboard!`, 'info');
       setTimeout(() => setCopiedSide(null), 2200);
     } catch (err) {
-      showNotification('Failed to copy link. Please manually copy.', 'error');
+      showNotification('Failed to copy link. Please select and copy manually.', 'error');
     }
   };
 
-  // Native Mobile WhatsApp/Device Share
+  // Native Mobile Share (WhatsApp, Telegram, System Sheet)
   const handleNativeShare = (side, url) => {
     const teamLabel = side === 'left' ? 'LEFT' : 'RIGHT';
     if (navigator.share) {
       navigator.share({
         title: `Join KUWIFR Network (${teamLabel} Team)`,
-        text: `Register under my KUWIFR ${teamLabel} Team placement. Sponsor ID: ${sponsorId}\n`,
+        text: `Register under my KUWIFR ${teamLabel} Team placement.\nSponsor ID: ${sponsorId}\nJoin Link:`,
         url: url
       }).catch(() => {});
     } else {
@@ -120,7 +116,7 @@ const DashboardPage = () => {
 
   return (
     <div className={styles.dashboardScene}>
-      {/* ==== 3D FLOATING BACKGROUND ELEMENTS ====== */}
+      {/* ================= 3D FLOATING BACKGROUND ELEMENTS ================= */}
       <div className={styles.ambientCanvas} aria-hidden="true">
         <div className={`${styles.glowBlob} ${styles.blobTopLeft}`}></div>
         <div className={`${styles.glowBlob} ${styles.blobTopRight}`}></div>
@@ -147,7 +143,7 @@ const DashboardPage = () => {
         <div className={`${styles.floating3DObject} ${styles.geoRingBottom}`}></div>
       </div>
 
-      {/* ===== FOREGROUND DASHBOARD CONTENT ===== */}
+      {/* ================= FOREGROUND DASHBOARD CONTENT ================= */}
       <div className={styles.contentLayer}>
         {/* Dashboard Header */}
         <header className={styles.dashboardHeader}>
@@ -437,7 +433,7 @@ const DashboardPage = () => {
         {/* ================= SALARY WALLET LIVE PROGRESS CARD ================= */}
         <SalaryProgressCard />
 
-        {/* ================= 🔗 DYNAMIC LIVE REFERRAL LINKS SECTION ================= */}
+        {/* ================= 🔗 PRODUCTION DIRECT REFERRAL LINKS SECTION ================= */}
         <section className={styles.referralShareSection}>
           <div className={styles.referralHeader}>
             <div className={styles.referralHeaderIcon}>🔗</div>
@@ -448,7 +444,7 @@ const DashboardPage = () => {
           </div>
 
           <div className={styles.referralGrid}>
-            {/* 1. Left Side Referral */}
+            {/* 1. Left Side Referral Placement */}
             <div className={styles.referralBox}>
               <div className={styles.referralSideHeader}>
                 <div className={styles.referralSidePillLeft}>
@@ -486,8 +482,19 @@ const DashboardPage = () => {
                       </>
                     ) : (
                       <>
-                        <svg className={styles.btnSvg} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className={styles.btnSvg}
+                        >
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                         </svg>
                         <span>Copy Link</span>
                       </>
@@ -501,15 +508,29 @@ const DashboardPage = () => {
                     title="Share Link via WhatsApp or Mobile Apps"
                     aria-label="Share Left Link"
                   >
-                    <svg className={styles.btnSvg} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className={styles.btnSvg}
+                    >
+                      <circle cx="18" cy="5" r="3"></circle>
+                      <circle cx="6" cy="12" r="3"></circle>
+                      <circle cx="18" cy="19" r="3"></circle>
+                      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
                     </svg>
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* 2. Right Side Referral */}
+            {/* 2. Right Side Referral Placement */}
             <div className={styles.referralBox}>
               <div className={styles.referralSideHeader}>
                 <div className={styles.referralSidePillRight}>
@@ -547,8 +568,19 @@ const DashboardPage = () => {
                       </>
                     ) : (
                       <>
-                        <svg className={styles.btnSvg} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className={styles.btnSvg}
+                        >
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                         </svg>
                         <span>Copy Link</span>
                       </>
@@ -562,8 +594,22 @@ const DashboardPage = () => {
                     title="Share Link via WhatsApp or Mobile Apps"
                     aria-label="Share Right Link"
                   >
-                    <svg className={styles.btnSvg} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className={styles.btnSvg}
+                    >
+                      <circle cx="18" cy="5" r="3"></circle>
+                      <circle cx="6" cy="12" r="3"></circle>
+                      <circle cx="18" cy="19" r="3"></circle>
+                      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
                     </svg>
                   </button>
                 </div>
