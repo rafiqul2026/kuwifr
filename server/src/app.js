@@ -6,7 +6,6 @@ const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 
-
 // Import configuration
 const { validateEnv } = require('./config/env');
 const connectDB = require('./config/db');
@@ -55,8 +54,9 @@ const app = express();
 app.set('trust proxy', 1);
 
 // ==================== CORS CONFIGURATION ====================
-// Build allowed origins list from environment and production frontend domains
 const defaultAllowedOrigins = [
+  'https://www.kuwifr.in',
+  'https://kuwifr.in',
   'https://kuwifr.vercel.app',
   'http://localhost:5173',
   'http://127.0.0.1:5173',
@@ -75,16 +75,20 @@ const corsOptions = {
     // Allow requests with no origin (e.g. mobile apps, curl, Postman, server-to-server)
     if (!origin) return callback(null, true);
 
-    // Check if origin is explicitly allowed or a Vercel preview deployment
+    // Check if origin matches allowed domains or any Vercel preview deployment
     const isAllowed =
       allowedOrigins.includes(origin) ||
+      origin.endsWith('.vercel.app') ||
+      origin.endsWith('.kuwifr.in') ||
       /^https:\/\/kuwifr.*\.vercel\.app$/.test(origin);
 
     if (isAllowed) {
       return callback(null, true);
     }
 
-    return callback(new Error(`CORS policy error: Origin ${origin} is not allowed.`));
+    // Do not throw an error (prevents Express crashes on preflights)
+    console.warn(`[CORS Blocked] Origin: ${origin}`);
+    return callback(null, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -98,19 +102,19 @@ const corsOptions = {
   exposedHeaders: ['Set-Cookie']
 };
 
-// Apply CORS before any other middleware or route
+// Apply CORS before any route or middleware
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Handle all HTTP preflight requests
+app.options('*', cors(corsOptions)); // Handle all HTTP preflight requests globally
 
 // ==================== SECURITY & PARSING ====================
-// Configure Helmet security headers without blocking cross-origin API assets
+// Configure Helmet without blocking cross-origin API assets
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' }
   })
 );
 
-// Rate limiting (configured to support frequent dashboard stat polls without 429 errors)
+// Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 1000,
@@ -123,7 +127,7 @@ const limiter = rateLimit({
 });
 app.use('/api', limiter);
 
-// Body parsers
+// Body parsers (support base64 images and large JSON payloads)
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -238,21 +242,17 @@ app.use('/api/support', supportRoutes);
 // Admin Control Panel
 app.use('/api/admin', adminRoutes);
 
-// Mount routes
+// Campaigns
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/admin/campaigns', campaignRoutes);
 
-// Setting
+// Settings
 app.use('/api/settings', settingRoutes);
 app.use('/api/admin/settings', settingRoutes);
 
 // Audit Logs
 app.use('/api/audit', auditLogRoutes);
 app.use('/api/admin/audit', auditLogRoutes);
-
-// Increase JSON and urlencoded limits for base64 image uploads
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ==================== ERROR HANDLING ====================
 
