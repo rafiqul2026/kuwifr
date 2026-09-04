@@ -1,33 +1,22 @@
 // client/src/components/layout/MemberLayout.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import styles from "./MemberLayout.module.css";
 
 // ============================================================
-// 🧭 MEMBER SIDEBAR NAVIGATION ITEMS (WITH PACKAGE SUBMENU)
+// 🧭 MEMBER NAVIGATION STRUCTURE
 // ============================================================
 const navItems = [
-  // 1. Dashboard
   { id: "dashboard", label: "Dashboard", icon: "📊", path: "/member/dashboard" },
-  // 2. Profile
   { id: "profile", label: "Profile", icon: "👤", path: "/member/profile" },
-  // 3. KYC Verification
   { id: "kyc", label: "KYC Verification", icon: "🪪", path: "/member/kyc" },
-  // 4. Wallet
   { id: "wallet", label: "Wallet", icon: "💰", path: "/member/wallet" },
-  // 5. Bonanza
-  { id: "bonanza", label: "Bonanza", icon: "🏖️", path: "/member/bonanza" },
-  // 6. Repurchase
+  { id: "bonanza", label: "Bonanza", icon: "🎯", path: "/member/bonanza" },
   { id: "repurchase", label: "Repurchase", icon: "🛍️", path: "/member/repurchase" },
-  // 7. Income Overview
   { id: "income", label: "Income", icon: "📈", path: "/member/income" },
-  // 8. Team Management
   { id: "team", label: "Team", icon: "👥", path: "/member/team" },
-  // 9. Binary Tree
   { id: "binary", label: "Binary", icon: "🌳", path: "/member/binary" },
-
-  // 10. PACKAGE DROPDOWN (Parent: Package -> Sub: Buy Package, Upgrade Package)
   {
     id: "package_group",
     label: "Package",
@@ -39,17 +28,11 @@ const navItems = [
       { id: "upgrade_package", label: "Upgrade Package", icon: "🚀", path: "/member/packages/upgrade" }
     ]
   },
-
-  // 11. Orders
   { id: "orders", label: "Orders", icon: "🛒", path: "/member/orders" },
-  // 12. Withdrawals
   { id: "withdrawals", label: "Withdrawals", icon: "💸", path: "/member/withdrawals" },
-  // 13. Ranks & Rewards
   { id: "ranks", label: "Ranks", icon: "🏆", path: "/member/ranks" },
-  // 14. Notifications
   { id: "notifications", label: "Notifications", icon: "🔔", path: "/member/notifications" },
-  // 15. Help & Support
-  { id: "support", label: "Help & Support", icon: "🎧", path: "/member/support" },
+  { id: "support", label: "Help & Support", icon: "🎧", path: "/member/support" }
 ];
 
 const MemberLayout = () => {
@@ -61,6 +44,7 @@ const MemberLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Screen resize detection
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth <= 1024;
@@ -77,6 +61,24 @@ const MemberLayout = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Body scroll lock when mobile sidebar or bottom drawer is active
+  useEffect(() => {
+    const isMenuOpen = isMobile && (sidebarOpen || mobileDrawerOpen);
+    if (isMenuOpen) {
+      document.body.style.overflow = "hidden";
+      document.body.style.touchAction = "none";
+    } else {
+      document.body.style.overflow = "";
+      document.body.style.touchAction = "";
+    }
+
+    return () => {
+      document.body.style.overflow = "";
+      document.body.style.touchAction = "";
+    };
+  }, [isMobile, sidebarOpen, mobileDrawerOpen]);
+
+  // Close menus on page route changes
   useEffect(() => {
     if (isMobile) {
       setSidebarOpen(false);
@@ -84,24 +86,25 @@ const MemberLayout = () => {
     }
   }, [location.pathname, isMobile]);
 
+  const closeAllMenus = useCallback(() => {
+    setSidebarOpen(false);
+    setMobileDrawerOpen(false);
+  }, []);
+
   const handleLogout = async () => {
+    closeAllMenus();
     await logout();
     navigate("/");
   };
 
   const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
+    setSidebarOpen((prev) => !prev);
     if (mobileDrawerOpen) setMobileDrawerOpen(false);
   };
 
   const toggleMobileDrawer = () => {
-    setMobileDrawerOpen(!mobileDrawerOpen);
+    setMobileDrawerOpen((prev) => !prev);
     if (sidebarOpen) setSidebarOpen(false);
-  };
-
-  const closeAllMenus = () => {
-    setSidebarOpen(false);
-    setMobileDrawerOpen(false);
   };
 
   const isActive = (path) => location.pathname === path;
@@ -113,23 +116,28 @@ const MemberLayout = () => {
       <header className={styles.header}>
         <div className={styles.headerLeft}>
           <button
+            type="button"
             className={styles.menuBtn}
             onClick={toggleSidebar}
-            aria-label="Toggle sidebar"
+            aria-label="Toggle navigation menu"
           >
-            <span className={styles.menuIcon}></span>
+            <span className={`${styles.menuIcon} ${sidebarOpen ? styles.menuIconActive : ""}`}></span>
           </button>
           <div
             className={styles.logo}
             onClick={() => navigate("/member/dashboard")}
-            style={{ cursor: "pointer" }}
+            role="button"
+            tabIndex={0}
           >
             <span className={styles.logoIcon}>🚀</span>
             <span className={styles.logoText}>KUWIFR</span>
+            <span className={styles.envTag}>Cluster</span>
           </div>
         </div>
+
         <div className={styles.headerRight}>
           <button
+            type="button"
             className={styles.notificationBtn}
             onClick={() => navigate("/member/notifications")}
             aria-label="Notifications"
@@ -137,129 +145,124 @@ const MemberLayout = () => {
             🔔
             <span className={styles.notificationBadge}></span>
           </button>
+
           <div className={styles.userInfo}>
-            <span className={styles.userName}>
-              {user?.fullName || "Member"}
-            </span>
-            <span className={styles.userRole}>
-              User ID: {user?.memberId || "KFR------"}
-            </span>
+            <span className={styles.userName}>{user?.fullName || "Member"}</span>
+            <span className={styles.userRole}>ID: {user?.memberId || "KFR------"}</span>
           </div>
-          <button className={styles.logoutBtn} onClick={handleLogout}>
+
+          <button type="button" className={styles.logoutBtn} onClick={handleLogout}>
             Logout
           </button>
         </div>
       </header>
 
-      {/* ================= DESKTOP & EXPANDED SIDEBAR ================= */}
-      <aside className={`${styles.sidebar} ${sidebarOpen ? styles.open : ""}`}>
-        {/* User Card */}
-        <div className={styles.sidebarUser}>
-          <div className={styles.sidebarAvatar}>
-            {user?.profileImage?.url ? (
-              <img
-                src={user.profileImage.url}
-                alt={user.fullName || "User"}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  borderRadius: "50%",
-                  objectFit: "cover",
-                }}
-              />
-            ) : (
-              user?.fullName?.charAt(0) || "M"
-            )}
-          </div>
-          <div className={styles.sidebarUserInfo}>
-            <span className={styles.sidebarUserName}>
-              {user?.fullName || "Member"}
-            </span>
-            <span
-              className={styles.sidebarUserRole}
-              style={{ color: "#38bdf8", fontWeight: "700" }}
-            >
-              User ID: {user?.memberId || "KFR------"}
-            </span>
-          </div>
-        </div>
+      {/* ================= BACKDROP OVERLAY ================= */}
+      {isMobile && (sidebarOpen || mobileDrawerOpen) && (
+        <div
+          className={`${styles.overlay} ${styles.overlayVisible}`}
+          onClick={closeAllMenus}
+          aria-hidden="true"
+        />
+      )}
 
-        {/* Sidebar Nav Links with Dropdown Menu */}
-        <nav className={styles.sidebarNav}>
-          {navItems.map((item) => {
-            if (item.isDropdown) {
+      {/* ================= SIDEBAR (DESKTOP + MOBILE SLIDE-OUT) ================= */}
+      <aside
+        className={`${styles.sidebar} ${sidebarOpen ? styles.open : ""}`}
+        aria-label="Sidebar Navigation"
+      >
+        <div className={styles.sidebarInnerScroll}>
+          {/* User Profile Card */}
+          <div className={styles.sidebarUser}>
+            <div className={styles.sidebarAvatar}>
+              {user?.profileImage?.url ? (
+                <img
+                  src={user.profileImage.url}
+                  alt={user.fullName || "User"}
+                  className={styles.avatarImg}
+                />
+              ) : (
+                user?.fullName?.charAt(0) || "M"
+              )}
+            </div>
+            <div className={styles.sidebarUserInfo}>
+              <span className={styles.sidebarUserName}>{user?.fullName || "Member"}</span>
+              <span className={styles.sidebarUserRole}>
+                {user?.memberId ? `ID: ${user.memberId}` : "Active Member"}
+              </span>
+            </div>
+          </div>
+
+          {/* Nav Items */}
+          <nav className={styles.sidebarNav}>
+            {navItems.map((item) => {
+              if (item.isDropdown) {
+                return (
+                  <div key={item.id} className={styles.dropdownGroup}>
+                    <button
+                      type="button"
+                      className={`${styles.navItem} ${isPackageGroupActive ? styles.active : ""}`}
+                      onClick={() => setPackageDropdownOpen(!packageDropdownOpen)}
+                    >
+                      <span className={styles.navIcon}>{item.icon}</span>
+                      <span className={styles.navLabel}>{item.label}</span>
+                      <span className={`${styles.dropdownCaret} ${packageDropdownOpen ? styles.caretOpen : ""}`}>
+                        ▼
+                      </span>
+                    </button>
+
+                    {packageDropdownOpen && (
+                      <div className={styles.submenuList}>
+                        {item.subItems.map((sub) => (
+                          <button
+                            key={sub.id}
+                            type="button"
+                            className={`${styles.submenuItem} ${isActive(sub.path) ? styles.submenuActive : ""}`}
+                            onClick={() => {
+                              navigate(sub.path);
+                              if (isMobile) closeAllMenus();
+                            }}
+                          >
+                            <span className={styles.submenuIcon}>{sub.icon}</span>
+                            <span>{sub.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
               return (
-                <div key={item.id} className={styles.dropdownGroup}>
-                  <button
-                    type="button"
-                    className={`${styles.navItem} ${isPackageGroupActive ? styles.active : ""}`}
-                    onClick={() => setPackageDropdownOpen(!packageDropdownOpen)}
-                  >
-                    <span className={styles.navIcon}>{item.icon}</span>
-                    <span className={styles.navLabel}>{item.label}</span>
-                    <span className={styles.dropdownCaret}>
-                      {packageDropdownOpen ? "▲" : "▼"}
-                    </span>
-                  </button>
-
-                  {packageDropdownOpen && (
-                    <div className={styles.submenuList}>
-                      {item.subItems.map((sub) => (
-                        <button
-                          key={sub.id}
-                          type="button"
-                          className={`${styles.submenuItem} ${isActive(sub.path) ? styles.submenuActive : ""}`}
-                          onClick={() => {
-                            navigate(sub.path);
-                            if (isMobile) closeAllMenus();
-                          }}
-                        >
-                          <span className={styles.submenuIcon}>{sub.icon}</span>
-                          <span>{sub.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`${styles.navItem} ${isActive(item.path) ? styles.active : ""}`}
+                  onClick={() => {
+                    navigate(item.path);
+                    if (isMobile) closeAllMenus();
+                  }}
+                >
+                  <span className={styles.navIcon}>{item.icon}</span>
+                  <span className={styles.navLabel}>{item.label}</span>
+                  {isActive(item.path) && <span className={styles.activePill}></span>}
+                </button>
               );
-            }
+            })}
+          </nav>
 
-            return (
-              <button
-                key={item.id}
-                className={`${styles.navItem} ${isActive(item.path) ? styles.active : ""}`}
-                onClick={() => {
-                  navigate(item.path);
-                  if (isMobile) closeAllMenus();
-                }}
-              >
-                <span className={styles.navIcon}>{item.icon}</span>
-                <span className={styles.navLabel}>{item.label}</span>
-                {isActive(item.path) && (
-                  <span className={styles.activeIndicator}></span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Sidebar Footer */}
-        <div className={styles.sidebarFooter}>
-          <button className={styles.logoutBtnSidebar} onClick={handleLogout}>
-            🚪 Logout
-          </button>
+          {/* Sidebar Footer Logout */}
+          <div className={styles.sidebarFooter}>
+            <button type="button" className={styles.logoutBtnSidebar} onClick={handleLogout}>
+              <span>🚪</span>
+              <span>Logout Account</span>
+            </button>
+          </div>
         </div>
       </aside>
 
-      {/* Mobile Dark Overlay */}
-      {isMobile && (sidebarOpen || mobileDrawerOpen) && (
-        <div className={styles.overlay} onClick={closeAllMenus} />
-      )}
-
       {/* ================= MAIN CONTENT OUTLET ================= */}
-      <main
-        className={`${styles.mainContent} ${!sidebarOpen ? styles.expanded : ""}`}
-      >
+      <main className={`${styles.mainContent} ${!sidebarOpen ? styles.expanded : ""}`}>
         <Outlet />
       </main>
 
@@ -268,33 +271,43 @@ const MemberLayout = () => {
         {navItems.slice(0, 4).map((item) => (
           <button
             key={item.id}
-            className={`${styles.bottomNavItem} ${isActive(item.path) ? styles.active : ""}`}
-            onClick={() => navigate(item.path)}
+            type="button"
+            className={`${styles.bottomNavItem} ${isActive(item.path) ? styles.bottomActive : ""}`}
+            onClick={() => {
+              navigate(item.path);
+              closeAllMenus();
+            }}
           >
             <span className={styles.bottomNavIcon}>{item.icon}</span>
             <span className={styles.bottomNavLabel}>{item.label}</span>
           </button>
         ))}
-        <button className={styles.bottomNavItem} onClick={toggleMobileDrawer}>
+
+        <button
+          type="button"
+          className={`${styles.bottomNavItem} ${mobileDrawerOpen ? styles.bottomActive : ""}`}
+          onClick={toggleMobileDrawer}
+          aria-label="More Navigation"
+        >
           <span className={styles.bottomNavIcon}>📋</span>
           <span className={styles.bottomNavLabel}>More</span>
         </button>
       </nav>
 
-      {/* ================= MOBILE DRAWER MENU ================= */}
-      <div
-        className={`${styles.mobileDrawer} ${mobileDrawerOpen ? styles.open : ""}`}
-      >
+      {/* ================= MOBILE BOTTOM DRAWER MENU ================= */}
+      <div className={`${styles.mobileDrawer} ${mobileDrawerOpen ? styles.drawerOpen : ""}`}>
         <div className={styles.drawerHeader}>
-          <h3>Navigation Menu</h3>
+          <h3>All Navigation</h3>
           <button
+            type="button"
             onClick={toggleMobileDrawer}
             className={styles.closeDrawerBtn}
-            aria-label="Close menu"
+            aria-label="Close Drawer"
           >
             ✕
           </button>
         </div>
+
         <nav className={styles.drawerNav}>
           {navItems.slice(4).map((item) => {
             if (item.isDropdown) {
@@ -306,11 +319,11 @@ const MemberLayout = () => {
                   {item.subItems.map((sub) => (
                     <button
                       key={sub.id}
-                      className={styles.drawerNavItem}
-                      style={{ paddingLeft: "32px" }}
+                      type="button"
+                      className={`${styles.drawerNavItem} ${styles.drawerSubItem} ${isActive(sub.path) ? styles.drawerActive : ""}`}
                       onClick={() => {
                         navigate(sub.path);
-                        setMobileDrawerOpen(false);
+                        closeAllMenus();
                       }}
                     >
                       <span className={styles.drawerNavIcon}>{sub.icon}</span>
@@ -324,10 +337,11 @@ const MemberLayout = () => {
             return (
               <button
                 key={item.id}
-                className={styles.drawerNavItem}
+                type="button"
+                className={`${styles.drawerNavItem} ${isActive(item.path) ? styles.drawerActive : ""}`}
                 onClick={() => {
                   navigate(item.path);
-                  setMobileDrawerOpen(false);
+                  closeAllMenus();
                 }}
               >
                 <span className={styles.drawerNavIcon}>{item.icon}</span>
@@ -335,8 +349,10 @@ const MemberLayout = () => {
               </button>
             );
           })}
+
           <div className={styles.drawerDivider}></div>
-          <button className={styles.drawerNavItem} onClick={handleLogout}>
+
+          <button type="button" className={styles.drawerLogoutBtn} onClick={handleLogout}>
             <span className={styles.drawerNavIcon}>🚪</span>
             <span>Logout</span>
           </button>
