@@ -1,5 +1,5 @@
 // client/src/pages/member/DashboardPage.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -48,12 +48,59 @@ const DashboardPage = () => {
     }).format(num);
   };
 
-  const copyLink = (side, url) => {
+  // 🌐 Dynamic Production Origin Resolution
+  // Ensures links dynamically point to https://www.kuwifr.in or current domain rather than localhost:5173
+  const dynamicOrigin = typeof window !== 'undefined'
+    ? window.location.origin
+    : (import.meta.env.VITE_APP_URL || 'https://www.kuwifr.in');
+
+  const sponsorId = user?.memberId || stats?.memberId || 'KFR------';
+
+  const referralLinks = useMemo(() => {
+    // If backend provides a code or path, use it; otherwise, build standardized production referral URLs
+    const leftCode = stats?.referralLinks?.left?.code || sponsorId;
+    const rightCode = stats?.referralLinks?.right?.code || sponsorId;
+
+    return {
+      left: `${dynamicOrigin}/register?ref=${leftCode}&pos=L`,
+      right: `${dynamicOrigin}/register?ref=${rightCode}&pos=R`
+    };
+  }, [dynamicOrigin, sponsorId, stats?.referralLinks]);
+
+  // Robust Cross-Device Copy to Clipboard
+  const handleCopyLink = async (side, url) => {
     if (!url) return;
-    navigator.clipboard.writeText(url);
-    setCopiedSide(side);
-    showNotification(`${side.toUpperCase()} referral link copied to clipboard!`, 'info');
-    setTimeout(() => setCopiedSide(null), 2000);
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const tempInput = document.createElement('textarea');
+        tempInput.value = url;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempInput);
+      }
+      setCopiedSide(side);
+      showNotification(`${side.toUpperCase()} team referral link copied to clipboard!`, 'info');
+      setTimeout(() => setCopiedSide(null), 2200);
+    } catch (err) {
+      showNotification('Failed to copy link. Please manually copy.', 'error');
+    }
+  };
+
+  // Native Mobile WhatsApp/Device Share
+  const handleNativeShare = (side, url) => {
+    const teamLabel = side === 'left' ? 'LEFT' : 'RIGHT';
+    if (navigator.share) {
+      navigator.share({
+        title: `Join KUWIFR Network (${teamLabel} Team)`,
+        text: `Register under my KUWIFR ${teamLabel} Team placement. Sponsor ID: ${sponsorId}\n`,
+        url: url
+      }).catch(() => {});
+    } else {
+      handleCopyLink(side, url);
+    }
   };
 
   if (error && !stats) {
@@ -73,7 +120,7 @@ const DashboardPage = () => {
 
   return (
     <div className={styles.dashboardScene}>
-      {/* ================= 3D FLOATING BACKGROUND ELEMENTS ================= */}
+      {/* ==== 3D FLOATING BACKGROUND ELEMENTS ====== */}
       <div className={styles.ambientCanvas} aria-hidden="true">
         <div className={`${styles.glowBlob} ${styles.blobTopLeft}`}></div>
         <div className={`${styles.glowBlob} ${styles.blobTopRight}`}></div>
@@ -100,7 +147,7 @@ const DashboardPage = () => {
         <div className={`${styles.floating3DObject} ${styles.geoRingBottom}`}></div>
       </div>
 
-      {/* ================= FOREGROUND DASHBOARD CONTENT ================= */}
+      {/* ===== FOREGROUND DASHBOARD CONTENT ===== */}
       <div className={styles.contentLayer}>
         {/* Dashboard Header */}
         <header className={styles.dashboardHeader}>
@@ -113,7 +160,7 @@ const DashboardPage = () => {
               Welcome back, <span className={styles.nameHighlight}>{user?.fullName || 'Member'}</span>
             </h1>
             <p className={styles.welcomeSub}>
-              Member ID: <strong className={styles.idCode}>{user?.memberId || 'KFR------'}</strong>
+              Member ID: <strong className={styles.idCode}>{sponsorId}</strong>
               <span className={styles.subDivider}>•</span>
               Status:{' '}
               <span className={user?.status === 'ACTIVE' ? styles.statusPillActive : styles.statusPillInactive}>
@@ -158,7 +205,6 @@ const DashboardPage = () => {
               <h4>Your Member ID is currently INACTIVE</h4>
               <p>Purchase any 1 of our 5 packages to activate your account and begin earning matching and all commissions.</p>
             </div>
-            {/* Direct Client-Side Routing to Buy Package */}
             <Link to="/member/packages" className={styles.noticeActionBtn}>
               Activate Account →
             </Link>
@@ -168,7 +214,6 @@ const DashboardPage = () => {
         {/* 4-ROW INFORMATION HIERARCHY GRID */}
         <div className={styles.statsGridContainer}>
           {/* ================= ROW 1: FINANCIAL OVERVIEW ================= */}
-          {/* 1. Today Income */}
           <div className={`${styles.statCard} ${styles.cardFinancial}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>TODAY INCOME</span>
@@ -184,7 +229,6 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          {/* 2. Total Income */}
           <div className={`${styles.statCard} ${styles.cardFinancial}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>TOTAL INCOME</span>
@@ -200,7 +244,6 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          {/* 3. Total Withdrawal */}
           <div className={`${styles.statCard} ${styles.cardFinancial}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>TOTAL WITHDRAWAL</span>
@@ -217,7 +260,6 @@ const DashboardPage = () => {
           </div>
 
           {/* ================= ROW 2: MEMBER ACQUISITION ================= */}
-          {/* 4. Today Add Members */}
           <div className={`${styles.statCard} ${styles.cardMember}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>TODAY ADD MEMBERS</span>
@@ -233,7 +275,6 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          {/* 5. Today Active Members */}
           <div className={`${styles.statCard} ${styles.cardMember}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>TODAY ACTIVE MEMBERS</span>
@@ -249,7 +290,6 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          {/* 6. Total Members */}
           <div className={`${styles.statCard} ${styles.cardMember}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>TOTAL MEMBERS</span>
@@ -266,7 +306,6 @@ const DashboardPage = () => {
           </div>
 
           {/* ================= ROW 3: ACTIVE & STAR VOLUME ================= */}
-          {/* 7. Total Active Members */}
           <div className={`${styles.statCard} ${styles.cardTeam}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>TOTAL ACTIVE MEMBERS</span>
@@ -282,7 +321,6 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          {/* 8. Today Star */}
           <div className={`${styles.statCard} ${styles.cardStar}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>TODAY STAR</span>
@@ -312,7 +350,6 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          {/* 9. Total Star */}
           <div className={`${styles.statCard} ${styles.cardStar}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>TOTAL STAR</span>
@@ -343,7 +380,6 @@ const DashboardPage = () => {
           </div>
 
           {/* ================= ROW 4: RANK, FUND & SPONSOR ================= */}
-          {/* 10. Current Rank */}
           <div className={`${styles.statCard} ${styles.cardMeta}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>CURRENT RANK</span>
@@ -359,7 +395,6 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          {/* 11. Current Fund Achieved */}
           <div className={`${styles.statCard} ${styles.cardMeta}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>CURRENT FUND ACHIEVED</span>
@@ -378,7 +413,6 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          {/* 12. My Direct Sponsor */}
           <div className={`${styles.statCard} ${styles.cardMeta}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>MY DIRECT SPONSOR</span>
@@ -403,66 +437,140 @@ const DashboardPage = () => {
         {/* ================= SALARY WALLET LIVE PROGRESS CARD ================= */}
         <SalaryProgressCard />
 
-        {/* ================= DIRECT REFERRAL LINKS SECTION ================= */}
-        {stats?.referralLinks && (
-          <section className={styles.referralShareSection}>
-            <div className={styles.referralHeader}>
-              <div className={styles.referralHeaderIcon}>🔗</div>
-              <div>
-                <h3>Your Direct Referral Links</h3>
-                <p>Share your personalized link to place new registrations directly into your Left or Right team</p>
-              </div>
+        {/* ================= 🔗 DYNAMIC LIVE REFERRAL LINKS SECTION ================= */}
+        <section className={styles.referralShareSection}>
+          <div className={styles.referralHeader}>
+            <div className={styles.referralHeaderIcon}>🔗</div>
+            <div className={styles.referralHeaderDetails}>
+              <h3>Your Direct Referral Links</h3>
+              <p>Share your personalized link to place new registrations directly into your Left or Right team</p>
             </div>
+          </div>
 
-            <div className={styles.referralGrid}>
-              {/* Left Side Referral */}
-              <div className={styles.referralBox}>
+          <div className={styles.referralGrid}>
+            {/* 1. Left Side Referral */}
+            <div className={styles.referralBox}>
+              <div className={styles.referralSideHeader}>
                 <div className={styles.referralSidePillLeft}>
                   <span className={styles.sideDotLeft}></span>
                   LEFT TEAM PLACEMENT
                 </div>
-                <div className={styles.linkCopyRow}>
-                  <input
-                    type="text"
-                    readOnly
-                    value={stats.referralLinks.left?.url || ''}
-                    className={styles.referralInput}
-                  />
-                  <button
-                    type="button"
-                    className={styles.copyButton}
-                    onClick={() => copyLink('left', stats.referralLinks.left?.url)}
-                  >
-                    {copiedSide === 'left' ? '✓ Copied' : 'Copy Link'}
-                  </button>
-                </div>
+                <span className={styles.sponsorNotice}>
+                  Sponsor: <strong>{sponsorId}</strong>
+                </span>
               </div>
 
-              {/* Right Side Referral */}
-              <div className={styles.referralBox}>
-                <div className={styles.referralSidePillRight}>
-                  <span className={styles.sideDotRight}></span>
-                  RIGHT TEAM PLACEMENT
-                </div>
-                <div className={styles.linkCopyRow}>
+              <div className={styles.linkActionEngine}>
+                <div className={styles.referralInputGroup}>
+                  <span className={styles.linkPrefixTag}>URL</span>
                   <input
                     type="text"
                     readOnly
-                    value={stats.referralLinks.right?.url || ''}
+                    value={referralLinks.left}
                     className={styles.referralInput}
+                    onClick={(e) => e.target.select()}
                   />
+                </div>
+
+                <div className={styles.actionBtnCluster}>
                   <button
                     type="button"
-                    className={styles.copyButton}
-                    onClick={() => copyLink('right', stats.referralLinks.right?.url)}
+                    className={`${styles.copyButton} ${copiedSide === 'left' ? styles.copyButtonActive : ''}`}
+                    onClick={() => handleCopyLink('left', referralLinks.left)}
+                    title="Copy Left Referral Link"
                   >
-                    {copiedSide === 'right' ? '✓ Copied' : 'Copy Link'}
+                    {copiedSide === 'left' ? (
+                      <>
+                        <span className={styles.btnCheckIcon}>✓</span>
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className={styles.btnSvg} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                        </svg>
+                        <span>Copy Link</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    className={styles.shareIconButton}
+                    onClick={() => handleNativeShare('left', referralLinks.left)}
+                    title="Share Link via WhatsApp or Mobile Apps"
+                    aria-label="Share Left Link"
+                  >
+                    <svg className={styles.btnSvg} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                    </svg>
                   </button>
                 </div>
               </div>
             </div>
-          </section>
-        )}
+
+            {/* 2. Right Side Referral */}
+            <div className={styles.referralBox}>
+              <div className={styles.referralSideHeader}>
+                <div className={styles.referralSidePillRight}>
+                  <span className={styles.sideDotRight}></span>
+                  RIGHT TEAM PLACEMENT
+                </div>
+                <span className={styles.sponsorNotice}>
+                  Sponsor: <strong>{sponsorId}</strong>
+                </span>
+              </div>
+
+              <div className={styles.linkActionEngine}>
+                <div className={styles.referralInputGroup}>
+                  <span className={styles.linkPrefixTag}>URL</span>
+                  <input
+                    type="text"
+                    readOnly
+                    value={referralLinks.right}
+                    className={styles.referralInput}
+                    onClick={(e) => e.target.select()}
+                  />
+                </div>
+
+                <div className={styles.actionBtnCluster}>
+                  <button
+                    type="button"
+                    className={`${styles.copyButton} ${copiedSide === 'right' ? styles.copyButtonActive : ''}`}
+                    onClick={() => handleCopyLink('right', referralLinks.right)}
+                    title="Copy Right Referral Link"
+                  >
+                    {copiedSide === 'right' ? (
+                      <>
+                        <span className={styles.btnCheckIcon}>✓</span>
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className={styles.btnSvg} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                        </svg>
+                        <span>Copy Link</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    className={styles.shareIconButton}
+                    onClick={() => handleNativeShare('right', referralLinks.right)}
+                    title="Share Link via WhatsApp or Mobile Apps"
+                    aria-label="Share Right Link"
+                  >
+                    <svg className={styles.btnSvg} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   );
