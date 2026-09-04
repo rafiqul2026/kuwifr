@@ -1,21 +1,34 @@
 // server/server.js
-
-// Load environment variables
-require('dotenv').config();
+const path = require('path');
+// 1. MUST BE AT THE VERY TOP to load .env into process.env before app initializes
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = require('./src/app');
-const { initSalaryScheduler } = require('./src/cron/salary.cron');
 
+// Render provisions process.env.PORT (typically 10000). Fallback to 5000 locally.
 const PORT = process.env.PORT || 5000;
+const HOST = '0.0.0.0';
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📍 http://localhost:${PORT}`);
+  console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🌐 Bound to host: ${HOST}`);
+});
 
-  // Initialize automated monthly salary scheduler (runs 00:05 AM on the 1st of every month)
-  try {
-    initSalaryScheduler();
-  } catch (err) {
-    console.error('⚠️ Failed to initialize salary scheduler:', err.message);
-  }
+// Handle unhandled Promise rejections without crashing server
+process.on('unhandledRejection', (err) => {
+  console.error('⚠️ Unhandled Promise Rejection:', err.message);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception:', err.message);
+});
+
+// Graceful shutdown on server termination
+process.on('SIGTERM', () => {
+  console.log('🛑 SIGTERM received. Shutting down gracefully...');
+  server.close(() => {
+    console.log('💤 Process terminated.');
+  });
 });

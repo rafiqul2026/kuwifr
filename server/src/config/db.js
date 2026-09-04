@@ -1,21 +1,31 @@
+// server/src/config/db.js
 const mongoose = require('mongoose');
 
 /**
  * Connect to MongoDB Database
- * Updated to remove deprecated options
+ * Supports resilient URI lookup and connection monitoring
  */
 const connectDB = async () => {
   try {
-    // Removed useNewUrlParser and useUnifiedTopology as they are deprecated
-    const conn = await mongoose.connect(process.env.MONGODB_URI);
+    // Check both standard variable names and sanitize whitespace/quotes
+    const rawUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+    const uri = rawUri ? rawUri.trim().replace(/^['"]|['"]$/g, '') : null;
+
+    if (!uri) {
+      throw new Error(
+        'Neither MONGODB_URI nor MONGO_URI is defined. Check environment variables in Render/local .env.'
+      );
+    }
+
+    const conn = await mongoose.connect(uri);
 
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
     console.log(`📊 Database: ${conn.connection.name}`);
     console.log(`📍 Connection State: ${conn.connection.readyState}`);
 
-    // Listen for connection events
+    // Connection lifecycle listeners
     mongoose.connection.on('error', (err) => {
-      console.error('❌ MongoDB connection error:', err);
+      console.error('❌ MongoDB connection error:', err.message);
     });
 
     mongoose.connection.on('disconnected', () => {
@@ -29,22 +39,21 @@ const connectDB = async () => {
     return conn;
   } catch (error) {
     console.error(`❌ MongoDB Connection Error: ${error.message}`);
-    
-    // Provide helpful error messages
+
     if (error.message.includes('ECONNREFUSED')) {
-      console.error('💡 Make sure MongoDB is running!');
-      console.error('   To start MongoDB:');
-      console.error('   - Windows: net start MongoDB');
-      console.error('   - Mac: brew services start mongodb-community');
-      console.error('   - Linux: sudo systemctl start mongod');
+      console.error('💡 MongoDB server is unreachable. Check cluster host status.');
     }
-    
-    if (error.message.includes('Authentication failed')) {
-      console.error('💡 Check your MongoDB username and password in .env');
+
+    if (error.message.includes('bad auth') || error.message.includes('Authentication failed')) {
+      console.error('💡 Authentication failed: verify Atlas username, password, and URL encoding.');
     }
-    
-    // Exit process with failure
-    process.exit(1);
+
+    if (error.message.includes('Invalid scheme')) {
+      console.error('💡 Connection string format error: verify it starts with "mongodb+srv://" without quotes.');
+    }
+
+    // Do not abruptly exit immediately so Render port binding diagnostics can log
+    throw error;
   }
 };
 
