@@ -14,7 +14,7 @@ const seedWithdrawalsIfEmpty = async () => {
           grossAmount: 5000,
           amount: 5000,
           tdsAmount: 250,      // 5% TDS
-          adminCharge: 250,    // 5% Admin charge
+          adminCharge: 250,    // 5% Admin Charge
           netAmount: 4500,
           status: 'PENDING',
           paymentMethod: 'IMPS_BANK',
@@ -65,7 +65,7 @@ const createWithdrawal = async (req, res, next) => {
 
     const requestedAmount = Number(amount);
 
-    // 1. Enforce ₹500 Minimum Limit
+    // 1. Strict ₹500 Minimum Limit
     if (!requestedAmount || isNaN(requestedAmount) || requestedAmount < 500) {
       return res.status(400).json({
         success: false,
@@ -73,11 +73,10 @@ const createWithdrawal = async (req, res, next) => {
       });
     }
 
-    // Retrieve user and wallet for data resolution
     const user = await User.findById(userId);
     let wallet = await Wallet.findOne({ userId });
 
-    // 2. Normalize and resolve all bank details keys to satisfy schema requirements
+    // 2. Normalize and resolve bank details
     const b = incomingBankDetails || {};
     const finalHolder = (
       accountHolderName ||
@@ -92,7 +91,6 @@ const createWithdrawal = async (req, res, next) => {
     const finalBank = (bankName || b.bankName || user?.bankDetails?.bankName || '').trim();
     const finalIfsc = (ifscCode || b.ifscCode || user?.bankDetails?.ifscCode || '').trim().toUpperCase();
 
-    // Ensure panNumber is never undefined/empty to satisfy Mongoose schema validation
     const resolvedPan = (
       panNumber ||
       b.panNumber ||
@@ -118,14 +116,14 @@ const createWithdrawal = async (req, res, next) => {
     }
 
     // 3. Verify Wallet Balance
+    let currentBalance = Number(
+      wallet?.incomeBalance ?? wallet?.balance ?? user?.walletBalance ?? 0
+    );
+
     const existingCount = await Withdrawal.countDocuments({
       $or: [{ userId }, { user: userId }],
       status: { $in: ['PENDING', 'APPROVED', 'PROCESSED'] }
     });
-
-    let currentBalance = Number(
-      wallet?.incomeBalance ?? wallet?.balance ?? user?.walletBalance ?? 0
-    );
 
     if (existingCount === 0 && currentBalance < 1600) {
       currentBalance = 1600;
@@ -146,13 +144,12 @@ const createWithdrawal = async (req, res, next) => {
       });
     }
 
-    // 4. Exact MLM Calculations: 5% TDS + 5% Admin Handling
+    // 4. Exact Calculations: 5% TDS + 5% Admin Handling
     const tdsAmount = Math.round(requestedAmount * 0.05);       // 5% TDS
     const adminCharge = Math.round(requestedAmount * 0.05);     // 5% Admin Handling
     const netAmount = requestedAmount - (tdsAmount + adminCharge);
     const uniqueTxn = `WTH-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 900 + 100)}`;
 
-    // Provides every key variation so any Mongoose sub-schema definition matches
     const completeBankDetails = {
       accountName: finalHolder,
       accountHolder: finalHolder,
@@ -309,8 +306,8 @@ const getMyWithdrawalStats = async (req, res, next) => {
     const userId = req.userId || req.user?.id || req.user?._id;
     const all = await Withdrawal.find({ $or: [{ userId }, { user: userId }] }).lean();
 
-    const pending = all.filter((w) => w.status === 'PENDING');
-    const completed = all.filter((w) => w.status === 'APPROVED' || w.status === 'PROCESSED');
+    const pending = all.filter((w) => (w.status || '').toUpperCase() === 'PENDING');
+    const completed = all.filter((w) => ['APPROVED', 'PROCESSED'].includes((w.status || '').toUpperCase()));
     const totalWithdrawn = completed.reduce((sum, w) => sum + Number(w.netAmount || w.amount || 0), 0);
 
     res.json({
@@ -348,28 +345,38 @@ const updateBankDetails = async (req, res, next) => {
   }
 };
 
-// ============ ADMIN ROUTES ============
+// ============================================================
+// 🛡️ ADMIN AUDIT & DISBURSEMENT HANDLERS (FULL STATUS PIPELINE)
+// ============================================================
 
+/**
+ * Admin: View all withdrawal requests filtered by status
+ * Handled via Case-Insensitive Regex
+ */
 const getAllWithdrawals = async (req, res, next) => {
   try {
-    await seedWithdrawalsIfEmpty();
     const { status, search, page = 1, limit = 20 } = req.query;
     const query = {};
 
+    // Filter by specific status (PENDING, APPROVED, PROCESSED, REJECTED)
     if (status && status !== 'ALL') {
-      query.status = status.toUpperCase();
+      query.status = { $regex: new RegExp(`^${status.trim()}$`, 'i') };
     }
 
-    if (search) {
+    // Search across Member ID, Name, Account Number, UTR, or Txn Number
+    if (search && search.trim()) {
+      const q = search.trim();
       query.$or = [
-        { withdrawalNumber: { $regex: search, $options: 'i' } },
-        { transactionId: { $regex: search, $options: 'i' } },
-        { 'bankDetails.accountName': { $regex: search, $options: 'i' } },
-        { 'bankDetails.accountHolder': { $regex: search, $options: 'i' } },
-        { 'bankDetails.accountNumber': { $regex: search, $options: 'i' } },
-        { accountHolderName: { $regex: search, $options: 'i' } },
-        { accountNumber: { $regex: search, $options: 'i' } },
-        { utrNumber: { $regex: search, $options: 'i' } }
+        { withdrawalNumber: { $regex: q, $options: 'i' } },
+        { transactionId: { $regex: q, $options: 'i' } },
+        { memberName: { $regex: q, $options: 'i' } },
+        { memberId: { $regex: q, $options: 'i' } },
+        { 'bankDetails.accountName': { $regex: q, $options: 'i' } },
+        { 'bankDetails.accountHolder': { $regex: q, $options: 'i' } },
+        { 'bankDetails.accountNumber': { $regex: q, $options: 'i' } },
+        { accountHolderName: { $regex: q, $options: 'i' } },
+        { accountNumber: { $regex: q, $options: 'i' } },
+        { utrNumber: { $regex: q, $options: 'i' } }
       ];
     }
 
@@ -387,14 +394,22 @@ const getAllWithdrawals = async (req, res, next) => {
       Withdrawal.countDocuments(query)
     ]);
 
-    const formattedWithdrawals = (withdrawals || []).map((w) => ({
-      ...w,
-      grossAmount: w.grossAmount !== undefined ? w.grossAmount : w.amount,
-      adminCharge: w.adminCharge !== undefined ? w.adminCharge : (w.adminFee || 0),
-      tdsAmount: w.tdsAmount !== undefined ? w.tdsAmount : 0,
-      netAmount: w.netAmount !== undefined ? w.netAmount : w.amount,
-      withdrawalNumber: w.withdrawalNumber || w.transactionId || `WTH-${String(w._id).slice(-6)}`
-    }));
+    const formattedWithdrawals = (withdrawals || []).map((w) => {
+      const gross = Number(w.grossAmount || w.amount || 0);
+      const adminFee = Number(w.adminCharge !== undefined ? w.adminCharge : Math.round(gross * 0.05));
+      const tds = Number(w.tdsAmount !== undefined ? w.tdsAmount : Math.round(gross * 0.05));
+      const net = Number(w.netAmount !== undefined ? w.netAmount : (gross - adminFee - tds));
+
+      return {
+        ...w,
+        status: (w.status || 'PENDING').toUpperCase(),
+        grossAmount: gross,
+        adminCharge: adminFee,
+        tdsAmount: tds,
+        netAmount: net,
+        withdrawalNumber: w.withdrawalNumber || w.transactionId || `WTH-${String(w._id).slice(-6)}`
+      };
+    });
 
     const totalPages = Math.ceil(total / pageLimit) || 1;
 
@@ -416,32 +431,44 @@ const getAllWithdrawals = async (req, res, next) => {
   }
 };
 
+/**
+ * Admin: Dedicated Pending Filter Endpoint
+ */
 const getPendingWithdrawals = async (req, res, next) => {
   try {
-    await seedWithdrawalsIfEmpty();
     const { limit = 20, page = 1 } = req.query;
     const currentPage = Math.max(1, parseInt(page, 10) || 1);
     const pageLimit = Math.max(1, parseInt(limit, 10) || 20);
     const skip = (currentPage - 1) * pageLimit;
 
+    const query = { status: { $regex: /^PENDING$/i } };
+
     const [withdrawals, total] = await Promise.all([
-      Withdrawal.find({ status: 'PENDING' })
+      Withdrawal.find(query)
         .populate('userId', 'fullName email phoneNumber memberId bankDetails')
         .sort({ requestedAt: -1, createdAt: -1 })
         .skip(skip)
         .limit(pageLimit)
         .lean(),
-      Withdrawal.countDocuments({ status: 'PENDING' })
+      Withdrawal.countDocuments(query)
     ]);
 
-    const formattedWithdrawals = (withdrawals || []).map((w) => ({
-      ...w,
-      grossAmount: w.grossAmount !== undefined ? w.grossAmount : w.amount,
-      adminCharge: w.adminCharge !== undefined ? w.adminCharge : (w.adminFee || 0),
-      tdsAmount: w.tdsAmount !== undefined ? w.tdsAmount : 0,
-      netAmount: w.netAmount !== undefined ? w.netAmount : w.amount,
-      withdrawalNumber: w.withdrawalNumber || w.transactionId || `WTH-${String(w._id).slice(-6)}`
-    }));
+    const formattedWithdrawals = (withdrawals || []).map((w) => {
+      const gross = Number(w.grossAmount || w.amount || 0);
+      const adminFee = Number(w.adminCharge !== undefined ? w.adminCharge : Math.round(gross * 0.05));
+      const tds = Number(w.tdsAmount !== undefined ? w.tdsAmount : Math.round(gross * 0.05));
+      const net = Number(w.netAmount !== undefined ? w.netAmount : (gross - adminFee - tds));
+
+      return {
+        ...w,
+        status: 'PENDING',
+        grossAmount: gross,
+        adminCharge: adminFee,
+        tdsAmount: tds,
+        netAmount: net,
+        withdrawalNumber: w.withdrawalNumber || w.transactionId || `WTH-${String(w._id).slice(-6)}`
+      };
+    });
 
     const totalPages = Math.ceil(total / pageLimit) || 1;
 
@@ -463,6 +490,10 @@ const getPendingWithdrawals = async (req, res, next) => {
   }
 };
 
+/**
+ * Admin: Approve Payout
+ * Moves status from PENDING to APPROVED
+ */
 const approveWithdrawal = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -480,7 +511,7 @@ const approveWithdrawal = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: 'Withdrawal approved successfully. Ready for manual disbursement.',
+      message: 'Withdrawal approved successfully. Moved to APPROVED status.',
       data: { withdrawal }
     });
   } catch (error) {
@@ -488,6 +519,10 @@ const approveWithdrawal = async (req, res, next) => {
   }
 };
 
+/**
+ * Admin: Reject Payout
+ * Moves status to REJECTED and auto-refunds member wallet
+ */
 const rejectWithdrawal = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -520,7 +555,7 @@ const rejectWithdrawal = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: 'Withdrawal rejected and amount refunded back to member wallet',
+      message: 'Withdrawal rejected and amount refunded back to member wallet.',
       data: { withdrawal }
     });
   } catch (error) {
@@ -528,6 +563,10 @@ const rejectWithdrawal = async (req, res, next) => {
   }
 };
 
+/**
+ * Admin: Mark Disbursed (Processed)
+ * Records IMPS / Bank UTR Reference
+ */
 const processWithdrawal = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -606,20 +645,22 @@ const refundTDS = async (req, res, next) => {
   }
 };
 
+/**
+ * Admin: Real-time Stats for Top KPI Cards
+ */
 const getWithdrawalStats = async (req, res, next) => {
   try {
-    const [pending, approved, processed, rejected, all] = await Promise.all([
-      Withdrawal.find({ status: 'PENDING' }).lean(),
-      Withdrawal.find({ status: 'APPROVED' }).lean(),
-      Withdrawal.find({ status: 'PROCESSED' }).lean(),
-      Withdrawal.find({ status: 'REJECTED' }).lean(),
-      Withdrawal.find().lean()
-    ]);
+    const all = await Withdrawal.find().lean();
+
+    const pending = all.filter((w) => (w.status || '').toUpperCase() === 'PENDING');
+    const approved = all.filter((w) => (w.status || '').toUpperCase() === 'APPROVED');
+    const processed = all.filter((w) => (w.status || '').toUpperCase() === 'PROCESSED');
+    const rejected = all.filter((w) => (w.status || '').toUpperCase() === 'REJECTED');
 
     const totalGross = all.reduce((sum, w) => sum + Number(w.grossAmount || w.amount || 0), 0);
-    const totalTds = all.reduce((sum, w) => sum + Number(w.tdsAmount || 0), 0);
-    const totalAdminCharge = all.reduce((sum, w) => sum + Number(w.adminCharge || w.adminFee || 0), 0);
-    const totalNetDisbursed = processed.reduce((sum, w) => sum + Number(w.netAmount || 0), 0);
+    const totalTds = all.reduce((sum, w) => sum + Number(w.tdsAmount || Math.round((w.grossAmount || w.amount || 0) * 0.05)), 0);
+    const totalAdminCharge = all.reduce((sum, w) => sum + Number(w.adminCharge || Math.round((w.grossAmount || w.amount || 0) * 0.05)), 0);
+    const totalNetDisbursed = processed.reduce((sum, w) => sum + Number(w.netAmount || (Number(w.grossAmount || w.amount || 0) * 0.9)), 0);
 
     res.json({
       success: true,
