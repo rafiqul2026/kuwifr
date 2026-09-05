@@ -4,7 +4,6 @@ const router = express.Router();
 const authModule = require('../middleware/auth');
 const packagePurchaseController = require('../controllers/packagePurchase.controller');
 
-// Resolve authentication middleware matching your project convention
 const auth = typeof authModule === 'function' ? authModule : (authModule.auth || authModule.protect);
 const adminAuth =
   authModule.adminAuth ||
@@ -14,10 +13,12 @@ const adminAuth =
     return res.status(403).json({ success: false, message: 'Administrator credentials required' });
   });
 
-// ============ MEMBER ACTIVATION ROUTE ============
+// Member Purchase Request
 router.post('/activate', auth, packagePurchaseController.completePackagePurchase);
 
-// ============ ADMIN ANALYTICS ROUTE ============
+// Admin Management & Analytics
 router.get('/admin-analytics', auth, adminAuth, packagePurchaseController.getAdminPackageAnalytics);
+router.patch('/approve/:purchaseId', auth, adminAuth, packagePurchaseController.approvePackagePurchase);
+router.patch('/reject/:purchaseId', auth, adminAuth, packagePurchaseController.rejectPackagePurchase);
 
 module.exports = router;

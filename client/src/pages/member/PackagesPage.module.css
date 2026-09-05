@@ -366,9 +366,10 @@
   background: #ffffff;
   border-radius: 18px;
   width: 100%;
-  max-width: 520px;
+  max-width: 540px;
+  max-height: 90vh;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-  overflow: hidden;
+  overflow-y: auto;
   animation: popIn 0.2s ease-out;
 }
 
@@ -381,7 +382,7 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 20px 22px 14px 22px;
+  padding: 18px 22px 14px 22px;
   border-bottom: 1px solid #f1f5f9;
 }
 
@@ -513,14 +514,14 @@
 .paymentMethodList {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .paymentOption {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px;
+  padding: 12px 14px;
   border: 1.5px solid #e2e8f0;
   border-radius: 12px;
   cursor: pointer;
@@ -557,9 +558,194 @@
   font-size: 20px;
 }
 
+/* QR Code Display Container */
+.qrPaymentContainer {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  background: #f8fafc;
+  border: 1.5px solid #dbeafe;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.qrBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #ffffff;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.qrImage {
+  width: 140px;
+  height: 140px;
+  display: block;
+}
+
+.qrScanHint {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #1d4ed8;
+}
+
+.upiInfoCard {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.infoRow {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  color: #475569;
+}
+
+.infoRow strong {
+  color: #0f172a;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.highlightAmount {
+  color: #059669 !important;
+  font-size: 18px !important;
+  font-weight: 900;
+}
+
+/* Bank Deposit Container */
+.bankDetailsContainer {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bankDetailRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.bankDetailRow:last-child {
+  border-bottom: none;
+}
+
+.bankDetailRow span {
+  color: #64748b;
+}
+
+.bankDetailRow strong {
+  color: #0f172a;
+}
+
+/* Verification Input Block */
+.verificationInputBlock {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.inputLabel {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.requiredStar {
+  color: #ef4444;
+}
+
+.utrInputField {
+  width: 100%;
+  height: 42px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 13.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  outline: none;
+  box-sizing: border-box;
+  color: #0f172a;
+}
+
+.utrInputField:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.uploadZone {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.fileInputHidden {
+  display: none;
+}
+
+.uploadTriggerBtn {
+  background: #f1f5f9;
+  border: 1.5px dashed #94a3b8;
+  color: #1e293b;
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.uploadTriggerBtn:hover {
+  background: #e2e8f0;
+  border-color: #2563eb;
+}
+
+.uploadHint {
+  font-size: 11.5px;
+  color: #64748b;
+}
+
+.proofPreviewWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.proofThumb {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid #cbd5e1;
+}
+
+.proofAttachedLabel {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #059669;
+}
+
 /* Modal Actions */
 .modalFooter {
-  padding: 14px 22px 20px 22px;
+  padding: 14px 22px 18px 22px;
   display: flex;
   gap: 10px;
   border-top: 1px solid #f1f5f9;
@@ -578,7 +764,7 @@
 }
 
 .confirmBtn {
-  flex: 1.4;
+  flex: 1.6;
   padding: 11px;
   background: linear-gradient(135deg, #10b981, #059669);
   border: none;
@@ -595,26 +781,23 @@
   cursor: not-allowed;
 }
 
-/* ============================================================
-   STEP 3: SUCCESS CONFIRMATION RECEIPT SCREEN
-   ============================================================ */
+/* Step 3: Success / Pending Review Screen */
 .successScreenWrapper {
   padding: 24px 22px;
   text-align: center;
 }
 
-.successIconBadge {
+.pendingHourglassIcon {
   width: 60px;
   height: 60px;
-  background: #ecfdf5;
-  border: 2px solid #a7f3d0;
-  color: #059669;
+  background: #fef3c7;
+  border: 2px solid #fde68a;
+  color: #d97706;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 28px;
-  font-weight: 900;
   margin: 0 auto 16px;
 }
 
@@ -629,6 +812,7 @@
   font-size: 13px;
   color: #475569;
   margin: 0 0 20px 0;
+  line-height: 1.45;
 }
 
 .activeTag {
@@ -667,11 +851,12 @@
 }
 
 .monoFont {
-  font-family: monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
-.capHighlight {
-  color: #059669 !important;
+.pendingStatusText {
+  color: #d97706 !important;
+  font-weight: 850;
 }
 
 .dashboardRedirectBtn {
@@ -717,5 +902,9 @@
 @media (max-width: 768px) {
   .packagesGrid {
     grid-template-columns: 1fr;
+  }
+  .qrPaymentContainer {
+    flex-direction: column;
+    text-align: center;
   }
 }
