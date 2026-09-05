@@ -3,7 +3,7 @@
 .pageContainer {
   max-width: 1440px;
   margin: 0 auto;
-  padding: 16px 20px 60px;
+  padding: 12px 14px 40px;
   box-sizing: border-box;
 }
 
@@ -12,30 +12,30 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 12px;
 }
 
 .titleWrap {
   flex: 1;
-  min-width: 280px;
+  min-width: 260px;
 }
 
 .tagGroup {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 6px;
+  gap: 8px;
+  margin-bottom: 4px;
   flex-wrap: wrap;
 }
 
 .treeTag {
   background: #ecfdf5;
   color: #059669;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 800;
-  padding: 3px 10px;
+  padding: 2px 8px;
   border-radius: 999px;
   border: 1px solid #a7f3d0;
 }
@@ -44,9 +44,9 @@
   background: #eff6ff;
   border: 1px solid #bfdbfe;
   color: #2563eb;
-  padding: 3px 10px;
+  padding: 2px 8px;
   border-radius: 999px;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 800;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -58,15 +58,15 @@
 }
 
 .pageTitle {
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 900;
   color: #0f172a;
-  margin: 0 0 4px 0;
-  letter-spacing: -0.025em;
+  margin: 0 0 2px 0;
+  letter-spacing: -0.02em;
 }
 
 .pageSubtitle {
-  font-size: 13.5px;
+  font-size: 12px;
   color: #64748b;
   margin: 0;
 }
@@ -75,7 +75,7 @@
 .headerTools {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -84,25 +84,25 @@
   align-items: center;
   background: #ffffff;
   border: 1.5px solid #cbd5e1;
-  border-radius: 10px;
+  border-radius: 8px;
   overflow: hidden;
-  height: 38px;
+  height: 34px;
 }
 
 .searchInput {
   border: none;
-  padding: 0 10px;
-  font-size: 12.5px;
+  padding: 0 8px;
+  font-size: 12px;
   outline: none;
   font-family: monospace;
-  width: 150px;
+  width: 130px;
 }
 
 .searchBtn {
   background: #f8fafc;
   border: none;
   border-left: 1px solid #e2e8f0;
-  padding: 0 10px;
+  padding: 0 8px;
   cursor: pointer;
   height: 100%;
 }
@@ -110,7 +110,7 @@
 .zoomButtonGroup {
   display: flex;
   border: 1.5px solid #cbd5e1;
-  border-radius: 10px;
+  border-radius: 8px;
   overflow: hidden;
   background: #ffffff;
 }
@@ -118,9 +118,9 @@
 .toolBtn {
   background: #ffffff;
   border: none;
-  padding: 0 10px;
-  height: 36px;
-  font-size: 12px;
+  padding: 0 9px;
+  height: 32px;
+  font-size: 11.5px;
   font-weight: 800;
   color: #475569;
   cursor: pointer;
@@ -131,78 +131,88 @@
   border-right: none;
 }
 
-.toolBtn:hover {
-  background: #f1f5f9;
-}
-
 .syncBtn {
   background: #2563eb;
   color: #ffffff;
   border: none;
-  padding: 0 14px;
-  height: 38px;
-  border-radius: 10px;
-  font-size: 13px;
+  padding: 0 12px;
+  height: 34px;
+  border-radius: 8px;
+  font-size: 12px;
   font-weight: 800;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: background 0.15s ease;
-}
-
-.syncBtn:hover {
-  background: #1d4ed8;
 }
 
 /* KPI Cards */
 .kpiGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 .kpiCard {
   background: #ffffff;
   border: 1.5px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  border-radius: 12px;
+  padding: 10px 12px;
 }
 
 .kpiLabel {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 800;
   color: #64748b;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
-.kpiValueDark { font-size: 24px; font-weight: 900; color: #0f172a; margin: 4px 0 0; }
-.kpiValueBlue { font-size: 24px; font-weight: 900; color: #2563eb; margin: 4px 0 0; }
-.kpiValuePink { font-size: 24px; font-weight: 900; color: #ec4899; margin: 4px 0 0; }
-.kpiValueGreen { font-size: 24px; font-weight: 900; color: #059669; margin: 4px 0 0; }
-.kpiValueOrange { font-size: 24px; font-weight: 900; color: #f59e0b; margin: 4px 0 0; }
+.kpiValueDark { font-size: 18px; font-weight: 900; color: #0f172a; margin: 2px 0 0; }
+.kpiValueBlue { font-size: 18px; font-weight: 900; color: #2563eb; margin: 2px 0 0; }
+.kpiValuePink { font-size: 18px; font-weight: 900; color: #ec4899; margin: 2px 0 0; }
+.kpiValueGreen { font-size: 18px; font-weight: 900; color: #059669; margin: 2px 0 0; }
+.kpiValueOrange { font-size: 18px; font-weight: 900; color: #f59e0b; margin: 2px 0 0; }
 
-/* Canvas Container */
+/* Interactive Canvas Container */
 .treeCanvasWrapper {
   background: #f8fafc;
   border: 1.5px solid #e2e8f0;
-  border-radius: 20px;
-  padding: 40px 20px;
-  min-height: 550px;
-  overflow: auto;
-  box-sizing: border-box;
+  border-radius: 16px;
+  height: 600px;
   position: relative;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none; /* Allows two-finger pinch-to-zoom */
+  user-select: none;
   display: flex;
   justify-content: center;
+  align-items: flex-start;
+  padding-top: 24px;
+}
+
+.treeCanvasWrapper:active {
+  cursor: grabbing;
+}
+
+.touchHintPill {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.75);
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+  backdrop-filter: blur(4px);
+  z-index: 10;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .treeScaleArea {
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-block;
-  padding-bottom: 40px;
+  will-change: transform;
+  transform-origin: top center;
 }
 
 /* Tree Structure */
@@ -212,101 +222,106 @@
   align-items: center;
 }
 
+/* Compact Member Node Cards */
 .nodeCard {
   background: #ffffff;
-  border: 2px solid #cbd5e1;
-  border-radius: 16px;
-  padding: 12px 14px;
-  width: 175px;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 8px 10px;
+  width: 138px;
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.04);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
   position: relative;
   z-index: 2;
   text-align: center;
+  box-sizing: border-box;
 }
 
 .nodeCard:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.15);
   border-color: #2563eb;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.15);
 }
 
 .rootNodeCard {
   border-color: #f59e0b;
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.18);
 }
 
 .activeNodeCard {
-  border-top: 4px solid #10b981;
+  border-top: 3.5px solid #10b981;
 }
 
 .inactiveNodeCard {
-  border-top: 4px solid #94a3b8;
-  opacity: 0.85;
+  border-top: 3.5px solid #94a3b8;
 }
 
 .nodeAvatar {
-  font-size: 20px;
+  font-size: 16px;
+  line-height: 1;
   margin-bottom: 2px;
 }
 
 .nodeBody {
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .nodeIdBadge {
   font-family: monospace;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   color: #2563eb;
   background: #eff6ff;
-  border-radius: 4px;
-  padding: 1px 6px;
+  border-radius: 3px;
+  padding: 1px 4px;
   display: inline-block;
 }
 
 .nodeName {
   display: block;
-  font-size: 13px;
+  font-size: 11.5px;
   color: #0f172a;
-  margin: 3px 0 1px;
+  margin: 2px 0 1px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .nodePkg {
-  font-size: 10px;
-  font-weight: 750;
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
   color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .nodePills {
   display: flex;
   justify-content: space-between;
-  gap: 4px;
+  gap: 3px;
   border-top: 1px solid #f1f5f9;
-  padding-top: 6px;
+  padding-top: 4px;
 }
 
 .leftPill {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
   color: #2563eb;
   background: #eff6ff;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 1px 3px;
+  border-radius: 3px;
   flex: 1;
 }
 
 .rightPill {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
   color: #ec4899;
   background: #fdf2f8;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 1px 3px;
+  border-radius: 3px;
   flex: 1;
 }
 
@@ -315,28 +330,24 @@
   border: 1.5px dashed #cbd5e1;
   background: #f8fafc;
   cursor: default;
-  opacity: 0.7;
-}
-
-.emptyNodeCard:hover {
-  transform: none;
-  box-shadow: none;
-  border-color: #cbd5e1;
+  opacity: 0.65;
+  width: 120px;
+  padding: 8px 6px;
 }
 
 .emptyIcon {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 900;
   color: #94a3b8;
 }
 
 .emptyText {
-  font-size: 11px;
+  font-size: 9.5px;
   font-weight: 700;
   color: #94a3b8;
 }
 
-/* Tree Connectors */
+/* Tree Connector Lines */
 .childrenContainer {
   display: flex;
   flex-direction: column;
@@ -346,7 +357,7 @@
 
 .connectorLineDown {
   width: 2px;
-  height: 24px;
+  height: 18px;
   background: #94a3b8;
 }
 
@@ -354,7 +365,7 @@
   display: flex;
   justify-content: center;
   position: relative;
-  padding-top: 24px;
+  padding-top: 18px;
 }
 
 .childrenRow::before {
@@ -371,7 +382,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0 16px;
+  padding: 0 10px;
   position: relative;
 }
 
@@ -381,32 +392,32 @@
   top: 0;
   left: 50%;
   width: 2px;
-  height: 24px;
+  height: 18px;
   background: #94a3b8;
   transform: translateX(-50%);
 }
 
 .positionBadgeLeft {
-  font-size: 9px;
+  font-size: 8.5px;
   font-weight: 850;
   color: #2563eb;
   background: #eff6ff;
   border: 1px solid #bfdbfe;
-  padding: 1px 6px;
-  border-radius: 4px;
-  margin-bottom: 6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-bottom: 4px;
   z-index: 1;
 }
 
 .positionBadgeRight {
-  font-size: 9px;
+  font-size: 8.5px;
   font-weight: 850;
   color: #ec4899;
   background: #fdf2f8;
   border: 1px solid #fbcfe8;
-  padding: 1px 6px;
-  border-radius: 4px;
-  margin-bottom: 6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-bottom: 4px;
   z-index: 1;
 }
 
@@ -417,20 +428,34 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 400px;
+  height: 100%;
   text-align: center;
 }
 
 .spinner {
-  width: 44px;
-  height: 44px;
-  border: 4px solid #e2e8f0;
+  width: 36px;
+  height: 36px;
+  border: 3.5px solid #e2e8f0;
   border-top-color: #2563eb;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* Mobile Specific Optimizations */
+@media (max-width: 650px) {
+  .nodeCard {
+    width: 124px;
+    padding: 6px 8px;
+  }
+  .childColumn {
+    padding: 0 6px;
+  }
+  .treeCanvasWrapper {
+    height: 520px;
+  }
 }

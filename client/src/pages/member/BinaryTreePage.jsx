@@ -6,7 +6,7 @@ import { useNotification } from '../../hooks/useNotification';
 import styles from './BinaryTreePage.module.css';
 
 /**
- * Recursive Binary Tree Node component supporting unlimited depth with spillover.
+ * Compact recursive binary tree node with responsive styling
  */
 const BinaryTreeNode = ({ node, onSelectNode, isRoot = false }) => {
   if (!node) {
@@ -14,7 +14,7 @@ const BinaryTreeNode = ({ node, onSelectNode, isRoot = false }) => {
       <div className={styles.treeBranch}>
         <div className={`${styles.nodeCard} ${styles.emptyNodeCard}`}>
           <div className={styles.emptyIcon}>+</div>
-          <span className={styles.emptyText}>Empty Slot</span>
+          <span className={styles.emptyText}>Empty</span>
         </div>
       </div>
     );
@@ -25,17 +25,18 @@ const BinaryTreeNode = ({ node, onSelectNode, isRoot = false }) => {
 
   return (
     <div className={styles.treeBranch}>
-      {/* Member Card */}
+      {/* Compact Member Node Card */}
       <div
         className={`${styles.nodeCard} ${isRoot ? styles.rootNodeCard : ''} ${
           isActive ? styles.activeNodeCard : styles.inactiveNodeCard
         }`}
-        onClick={() => onSelectNode(node)}
-        title="Click to focus downline tree on this member"
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelectNode(node);
+        }}
+        title="Tap to focus on this member's subtree"
       >
-        <div className={styles.nodeAvatar}>
-          {isActive ? '👑' : '👤'}
-        </div>
+        <div className={styles.nodeAvatar}>{isActive ? '👑' : '👤'}</div>
         <div className={styles.nodeBody}>
           <div className={styles.nodeIdBadge}>{node.memberId}</div>
           <strong className={styles.nodeName}>{node.fullName || node.name}</strong>
@@ -49,18 +50,18 @@ const BinaryTreeNode = ({ node, onSelectNode, isRoot = false }) => {
         </div>
       </div>
 
-      {/* Render children subtrees if either left or right exists */}
+      {/* Render subtrees if either left or right child exists */}
       {(node.left || node.right) && (
         <div className={styles.childrenContainer}>
           <div className={styles.connectorLineDown}></div>
           <div className={styles.childrenRow}>
-            {/* Left Subtree & Spillover */}
+            {/* Left Subtree */}
             <div className={styles.childColumn}>
               <span className={styles.positionBadgeLeft}>LEFT</span>
               <BinaryTreeNode node={node.left} onSelectNode={onSelectNode} />
             </div>
 
-            {/* Right Subtree & Spillover */}
+            {/* Right Subtree */}
             <div className={styles.childColumn}>
               <span className={styles.positionBadgeRight}>RIGHT</span>
               <BinaryTreeNode node={node.right} onSelectNode={onSelectNode} />
@@ -83,14 +84,23 @@ const BinaryTreePage = () => {
     totalPairs: 0
   });
   const [loading, setLoading] = useState(true);
-  const [zoomScale, setZoomScale] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Transform states: Scale & 2D Pan Positions
+  const [zoomScale, setZoomScale] = useState(0.9);
+  const [panPosition, setPanPosition] = useState({ x: 0, y: 0 });
 
   const { user } = useAuth();
   const { showNotification } = useNotification();
-  const treeContainerRef = useRef(null);
 
-  // Fetch binary network tree without depth limits
+  // Gesture tracking refs
+  const canvasRef = useRef(null);
+  const isDraggingRef = useRef(false);
+  const startPanRef = useRef({ x: 0, y: 0 });
+  const initialTouchDistRef = useRef(null);
+  const initialScaleRef = useRef(1);
+
+  // Fetch binary network from backend
   const fetchBinaryTree = useCallback(
     async (targetMemberId = null) => {
       try {
@@ -107,7 +117,6 @@ const BinaryTreePage = () => {
             setCurrentRootMemberId(root.memberId);
           }
 
-          // Sync KPI metrics
           if (res.data.data?.summary) {
             const s = res.data.data.summary;
             setSummaryStats({
@@ -123,7 +132,7 @@ const BinaryTreePage = () => {
         }
       } catch (err) {
         console.error('Binary Tree Fetch Error:', err);
-        showNotification('Failed to fetch live binary tree data.', 'error');
+        showNotification('Failed to load binary tree data.', 'error');
       } finally {
         setLoading(false);
       }
@@ -131,7 +140,6 @@ const BinaryTreePage = () => {
     [user, showNotification]
   );
 
-  // Initial load on mount or user login
   useEffect(() => {
     if (user?.memberId) {
       setCurrentRootMemberId(user.memberId);
@@ -139,47 +147,108 @@ const BinaryTreePage = () => {
     }
   }, [user, fetchBinaryTree]);
 
-  // Drill down by clicking any child node
+  // Touch Gesture Listeners (Pinch-to-zoom & Swipe-to-pan)
+  const getTouchDistance = (e) => {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    return Math.hypot(dx, dy);
+  };
+
+  const handleTouchStart = (e) => {
+    if (e.touches.length === 2) {
+      // Two fingers -> Pinch to zoom
+      initialTouchDistRef.current = getTouchDistance(e);
+      initialScaleRef.current = zoomScale;
+    } else if (e.touches.length === 1) {
+      // Single finger -> Drag to pan
+      isDraggingRef.current = true;
+      startPanRef.current = {
+        x: e.touches[0].clientX - panPosition.x,
+        y: e.touches[0].clientY - panPosition.y
+      };
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (e.touches.length === 2 && initialTouchDistRef.current) {
+      // Handle pinch zoom
+      const currentDist = getTouchDistance(e);
+      const factor = currentDist / initialTouchDistRef.current;
+      const newScale = Math.min(Math.max(initialScaleRef.current * factor, 0.4), 1.6);
+      setZoomScale(Number(newScale.toFixed(2)));
+    } else if (e.touches.length === 1 && isDraggingRef.current) {
+      // Handle pan translation
+      setPanPosition({
+        x: e.touches[0].clientX - startPanRef.current.x,
+        y: e.touches[0].clientY - startPanRef.current.y
+      });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    isDraggingRef.current = false;
+    initialTouchDistRef.current = null;
+  };
+
+  // Mouse Drag Panning for Desktops
+  const handleMouseDown = (e) => {
+    // Only left click triggers panning
+    if (e.button !== 0) return;
+    isDraggingRef.current = true;
+    startPanRef.current = {
+      x: e.clientX - panPosition.x,
+      y: e.clientY - panPosition.y
+    };
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDraggingRef.current) return;
+    setPanPosition({
+      x: e.clientX - startPanRef.current.x,
+      y: e.clientY - startPanRef.current.y
+    });
+  };
+
+  const handleMouseUp = () => {
+    isDraggingRef.current = false;
+  };
+
+  // Node Selection Handler
   const handleSelectNode = (clickedNode) => {
     if (clickedNode?.memberId) {
+      setPanPosition({ x: 0, y: 0 }); // Re-center
       fetchBinaryTree(clickedNode.memberId);
     }
   };
 
-  // Reset view back to the logged-in member's root node
+  // Reset to personal root
   const handleResetToMyRoot = () => {
     if (user?.memberId) {
+      setPanPosition({ x: 0, y: 0 });
+      setZoomScale(0.9);
       fetchBinaryTree(user.memberId);
     }
   };
 
-  // Jump to specific Member ID via search
+  // Search Submit
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      setPanPosition({ x: 0, y: 0 });
       fetchBinaryTree(searchQuery.trim().toUpperCase());
       setSearchQuery('');
     }
   };
 
-  // Scale zoom
-  const handleZoom = (delta) => {
-    setZoomScale((prev) => Math.min(Math.max(Number((prev + delta).toFixed(1)), 0.4), 1.8));
-  };
-
   return (
     <div className={styles.pageContainer}>
-      {/* Top Banner & Controls */}
+      {/* Top Banner */}
       <header className={styles.headerBar}>
         <div className={styles.titleWrap}>
           <div className={styles.tagGroup}>
             <span className={styles.treeTag}>🌲 Unlimited Depth Binary Network</span>
             {user?.memberId && currentRootMemberId && currentRootMemberId !== user.memberId && (
-              <button
-                type="button"
-                onClick={handleResetToMyRoot}
-                className={styles.resetRootBtn}
-              >
+              <button type="button" onClick={handleResetToMyRoot} className={styles.resetRootBtn}>
                 ← Back to My Root ({user.memberId})
               </button>
             )}
@@ -190,7 +259,7 @@ const BinaryTreePage = () => {
           </p>
         </div>
 
-        {/* Actions: Search, Zoom, Sync */}
+        {/* Interactive Controls */}
         <div className={styles.headerTools}>
           <form onSubmit={handleSearchSubmit} className={styles.searchForm}>
             <input
@@ -204,9 +273,33 @@ const BinaryTreePage = () => {
           </form>
 
           <div className={styles.zoomButtonGroup}>
-            <button type="button" onClick={() => handleZoom(0.1)} className={styles.toolBtn} title="Zoom In">+</button>
-            <button type="button" onClick={() => setZoomScale(1)} className={styles.toolBtn} title="Reset Scale">100%</button>
-            <button type="button" onClick={() => handleZoom(-0.1)} className={styles.toolBtn} title="Zoom Out">−</button>
+            <button
+              type="button"
+              onClick={() => setZoomScale((prev) => Math.min(prev + 0.1, 1.6))}
+              className={styles.toolBtn}
+              title="Zoom In"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setZoomScale(0.9);
+                setPanPosition({ x: 0, y: 0 });
+              }}
+              className={styles.toolBtn}
+              title="Reset View"
+            >
+              Fit
+            </button>
+            <button
+              type="button"
+              onClick={() => setZoomScale((prev) => Math.max(prev - 0.1, 0.4))}
+              className={styles.toolBtn}
+              title="Zoom Out"
+            >
+              −
+            </button>
           </div>
 
           <button
@@ -243,8 +336,22 @@ const BinaryTreePage = () => {
         </div>
       </div>
 
-      {/* Tree Viewport */}
-      <div className={styles.treeCanvasWrapper} ref={treeContainerRef}>
+      {/* Touch-Friendly Gestural Canvas */}
+      <div
+        className={styles.treeCanvasWrapper}
+        ref={canvasRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      >
+        <div className={styles.touchHintPill}>
+          <span>👆 Drag to explore left/right • Pinch with 2 fingers to zoom</span>
+        </div>
+
         {loading ? (
           <div className={styles.treeLoading}>
             <div className={styles.spinner}></div>
@@ -259,13 +366,12 @@ const BinaryTreePage = () => {
         ) : (
           <div
             className={styles.treeScaleArea}
-            style={{ transform: `scale(${zoomScale})`, transformOrigin: 'top center' }}
+            style={{
+              transform: `translate(${panPosition.x}px, ${panPosition.y}px) scale(${zoomScale})`,
+              transformOrigin: 'top center'
+            }}
           >
-            <BinaryTreeNode
-              node={treeData}
-              onSelectNode={handleSelectNode}
-              isRoot={true}
-            />
+            <BinaryTreeNode node={treeData} onSelectNode={handleSelectNode} isRoot={true} />
           </div>
         )}
       </div>
