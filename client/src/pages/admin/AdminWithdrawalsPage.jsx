@@ -93,9 +93,14 @@ const AdminWithdrawalsPage = () => {
   const filteredWithdrawals = useMemo(() => {
     return withdrawals.filter((w) => {
       const q = searchQuery.toLowerCase().trim();
-      const holder = w.bankDetails?.accountHolder || w.userId?.fullName || '';
+      const holder =
+        w.accountHolderName ||
+        w.bankDetails?.accountName ||
+        w.bankDetails?.accountHolder ||
+        w.userId?.fullName ||
+        '';
       const num = w.withdrawalNumber || w.transactionId || '';
-      const bank = w.bankDetails?.bankName || '';
+      const bank = w.bankName || w.bankDetails?.bankName || '';
 
       const matchesSearch =
         !q ||
@@ -114,8 +119,8 @@ const AdminWithdrawalsPage = () => {
   const stats = useMemo(() => {
     const totalCount = withdrawals.length;
     const grossTotal = withdrawals.reduce((acc, w) => acc + Number(w.grossAmount || w.amount || 0), 0);
-    const tdsTotal = withdrawals.reduce((acc, w) => acc + Number(w.tdsAmount || 0), 0);
-    const netTotal = withdrawals.reduce((acc, w) => acc + Number(w.netAmount || w.amount || 0), 0);
+    const tdsTotal = withdrawals.reduce((acc, w) => acc + Number(w.tdsAmount || Math.round(Number(w.grossAmount || w.amount || 0) * 0.05)), 0);
+    const netTotal = withdrawals.reduce((acc, w) => acc + Number(w.netAmount || (Number(w.grossAmount || w.amount || 0) * 0.9)), 0);
     const pendingCount = withdrawals.filter((w) => (w.status || '').toUpperCase() === 'PENDING').length;
 
     return { totalCount, grossTotal, tdsTotal, netTotal, pendingCount };
@@ -233,8 +238,9 @@ const AdminWithdrawalsPage = () => {
             <span>Cluster Production Database</span>
           </div>
           <h1 className={styles.title}>Withdrawal Management</h1>
+          {/* UPDATED: Automated 5% TDS and 5% Admin deductions */}
           <p className={styles.subtitle}>
-            Audit member payouts, automated 5% TDS and 10% Admin deductions, and record bank IMPS references.
+            Audit member payouts, automated 5% TDS and 5% Admin deductions, and record bank IMPS references.
           </p>
         </div>
 
@@ -295,6 +301,7 @@ const AdminWithdrawalsPage = () => {
           {STATUS_FILTERS.map((st) => (
             <button
               key={st}
+              type="button"
               onClick={() => {
                 setFilterStatus(st);
                 setPagination((prev) => ({ ...prev, page: 1 }));
@@ -333,7 +340,8 @@ const AdminWithdrawalsPage = () => {
                 <th>TRANSACTION #</th>
                 <th>BENEFICIARY MEMBER</th>
                 <th>GROSS AMOUNT</th>
-                <th>ADMIN FEE (10%)</th>
+                {/* UPDATED TO ADMIN FEE (5%) */}
+                <th>ADMIN FEE (5%)</th>
                 <th>TDS (5%)</th>
                 <th>NET PAYABLE</th>
                 <th>STATUS</th>
@@ -344,13 +352,21 @@ const AdminWithdrawalsPage = () => {
               {filteredWithdrawals.map((w) => {
                 const id = w._id || w.id;
                 const status = (w.status || 'PENDING').toUpperCase();
-                const holder = w.bankDetails?.accountHolder || w.userId?.fullName || 'Active Member';
-                const memberId = w.userId?.memberId ? `ID: ${w.userId.memberId}` : w.userId?.email || 'Direct';
+                const b = w.bankDetails || {};
+                const holder = w.accountHolderName || b.accountName || b.accountHolder || w.userId?.fullName || 'Active Member';
+                const memberId = w.memberId ? `ID: ${w.memberId}` : w.userId?.memberId ? `ID: ${w.userId.memberId}` : 'Direct';
+                const accNumber = w.accountNumber || b.accountNumber || 'A/C Verified';
+                const bankTitle = w.bankName || b.bankName || 'IMPS';
+
+                const gross = Number(w.grossAmount || w.amount || 0);
+                const adminFee = Number(w.adminCharge !== undefined ? w.adminCharge : Math.round(gross * 0.05));
+                const tds = Number(w.tdsAmount !== undefined ? w.tdsAmount : Math.round(gross * 0.05));
+                const net = Number(w.netAmount !== undefined ? w.netAmount : (gross - adminFee - tds));
 
                 return (
                   <tr key={id}>
                     <td>
-                      <strong className={styles.transId}>{w.withdrawalNumber}</strong>
+                      <strong className={styles.transId}>{w.withdrawalNumber || w.transactionId || `WTH-${String(id).slice(-6)}`}</strong>
                       <span className={styles.dateText}>
                         {w.createdAt ? new Date(w.createdAt).toLocaleDateString('en-IN') : 'Recent'}
                       </span>
@@ -360,24 +376,24 @@ const AdminWithdrawalsPage = () => {
                         <span className={styles.holderName}>{holder}</span>
                         <span className={styles.memberSub}>{memberId}</span>
                         <span className={styles.bankDetailSnippet}>
-                          {w.bankDetails?.bankName || 'IMPS'} • {w.bankDetails?.accountNumber || w.bankDetails?.upiId || 'A/C Verified'}
+                          {bankTitle} • {accNumber}
                         </span>
                       </div>
                     </td>
                     <td>
                       <strong className={styles.grossText}>
-                        ₹{Number(w.grossAmount || w.amount || 0).toLocaleString('en-IN')}
+                        ₹{gross.toLocaleString('en-IN')}
                       </strong>
                     </td>
                     <td className={styles.deductText}>
-                      -₹{Number(w.adminCharge || 0).toLocaleString('en-IN')}
+                      -₹{adminFee.toLocaleString('en-IN')}
                     </td>
                     <td className={styles.deductText}>
-                      -₹{Number(w.tdsAmount || 0).toLocaleString('en-IN')}
+                      -₹{tds.toLocaleString('en-IN')}
                     </td>
                     <td>
                       <strong className={styles.netText}>
-                        ₹{Number(w.netAmount || 0).toLocaleString('en-IN')}
+                        ₹{net.toLocaleString('en-IN')}
                       </strong>
                     </td>
                     <td>
@@ -468,7 +484,7 @@ const AdminWithdrawalsPage = () => {
                   {modalAction === 'RECONCILE' && `Reconcile TDS #${selectedPayout.withdrawalNumber}`}
                 </h2>
                 <p className={styles.modalSub}>
-                  Beneficiary: {selectedPayout.bankDetails?.accountHolder || selectedPayout.userId?.fullName} | Net: ₹{Number(selectedPayout.netAmount).toLocaleString('en-IN')}
+                  Beneficiary: {selectedPayout.accountHolderName || selectedPayout.bankDetails?.accountName || selectedPayout.bankDetails?.accountHolder || selectedPayout.userId?.fullName} | Net: ₹{Number(selectedPayout.netAmount).toLocaleString('en-IN')}
                 </p>
               </div>
               <button
@@ -492,7 +508,8 @@ const AdminWithdrawalsPage = () => {
                   <span className={styles.redNumber}>-₹{Number(selectedPayout.tdsAmount).toLocaleString('en-IN')}</span>
                 </div>
                 <div>
-                  <small>Admin (10%)</small>
+                  {/* UPDATED: Admin (5%) */}
+                  <small>Admin (5%)</small>
                   <span className={styles.redNumber}>-₹{Number(selectedPayout.adminCharge).toLocaleString('en-IN')}</span>
                 </div>
                 <div>

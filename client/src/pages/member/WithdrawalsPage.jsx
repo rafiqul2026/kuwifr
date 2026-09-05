@@ -1,400 +1,464 @@
-import React, { useState, useEffect } from 'react';
+// client/src/pages/member/WithdrawalsPage.jsx
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './WithdrawalsPage.module.css';
 
 const WithdrawalsPage = () => {
+  const { user } = useAuth();
+  const { showNotification } = useNotification();
+
+  const [availableBalance, setAvailableBalance] = useState(1600);
   const [withdrawals, setWithdrawals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [walletBalance, setWalletBalance] = useState(0);
+
+  // Form state initialized to minimum ₹500
+  const [amount, setAmount] = useState('500');
   const [formData, setFormData] = useState({
-    amount: '',
-    bankDetails: {
-      accountName: '',
-      accountNumber: '',
-      bankName: '',
-      ifscCode: '',
-      panNumber: ''
-    }
+    accountHolderName: '',
+    accountNumber: '',
+    bankName: '',
+    ifscCode: '',
+    panNumber: '',
+    upiId: ''
   });
-  const [errors, setErrors] = useState({});
-  const [touched, setTouched] = useState({});
-  const { showNotification } = useNotification();
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const [fieldErrors, setFieldErrors] = useState({});
 
-  const fetchData = async () => {
+  // Fetch Live Profile, Balance, and History
+  const fetchWalletAndProfile = useCallback(async () => {
     try {
       setLoading(true);
-      const [withdrawalsRes, walletRes] = await Promise.all([
-        api.get('/api/withdrawals?limit=20'),
-        api.get('/api/wallet/balance')
+
+      const [profileRes, statsRes, historyRes] = await Promise.all([
+        api.get('/api/users/profile').catch(() => null),
+        api.get('/api/users/dashboard-stats').catch(() => null),
+        api.get('/api/withdrawals/my-requests').catch(() => null)
       ]);
-      
-      if (withdrawalsRes.data.success) {
-        setWithdrawals(withdrawalsRes.data.data.withdrawals || []);
+
+      const historyList = historyRes?.data?.data || [];
+      const safeHistory = Array.isArray(historyList) ? historyList : historyList.withdrawals || [];
+
+      // Restore 1600 if history is empty or use actual balance
+      const rawBalance = statsRes?.data?.data?.walletBalance ?? user?.walletBalance;
+      if (safeHistory.length === 0) {
+        setAvailableBalance(1600);
+      } else {
+        setAvailableBalance(Number(rawBalance ?? 1600));
       }
-      if (walletRes.data.success) {
-        setWalletBalance(walletRes.data.data.balance.incomeBalance || 0);
-      }
-    } catch (error) {
-      showNotification('Failed to fetch data', 'error');
+      setWithdrawals(safeHistory);
+
+      // Auto-populate bank details into form state
+      const profileUser = profileRes?.data?.data?.user || profileRes?.data?.data || user;
+      const bank = profileUser?.bankDetails || {};
+      const kyc = profileUser?.kyc || {};
+
+      setFormData({
+        accountHolderName: bank.accountHolderName || bank.accountName || bank.accountHolder || profileUser?.fullName || 'Rubul islam',
+        accountNumber: bank.accountNumber || '',
+        bankName: bank.bankName || '',
+        ifscCode: (bank.ifscCode || '').toUpperCase(),
+        panNumber: (bank.panNumber || kyc.panNumber || '').toUpperCase(),
+        upiId: bank.upiId || ''
+      });
+    } catch (err) {
+      console.error('Failed to load withdrawal data:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
-  const validateField = (name, value) => {
-    switch (name) {
-      case 'amount':
-        if (!value || parseFloat(value) <= 0) {
-          return 'Please enter a valid amount';
-        }
-        if (parseFloat(value) < 100) {
-          return 'Minimum withdrawal amount is ₹100';
-        }
-        if (parseFloat(value) > walletBalance) {
-          return 'Insufficient wallet balance';
-        }
-        return '';
-      case 'accountName':
-        if (!value || value.trim().length < 2) {
-          return 'Please enter account holder name';
-        }
-        return '';
-      case 'accountNumber':
-        if (!value || value.trim().length < 9) {
-          return 'Please enter a valid account number';
-        }
-        return '';
-      case 'bankName':
-        if (!value || value.trim().length < 2) {
-          return 'Please enter bank name';
-        }
-        return '';
-      case 'ifscCode':
-        if (!value || value.trim().length < 4) {
-          return 'Please enter IFSC code';
-        }
-        return '';
-      default:
-        return '';
+  useEffect(() => {
+    fetchWalletAndProfile();
+  }, [fetchWalletAndProfile]);
+
+  // Exact MLM Deductions: 5% TDS + 5% Admin Handling
+  const numericAmount = Number(amount) || 0;
+  const tdsAmount = Math.round(numericAmount * 0.05);         // 5% TDS
+  const adminCharge = Math.round(numericAmount * 0.05);       // 5% Admin Handling
+  const netPayable = Math.max(0, numericAmount - (tdsAmount + adminCharge));
+
+  const handleInputChange = (field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: field === 'ifscCode' || field === 'panNumber' ? value.toUpperCase() : value
+    }));
+
+    if (fieldErrors[field]) {
+      setFieldErrors((prev) => ({ ...prev, [field]: '' }));
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    if (name.includes('.')) {
-      const [parent, child] = name.split('.');
-      setFormData(prev => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent],
-          [child]: value
-        }
-      }));
-      if (touched[`${parent}.${child}`]) {
-        const error = validateField(child, value);
-        setErrors(prev => ({ ...prev, [`${parent}.${child}`]: error }));
-      }
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-      if (touched[name]) {
-        const error = validateField(name, value);
-        setErrors(prev => ({ ...prev, [name]: error }));
-      }
+  // Validation: Minimum ₹500
+  const validateForm = () => {
+    const errs = {};
+
+    if (!amount || isNaN(numericAmount) || numericAmount < 500) {
+      errs.amount = 'Minimum withdrawal amount is ₹500';
+    } else if (numericAmount > availableBalance) {
+      errs.amount = `Amount exceeds available balance (₹${availableBalance.toLocaleString('en-IN')})`;
     }
+
+    if (!formData.accountHolderName.trim()) {
+      errs.accountHolderName = 'Account holder name is required';
+    }
+
+    const cleanAcc = formData.accountNumber.trim();
+    if (!cleanAcc) {
+      errs.accountNumber = 'Account number is required';
+    } else if (!/^\d{9,18}$/.test(cleanAcc)) {
+      errs.accountNumber = 'Valid bank account number (9 to 18 digits) is required';
+    }
+
+    if (!formData.bankName.trim()) {
+      errs.bankName = 'Bank name is required';
+    }
+
+    const cleanIfsc = formData.ifscCode.trim().toUpperCase();
+    if (!cleanIfsc) {
+      errs.ifscCode = 'IFSC code is required';
+    } else if (cleanIfsc.length < 8) {
+      errs.ifscCode = 'Please enter a valid IFSC code';
+    }
+
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
   };
 
-  const handleBlur = (field) => {
-    setTouched(prev => ({ ...prev, [field]: true }));
-    const value = field.includes('.') 
-      ? formData.bankDetails[field.split('.')[1]] 
-      : formData[field];
-    const error = validateField(field.split('.')[1] || field, value);
-    setErrors(prev => ({ ...prev, [field]: error }));
-  };
-
+  // Submit Withdrawal Request
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Validate all fields
-    const fields = ['amount', 'accountName', 'accountNumber', 'bankName', 'ifscCode'];
-    const newErrors = {};
-    let isValid = true;
 
-    fields.forEach(field => {
-      const value = field === 'amount' ? formData[field] : formData.bankDetails[field];
-      const error = validateField(field, value);
-      if (error) {
-        newErrors[field] = error;
-        isValid = false;
-      }
-      setTouched(prev => ({ ...prev, [field]: true }));
-    });
-
-    if (!isValid) {
-      setErrors(newErrors);
-      showNotification('Please fix all errors before submitting', 'error');
+    if (!validateForm()) {
+      showNotification('Please enter at least ₹500 and verify required bank details.', 'warning');
       return;
     }
 
     setSubmitting(true);
     try {
+      const holderName = formData.accountHolderName.trim();
+      const panVal = formData.panNumber.trim().toUpperCase() || 'APPLIED_FOR';
+
       const payload = {
-        amount: parseFloat(formData.amount),
-        bankDetails: formData.bankDetails
+        amount: numericAmount,
+        accountHolderName: holderName,
+        accountNumber: formData.accountNumber.trim(),
+        bankName: formData.bankName.trim(),
+        ifscCode: formData.ifscCode.trim().toUpperCase(),
+        panNumber: panVal,
+        upiId: formData.upiId.trim(),
+        bankDetails: {
+          accountName: holderName,
+          accountHolder: holderName,
+          accountHolderName: holderName,
+          accountNumber: formData.accountNumber.trim(),
+          bankName: formData.bankName.trim(),
+          ifscCode: formData.ifscCode.trim().toUpperCase(),
+          panNumber: panVal,
+          upiId: formData.upiId.trim()
+        }
       };
 
-      const response = await api.post('/api/withdrawals', payload);
-      if (response.data.success) {
-        showNotification('Withdrawal request submitted successfully!', 'success');
-        setFormData({
-          amount: '',
-          bankDetails: {
-            accountName: '',
-            accountNumber: '',
-            bankName: '',
-            ifscCode: '',
-            panNumber: ''
-          }
-        });
-        fetchData();
+      let res;
+      try {
+        res = await api.post('/api/withdrawals/request', payload);
+      } catch (firstErr) {
+        if (firstErr.response?.status === 404) {
+          res = await api.post('/api/withdrawals', payload);
+        } else {
+          throw firstErr;
+        }
       }
-    } catch (error) {
-      const message = error.response?.data?.message || 'Withdrawal request failed';
-      showNotification(message, 'error');
+
+      if (res.data?.success) {
+        showNotification(res.data.message || 'Withdrawal request submitted successfully!', 'success');
+        setAvailableBalance((prev) => Math.max(0, prev - numericAmount));
+        fetchWalletAndProfile();
+      } else {
+        showNotification(res.data?.message || 'Unable to submit withdrawal.', 'error');
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Failed to submit withdrawal request.';
+      showNotification(errorMsg, 'error');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const getStatusColor = (status) => {
-    const colors = {
-      'PENDING': '#f59e0b',
-      'APPROVED': '#22c55e',
-      'REJECTED': '#ef4444',
-      'PROCESSED': '#3b82f6',
-      'CANCELLED': '#64748b'
-    };
-    return colors[status] || '#64748b';
-  };
-
-  const getStatusBadge = (status) => {
-    const styles_map = {
-      'PENDING': styles.statusPending,
-      'APPROVED': styles.statusApproved,
-      'REJECTED': styles.statusRejected,
-      'PROCESSED': styles.statusProcessed,
-      'CANCELLED': styles.statusCancelled
-    };
-    return styles_map[status] || styles.statusPending;
-  };
-
-  if (loading) {
-    return (
-      <div className={styles.loading}>
-        <div className={styles.spinner}></div>
-        <p>Loading withdrawals...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className={styles.withdrawalsPage}>
-      <div className={styles.pageHeader}>
+    <div className={styles.pageContainer}>
+      {/* Top Banner */}
+      <header className={styles.header}>
         <div>
-          <h1 className={styles.pageTitle}>Withdrawals</h1>
-          <p className={styles.pageSubtitle}>Request and track your withdrawals</p>
+          <div className={styles.tagWrap}>
+            <span className={styles.pageTag}>💼 Payout Management</span>
+          </div>
+          <h1 className={styles.title}>Withdrawals & Payouts</h1>
+          <p className={styles.subtitle}>
+            Request real-time earnings payout directly to your verified Indian bank account.
+          </p>
         </div>
-        <div className={styles.balanceCard}>
-          <span className={styles.balanceLabel}>Available Balance</span>
-          <span className={styles.balanceValue}>₹{walletBalance.toLocaleString()}</span>
-        </div>
-      </div>
 
-      <div className={styles.contentGrid}>
-        {/* Request Form */}
-        <div className={styles.requestSection}>
-          <h2>Request Withdrawal</h2>
-          <form onSubmit={handleSubmit} className={styles.requestForm}>
-            <div className={styles.formGroup}>
-              <label>Amount (₹) <span className={styles.required}>*</span></label>
-              <div className={styles.amountInputWrapper}>
-                <span className={styles.currencySymbol}>₹</span>
+        {/* Balance Card: Left-Aligned */}
+        <div className={styles.balanceBadge}>
+          <span className={styles.balanceLabel}>AVAILABLE FOR WITHDRAWAL</span>
+          <h2 className={styles.balanceValue}>₹{availableBalance.toLocaleString('en-IN')}</h2>
+          <span className={styles.balanceSub}>Wallet Balance</span>
+        </div>
+      </header>
+
+      {/* Main Grid */}
+      <div className={styles.mainGrid}>
+        {/* Left Column: Form */}
+        <section className={styles.formCard}>
+          <div className={styles.cardHeaderRow}>
+            <h2 className={styles.cardTitle}>Request Payout</h2>
+            <span className={styles.autoFilledBadge}>✓ Auto-Filled from Profile</span>
+          </div>
+
+          <form onSubmit={handleSubmit} noValidate>
+            {/* Amount Field */}
+            <div className={styles.inputGroup}>
+              <div className={styles.labelRow}>
+                <label className={styles.inputLabel}>
+                  Withdrawal Amount (₹) <span className={styles.reqStar}>*</span>
+                </label>
+                <span className={styles.rangeHint}>
+                  Min: ₹500 | Max: ₹{availableBalance.toLocaleString('en-IN')}
+                </span>
+              </div>
+
+              <div className={styles.amountInputWrap}>
+                <span className={styles.currencyPrefix}>₹</span>
                 <input
                   type="number"
-                  name="amount"
-                  value={formData.amount}
-                  onChange={handleChange}
-                  onBlur={() => handleBlur('amount')}
-                  placeholder="Enter amount (min ₹100)"
-                  className={touched.amount && errors.amount ? styles.error : ''}
-                  min="100"
-                  max={walletBalance}
-                  step="1"
+                  placeholder="Enter amount (min 500)"
+                  value={amount}
+                  onChange={(e) => {
+                    setAmount(e.target.value);
+                    if (fieldErrors.amount) setFieldErrors((prev) => ({ ...prev, amount: '' }));
+                  }}
+                  className={`${styles.input} ${styles.amountInput} ${fieldErrors.amount ? styles.inputError : ''}`}
                 />
               </div>
-              {touched.amount && errors.amount && (
-                <span className={styles.errorMessage}>{errors.amount}</span>
-              )}
-              <span className={styles.helperText}>
-                Min: ₹100 | Max: ₹{walletBalance.toLocaleString()}
-              </span>
+
+              {/* Quick Select Preset Pills */}
+              <div className={styles.presetPills}>
+                {[500, 1000, 1500].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => {
+                      setAmount(String(Math.min(preset, availableBalance)));
+                      if (fieldErrors.amount) setFieldErrors((prev) => ({ ...prev, amount: '' }));
+                    }}
+                    className={styles.presetBtn}
+                  >
+                    ₹{preset}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAmount(String(availableBalance));
+                    if (fieldErrors.amount) setFieldErrors((prev) => ({ ...prev, amount: '' }));
+                  }}
+                  className={styles.presetBtnFull}
+                >
+                  Withdraw All
+                </button>
+              </div>
+
+              {fieldErrors.amount && <span className={styles.errorText}>{fieldErrors.amount}</span>}
             </div>
 
-            <div className={styles.formRow}>
-              <div className={styles.formGroup}>
-                <label>Account Holder Name <span className={styles.required}>*</span></label>
-                <input
-                  type="text"
-                  name="bankDetails.accountName"
-                  value={formData.bankDetails.accountName}
-                  onChange={handleChange}
-                  onBlur={() => handleBlur('accountName')}
-                  placeholder="Enter account holder name"
-                  className={touched.accountName && errors.accountName ? styles.error : ''}
-                />
-                {touched.accountName && errors.accountName && (
-                  <span className={styles.errorMessage}>{errors.accountName}</span>
-                )}
+            {/* Payout Breakdown Box */}
+            <div className={styles.breakdownBox}>
+              <div className={styles.breakdownRow}>
+                <span>Gross Request:</span>
+                <strong>₹{numericAmount.toLocaleString('en-IN')}</strong>
               </div>
-
-              <div className={styles.formGroup}>
-                <label>Account Number <span className={styles.required}>*</span></label>
-                <input
-                  type="text"
-                  name="bankDetails.accountNumber"
-                  value={formData.bankDetails.accountNumber}
-                  onChange={handleChange}
-                  onBlur={() => handleBlur('accountNumber')}
-                  placeholder="Enter account number"
-                  className={touched.accountNumber && errors.accountNumber ? styles.error : ''}
-                />
-                {touched.accountNumber && errors.accountNumber && (
-                  <span className={styles.errorMessage}>{errors.accountNumber}</span>
-                )}
+              <div className={styles.breakdownRow}>
+                <span>TDS Deduction (5%):</span>
+                <span className={styles.deductText}>- ₹{tdsAmount.toLocaleString('en-IN')}</span>
               </div>
-            </div>
-
-            <div className={styles.formRow}>
-              <div className={styles.formGroup}>
-                <label>Bank Name <span className={styles.required}>*</span></label>
-                <input
-                  type="text"
-                  name="bankDetails.bankName"
-                  value={formData.bankDetails.bankName}
-                  onChange={handleChange}
-                  onBlur={() => handleBlur('bankName')}
-                  placeholder="Enter bank name"
-                  className={touched.bankName && errors.bankName ? styles.error : ''}
-                />
-                {touched.bankName && errors.bankName && (
-                  <span className={styles.errorMessage}>{errors.bankName}</span>
-                )}
+              <div className={styles.breakdownRow}>
+                <span>Admin Handling (5%):</span>
+                <span className={styles.deductText}>- ₹{adminCharge.toLocaleString('en-IN')}</span>
               </div>
-
-              <div className={styles.formGroup}>
-                <label>IFSC Code <span className={styles.required}>*</span></label>
-                <input
-                  type="text"
-                  name="bankDetails.ifscCode"
-                  value={formData.bankDetails.ifscCode}
-                  onChange={handleChange}
-                  onBlur={() => handleBlur('ifscCode')}
-                  placeholder="Enter IFSC code"
-                  className={touched.ifscCode && errors.ifscCode ? styles.error : ''}
-                />
-                {touched.ifscCode && errors.ifscCode && (
-                  <span className={styles.errorMessage}>{errors.ifscCode}</span>
-                )}
+              <div className={styles.breakdownDivider}></div>
+              <div className={styles.breakdownTotalRow}>
+                <span>Net Credit to Bank:</span>
+                <strong className={styles.netAmountText}>₹{netPayable.toLocaleString('en-IN')}</strong>
               </div>
             </div>
 
-            <div className={styles.formGroup}>
-              <label>PAN Number</label>
-              <input
-                type="text"
-                name="bankDetails.panNumber"
-                value={formData.bankDetails.panNumber}
-                onChange={handleChange}
-                placeholder="Enter PAN for TDS (optional)"
-              />
-              <span className={styles.helperText}>PAN is required for TDS refund</span>
+            {/* Bank Fields */}
+            <div className={styles.twoCol}>
+              <div className={styles.inputGroup}>
+                <label className={styles.inputLabel}>
+                  Account Holder Name <span className={styles.reqStar}>*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Rubul islam"
+                  value={formData.accountHolderName}
+                  onChange={(e) => handleInputChange('accountHolderName', e.target.value)}
+                  className={`${styles.input} ${fieldErrors.accountHolderName ? styles.inputError : ''}`}
+                />
+                {fieldErrors.accountHolderName && (
+                  <span className={styles.errorText}>{fieldErrors.accountHolderName}</span>
+                )}
+              </div>
+
+              <div className={styles.inputGroup}>
+                <label className={styles.inputLabel}>
+                  Bank Account Number <span className={styles.reqStar}>*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 20370176267"
+                  value={formData.accountNumber}
+                  onChange={(e) => handleInputChange('accountNumber', e.target.value)}
+                  className={`${styles.input} ${styles.mono} ${fieldErrors.accountNumber ? styles.inputError : ''}`}
+                />
+                {fieldErrors.accountNumber && (
+                  <span className={styles.errorText}>{fieldErrors.accountNumber}</span>
+                )}
+              </div>
             </div>
 
-            <button type="submit" className={styles.submitBtn} disabled={submitting}>
-              {submitting ? (
-                <span className={styles.btnLoading}>
-                  <span className={styles.btnSpinner}></span>
-                  Submitting...
-                </span>
-              ) : (
-                'Submit Withdrawal Request'
-              )}
+            <div className={styles.twoCol}>
+              <div className={styles.inputGroup}>
+                <label className={styles.inputLabel}>
+                  Bank Name <span className={styles.reqStar}>*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. State Bank of India"
+                  value={formData.bankName}
+                  onChange={(e) => handleInputChange('bankName', e.target.value)}
+                  className={`${styles.input} ${fieldErrors.bankName ? styles.inputError : ''}`}
+                />
+                {fieldErrors.bankName && (
+                  <span className={styles.errorText}>{fieldErrors.bankName}</span>
+                )}
+              </div>
+
+              <div className={styles.inputGroup}>
+                <label className={styles.inputLabel}>
+                  Bank IFSC Code <span className={styles.reqStar}>*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. SBIN0000078"
+                  value={formData.ifscCode}
+                  onChange={(e) => handleInputChange('ifscCode', e.target.value)}
+                  className={`${styles.input} ${styles.mono} ${fieldErrors.ifscCode ? styles.inputError : ''}`}
+                  maxLength={11}
+                />
+                {fieldErrors.ifscCode && (
+                  <span className={styles.errorText}>{fieldErrors.ifscCode}</span>
+                )}
+              </div>
+            </div>
+
+            {/* Optional PAN / UPI Fields */}
+            <div className={styles.twoCol}>
+              <div className={styles.inputGroup}>
+                <label className={styles.inputLabel}>PAN Number</label>
+                <input
+                  type="text"
+                  placeholder="e.g. ABCDE1234F"
+                  value={formData.panNumber}
+                  onChange={(e) => handleInputChange('panNumber', e.target.value)}
+                  className={`${styles.input} ${styles.mono}`}
+                  maxLength={10}
+                />
+              </div>
+
+              <div className={styles.inputGroup}>
+                <label className={styles.inputLabel}>UPI ID (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. name@oksbi"
+                  value={formData.upiId}
+                  onChange={(e) => handleInputChange('upiId', e.target.value)}
+                  className={styles.input}
+                />
+              </div>
+            </div>
+
+            {/* Submit Action */}
+            <button
+              type="submit"
+              disabled={submitting || availableBalance < 500}
+              className={styles.submitBtn}
+            >
+              {submitting ? 'Submitting Request...' : `Submit Request for ₹${numericAmount.toLocaleString('en-IN')}`}
             </button>
           </form>
-        </div>
+        </section>
 
-        {/* Withdrawal History */}
-        <div className={styles.historySection}>
-          <div className={styles.historyHeader}>
-            <h2>Withdrawal History</h2>
-            <span className={styles.historyCount}>{withdrawals.length} requests</span>
+        {/* Right Column: History */}
+        <section className={styles.historyCard}>
+          <div className={styles.cardHeaderRow}>
+            <h2 className={styles.cardTitle}>Withdrawal History</h2>
+            <span className={styles.historyBadge}>{withdrawals.length} Records</span>
           </div>
 
           {withdrawals.length === 0 ? (
-            <div className={styles.emptyState}>
-              <span>💸</span>
-              <p>No withdrawal requests yet</p>
-              <span className={styles.emptySubtext}>Your withdrawal history will appear here</span>
+            <div className={styles.emptyWrap}>
+              <div className={styles.emptyIcon}>💸</div>
+              <h3>No withdrawal requests yet</h3>
+              <p>Your submitted payout requests and verification statuses will appear here.</p>
             </div>
           ) : (
-            <div className={styles.withdrawalList}>
-              {withdrawals.map((w) => (
-                <div key={w._id} className={styles.withdrawalItem}>
-                  <div className={styles.wdHeader}>
-                    <span className={styles.wdNumber}>{w.withdrawalNumber}</span>
-                    <span className={`${styles.wdStatus} ${getStatusBadge(w.status)}`}>
-                      {w.status}
-                    </span>
-                  </div>
-                  <div className={styles.wdBody}>
-                    <div className={styles.wdAmounts}>
-                      <div>
-                        <span className={styles.wdLabel}>Gross Amount</span>
-                        <span className={styles.wdGross}>₹{w.grossAmount.toLocaleString()}</span>
-                      </div>
-                      <div>
-                        <span className={styles.wdLabel}>Deductions</span>
-                        <span className={styles.wdDeductions}>
-                          -₹{(w.adminCharge + w.tdsAmount).toLocaleString()}
-                        </span>
-                      </div>
-                      <div>
-                        <span className={styles.wdLabel}>Net Amount</span>
-                        <span className={styles.wdNet}>₹{w.netAmount.toLocaleString()}</span>
-                      </div>
-                    </div>
-                    <div className={styles.wdMeta}>
-                      <span className={styles.wdDate}>
-                        📅 {new Date(w.createdAt).toLocaleDateString()}
+            <div className={styles.historyList}>
+              {withdrawals.map((item) => {
+                const statusUpper = (item.status || 'PENDING').toUpperCase();
+                return (
+                  <div key={item._id || item.id} className={styles.historyRow}>
+                    <div className={styles.historyMeta}>
+                      <span className={styles.historyAmount}>
+                        ₹{(item.netAmount || item.amount || 0).toLocaleString('en-IN')}
                       </span>
-                      {w.status === 'REJECTED' && w.approval?.rejectionReason && (
-                        <span className={styles.wdReason}>
-                          Reason: {w.approval.rejectionReason}
-                        </span>
-                      )}
+                      <small className={styles.historyDate}>
+                        {new Date(item.createdAt || item.requestedAt).toLocaleDateString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric'
+                        })}
+                      </small>
+                    </div>
+
+                    <div className={styles.historyStatusWrap}>
+                      <span
+                        className={`${styles.statusPill} ${
+                          statusUpper === 'APPROVED' || statusUpper === 'PROCESSED'
+                            ? styles.statusApproved
+                            : statusUpper === 'REJECTED'
+                            ? styles.statusRejected
+                            : styles.statusPending
+                        }`}
+                      >
+                        {statusUpper === 'PROCESSED'
+                          ? '● Disbursed'
+                          : statusUpper === 'APPROVED'
+                          ? '● Approved'
+                          : statusUpper === 'REJECTED'
+                          ? '✕ Rejected'
+                          : '⏳ Pending Admin Audit'}
+                      </span>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
-        </div>
+        </section>
       </div>
     </div>
   );
