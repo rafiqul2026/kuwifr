@@ -40,6 +40,14 @@ const Header = () => {
   const searchRef = useRef(null);
   const accountRef = useRef(null);
 
+  // Compute exact destination URL according to authentication state & user role
+  const portalPath = useMemo(() => {
+    if (!isAuthenticated) return '/login';
+    const role = (user?.role || '').toUpperCase();
+    if (role === 'ADMIN' || role === 'SUPER_ADMIN') return '/admin/dashboard';
+    return '/member/dashboard';
+  }, [isAuthenticated, user]);
+
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 15);
@@ -341,15 +349,20 @@ const Header = () => {
                   <div className={styles.cardDivider}></div>
 
                   <div className={styles.dropdownMenuList}>
-                    {isAuthenticated && (
-                      <Link
-                        to={user?.role === 'ADMIN' ? '/admin' : '/dashboard'}
-                        className={styles.dropdownItem}
-                      >
-                        <span>📊</span>
-                        <span>{user?.role === 'ADMIN' ? 'Admin Portal' : 'Member Dashboard'}</span>
-                      </Link>
-                    )}
+                    <Link
+                      to={portalPath}
+                      className={styles.dropdownItem}
+                      onClick={() => setShowAccountDropdown(false)}
+                    >
+                      <span>📊</span>
+                      <span>
+                        {!isAuthenticated
+                          ? 'Sign In / Member Portal'
+                          : user?.role === 'ADMIN'
+                          ? 'Admin Portal'
+                          : 'Member Dashboard'}
+                      </span>
+                    </Link>
 
                     <button
                       onClick={() => {
@@ -450,37 +463,37 @@ const Header = () => {
                 Featured Collections
               </div>
               <button
-                onClick={() => handleCategoryNav('Health & Wellness')}
+                onClick={() => handleNavClick('Health & Wellness')}
                 className={styles.drawerCategoryBtn}
               >
                 🌿 Health & Wellness
               </button>
               <button
-                onClick={() => handleCategoryNav('Alkaline Water Devices')}
+                onClick={() => handleNavClick('Alkaline Water Devices')}
                 className={styles.drawerCategoryBtn}
               >
                 💧 Alkaline Water Devices
               </button>
               <button
-                onClick={() => handleCategoryNav('Designer Modern Sarees')}
+                onClick={() => handleNavClick('Designer Modern Sarees')}
                 className={styles.drawerCategoryBtn}
               >
                 ✨ Designer Modern Sarees
               </button>
               <button
-                onClick={() => handleCategoryNav('Gents Premium Wear')}
+                onClick={() => handleNavClick('Gents Premium Wear')}
                 className={styles.drawerCategoryBtn}
               >
                 👔 Gents Premium Wear
               </button>
               <button
-                onClick={() => handleCategoryNav('Smart EV Scooty')}
+                onClick={() => handleNavClick('Smart EV Scooty')}
                 className={styles.drawerCategoryBtn}
               >
                 ⚡ Smart EV Scooty
               </button>
               <button
-                onClick={() => handleCategoryNav('Hair Care & Serums')}
+                onClick={() => handleNavClick('Hair Care & Serums')}
                 className={styles.drawerCategoryBtn}
               >
                 🧴 Hair Care & Serums
@@ -508,14 +521,18 @@ const Header = () => {
                 ♡ My Wishlist ({wishlistCount})
               </button>
 
-              {/* Login / Register Button placed directly below My Wishlist */}
+              {/* Login / Portal CTA Button */}
               <div className={styles.drawerAuthInlineWrapper}>
                 <Link
-                  to={isAuthenticated ? (user?.role === 'ADMIN' ? '/admin' : '/dashboard') : '/login'}
+                  to={portalPath}
                   onClick={() => setMobileMenuOpen(false)}
                   className={styles.drawerAuthBtn}
                 >
-                  {isAuthenticated ? '👤 Access Account / Portal' : '🔐 Sign In / Register'}
+                  {isAuthenticated
+                    ? user?.role === 'ADMIN'
+                      ? '🛡️ Access Admin Portal'
+                      : '👤 Access Member Dashboard'
+                    : '🔐 Login / Access Account'}
                 </Link>
               </div>
             </div>

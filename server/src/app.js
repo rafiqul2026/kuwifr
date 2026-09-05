@@ -38,6 +38,7 @@ const supportRoutes = require('./routes/support.routes');
 const adminRoutes = require('./routes/admin.routes');
 const settingRoutes = require('./routes/setting.routes');
 const auditLogRoutes = require('./routes/auditLog.routes');
+const packagePurchaseRoutes = require('./routes/packagePurchase.routes');
 
 // Validate environment variables
 validateEnv();
@@ -187,6 +188,9 @@ app.use('/api/auth', authRoutes);
 
 // Users & Binary Tree
 app.use('/api/users', userRoutes);
+
+app.use('/api/packages', require('./routes/package.routes'));
+app.use('/api/package-purchases', packagePurchaseRoutes);
 
 // Ranks & Kuwi Stars Progression
 app.use('/api/ranks', rankRoutes);

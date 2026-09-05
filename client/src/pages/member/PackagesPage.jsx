@@ -1,6 +1,8 @@
 // client/src/pages/member/PackagesPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './PackagesPage.module.css';
 
@@ -157,10 +159,19 @@ const THEME_COLORS = {
 const PackagesPage = () => {
   const [packages, setPackages] = useState([]);
   const [selectedProductMap, setSelectedProductMap] = useState({});
-  const [confirmModalData, setConfirmModalData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processingPayment, setProcessingPayment] = useState(false);
+
+  // 3-Step Modal State: 'REVIEW' | 'PAYMENT' | 'SUCCESS' | null
+  const [modalStep, setModalStep] = useState(null);
+  const [activePkg, setActivePkg] = useState(null);
+  const [activeProduct, setActiveProduct] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('UPI_GATEWAY');
+  const [successReceipt, setSuccessReceipt] = useState(null);
+
+  const { user } = useAuth();
   const { showNotification } = useNotification();
+  const navigate = useNavigate();
 
   const fetchLivePackages = useCallback(async () => {
     try {
@@ -169,11 +180,9 @@ const PackagesPage = () => {
       const remotePkgs = res.data?.data?.packages || res.data?.packages || [];
 
       if (Array.isArray(remotePkgs) && remotePkgs.length > 0) {
-        // Build the package list directly from the database
         const formatted = remotePkgs.map((dbPkg) => {
           const typeUpper = (dbPkg.type || '').toUpperCase();
-          
-          // Match products based on type or closest price tier
+
           let products = dbPkg.availableProducts || dbPkg.products;
           if (!products || products.length === 0) {
             if (typeUpper.includes('STARTER') || dbPkg.price <= 3000) {
@@ -228,6 +237,7 @@ const PackagesPage = () => {
     }));
   };
 
+  // Step 1: Open Review Modal
   const handleInitiatePurchase = (pkg) => {
     const key = pkg._id || pkg.id;
     const chosenProduct = selectedProductMap[key];
@@ -237,33 +247,45 @@ const PackagesPage = () => {
       return;
     }
 
-    setConfirmModalData({
-      pkg,
-      product: chosenProduct || { name: 'Direct Activation', ksp: pkg.price, mrp: pkg.price, category: 'Membership' }
-    });
+    setActivePkg(pkg);
+    setActiveProduct(chosenProduct || { name: 'Direct Activation', ksp: pkg.price, mrp: pkg.price, category: 'Membership' });
+    setModalStep('REVIEW');
   };
 
-  const handleProceedToPaymentGateway = async () => {
-    if (!confirmModalData) return;
-    const { pkg, product } = confirmModalData;
+  // Step 2: Transition to Payment Selection
+  const handleProceedToPayment = () => {
+    setModalStep('PAYMENT');
+  };
+
+  // Step 3: Confirm Payment and Activate
+  const handleCompleteActivation = async () => {
+    if (!activePkg || !activeProduct) return;
 
     setProcessingPayment(true);
     try {
-      const res = await api.post('/api/packages/purchase', {
-        packageId: pkg._id || pkg.id,
-        packageType: pkg.type,
-        productId: product.id,
-        productName: product.name,
-        price: pkg.price,
-        kbp: pkg.kbp
-      });
+      const payload = {
+        packageId: activePkg._id || activePkg.id,
+        packageName: activePkg.name,
+        packagePrice: activePkg.price,
+        kbpPoints: activePkg.kbp,
+        dailyBinaryCap: activePkg.dailyCap,
+        selectedProduct: {
+          productId: activeProduct.id,
+          name: activeProduct.name,
+          category: activeProduct.category,
+          price: activeProduct.ksp,
+          image: activeProduct.image
+        },
+        paymentMethod,
+        transactionId: `TXN_${Date.now()}_${Math.floor(Math.random() * 9000 + 1000)}`
+      };
+
+      const res = await api.post('/api/package-purchases/activate', payload);
 
       if (res.data?.success) {
         showNotification(res.data.message || 'Package activated successfully!', 'success');
-        setConfirmModalData(null);
-        setTimeout(() => {
-          window.location.href = '/member/dashboard';
-        }, 1200);
+        setSuccessReceipt(res.data.data);
+        setModalStep('SUCCESS');
       } else {
         showNotification(res.data?.message || 'Unable to complete activation.', 'error');
       }
@@ -273,6 +295,15 @@ const PackagesPage = () => {
     } finally {
       setProcessingPayment(false);
     }
+  };
+
+  const handleCloseModal = () => {
+    if (modalStep === 'SUCCESS') {
+      navigate('/member/dashboard');
+    }
+    setModalStep(null);
+    setActivePkg(null);
+    setActiveProduct(null);
   };
 
   if (loading) {
@@ -411,82 +442,215 @@ const PackagesPage = () => {
         })}
       </div>
 
-      {/* Confirmation Modal */}
-      {confirmModalData && (
-        <div className={styles.modalOverlay} onClick={() => !processingPayment && setConfirmModalData(null)}>
+      {/* ================= MULTI-STEP CHECKOUT & PAYMENT MODAL ================= */}
+      {modalStep && activePkg && (
+        <div className={styles.modalOverlay} onClick={() => !processingPayment && handleCloseModal()}>
           <div className={styles.modalContainer} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <div>
-                <span className={styles.modalTag}>Checkout Review</span>
-                <h2>Confirm Package Purchase</h2>
-              </div>
-              <button
-                type="button"
-                className={styles.closeBtn}
-                onClick={() => setConfirmModalData(null)}
-                disabled={processingPayment}
-              >
-                ✕
-              </button>
-            </div>
+            
+            {/* 1. STEP 1: CHECKOUT REVIEW */}
+            {modalStep === 'REVIEW' && (
+              <>
+                <div className={styles.modalHeader}>
+                  <div>
+                    <span className={styles.modalTag}>Checkout Review</span>
+                    <h2>Confirm Package Purchase</h2>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.closeBtn}
+                    onClick={handleCloseModal}
+                  >
+                    ✕
+                  </button>
+                </div>
 
-            <div className={styles.modalBody}>
-              <div className={styles.chosenProductCard}>
-                <span className={styles.chosenCardBadge}>📦 Selected Product Included in Package</span>
-                <div className={styles.chosenProductContent}>
-                  <img
-                    src={confirmModalData.product.image}
-                    alt={confirmModalData.product.name}
-                    className={styles.chosenProductImg}
-                  />
-                  <div className={styles.chosenProductDetails}>
-                    <span className={styles.chosenCat}>{confirmModalData.product.category}</span>
-                    <h3 className={styles.chosenTitle}>{confirmModalData.product.name}</h3>
-                    <div className={styles.chosenPrices}>
-                      <span><strong>KSP Price:</strong> ₹{confirmModalData.product.ksp?.toLocaleString()}</span>
-                      {confirmModalData.product.mrp && <span className={styles.chosenMrp}>(MRP: ₹{confirmModalData.product.mrp?.toLocaleString()})</span>}
+                <div className={styles.modalBody}>
+                  <div className={styles.chosenProductCard}>
+                    <span className={styles.chosenCardBadge}>📦 Selected Product Included in Package</span>
+                    <div className={styles.chosenProductContent}>
+                      <img
+                        src={activeProduct.image}
+                        alt={activeProduct.name}
+                        className={styles.chosenProductImg}
+                      />
+                      <div className={styles.chosenProductDetails}>
+                        <span className={styles.chosenCat}>{activeProduct.category}</span>
+                        <h3 className={styles.chosenTitle}>{activeProduct.name}</h3>
+                        <div className={styles.chosenPrices}>
+                          <span><strong>KSP Price:</strong> ₹{activeProduct.ksp?.toLocaleString()}</span>
+                          {activeProduct.mrp && <span className={styles.chosenMrp}>(MRP: ₹{activeProduct.mrp?.toLocaleString()})</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={styles.metricsGrid}>
+                    <div className={styles.metricBox}>
+                      <small>Package Price</small>
+                      <strong className={styles.priceColor}>₹{activePkg.price?.toLocaleString()}</strong>
+                    </div>
+
+                    <div className={styles.metricBox}>
+                      <small>KBP Points</small>
+                      <strong className={styles.kbpColor}>⭐ {activePkg.kbp?.toLocaleString()} KBP</strong>
+                    </div>
+
+                    <div className={styles.metricBox}>
+                      <small>Daily Binary Cap</small>
+                      <strong className={styles.capColor}>🛡️ ₹{activePkg.dailyCap?.toLocaleString()}</strong>
                     </div>
                   </div>
                 </div>
+
+                <div className={styles.modalFooter}>
+                  <button
+                    type="button"
+                    className={styles.cancelBtn}
+                    onClick={handleCloseModal}
+                  >
+                    Cancel & Change Product
+                  </button>
+
+                  <button
+                    type="button"
+                    className={styles.confirmBtn}
+                    onClick={handleProceedToPayment}
+                  >
+                    Confirm & Activate (₹{activePkg.price?.toLocaleString()}) →
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* 2. STEP 2: SELECT PAYMENT METHOD */}
+            {modalStep === 'PAYMENT' && (
+              <>
+                <div className={styles.modalHeader}>
+                  <div>
+                    <span className={styles.modalTag}>Secure Payment</span>
+                    <h2>Choose Payment Method</h2>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.closeBtn}
+                    onClick={handleCloseModal}
+                    disabled={processingPayment}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className={styles.modalBody}>
+                  <div className={styles.paymentMethodList}>
+                    <label className={`${styles.paymentOption} ${paymentMethod === 'UPI_GATEWAY' ? styles.paySelected : ''}`}>
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        checked={paymentMethod === 'UPI_GATEWAY'}
+                        onChange={() => setPaymentMethod('UPI_GATEWAY')}
+                      />
+                      <div className={styles.paymentOptionDetails}>
+                        <strong>Instant UPI Payment (GPay / PhonePe / Paytm / QR)</strong>
+                        <span>Fast, zero transaction fees, instant activation</span>
+                      </div>
+                      <span className={styles.payIcon}>📱</span>
+                    </label>
+
+                    <label className={`${styles.paymentOption} ${paymentMethod === 'WALLET_BALANCE' ? styles.paySelected : ''}`}>
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        checked={paymentMethod === 'WALLET_BALANCE'}
+                        onChange={() => setPaymentMethod('WALLET_BALANCE')}
+                      />
+                      <div className={styles.paymentOptionDetails}>
+                        <strong>KUWIFR Wallet Balance</strong>
+                        <span>Pay directly from your earnings or repurchase balance</span>
+                      </div>
+                      <span className={styles.payIcon}>💰</span>
+                    </label>
+
+                    <label className={`${styles.paymentOption} ${paymentMethod === 'BANK_TRANSFER' ? styles.paySelected : ''}`}>
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        checked={paymentMethod === 'BANK_TRANSFER'}
+                        onChange={() => setPaymentMethod('BANK_TRANSFER')}
+                      />
+                      <div className={styles.paymentOptionDetails}>
+                        <strong>NEFT / IMPS / Bank Deposit</strong>
+                        <span>Direct company bank account credit</span>
+                      </div>
+                      <span className={styles.payIcon}>🏦</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className={styles.modalFooter}>
+                  <button
+                    type="button"
+                    className={styles.cancelBtn}
+                    onClick={() => setModalStep('REVIEW')}
+                    disabled={processingPayment}
+                  >
+                    ← Back to Review
+                  </button>
+
+                  <button
+                    type="button"
+                    className={styles.confirmBtn}
+                    onClick={handleCompleteActivation}
+                    disabled={processingPayment}
+                  >
+                    {processingPayment ? 'Activating Package...' : `Pay ₹${activePkg.price?.toLocaleString()} & Activate`}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* 3. STEP 3: TRANSACTION SUCCESS RECEIPT (Prevents blank screen) */}
+            {modalStep === 'SUCCESS' && (
+              <div className={styles.successScreenWrapper}>
+                <div className={styles.successIconBadge}>✓</div>
+                <h2 className={styles.successTitle}>Package Activated Successfully!</h2>
+                <p className={styles.successSubtitle}>
+                  Congratulations <strong>{user?.fullName || 'Member'}</strong>! Your account status is now{' '}
+                  <span className={styles.activeTag}>● ACTIVE</span>.
+                </p>
+
+                <div className={styles.receiptBox}>
+                  <div className={styles.receiptRow}>
+                    <span>Package Plan:</span>
+                    <strong>{successReceipt?.packageName}</strong>
+                  </div>
+                  <div className={styles.receiptRow}>
+                    <span>Bundled Product:</span>
+                    <strong>{successReceipt?.selectedProduct?.name}</strong>
+                  </div>
+                  <div className={styles.receiptRow}>
+                    <span>Transaction ID:</span>
+                    <strong className={styles.monoFont}>{successReceipt?.transactionId}</strong>
+                  </div>
+                  <div className={styles.receiptRow}>
+                    <span>Amount Paid:</span>
+                    <strong>₹{successReceipt?.packagePrice?.toLocaleString('en-IN')}</strong>
+                  </div>
+                  <div className={styles.receiptRow}>
+                    <span>Daily Binary Cap:</span>
+                    <strong className={styles.capHighlight}>₹{successReceipt?.dailyBinaryCap?.toLocaleString('en-IN')}/Day</strong>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className={styles.dashboardRedirectBtn}
+                  onClick={handleCloseModal}
+                >
+                  Go to Member Dashboard →
+                </button>
               </div>
+            )}
 
-              <div className={styles.metricsGrid}>
-                <div className={styles.metricBox}>
-                  <small>Package Price</small>
-                  <strong className={styles.priceColor}>₹{confirmModalData.pkg.price?.toLocaleString()}</strong>
-                </div>
-
-                <div className={styles.metricBox}>
-                  <small>KBP Points</small>
-                  <strong className={styles.kbpColor}>⭐ {confirmModalData.pkg.kbp?.toLocaleString()} KBP</strong>
-                </div>
-
-                <div className={styles.metricBox}>
-                  <small>Daily Binary Cap</small>
-                  <strong className={styles.capColor}>🛡️ ₹{confirmModalData.pkg.dailyCap?.toLocaleString()}</strong>
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.modalFooter}>
-              <button
-                type="button"
-                className={styles.cancelBtn}
-                onClick={() => setConfirmModalData(null)}
-                disabled={processingPayment}
-              >
-                Cancel & Change Product
-              </button>
-
-              <button
-                type="button"
-                className={styles.confirmBtn}
-                onClick={handleProceedToPaymentGateway}
-                disabled={processingPayment}
-              >
-                {processingPayment ? 'Activating Package...' : `Confirm & Activate (₹${confirmModalData.pkg.price?.toLocaleString()}) →`}
-              </button>
-            </div>
           </div>
         </div>
       )}

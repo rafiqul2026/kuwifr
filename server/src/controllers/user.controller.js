@@ -140,7 +140,7 @@ const getDashboardStats = async (req, res, next) => {
       }
     }
 
-    const baseUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const baseUrl = process.env.CLIENT_URL || 'https://www.kuwifr.in';
     const identifier = user.memberId || user.referralCode;
 
     res.json({
@@ -605,7 +605,7 @@ const getReferralLinks = async (req, res, next) => {
       await user.save();
     }
 
-    const baseUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const baseUrl = process.env.CLIENT_URL || 'https://www.kuwifr.in';
     const identifier = user.memberId || user.referralCode;
 
     res.json({

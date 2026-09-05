@@ -360,7 +360,7 @@ const MemberLayout = () => {
         <div className={styles.drawerHeader}>
           <div className={styles.drawerHeaderTitle}>
             <span className={styles.drawerPill}>KUWIFR Executive Hub</span>
-            <h3>Quick Services & Navigation</h3>
+            <h3>Quick Services</h3>
           </div>
           <button
             type="button"
