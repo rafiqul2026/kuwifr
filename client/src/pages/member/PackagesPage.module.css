@@ -353,28 +353,31 @@
 .modalOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.65);
-  backdrop-filter: blur(5px);
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: 99999;
   padding: 16px;
+  box-sizing: border-box;
 }
 
 .modalContainer {
   background: #ffffff;
-  border-radius: 18px;
+  border-radius: 20px;
   width: 100%;
-  max-width: 540px;
+  max-width: 580px;
   max-height: 90vh;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35);
+  overflow: hidden;
   animation: popIn 0.2s ease-out;
 }
 
 @keyframes popIn {
-  from { opacity: 0; transform: scale(0.96); }
+  from { opacity: 0; transform: scale(0.97); }
   to { opacity: 1; transform: scale(1); }
 }
 
@@ -382,8 +385,10 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 18px 22px 14px 22px;
+  padding: 18px 24px 14px;
   border-bottom: 1px solid #f1f5f9;
+  background: #ffffff;
+  flex-shrink: 0;
 }
 
 .modalTag {
@@ -391,40 +396,54 @@
   font-weight: 800;
   color: #2563eb;
   text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .modalHeader h2 {
-  margin: 2px 0 0 0;
-  font-size: 19px;
-  font-weight: 800;
+  margin: 3px 0 0 0;
+  font-size: 20px;
+  font-weight: 850;
   color: #0f172a;
 }
 
 .closeBtn {
   background: #f1f5f9;
   border: none;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   font-size: 14px;
   font-weight: 800;
   color: #64748b;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
 }
 
+.closeBtn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* Scrollable Content Body */
 .modalBody {
-  padding: 18px 22px;
+  padding: 18px 24px;
+  overflow-y: auto;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
+  box-sizing: border-box;
 }
 
-/* Chosen Product Card */
+/* Chosen Product Review Card */
 .chosenProductCard {
   background: #f8fafc;
   border: 1.5px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 12px;
+  border-radius: 14px;
+  padding: 12px 14px;
 }
 
 .chosenCardBadge {
@@ -445,7 +464,7 @@
 .chosenProductImg {
   width: 58px;
   height: 58px;
-  border-radius: 8px;
+  border-radius: 10px;
   object-fit: cover;
   background: #ffffff;
   border: 1px solid #e2e8f0;
@@ -453,24 +472,28 @@
 
 .chosenProductDetails {
   flex: 1;
+  min-width: 0;
 }
 
 .chosenCat {
-  font-size: 9px;
-  font-weight: 700;
+  font-size: 9.5px;
+  font-weight: 800;
   color: #64748b;
   text-transform: uppercase;
 }
 
 .chosenTitle {
-  margin: 1px 0 3px 0;
-  font-size: 13px;
+  margin: 2px 0 4px;
+  font-size: 13.5px;
   font-weight: 800;
   color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chosenPrices {
-  font-size: 12px;
+  font-size: 12.5px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -482,15 +505,15 @@
   font-size: 11px;
 }
 
-/* Metrics Grid */
+/* 3-Col Metrics */
 .metricsGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 10px;
 }
 
 .metricBox {
-  background: #ffffff;
+  background: #f8fafc;
   border: 1px solid #e2e8f0;
   padding: 10px;
   border-radius: 10px;
@@ -499,22 +522,22 @@
 
 .metricBox small {
   display: block;
-  font-size: 9px;
-  font-weight: 700;
+  font-size: 9.5px;
+  font-weight: 800;
   color: #64748b;
   text-transform: uppercase;
-  margin-bottom: 2px;
+  margin-bottom: 3px;
 }
 
-.priceColor { font-size: 15px; color: #0f172a; font-weight: 900; }
-.kbpColor { font-size: 12px; color: #2563eb; font-weight: 800; }
-.capColor { font-size: 11px; color: #10b981; font-weight: 800; }
+.priceColor { font-size: 16px; color: #0f172a; font-weight: 900; }
+.kbpColor { font-size: 13px; color: #2563eb; font-weight: 800; }
+.capColor { font-size: 12px; color: #10b981; font-weight: 800; }
 
-/* Payment Selection List */
+/* Payment Methods List */
 .paymentMethodList {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .paymentOption {
@@ -534,7 +557,7 @@
 }
 
 .paySelected {
-  border-color: #2563eb;
+  border-color: #2563eb !important;
   background: #eff6ff !important;
 }
 
@@ -550,23 +573,25 @@
 }
 
 .paymentOptionDetails span {
-  font-size: 11px;
+  font-size: 11.5px;
   color: #64748b;
 }
 
 .payIcon {
-  font-size: 20px;
+  font-size: 22px;
 }
 
-/* QR Code Display Container */
+/* QR Layout Container */
 .qrPaymentContainer {
   display: flex;
-  gap: 16px;
+  flex-direction: row;
   align-items: center;
+  gap: 18px;
   background: #f8fafc;
-  border: 1.5px solid #dbeafe;
+  border: 1.5px solid #e2e8f0;
   border-radius: 14px;
-  padding: 14px;
+  padding: 16px;
+  box-sizing: border-box;
 }
 
 .qrBox {
@@ -574,57 +599,66 @@
   flex-direction: column;
   align-items: center;
   background: #ffffff;
-  padding: 10px;
+  padding: 12px;
   border-radius: 12px;
   border: 1px solid #cbd5e1;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+  flex-shrink: 0;
 }
 
 .qrImage {
-  width: 140px;
-  height: 140px;
+  width: 145px;
+  height: 145px;
   display: block;
+  object-fit: contain;
 }
 
 .qrScanHint {
-  margin-top: 6px;
+  margin-top: 8px;
   font-size: 11px;
   font-weight: 800;
   color: #1d4ed8;
+  text-align: center;
 }
 
 .upiInfoCard {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .infoRow {
   display: flex;
   flex-direction: column;
-  font-size: 12px;
-  color: #475569;
+}
+
+.infoRow span {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
 }
 
 .infoRow strong {
-  color: #0f172a;
   font-size: 13px;
-  word-break: break-all;
+  color: #0f172a;
 }
 
 .highlightAmount {
   color: #059669 !important;
-  font-size: 18px !important;
+  font-size: 20px !important;
   font-weight: 900;
+  margin-top: 2px;
 }
 
-/* Bank Deposit Container */
+/* Bank Details Box */
 .bankDetailsContainer {
   background: #f8fafc;
   border: 1.5px solid #e2e8f0;
   border-radius: 14px;
-  padding: 14px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -633,7 +667,8 @@
 .bankDetailRow {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  align-items: center;
+  font-size: 12.5px;
   padding: 4px 0;
   border-bottom: 1px solid #f1f5f9;
 }
@@ -644,10 +679,15 @@
 
 .bankDetailRow span {
   color: #64748b;
+  font-weight: 600;
 }
 
 .bankDetailRow strong {
   color: #0f172a;
+}
+
+.monoFont {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 /* Verification Input Block */
@@ -655,12 +695,15 @@
   background: #ffffff;
   border: 1.5px solid #e2e8f0;
   border-radius: 14px;
-  padding: 14px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
 }
 
 .inputLabel {
+  display: block;
   font-size: 12px;
   font-weight: 800;
   color: #0f172a;
@@ -677,7 +720,7 @@
   border: 1.5px solid #cbd5e1;
   border-radius: 10px;
   padding: 0 12px;
-  font-size: 13.5px;
+  font-size: 14px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   outline: none;
   box-sizing: border-box;
@@ -693,12 +736,11 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 4px;
   flex-wrap: wrap;
 }
 
 .fileInputHidden {
-  display: none;
+  display: none !important;
 }
 
 .uploadTriggerBtn {
@@ -710,6 +752,7 @@
   font-size: 12px;
   font-weight: 800;
   cursor: pointer;
+  display: inline-block;
   transition: all 0.15s ease;
 }
 
@@ -730,55 +773,70 @@
 }
 
 .proofThumb {
-  width: 36px;
-  height: 36px;
-  border-radius: 6px;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
   object-fit: cover;
   border: 1px solid #cbd5e1;
 }
 
 .proofAttachedLabel {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 800;
   color: #059669;
 }
 
-/* Modal Actions */
+/* Modal Sticky Footer */
 .modalFooter {
-  padding: 14px 22px 18px 22px;
+  padding: 16px 24px;
   display: flex;
-  gap: 10px;
+  gap: 12px;
   border-top: 1px solid #f1f5f9;
+  background: #ffffff;
+  flex-shrink: 0;
 }
 
 .cancelBtn {
   flex: 1;
-  padding: 11px;
+  height: 44px;
   background: #f1f5f9;
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 750;
   color: #475569;
   cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.cancelBtn:hover {
+  background: #e2e8f0;
 }
 
 .confirmBtn {
-  flex: 1.6;
-  padding: 11px;
+  flex: 1.8;
+  height: 44px;
   background: linear-gradient(135deg, #10b981, #059669);
   border: none;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 800;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 850;
   color: #ffffff;
   cursor: pointer;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.confirmBtn:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
 }
 
 .confirmBtn:disabled,
 .cancelBtn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
 /* Step 3: Success / Pending Review Screen */
@@ -850,10 +908,6 @@
   color: #0f172a;
 }
 
-.monoFont {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-}
-
 .pendingStatusText {
   color: #d97706 !important;
   font-weight: 850;
@@ -899,12 +953,19 @@
   to { transform: rotate(360deg); }
 }
 
-@media (max-width: 768px) {
-  .packagesGrid {
-    grid-template-columns: 1fr;
+@media (max-width: 650px) {
+  .modalContainer {
+    max-height: 95vh;
+  }
+  .modalHeader, .modalBody, .modalFooter {
+    padding-left: 16px;
+    padding-right: 16px;
   }
   .qrPaymentContainer {
     flex-direction: column;
     text-align: center;
+  }
+  .infoRow {
+    align-items: center;
   }
 }

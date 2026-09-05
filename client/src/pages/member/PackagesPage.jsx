@@ -274,7 +274,7 @@ const PackagesPage = () => {
     setModalStep('PAYMENT');
   };
 
-  // One-click clipboard copy
+  // Clipboard utility
   const handleCopyToClipboard = (text, label) => {
     if (navigator?.clipboard?.writeText) {
       navigator.clipboard.writeText(text);
@@ -367,7 +367,7 @@ const PackagesPage = () => {
     : '';
 
   const dynamicQrUrl = activePkg
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiUri)}`
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(upiUri)}`
     : '';
 
   if (loading) {
@@ -639,53 +639,46 @@ const PackagesPage = () => {
                   {/* UPI QR Display Interface */}
                   {paymentMethod === 'UPI_GATEWAY' && (
                     <div className={styles.qrPaymentContainer}>
-                      {/* View Switcher: Dynamic QR vs Standee */}
                       <div className={styles.qrBox}>
-                        {qrViewMode === 'DYNAMIC' ? (
-                          <img
-                            src={dynamicQrUrl}
-                            alt="KUWIFR SBI Dynamic UPI QR"
-                            className={styles.qrImage}
-                          />
-                        ) : (
-                          <img
-                            src="/images/kuwifr-upi-standee.jpeg"
-                            alt="SBI Payments Official Standee"
-                            className={styles.qrImage}
-                            onError={(e) => {
-                              e.currentTarget.onerror = null;
-                              e.currentTarget.src = dynamicQrUrl;
-                            }}
-                          />
-                        )}
+                        <img
+                          src={
+                            qrViewMode === 'DYNAMIC'
+                              ? dynamicQrUrl
+                              : '/images/kuwifr-upi-standee.jpeg'
+                          }
+                          alt="KUWIFR SBI Dynamic UPI QR"
+                          className={styles.qrImage}
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = dynamicQrUrl;
+                          }}
+                        />
                         <span className={styles.qrScanHint}>
                           Scan with PhonePe, GPay or Paytm
                         </span>
-                        <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
-                          <button
-                            type="button"
-                            onClick={() => setQrViewMode(qrViewMode === 'DYNAMIC' ? 'STANDEE' : 'DYNAMIC')}
-                            style={{
-                              fontSize: '10.5px',
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                              background: '#f1f5f9',
-                              border: '1px solid #cbd5e1',
-                              color: '#2563eb',
-                              cursor: 'pointer',
-                              fontWeight: 700
-                            }}
-                          >
-                            {qrViewMode === 'DYNAMIC' ? '📷 View Standee Photo' : '⚡ Auto-Amount QR'}
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setQrViewMode(qrViewMode === 'DYNAMIC' ? 'STANDEE' : 'DYNAMIC')}
+                          style={{
+                            marginTop: '8px',
+                            fontSize: '11px',
+                            padding: '3px 10px',
+                            borderRadius: '6px',
+                            background: '#eff6ff',
+                            border: '1px solid #bfdbfe',
+                            color: '#2563eb',
+                            cursor: 'pointer',
+                            fontWeight: 700
+                          }}
+                        >
+                          {qrViewMode === 'DYNAMIC' ? '📷 View Standee Photo' : '⚡ Auto-Amount QR'}
+                        </button>
                       </div>
 
-                      {/* Official Verified SBI Merchant Details */}
                       <div className={styles.upiInfoCard}>
                         <div className={styles.infoRow}>
-                          <span>Merchant UPI ID:</span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                          <span>Merchant UPI ID</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
                             <strong className={styles.monoFont} style={{ fontSize: '11px', wordBreak: 'break-all' }}>
                               {COMPANY_PAYMENT_INFO.upiId}
                             </strong>
@@ -710,12 +703,12 @@ const PackagesPage = () => {
                         </div>
 
                         <div className={styles.infoRow} style={{ marginTop: '6px' }}>
-                          <span>Merchant Name:</span>
+                          <span>Merchant Name</span>
                           <strong>{COMPANY_PAYMENT_INFO.merchantName}</strong>
                         </div>
 
                         <div className={styles.infoRow} style={{ marginTop: '6px' }}>
-                          <span>Exact Payable Amount:</span>
+                          <span>Exact Payable Amount</span>
                           <strong className={styles.highlightAmount}>
                             ₹{activePkg.price?.toLocaleString('en-IN')}
                           </strong>
@@ -800,7 +793,7 @@ const PackagesPage = () => {
                       maxLength={30}
                     />
 
-                    <label className={styles.inputLabel} style={{ marginTop: '12px' }}>
+                    <label className={styles.inputLabel} style={{ marginTop: '10px' }}>
                       Upload Payment Screenshot <span className={styles.requiredStar}>*</span>
                     </label>
                     <div className={styles.uploadZone}>
