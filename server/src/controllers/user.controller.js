@@ -1,4 +1,5 @@
 // server/src/controllers/user.controller.js
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const Referral = require('../models/Referral');
 const BinaryNode = require('../models/BinaryNode');
@@ -22,8 +23,6 @@ const FUND_PLANS = [
 
 /**
  * Helper: Calculate live achieved fund qualifications from binary leg volume
- * @param {String|ObjectId} userId - User ID
- * @returns {Object} Fund achievement summary
  */
 const getMemberFundSummary = async (userId) => {
   const binaryNode = await BinaryNode.findOne({ userId }).lean();
@@ -65,17 +64,14 @@ const getMemberFundSummary = async (userId) => {
 };
 
 // ============================================================
-// 📊 CONSOLIDATED 12-POINT DASHBOARD STATISTICS + SALARY WALLET
+// 📊 CONSOLIDATED DASHBOARD STATISTICS + SALARY WALLET
 // ============================================================
 const getDashboardStats = async (req, res, next) => {
   try {
     const userId = req.userId;
-
-    // Start of current day boundary (00:00:00.000)
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    // Run lookups in parallel
     const [user, wallet, binaryNode, fundSummary, salaryProgress] = await Promise.all([
       User.findById(userId)
         .populate({ path: 'sponsorId', select: 'fullName memberId referralCode email' })
@@ -91,16 +87,13 @@ const getDashboardStats = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Member profile not found' });
     }
 
-    // 1. Direct Referrals Metrics
     const [todayAddMembers, todayActiveMembers, totalDirects] = await Promise.all([
       User.countDocuments({ sponsorId: userId, createdAt: { $gte: todayStart } }),
       User.countDocuments({ sponsorId: userId, status: 'ACTIVE', createdAt: { $gte: todayStart } }),
       User.countDocuments({ sponsorId: userId })
     ]);
 
-    // 2. Downline Network Counts
     const totalTeamCount = await Referral.countDocuments({ sponsorId: userId });
-
     const teamReferrals = await Referral.find({ sponsorId: userId }).select('userId').lean();
     const teamUserIds = teamReferrals.map((r) => r.userId);
 
@@ -111,7 +104,6 @@ const getDashboardStats = async (req, res, next) => {
       totalActiveMembers = await User.countDocuments({ sponsorId: userId, status: 'ACTIVE' });
     }
 
-    // 3. Today's Star/KBP Volume Calculations
     let todayStarLeft = 0;
     let todayStarRight = 0;
 
@@ -120,9 +112,7 @@ const getDashboardStats = async (req, res, next) => {
         const leftTodayUser = await User.findOne({
           _id: binaryNode.leftChildId,
           createdAt: { $gte: todayStart }
-        })
-          .populate('activePackageId')
-          .lean();
+        }).populate('activePackageId').lean();
         if (leftTodayUser?.activePackageId?.kbp) {
           todayStarLeft += leftTodayUser.activePackageId.kbp;
         }
@@ -131,9 +121,7 @@ const getDashboardStats = async (req, res, next) => {
         const rightTodayUser = await User.findOne({
           _id: binaryNode.rightChildId,
           createdAt: { $gte: todayStart }
-        })
-          .populate('activePackageId')
-          .lean();
+        }).populate('activePackageId').lean();
         if (rightTodayUser?.activePackageId?.kbp) {
           todayStarRight += rightTodayUser.activePackageId.kbp;
         }
@@ -146,17 +134,12 @@ const getDashboardStats = async (req, res, next) => {
     res.json({
       success: true,
       data: {
-        // ROW 1: Financial Overview
         todayIncome: wallet?.todayIncome || 0,
         totalIncome: wallet?.totalIncome || 0,
         totalWithdrawal: wallet?.totalWithdrawn || 0,
-
-        // ROW 2: Member Acquisition
         todayAddMembers,
         todayActiveMembers,
         totalMembers: totalTeamCount > 0 ? totalTeamCount : totalDirects,
-
-        // ROW 3: Active & Star Volume (KBP)
         totalActiveMembers,
         todayStar: {
           left: todayStarLeft,
@@ -166,8 +149,6 @@ const getDashboardStats = async (req, res, next) => {
           left: binaryNode?.leftVolume || 0,
           right: binaryNode?.rightVolume || 0
         },
-
-        // ROW 4: Rank, Fund & Direct Sponsor Info
         currentRank: {
           name: user.currentRankId?.name || (binaryNode && (binaryNode.leftVolume + binaryNode.rightVolume >= 200) ? 'Gold Star' : 'Not Achieved'),
           code: user.currentRankId?.code || 'NONE'
@@ -181,8 +162,6 @@ const getDashboardStats = async (req, res, next) => {
           name: user.sponsorId?.fullName || 'Direct Company Root',
           memberId: user.sponsorId?.memberId || user.sponsorId?.referralCode || 'ROOT'
         },
-
-        // SALARY INCOME WALLET (1% TTO from Package Purchases)
         salaryBalance: wallet?.salaryBalance || 0,
         totalSalaryEarned: wallet?.totalSalaryEarned || 0,
         salaryQualification: salaryProgress
@@ -196,8 +175,6 @@ const getDashboardStats = async (req, res, next) => {
               estimatedSalary: salaryProgress.estimatedSalary
             }
           : null,
-
-        // Ancillary Metadata
         walletBalance: wallet?.incomeBalance || 0,
         repurchaseWallet: wallet?.repurchaseBalance || 0,
         userStatus: user.status || 'INACTIVE',
@@ -413,7 +390,206 @@ const getUserById = async (req, res, next) => {
 };
 
 // ============================================================
-// 🌲 REFERRAL CHAIN & BINARY TREE SERVICES
+// 🌲 UNLIMITED RECURSIVE BINARY TREE WITH AUTOMATIC SPILLOVER
+// ============================================================
+
+/**
+ * Format a single user document into frontend node schema
+ */
+const formatNode = async (userDoc) => {
+  if (!userDoc) return null;
+
+  let packageName = 'Starter Package';
+  if (userDoc.activePackageId) {
+    if (typeof userDoc.activePackageId === 'object' && userDoc.activePackageId.name) {
+      packageName = userDoc.activePackageId.name;
+    } else {
+      try {
+        const pkg = await require('../models/Package').findById(userDoc.activePackageId).lean();
+        if (pkg) packageName = pkg.name || pkg.packageName || packageName;
+      } catch (_) {}
+    }
+  } else if (userDoc.currentPackage) {
+    packageName = userDoc.currentPackage;
+  }
+
+  const binaryNode = await BinaryNode.findOne({ userId: userDoc._id }).lean();
+  const leftVol = binaryNode?.leftVolume || userDoc.leftKbp || 0;
+  const rightVol = binaryNode?.rightVolume || userDoc.rightKbp || 0;
+
+  return {
+    _id: userDoc._id,
+    memberId: userDoc.memberId || userDoc.referralCode || 'KFR_MEMBER',
+    fullName: userDoc.fullName || userDoc.name || 'Member',
+    status: (userDoc.status || 'ACTIVE').toUpperCase(),
+    currentPackage: packageName,
+    leftKbp: Number(leftVol),
+    rightKbp: Number(rightVol),
+    left: null,
+    right: null
+  };
+};
+
+/**
+ * Builds a chain of spillover nodes down a specific leg
+ * @param {Array} members - Ordered list of members assigned to this side
+ * @param {String} side - 'LEFT' or 'RIGHT'
+ */
+const buildSpilloverChain = async (members, side, visited) => {
+  if (!members || members.length === 0) return null;
+
+  const currentMember = members[0];
+  if (visited.has(String(currentMember._id))) return null;
+  visited.add(String(currentMember._id));
+
+  const node = await formatNode(currentMember);
+  const remainingMembers = members.slice(1);
+
+  // Check if currentMember has their own downlines as well
+  const ownDirects = await User.find({ sponsorId: currentMember._id }).populate('activePackageId').sort({ createdAt: 1 }).lean();
+  const ownOppositeSide = side === 'LEFT' ? 'RIGHT' : 'LEFT';
+  const ownOppositeDirects = ownDirects.filter((m) => String(m.binarySide).toUpperCase() === ownOppositeSide);
+
+  if (side === 'LEFT') {
+    // Left spillover cascades down the left child slot
+    node.left = await buildSpilloverChain(remainingMembers, 'LEFT', visited);
+    // Any direct opposite referrals from this member populate their right child
+    if (ownOppositeDirects.length > 0) {
+      node.right = await buildSpilloverChain(ownOppositeDirects, 'RIGHT', visited);
+    }
+  } else {
+    // Right spillover cascades down the right child slot
+    node.right = await buildSpilloverChain(remainingMembers, 'RIGHT', visited);
+    // Any direct opposite referrals from this member populate their left child
+    if (ownOppositeDirects.length > 0) {
+      node.left = await buildSpilloverChain(ownOppositeDirects, 'LEFT', visited);
+    }
+  }
+
+  return node;
+};
+
+/**
+ * Controller: GET /api/users/binary-tree
+ * Builds complete binary tree with full Left & Right spillover
+ */
+const getBinaryTree = async (req, res, next) => {
+  try {
+    const { memberId, userId } = req.query;
+    let rootUser = null;
+
+    // 1. Resolve Root Member
+    if (memberId && memberId.trim() !== '') {
+      rootUser = await User.findOne({
+        $or: [
+          { memberId: memberId.trim() },
+          { referralCode: memberId.trim() }
+        ]
+      }).populate('activePackageId');
+    }
+
+    if (!rootUser && userId && mongoose.isValidObjectId(userId)) {
+      rootUser = await User.findById(userId).populate('activePackageId');
+    }
+
+    if (!rootUser && req.userId && mongoose.isValidObjectId(req.userId)) {
+      rootUser = await User.findById(req.userId).populate('activePackageId');
+    }
+
+    if (!rootUser) {
+      return res.status(404).json({ success: false, message: 'Member not found in binary tree.' });
+    }
+
+    const visited = new Set();
+    visited.add(String(rootUser._id));
+    const tree = await formatNode(rootUser.toObject());
+
+    // 2. Fetch all direct downlines belonging to Root
+    const directReferrals = await User.find({ sponsorId: rootUser._id })
+      .populate('activePackageId')
+      .sort({ createdAt: 1 })
+      .lean();
+
+    // 3. Partition into Left and Right teams
+    const leftMembers = directReferrals.filter(
+      (m) => String(m.binarySide).toUpperCase() === 'LEFT'
+    );
+    const rightMembers = directReferrals.filter(
+      (m) => String(m.binarySide).toUpperCase() === 'RIGHT'
+    );
+
+    // If binarySide was not explicitly saved, balance unassigned members across both sides
+    const unassigned = directReferrals.filter(
+      (m) => !['LEFT', 'RIGHT'].includes(String(m.binarySide).toUpperCase())
+    );
+    unassigned.forEach((member, index) => {
+      if (leftMembers.length <= rightMembers.length) {
+        leftMembers.push(member);
+      } else {
+        rightMembers.push(member);
+      }
+    });
+
+    // 4. Build recursive spillover trees
+    tree.left = await buildSpilloverChain(leftMembers, 'LEFT', visited);
+    tree.right = await buildSpilloverChain(rightMembers, 'RIGHT', visited);
+
+    // 5. Volume and Pairs calculation
+    const activeCount = directReferrals.filter((m) => (m.status || '').toUpperCase() === 'ACTIVE').length;
+    const binaryNode = await BinaryNode.findOne({ userId: rootUser._id }).lean();
+
+    const calculatedLeftKbp = leftMembers.filter((m) => m.status === 'ACTIVE').length * 1500;
+    const calculatedRightKbp = rightMembers.filter((m) => m.status === 'ACTIVE').length * 1500;
+
+    const leftVol = Number(binaryNode?.leftVolume || calculatedLeftKbp);
+    const rightVol = Number(binaryNode?.rightVolume || calculatedRightKbp);
+    const totalVol = leftVol + rightVol;
+    const matchingVol = Math.min(leftVol, rightVol);
+    const pairs = Math.floor(matchingVol / 1500);
+
+    // Update root node display metrics
+    tree.leftKbp = leftVol;
+    tree.rightKbp = rightVol;
+
+    // Sync BinaryNode for root
+    await BinaryNode.findOneAndUpdate(
+      { userId: rootUser._id },
+      {
+        $set: {
+          leftChildId: leftMembers[0]?._id || null,
+          rightChildId: rightMembers[0]?._id || null,
+          leftVolume: leftVol,
+          rightVolume: rightVol,
+          matchingVolume: matchingVol,
+          pairCount: pairs,
+          totalKBP: totalVol
+        }
+      },
+      { upsert: true }
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        root: tree,
+        tree: tree,
+        summary: {
+          totalKbp: totalVol,
+          leftKbp: leftVol,
+          rightKbp: rightVol,
+          matchingVolume: matchingVol,
+          totalPairs: pairs
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Binary Tree Controller Error:', error);
+    next(error);
+  }
+};
+
+// ============================================================
+// 👥 TEAM DOWNLINE & SPONSOR GENEALOGY STATS
 // ============================================================
 const getReferralChain = async (req, res, next) => {
   try {
@@ -435,20 +611,6 @@ const getReferralChain = async (req, res, next) => {
   }
 };
 
-const getBinaryTree = async (req, res, next) => {
-  try {
-    const { depth = 5, userId } = req.query;
-    const targetUserId = userId || req.userId;
-    const tree = await BinaryService.getTree(targetUserId, parseInt(depth, 10), new Set(), req.userId);
-    res.json({ success: true, data: { tree } });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// ============================================================
-// 👥 TEAM DOWNLINE & SPONSOR GENEALOGY STATS
-// ============================================================
 const getTeamStats = async (req, res, next) => {
   try {
     const userId = req.userId;
