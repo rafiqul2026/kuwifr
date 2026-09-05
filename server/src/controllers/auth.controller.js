@@ -43,32 +43,14 @@ async function getReferralChainForUser(userId) {
 // ============ REGISTRATION ============
 const register = async (req, res, next) => {
   try {
-    const { fullName, email, phoneNumber, password, sponsorId, side } = req.body;
+    const { fullName, email, phoneNumber, password, sponsorId, side, binarySide, position, pos } = req.body;
 
     const cleanEmail = email ? email.toLowerCase().trim() : '';
     const cleanPhone = phoneNumber ? phoneNumber.trim() : '';
 
-    // 1. Explicit Duplicate Phone Check
-    const existingPhone = await User.findOne({ phoneNumber: cleanPhone });
-    if (existingPhone) {
-      return res.status(400).json({
-        success: false,
-        message: `Phone number ${cleanPhone} is already registered with user ${existingPhone.fullName} (${existingPhone.memberId}). Please use a different phone number.`
-      });
-    }
-
-    // 2. Explicit Duplicate Email Check
-    const existingEmail = await User.findOne({ email: cleanEmail });
-    if (existingEmail) {
-      return res.status(400).json({
-        success: false,
-        message: `Email address ${cleanEmail} is already registered with user ${existingEmail.fullName} (${existingEmail.memberId}). Please use a different email.`
-      });
-    }
-
+    // Generate unique Member ID
     const generatedMemberId = await User.generateMemberId();
 
-    // Default status is explicitly INACTIVE until package is purchased
     const user = new User({
       memberId: generatedMemberId,
       referralCode: generatedMemberId,
@@ -108,8 +90,9 @@ const register = async (req, res, next) => {
         });
       }
 
+      const inputSide = (binarySide || position || side || (pos === 'R' ? 'right' : 'left')).toLowerCase();
       user.sponsorId = sponsor._id;
-      user.binarySide = (side || 'left').toLowerCase() === 'right' ? 'right' : 'left';
+      user.binarySide = inputSide === 'right' ? 'right' : 'left';
     }
 
     await user.save();
@@ -132,7 +115,7 @@ const register = async (req, res, next) => {
             level: level,
             parentId: i === 0 ? user.sponsorId : chain[i - 1]._id,
             path: chain.slice(0, i + 1).map((s) => s._id).join('-'),
-            isActive: false // Activated upon package purchase
+            isActive: false
           });
         }
       }

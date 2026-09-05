@@ -28,8 +28,9 @@ const UserSchema = new mongoose.Schema(
     phoneNumber: {
       type: String,
       required: [true, 'Phone number is required'],
-      unique: true,
+      trim: true,
       match: [/^[0-9]{10}$/, 'Phone number must be 10 digits']
+      // Removed unique: true so multiple accounts can share the same mobile number
     },
     password: {
       type: String,
