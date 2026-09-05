@@ -179,9 +179,10 @@ const getDashboardStats = async (req, res, next) => {
         repurchaseWallet: wallet?.repurchaseBalance || 0,
         userStatus: user.status || 'INACTIVE',
         memberId: user.memberId,
+        // Dual params: pos=L/R and side=left/right for universal compatibility
         referralLinks: {
-          left: { url: `${baseUrl}/register?ref=${identifier}&side=left`, side: 'left' },
-          right: { url: `${baseUrl}/register?ref=${identifier}&side=right`, side: 'right' }
+          left: { url: `${baseUrl}/register?ref=${identifier}&pos=L&side=left`, side: 'left' },
+          right: { url: `${baseUrl}/register?ref=${identifier}&pos=R&side=right`, side: 'right' }
         }
       }
     });
@@ -392,10 +393,6 @@ const getUserById = async (req, res, next) => {
 // ============================================================
 // 🌲 UNLIMITED RECURSIVE BINARY TREE WITH AUTOMATIC SPILLOVER
 // ============================================================
-
-/**
- * Format a single user document into frontend node schema
- */
 const formatNode = async (userDoc) => {
   if (!userDoc) return null;
 
@@ -430,11 +427,6 @@ const formatNode = async (userDoc) => {
   };
 };
 
-/**
- * Builds a chain of spillover nodes down a specific leg
- * @param {Array} members - Ordered list of members assigned to this side
- * @param {String} side - 'LEFT' or 'RIGHT'
- */
 const buildSpilloverChain = async (members, side, visited) => {
   if (!members || members.length === 0) return null;
 
@@ -445,22 +437,17 @@ const buildSpilloverChain = async (members, side, visited) => {
   const node = await formatNode(currentMember);
   const remainingMembers = members.slice(1);
 
-  // Check if currentMember has their own downlines as well
   const ownDirects = await User.find({ sponsorId: currentMember._id }).populate('activePackageId').sort({ createdAt: 1 }).lean();
   const ownOppositeSide = side === 'LEFT' ? 'RIGHT' : 'LEFT';
   const ownOppositeDirects = ownDirects.filter((m) => String(m.binarySide).toUpperCase() === ownOppositeSide);
 
   if (side === 'LEFT') {
-    // Left spillover cascades down the left child slot
     node.left = await buildSpilloverChain(remainingMembers, 'LEFT', visited);
-    // Any direct opposite referrals from this member populate their right child
     if (ownOppositeDirects.length > 0) {
       node.right = await buildSpilloverChain(ownOppositeDirects, 'RIGHT', visited);
     }
   } else {
-    // Right spillover cascades down the right child slot
     node.right = await buildSpilloverChain(remainingMembers, 'RIGHT', visited);
-    // Any direct opposite referrals from this member populate their left child
     if (ownOppositeDirects.length > 0) {
       node.left = await buildSpilloverChain(ownOppositeDirects, 'LEFT', visited);
     }
@@ -469,16 +456,11 @@ const buildSpilloverChain = async (members, side, visited) => {
   return node;
 };
 
-/**
- * Controller: GET /api/users/binary-tree
- * Builds complete binary tree with full Left & Right spillover
- */
 const getBinaryTree = async (req, res, next) => {
   try {
     const { memberId, userId } = req.query;
     let rootUser = null;
 
-    // 1. Resolve Root Member
     if (memberId && memberId.trim() !== '') {
       rootUser = await User.findOne({
         $or: [
@@ -504,13 +486,11 @@ const getBinaryTree = async (req, res, next) => {
     visited.add(String(rootUser._id));
     const tree = await formatNode(rootUser.toObject());
 
-    // 2. Fetch all direct downlines belonging to Root
     const directReferrals = await User.find({ sponsorId: rootUser._id })
       .populate('activePackageId')
       .sort({ createdAt: 1 })
       .lean();
 
-    // 3. Partition into Left and Right teams
     const leftMembers = directReferrals.filter(
       (m) => String(m.binarySide).toUpperCase() === 'LEFT'
     );
@@ -518,11 +498,10 @@ const getBinaryTree = async (req, res, next) => {
       (m) => String(m.binarySide).toUpperCase() === 'RIGHT'
     );
 
-    // If binarySide was not explicitly saved, balance unassigned members across both sides
     const unassigned = directReferrals.filter(
       (m) => !['LEFT', 'RIGHT'].includes(String(m.binarySide).toUpperCase())
     );
-    unassigned.forEach((member, index) => {
+    unassigned.forEach((member) => {
       if (leftMembers.length <= rightMembers.length) {
         leftMembers.push(member);
       } else {
@@ -530,28 +509,22 @@ const getBinaryTree = async (req, res, next) => {
       }
     });
 
-    // 4. Build recursive spillover trees
     tree.left = await buildSpilloverChain(leftMembers, 'LEFT', visited);
     tree.right = await buildSpilloverChain(rightMembers, 'RIGHT', visited);
-
-    // 5. Volume and Pairs calculation
-    const activeCount = directReferrals.filter((m) => (m.status || '').toUpperCase() === 'ACTIVE').length;
-    const binaryNode = await BinaryNode.findOne({ userId: rootUser._id }).lean();
 
     const calculatedLeftKbp = leftMembers.filter((m) => m.status === 'ACTIVE').length * 1500;
     const calculatedRightKbp = rightMembers.filter((m) => m.status === 'ACTIVE').length * 1500;
 
+    const binaryNode = await BinaryNode.findOne({ userId: rootUser._id }).lean();
     const leftVol = Number(binaryNode?.leftVolume || calculatedLeftKbp);
     const rightVol = Number(binaryNode?.rightVolume || calculatedRightKbp);
     const totalVol = leftVol + rightVol;
     const matchingVol = Math.min(leftVol, rightVol);
     const pairs = Math.floor(matchingVol / 1500);
 
-    // Update root node display metrics
     tree.leftKbp = leftVol;
     tree.rightKbp = rightVol;
 
-    // Sync BinaryNode for root
     await BinaryNode.findOneAndUpdate(
       { userId: rootUser._id },
       {
@@ -773,8 +746,16 @@ const getReferralLinks = async (req, res, next) => {
     res.json({
       success: true,
       data: {
-        left: { url: `${baseUrl}/register?ref=${identifier}&side=left`, side: 'left', label: 'Left Side Referral' },
-        right: { url: `${baseUrl}/register?ref=${identifier}&side=right`, side: 'right', label: 'Right Side Referral' },
+        left: {
+          url: `${baseUrl}/register?ref=${identifier}&pos=L&side=left`,
+          side: 'left',
+          label: 'Left Side Referral'
+        },
+        right: {
+          url: `${baseUrl}/register?ref=${identifier}&pos=R&side=right`,
+          side: 'right',
+          label: 'Right Side Referral'
+        },
         referralCode: identifier,
         memberId: user.memberId
       }

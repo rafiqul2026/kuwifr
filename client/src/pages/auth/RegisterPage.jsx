@@ -6,25 +6,64 @@ import { useNotification } from '../../hooks/useNotification';
 import api from '../../services/api';
 import styles from './AuthPages.module.css';
 
+/**
+ * Universal binary leg parser:
+ * Checks both window.location and router search params.
+ * Converts 'L', 'l', 'LEFT', 'left', '1' -> 'LEFT'
+ * Converts 'R', 'r', 'RIGHT', 'right', '2' -> 'RIGHT'
+ */
+const extractBinarySide = (searchQuery) => {
+  try {
+    const rawSearch = searchQuery || (typeof window !== 'undefined' ? window.location.search : '');
+    const params = new URLSearchParams(rawSearch);
+    const raw = (params.get('pos') || params.get('side') || params.get('position') || '').trim().toUpperCase();
+
+    if (raw === 'L' || raw === 'LEFT' || raw === '1') return 'LEFT';
+    if (raw === 'R' || raw === 'RIGHT' || raw === '2') return 'RIGHT';
+  } catch (err) {
+    console.error('Error parsing binary side:', err);
+  }
+  return 'LEFT';
+};
+
+/**
+ * Extracts Sponsor Referral Code from query string
+ */
+const extractSponsorCode = (searchQuery) => {
+  try {
+    const rawSearch = searchQuery || (typeof window !== 'undefined' ? window.location.search : '');
+    const params = new URLSearchParams(rawSearch);
+    return (params.get('ref') || params.get('sponsor') || params.get('sponsorId') || '').trim().toUpperCase();
+  } catch {
+    return '';
+  }
+};
+
 const RegisterPage = () => {
+  const location = useLocation();
+  const searchStr = location.search || (typeof window !== 'undefined' ? window.location.search : '');
+
+  // Synchronous initialization so there is no flicker or delayed state overwrite
+  const initialSide = extractBinarySide(searchStr);
+  const initialSponsor = extractSponsorCode(searchStr);
+
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
     phoneNumber: '',
     password: '',
     confirmPassword: '',
-    sponsorId: '',
-    side: 'right'
+    sponsorId: initialSponsor,
+    side: initialSide // Immediately 'LEFT' if pos=L or pos=l
   });
 
-  const [sponsorName, setSponsorName] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Welcome Pop-up State
+  // Welcome Modal State
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [registeredData, setRegisteredData] = useState({
     fullName: '',
@@ -35,39 +74,31 @@ const RegisterPage = () => {
   const { register } = useAuth();
   const { showNotification } = useNotification();
   const navigate = useNavigate();
-  const location = useLocation();
-  const verifiedRef = useRef(false);
+  const verifiedRef = useRef('');
 
+  // Synchronize state if URL query changes dynamically
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const refCode = params.get('ref') || params.get('sponsor');
-    const sideParam = params.get('side') || 'right';
+    const currentQuery = location.search || window.location.search;
+    const resolvedSide = extractBinarySide(currentQuery);
+    const resolvedSponsor = extractSponsorCode(currentQuery);
 
-    if (refCode) {
-      const cleanCode = refCode.trim().toUpperCase();
-      setFormData((prev) => ({
-        ...prev,
-        sponsorId: cleanCode,
-        side: sideParam.toLowerCase()
-      }));
+    setFormData((prev) => ({
+      ...prev,
+      sponsorId: resolvedSponsor || prev.sponsorId,
+      side: resolvedSide
+    }));
 
-      if (!verifiedRef.current) {
-        verifiedRef.current = true;
-        verifySponsor(cleanCode);
-      }
+    if (resolvedSponsor && verifiedRef.current !== resolvedSponsor) {
+      verifiedRef.current = resolvedSponsor;
+      verifySponsor(resolvedSponsor);
     }
   }, [location.search]);
 
+  // Validates existence of sponsor in background without exposing name in UI
   const verifySponsor = async (code) => {
     try {
-      const response = await api.get(`/api/users/verify-sponsor/${encodeURIComponent(code)}`);
-      if (response.data.success && response.data.data?.sponsor) {
-        const sp = response.data.data.sponsor;
-        setSponsorName(sp.fullName);
-        showNotification(`Sponsor verified: ${sp.fullName} (${sp.memberId})`, 'success');
-      }
+      await api.get(`/api/users/verify-sponsor/${encodeURIComponent(code)}`);
     } catch {
-      setSponsorName('');
       showNotification('Sponsor ID not found or inactive', 'error');
     }
   };
@@ -156,11 +187,23 @@ const RegisterPage = () => {
     setLoading(true);
     try {
       const { confirmPassword, ...registrationData } = formData;
+      const finalSide = extractBinarySide(formData.side);
 
-      const result = await register(registrationData);
+      const payload = {
+        ...registrationData,
+        side: finalSide.toLowerCase(),
+        binarySide: finalSide,
+        position: finalSide,
+        pos: finalSide === 'LEFT' ? 'L' : 'R'
+      };
+
+      const result = await register(payload);
       if (result.success) {
-        const assignedId = result.data?.user?.memberId || result.data?.memberId || 'KFR' + Math.floor(100000 + Math.random() * 900000);
-        
+        const assignedId =
+          result.data?.user?.memberId ||
+          result.data?.memberId ||
+          'KFR' + Math.floor(100000 + Math.random() * 900000);
+
         setRegisteredData({
           fullName: formData.fullName,
           memberId: assignedId,
@@ -187,6 +230,9 @@ const RegisterPage = () => {
     navigate('/login');
   };
 
+  // Compute active side for rendering
+  const activeSide = extractBinarySide(formData.side || initialSide);
+
   return (
     <div className={styles.authPage}>
       <div className={styles.authContainer}>
@@ -197,13 +243,13 @@ const RegisterPage = () => {
             <p>Join KUWIFR and start your journey to success</p>
           </div>
 
-          {/* Dynamic Sponsor Banner */}
+          {/* Sponsor Banner - Displays only Sponsor ID and Side (No Sponsor Name) */}
           {formData.sponsorId && (
             <div
               className={styles.sponsorBanner}
               style={{
-                background: '#f0fdf4',
-                border: '1px solid #bbf7d0',
+                background: activeSide === 'LEFT' ? '#eff6ff' : '#fdf2f8',
+                border: activeSide === 'LEFT' ? '1.5px solid #93c5fd' : '1.5px solid #f9a8d4',
                 padding: '14px 18px',
                 borderRadius: '12px',
                 marginBottom: '22px',
@@ -214,14 +260,16 @@ const RegisterPage = () => {
             >
               <span style={{ fontSize: '22px' }}>👤</span>
               <div>
-                <strong style={{ color: '#15803d', fontSize: '14px', letterSpacing: '0.3px' }}>
-                  Sponsor ID: {formData.sponsorId} | Side: {formData.side?.toUpperCase() || 'RIGHT'}
+                <strong
+                  style={{
+                    color: activeSide === 'LEFT' ? '#1d4ed8' : '#be185d',
+                    fontSize: '14.5px',
+                    letterSpacing: '0.4px',
+                    display: 'block'
+                  }}
+                >
+                  Sponsor ID: {formData.sponsorId} | Side: {activeSide}
                 </strong>
-                {sponsorName && (
-                  <div style={{ fontSize: '12px', color: '#166534', fontWeight: '600' }}>
-                    Sponsor Name: {sponsorName}
-                  </div>
-                )}
               </div>
             </div>
           )}
