@@ -156,6 +156,17 @@ const THEME_COLORS = {
   TITANIUM: '#f59e0b'
 };
 
+// Official Company Receiving Accounts verified from SBI Payments Merchant standee
+const COMPANY_PAYMENT_INFO = {
+  upiId: 'SBIBHIM.INSTANT13112874693574880@sbipay',
+  merchantName: 'SB214110 (KUWIFR SERVICES PVT LTD)',
+  accountName: 'KUWIFR SERVICES PRIVATE LIMITED',
+  bankName: 'State Bank of India',
+  accountNumber: '44708235535',
+  ifscCode: 'SBIN0011617',
+  branch: 'BARPETA BAZAR, ASSAM'
+};
+
 const PackagesPage = () => {
   const [packages, setPackages] = useState([]);
   const [selectedProductMap, setSelectedProductMap] = useState({});
@@ -167,6 +178,9 @@ const PackagesPage = () => {
   const [activePkg, setActivePkg] = useState(null);
   const [activeProduct, setActiveProduct] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('UPI_GATEWAY');
+  const [qrViewMode, setQrViewMode] = useState('DYNAMIC'); // 'DYNAMIC' | 'STANDEE'
+  const [utrNumber, setUtrNumber] = useState('');
+  const [proofPreview, setProofPreview] = useState('');
   const [successReceipt, setSuccessReceipt] = useState(null);
 
   const { user } = useAuth();
@@ -249,6 +263,9 @@ const PackagesPage = () => {
 
     setActivePkg(pkg);
     setActiveProduct(chosenProduct || { name: 'Direct Activation', ksp: pkg.price, mrp: pkg.price, category: 'Membership' });
+    setUtrNumber('');
+    setProofPreview('');
+    setQrViewMode('DYNAMIC');
     setModalStep('REVIEW');
   };
 
@@ -257,9 +274,44 @@ const PackagesPage = () => {
     setModalStep('PAYMENT');
   };
 
-  // Step 3: Confirm Payment and Activate
+  // One-click clipboard copy
+  const handleCopyToClipboard = (text, label) => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(text);
+      showNotification(`${label} copied to clipboard!`, 'info');
+    }
+  };
+
+  // Convert uploaded image file to Base64
+  const handleProofUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      showNotification('Payment screenshot must be smaller than 5MB', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProofPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Step 3: Submit Verification Request to Admin
   const handleCompleteActivation = async () => {
     if (!activePkg || !activeProduct) return;
+
+    if (!utrNumber.trim()) {
+      showNotification('Please enter the 12-digit UTR / Reference ID from your UPI payment.', 'warning');
+      return;
+    }
+
+    if (!proofPreview && paymentMethod === 'UPI_GATEWAY') {
+      showNotification('Please upload your payment confirmation screenshot.', 'warning');
+      return;
+    }
 
     setProcessingPayment(true);
     try {
@@ -277,20 +329,21 @@ const PackagesPage = () => {
           image: activeProduct.image
         },
         paymentMethod,
-        transactionId: `TXN_${Date.now()}_${Math.floor(Math.random() * 9000 + 1000)}`
+        transactionId: utrNumber.trim(),
+        paymentProof: proofPreview
       };
 
       const res = await api.post('/api/package-purchases/activate', payload);
 
       if (res.data?.success) {
-        showNotification(res.data.message || 'Package activated successfully!', 'success');
+        showNotification(res.data.message || 'Payment submitted for admin approval!', 'info');
         setSuccessReceipt(res.data.data);
         setModalStep('SUCCESS');
       } else {
-        showNotification(res.data?.message || 'Unable to complete activation.', 'error');
+        showNotification(res.data?.message || 'Unable to submit payment request.', 'error');
       }
     } catch (err) {
-      const errMsg = err.response?.data?.message || 'Failed to complete transaction. Please try again.';
+      const errMsg = err.response?.data?.message || 'Failed to submit payment details. Please try again.';
       showNotification(errMsg, 'error');
     } finally {
       setProcessingPayment(false);
@@ -304,7 +357,18 @@ const PackagesPage = () => {
     setModalStep(null);
     setActivePkg(null);
     setActiveProduct(null);
+    setUtrNumber('');
+    setProofPreview('');
   };
+
+  // Dynamic UPI URI targeting official SBI Merchant account with exact package price
+  const upiUri = activePkg
+    ? `upi://pay?pa=${COMPANY_PAYMENT_INFO.upiId}&pn=${encodeURIComponent(COMPANY_PAYMENT_INFO.merchantName)}&am=${activePkg.price}&cu=INR&tn=${encodeURIComponent(`KUWIFR-${activePkg.name}-${user?.memberId || 'MEMBER'}`)}`
+    : '';
+
+  const dynamicQrUrl = activePkg
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiUri)}`
+    : '';
 
   if (loading) {
     return (
@@ -516,19 +580,19 @@ const PackagesPage = () => {
                     className={styles.confirmBtn}
                     onClick={handleProceedToPayment}
                   >
-                    Confirm & Activate (₹{activePkg.price?.toLocaleString()}) →
+                    Confirm & Proceed to Pay (₹{activePkg.price?.toLocaleString()}) →
                   </button>
                 </div>
               </>
             )}
 
-            {/* 2. STEP 2: SELECT PAYMENT METHOD */}
+            {/* 2. STEP 2: PAYMENT METHOD & SBI QR CODE SCAN / UTR / PROOF UPLOAD */}
             {modalStep === 'PAYMENT' && (
               <>
                 <div className={styles.modalHeader}>
                   <div>
-                    <span className={styles.modalTag}>Secure Payment</span>
-                    <h2>Choose Payment Method</h2>
+                    <span className={styles.modalTag}>SBI Payments QR</span>
+                    <h2>Scan & Pay to Activate</h2>
                   </div>
                   <button
                     type="button"
@@ -541,6 +605,7 @@ const PackagesPage = () => {
                 </div>
 
                 <div className={styles.modalBody}>
+                  {/* Payment Method Selector */}
                   <div className={styles.paymentMethodList}>
                     <label className={`${styles.paymentOption} ${paymentMethod === 'UPI_GATEWAY' ? styles.paySelected : ''}`}>
                       <input
@@ -550,24 +615,10 @@ const PackagesPage = () => {
                         onChange={() => setPaymentMethod('UPI_GATEWAY')}
                       />
                       <div className={styles.paymentOptionDetails}>
-                        <strong>Instant UPI Payment (GPay / PhonePe / Paytm / QR)</strong>
-                        <span>Fast, zero transaction fees, instant activation</span>
+                        <strong>SBI Payments UPI QR (PhonePe / GPay / Paytm)</strong>
+                        <span>Instant scan with pre-filled package amount</span>
                       </div>
                       <span className={styles.payIcon}>📱</span>
-                    </label>
-
-                    <label className={`${styles.paymentOption} ${paymentMethod === 'WALLET_BALANCE' ? styles.paySelected : ''}`}>
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        checked={paymentMethod === 'WALLET_BALANCE'}
-                        onChange={() => setPaymentMethod('WALLET_BALANCE')}
-                      />
-                      <div className={styles.paymentOptionDetails}>
-                        <strong>KUWIFR Wallet Balance</strong>
-                        <span>Pay directly from your earnings or repurchase balance</span>
-                      </div>
-                      <span className={styles.payIcon}>💰</span>
                     </label>
 
                     <label className={`${styles.paymentOption} ${paymentMethod === 'BANK_TRANSFER' ? styles.paySelected : ''}`}>
@@ -578,11 +629,200 @@ const PackagesPage = () => {
                         onChange={() => setPaymentMethod('BANK_TRANSFER')}
                       />
                       <div className={styles.paymentOptionDetails}>
-                        <strong>NEFT / IMPS / Bank Deposit</strong>
-                        <span>Direct company bank account credit</span>
+                        <strong>Direct Bank Transfer (IMPS / NEFT / RTGS)</strong>
+                        <span>Company State Bank of India Current Account</span>
                       </div>
                       <span className={styles.payIcon}>🏦</span>
                     </label>
+                  </div>
+
+                  {/* UPI QR Display Interface */}
+                  {paymentMethod === 'UPI_GATEWAY' && (
+                    <div className={styles.qrPaymentContainer}>
+                      {/* View Switcher: Dynamic QR vs Standee */}
+                      <div className={styles.qrBox}>
+                        {qrViewMode === 'DYNAMIC' ? (
+                          <img
+                            src={dynamicQrUrl}
+                            alt="KUWIFR SBI Dynamic UPI QR"
+                            className={styles.qrImage}
+                          />
+                        ) : (
+                          <img
+                            src="/images/kuwifr-upi-standee.jpeg"
+                            alt="SBI Payments Official Standee"
+                            className={styles.qrImage}
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = dynamicQrUrl;
+                            }}
+                          />
+                        )}
+                        <span className={styles.qrScanHint}>
+                          Scan with PhonePe, GPay or Paytm
+                        </span>
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() => setQrViewMode(qrViewMode === 'DYNAMIC' ? 'STANDEE' : 'DYNAMIC')}
+                            style={{
+                              fontSize: '10.5px',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              background: '#f1f5f9',
+                              border: '1px solid #cbd5e1',
+                              color: '#2563eb',
+                              cursor: 'pointer',
+                              fontWeight: 700
+                            }}
+                          >
+                            {qrViewMode === 'DYNAMIC' ? '📷 View Standee Photo' : '⚡ Auto-Amount QR'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Official Verified SBI Merchant Details */}
+                      <div className={styles.upiInfoCard}>
+                        <div className={styles.infoRow}>
+                          <span>Merchant UPI ID:</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                            <strong className={styles.monoFont} style={{ fontSize: '11px', wordBreak: 'break-all' }}>
+                              {COMPANY_PAYMENT_INFO.upiId}
+                            </strong>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyToClipboard(COMPANY_PAYMENT_INFO.upiId, 'UPI ID')}
+                              style={{
+                                padding: '2px 8px',
+                                fontSize: '10px',
+                                fontWeight: 800,
+                                background: '#eff6ff',
+                                border: '1px solid #bfdbfe',
+                                color: '#2563eb',
+                                borderRadius: '5px',
+                                cursor: 'pointer',
+                                flexShrink: 0
+                              }}
+                            >
+                              Copy
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className={styles.infoRow} style={{ marginTop: '6px' }}>
+                          <span>Merchant Name:</span>
+                          <strong>{COMPANY_PAYMENT_INFO.merchantName}</strong>
+                        </div>
+
+                        <div className={styles.infoRow} style={{ marginTop: '6px' }}>
+                          <span>Exact Payable Amount:</span>
+                          <strong className={styles.highlightAmount}>
+                            ₹{activePkg.price?.toLocaleString('en-IN')}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bank Deposit Interface */}
+                  {paymentMethod === 'BANK_TRANSFER' && (
+                    <div className={styles.bankDetailsContainer}>
+                      <div className={styles.bankDetailRow}>
+                        <span>Bank Name:</span>
+                        <strong>{COMPANY_PAYMENT_INFO.bankName}</strong>
+                      </div>
+                      <div className={styles.bankDetailRow}>
+                        <span>Account Name:</span>
+                        <strong>{COMPANY_PAYMENT_INFO.accountName}</strong>
+                      </div>
+                      <div className={styles.bankDetailRow}>
+                        <span>Account Number:</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <strong className={styles.monoFont}>{COMPANY_PAYMENT_INFO.accountNumber}</strong>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyToClipboard(COMPANY_PAYMENT_INFO.accountNumber, 'Account Number')}
+                            style={{
+                              padding: '2px 6px',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              background: '#eff6ff',
+                              border: '1px solid #bfdbfe',
+                              color: '#2563eb',
+                              borderRadius: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      </div>
+                      <div className={styles.bankDetailRow}>
+                        <span>IFSC Code:</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <strong className={styles.monoFont}>{COMPANY_PAYMENT_INFO.ifscCode}</strong>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyToClipboard(COMPANY_PAYMENT_INFO.ifscCode, 'IFSC Code')}
+                            style={{
+                              padding: '2px 6px',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              background: '#eff6ff',
+                              border: '1px solid #bfdbfe',
+                              color: '#2563eb',
+                              borderRadius: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      </div>
+                      <div className={styles.bankDetailRow}>
+                        <span>Branch:</span>
+                        <strong>{COMPANY_PAYMENT_INFO.branch}</strong>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mandatory Verification Proof Inputs */}
+                  <div className={styles.verificationInputBlock}>
+                    <label className={styles.inputLabel}>
+                      Enter 12-Digit UPI Reference / UTR Number <span className={styles.requiredStar}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 423589123456"
+                      value={utrNumber}
+                      onChange={(e) => setUtrNumber(e.target.value)}
+                      className={styles.utrInputField}
+                      maxLength={30}
+                    />
+
+                    <label className={styles.inputLabel} style={{ marginTop: '12px' }}>
+                      Upload Payment Screenshot <span className={styles.requiredStar}>*</span>
+                    </label>
+                    <div className={styles.uploadZone}>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleProofUpload}
+                        id="proofUpload"
+                        className={styles.fileInputHidden}
+                      />
+                      <label htmlFor="proofUpload" className={styles.uploadTriggerBtn}>
+                        📷 Choose Screenshot
+                      </label>
+                      {proofPreview ? (
+                        <div className={styles.proofPreviewWrap}>
+                          <img src={proofPreview} alt="Payment Proof Preview" className={styles.proofThumb} />
+                          <span className={styles.proofAttachedLabel}>✓ Proof Attached</span>
+                        </div>
+                      ) : (
+                        <span className={styles.uploadHint}>Attach screenshot showing UTR and paid amount</span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -593,7 +833,7 @@ const PackagesPage = () => {
                     onClick={() => setModalStep('REVIEW')}
                     disabled={processingPayment}
                   >
-                    ← Back to Review
+                    ← Back
                   </button>
 
                   <button
@@ -602,20 +842,20 @@ const PackagesPage = () => {
                     onClick={handleCompleteActivation}
                     disabled={processingPayment}
                   >
-                    {processingPayment ? 'Activating Package...' : `Pay ₹${activePkg.price?.toLocaleString()} & Activate`}
+                    {processingPayment ? 'Submitting Payment Proof...' : `Submit Payment Proof (₹${activePkg.price?.toLocaleString()})`}
                   </button>
                 </div>
               </>
             )}
 
-            {/* 3. STEP 3: TRANSACTION SUCCESS RECEIPT (Prevents blank screen) */}
+            {/* 3. STEP 3: TRANSACTION PENDING VERIFICATION RECEIPT */}
             {modalStep === 'SUCCESS' && (
               <div className={styles.successScreenWrapper}>
-                <div className={styles.successIconBadge}>✓</div>
-                <h2 className={styles.successTitle}>Package Activated Successfully!</h2>
+                <div className={styles.pendingHourglassIcon}>⏳</div>
+                <h2 className={styles.successTitle}>Payment Submitted for Verification</h2>
                 <p className={styles.successSubtitle}>
-                  Congratulations <strong>{user?.fullName || 'Member'}</strong>! Your account status is now{' '}
-                  <span className={styles.activeTag}>● ACTIVE</span>.
+                  Thank you <strong>{user?.fullName || 'Member'}</strong>! Your payment transaction details and screenshot proof have been successfully forwarded to our accounts team.
+                  Your account status will automatically switch to <span className={styles.activeTag}>● ACTIVE</span> once verified by admin.
                 </p>
 
                 <div className={styles.receiptBox}>
@@ -628,16 +868,16 @@ const PackagesPage = () => {
                     <strong>{successReceipt?.selectedProduct?.name}</strong>
                   </div>
                   <div className={styles.receiptRow}>
-                    <span>Transaction ID:</span>
+                    <span>Submitted UTR / Ref:</span>
                     <strong className={styles.monoFont}>{successReceipt?.transactionId}</strong>
                   </div>
                   <div className={styles.receiptRow}>
-                    <span>Amount Paid:</span>
+                    <span>Amount Payable:</span>
                     <strong>₹{successReceipt?.packagePrice?.toLocaleString('en-IN')}</strong>
                   </div>
                   <div className={styles.receiptRow}>
-                    <span>Daily Binary Cap:</span>
-                    <strong className={styles.capHighlight}>₹{successReceipt?.dailyBinaryCap?.toLocaleString('en-IN')}/Day</strong>
+                    <span>Account Status:</span>
+                    <strong className={styles.pendingStatusText}>● PENDING ADMIN APPROVAL</strong>
                   </div>
                 </div>
 
@@ -646,7 +886,7 @@ const PackagesPage = () => {
                   className={styles.dashboardRedirectBtn}
                   onClick={handleCloseModal}
                 >
-                  Go to Member Dashboard →
+                  Return to Member Dashboard →
                 </button>
               </div>
             )}
