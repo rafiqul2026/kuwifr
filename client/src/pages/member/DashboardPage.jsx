@@ -16,8 +16,8 @@ import styles from './DashboardPage.module.css';
  * 1. Financial KPIs (Today Income, Total Income, Total Withdrawal)
  * 2. Downline Network Counts (Today Registrations, Today Active, Total Members)
  * 3. Binary Star Volumes (Today & Total Stars)
- * 4. Recognition & Structure (Current Rank, Achieved Funds, Direct Sponsor)
- * 5. Salary Progress Bar & Direct Referral Links with One-Click Clipboard Copy
+ * 4. Recognition & Achievements (Current Rank, Current Fund Achieved)
+ * 5. Salary Progress Bar & Direct Referral Links with One-Click Copy
  */
 const DashboardPage = () => {
   // --------------------------------------------------------------------------
@@ -58,7 +58,6 @@ const DashboardPage = () => {
     }
   }, [showNotification]);
 
-  // Initial load hook
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
@@ -426,7 +425,8 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          {/* ----------------- ROW 4: RANK, FUND & SPONSOR ----------------- */}
+          {/* ----------------- ROW 4: RANK & FUND RECOGNITION ----------------- */}
+          {/* Note: MY DIRECT SPONSOR card has been removed */}
           <div className={`${styles.statCard} ${styles.cardMeta}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>CURRENT RANK</span>
@@ -457,26 +457,6 @@ const DashboardPage = () => {
                 </div>
               )}
               <span className={styles.metricSubtitle}>Life Tension Free Benefit</span>
-            </div>
-          </div>
-
-          <div className={`${styles.statCard} ${styles.cardMeta}`}>
-            <div className={styles.cardHeader}>
-              <span className={styles.cardTitle}>MY DIRECT SPONSOR</span>
-              <div className={styles.cardIconBox}>🤝</div>
-            </div>
-            <div className={styles.cardBody}>
-              {loading && !stats ? (
-                <div className={styles.skeletonMetric}></div>
-              ) : (
-                <div className={styles.sponsorMetaGroup}>
-                  <h2 className={styles.primaryMetaText}>{stats?.directSponsor?.name || 'Direct Sponsor'}</h2>
-                  <span className={styles.sponsorIdBadge}>
-                    ID: {stats?.directSponsor?.memberId || 'ROOT'}
-                  </span>
-                </div>
-              )}
-              <span className={styles.metricSubtitle}>Upline Guidance</span>
             </div>
           </div>
         </div>

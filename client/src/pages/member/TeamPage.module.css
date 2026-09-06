@@ -52,29 +52,80 @@
   line-height: 1.5;
 }
 
-/* Total Team Summary Card in Header */
-.totalTeamCard {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  color: #ffffff;
-  padding: 16px 24px;
-  border-radius: 16px;
-  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.2);
-  min-width: 170px;
-  text-align: right;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.headerCardsGroup {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 
-.totalTeamLabel {
-  font-size: 11px;
-  font-weight: 700;
-  color: #94a3b8;
-  text-transform: uppercase;
+/* My Direct Sponsor / Senior Card */
+.sponsorCard {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 12px 18px;
+  min-width: 220px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+  box-sizing: border-box;
+}
+
+.sponsorTopLabel {
+  font-size: 10px;
+  font-weight: 800;
+  color: #64748b;
   letter-spacing: 0.5px;
   margin-bottom: 4px;
 }
 
+.sponsorInfoRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sponsorName {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.sponsorIdPill {
+  font-size: 11px;
+  font-weight: 800;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Total Team Summary Card in Header */
+.totalTeamCard {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #ffffff;
+  padding: 14px 22px;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.2);
+  min-width: 160px;
+  text-align: right;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-sizing: border-box;
+}
+
+.totalTeamLabel {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
 .totalTeamCount {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 900;
   color: #ffffff;
   display: flex;
@@ -511,7 +562,7 @@
   margin: 0;
 }
 
-/* ================= MODERN MODAL ================= */
+/* Modern Modal Details */
 .modalBackdrop {
   position: fixed;
   inset: 0;
@@ -635,7 +686,7 @@
   border: 1px solid #fef3c7;
 }
 
-/* Core 3 Details Card */
+/* Core Credentials Card */
 .coreCredentialsCard {
   width: 100%;
   background: #f8fafc;
@@ -775,7 +826,7 @@
   background: #1e293b;
 }
 
-/* ================= RESPONSIVENESS ================= */
+/* Responsiveness */
 @media (max-width: 900px) {
   .metricsGrid {
     grid-template-columns: repeat(2, 1fr);
@@ -791,6 +842,17 @@
     flex-direction: column;
     align-items: stretch;
     gap: 14px;
+  }
+
+  .headerCardsGroup {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .sponsorCard, .totalTeamCard {
+    width: 100%;
+    min-width: unset;
   }
 
   .totalTeamCard {

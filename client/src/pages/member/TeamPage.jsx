@@ -1,5 +1,5 @@
 // client/src/pages/member/TeamPage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './TeamPage.module.css';
@@ -14,6 +14,10 @@ const TeamPage = () => {
     totalTeam: 0,
     levels: 0
   });
+  const [sponsorInfo, setSponsorInfo] = useState({
+    fullName: 'Direct Company Root',
+    memberId: 'ROOT'
+  });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -21,36 +25,44 @@ const TeamPage = () => {
   const [modalLoading, setModalLoading] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
 
-  useEffect(() => {
-    fetchTeamData();
-  }, []);
-
-  const fetchTeamData = async () => {
+  const fetchTeamData = useCallback(async () => {
     try {
       setLoading(true);
-      const [teamRes, statsRes] = await Promise.all([
+      const [teamRes, statsRes, profileRes] = await Promise.all([
         api.get('/api/users/team'),
-        api.get('/api/users/team-stats')
+        api.get('/api/users/team-stats'),
+        api.get('/api/users/profile')
       ]);
 
-      if (teamRes.data?.success) {
+      if (teamRes.data?.success && teamRes.data?.data) {
         setTeamMembers(teamRes.data.data.team || []);
       }
-      if (statsRes.data?.success) {
+      if (statsRes.data?.success && statsRes.data?.data) {
         setStats(statsRes.data.data);
+      }
+      if (profileRes.data?.success && profileRes.data?.data?.user?.sponsorId) {
+        const sp = profileRes.data.data.user.sponsorId;
+        setSponsorInfo({
+          fullName: sp.fullName || 'Direct Company Root',
+          memberId: sp.memberId || sp.referralCode || 'ROOT'
+        });
       }
     } catch {
       showNotification('Failed to load team data', 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [showNotification]);
+
+  useEffect(() => {
+    fetchTeamData();
+  }, [fetchTeamData]);
 
   const handleViewMember = async (memberId) => {
     try {
       setModalLoading(true);
       const res = await api.get(`/api/users/${memberId}`);
-      if (res.data?.success) {
+      if (res.data?.success && res.data?.data?.user) {
         setSelectedMember(res.data.data.user);
       }
     } catch {
@@ -82,7 +94,7 @@ const TeamPage = () => {
 
   return (
     <div className={styles.pageContainer}>
-      {/* Top Header Section */}
+      {/* Top Header Section with Sponsor & Team Size */}
       <div className={styles.headerRow}>
         <div className={styles.titleGroup}>
           <div className={styles.titleBadge}>NETWORK GENEALOGY</div>
@@ -92,11 +104,25 @@ const TeamPage = () => {
           </p>
         </div>
 
-        <div className={styles.totalTeamCard}>
-          <div className={styles.totalTeamLabel}>Total Network Size</div>
-          <div className={styles.totalTeamCount}>
-            {stats.totalTeam || teamMembers.length}
-            <span className={styles.unitText}>Members</span>
+        <div className={styles.headerCardsGroup}>
+          {/* Senior / Direct Sponsor Card */}
+          <div className={styles.sponsorCard}>
+            <div className={styles.sponsorTopLabel}>
+              <span>🤝 MY DIRECT SPONSOR / SENIOR</span>
+            </div>
+            <div className={styles.sponsorInfoRow}>
+              <strong className={styles.sponsorName}>{sponsorInfo.fullName}</strong>
+              <span className={styles.sponsorIdPill}>ID: {sponsorInfo.memberId}</span>
+            </div>
+          </div>
+
+          {/* Total Network Size Card */}
+          <div className={styles.totalTeamCard}>
+            <div className={styles.totalTeamLabel}>Total Network Size</div>
+            <div className={styles.totalTeamCount}>
+              {stats.totalTeam || teamMembers.length}
+              <span className={styles.unitText}>Members</span>
+            </div>
           </div>
         </div>
       </div>
@@ -218,7 +244,7 @@ const TeamPage = () => {
           </div>
         </div>
 
-        {/* Content Table / State */}
+        {/* Content Table */}
         {loading ? (
           <div className={styles.centerBox}>
             <div className={styles.glowSpinner}></div>
@@ -282,6 +308,7 @@ const TeamPage = () => {
                           type="button"
                           className={styles.actionViewBtn}
                           onClick={() => handleViewMember(member._id)}
+                          disabled={modalLoading}
                         >
                           <span>View</span>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -298,11 +325,10 @@ const TeamPage = () => {
         )}
       </div>
 
-      {/* ================= MODERN MODAL POPUP ================= */}
+      {/* Member Details Modal */}
       {selectedMember && (
         <div className={styles.modalBackdrop} onClick={() => setSelectedMember(null)}>
           <div className={styles.modalWindow} onClick={(e) => e.stopPropagation()}>
-            {/* Modal Header Banner */}
             <div className={styles.modalTopBanner}>
               <div className={styles.modalTitleBlock}>
                 <span className={styles.modalCategoryTag}>MEMBER PROFILE</span>
@@ -318,7 +344,6 @@ const TeamPage = () => {
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className={styles.modalInnerBody}>
               <div className={styles.profileHero}>
                 <div className={`${styles.largeAvatar} ${selectedMember.status === 'ACTIVE' ? styles.avatarActive : styles.avatarInactive}`}>
@@ -330,7 +355,6 @@ const TeamPage = () => {
                 </span>
               </div>
 
-              {/* Core 3 Details Section */}
               <div className={styles.coreCredentialsCard}>
                 <div className={styles.credentialRow}>
                   <div className={styles.credentialLabelBlock}>
@@ -364,7 +388,6 @@ const TeamPage = () => {
                 </div>
               </div>
 
-              {/* Secondary Details Grid */}
               <div className={styles.secondaryGrid}>
                 <div className={styles.secondaryTile}>
                   <small>Phone Number</small>
