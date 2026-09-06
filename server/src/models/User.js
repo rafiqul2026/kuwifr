@@ -24,13 +24,14 @@ const UserSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
       match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email']
+      // Strictly NO unique: true -> Allows multiple accounts per email
     },
     phoneNumber: {
       type: String,
       required: [true, 'Phone number is required'],
       trim: true,
       match: [/^[0-9]{10}$/, 'Phone number must be 10 digits']
-      // Removed unique: true so multiple accounts can share the same mobile number
+      // Strictly NO unique: true -> Allows multiple accounts per phone number
     },
     password: {
       type: String,
@@ -170,7 +171,9 @@ UserSchema.statics.generateMemberId = async function () {
   while (!isUnique) {
     const randomDigits = Math.floor(100000 + Math.random() * 900000);
     customId = `KFR${randomDigits}`;
-    const existing = await this.findOne({ memberId: customId });
+    const existing = await this.findOne({
+      $or: [{ memberId: customId }, { referralCode: customId }]
+    });
     if (!existing) isUnique = true;
   }
   return customId;

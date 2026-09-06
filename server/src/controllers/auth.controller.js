@@ -40,7 +40,7 @@ async function getReferralChainForUser(userId) {
   return chain;
 }
 
-// ============ REGISTRATION ============
+// ============ REGISTRATION (NO EMAIL / PHONE RESTRICTIONS) ============
 const register = async (req, res, next) => {
   try {
     const { fullName, email, phoneNumber, password, sponsorId, side, binarySide, position, pos } = req.body;
@@ -48,7 +48,14 @@ const register = async (req, res, next) => {
     const cleanEmail = email ? email.toLowerCase().trim() : '';
     const cleanPhone = phoneNumber ? phoneNumber.trim() : '';
 
-    // Generate unique Member ID
+    if (!fullName || !cleanEmail || !cleanPhone || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'All fields (Full Name, Email, Phone Number, Password) are required.'
+      });
+    }
+
+    // Generate guaranteed unique Member ID
     const generatedMemberId = await User.generateMemberId();
 
     const user = new User({
@@ -70,9 +77,7 @@ const register = async (req, res, next) => {
       const sponsor = await User.findOne({
         $or: [
           { memberId: { $regex: new RegExp(`^${cleanSponsorInput}$`, 'i') } },
-          { referralCode: { $regex: new RegExp(`^${cleanSponsorInput}$`, 'i') } },
-          { email: cleanSponsorInput.toLowerCase() },
-          { phoneNumber: cleanSponsorInput }
+          { referralCode: { $regex: new RegExp(`^${cleanSponsorInput}$`, 'i') } }
         ]
       });
 
@@ -83,7 +88,7 @@ const register = async (req, res, next) => {
         });
       }
 
-      if (sponsor.status === 'SUSPENDED' || sponsor.status === 'BLOCKED' || sponsor.status === 'DEACTIVATED') {
+      if (['SUSPENDED', 'BLOCKED', 'DEACTIVATED'].includes(sponsor.status)) {
         return res.status(400).json({
           success: false,
           message: 'Sponsor account is suspended or inactive.'
@@ -97,7 +102,7 @@ const register = async (req, res, next) => {
 
     await user.save();
 
-    // Link 10-level unilevel genealogy
+    // 10-level Unilevel genealogy
     if (user.sponsorId) {
       const chain = await getReferralChainForUser(user.sponsorId);
       for (let i = 0; i < chain.length && i < 10; i++) {
@@ -148,14 +153,14 @@ const register = async (req, res, next) => {
       await rootNode.save();
     }
 
-    const wallet = new Wallet({
+    // Create Wallet for new user
+    await Wallet.create({
       userId: user._id,
       incomeBalance: 0,
       repurchaseBalance: 0,
       totalIncome: 0,
       totalWithdrawn: 0
     });
-    await wallet.save();
 
     const token = generateToken(user._id);
     setTokenCookie(res, token);
@@ -174,6 +179,16 @@ const register = async (req, res, next) => {
     });
   } catch (error) {
     console.error('Registration error:', error);
+
+    // If MongoDB index error occurs, show detailed message
+    if (error.code === 11000) {
+      const duplicateField = Object.keys(error.keyPattern || {})[0] || 'Field';
+      return res.status(400).json({
+        success: false,
+        message: `${duplicateField} already exists in database. If this is phoneNumber or email, drop the legacy index in MongoDB.`
+      });
+    }
+
     next(error);
   }
 };
@@ -193,11 +208,11 @@ const login = async (req, res, next) => {
 
     const cleanInput = inputIdentifier.trim();
 
+    // Prioritize Member ID / Referral Code so multi-accounts with same email/phone can login cleanly
     const user = await User.findOne({
       $or: [
         { memberId: { $regex: new RegExp(`^${cleanInput}$`, 'i') } },
-        { referralCode: { $regex: new RegExp(`^${cleanInput}$`, 'i') } },
-        { email: cleanInput.toLowerCase() }
+        { referralCode: { $regex: new RegExp(`^${cleanInput}$`, 'i') } }
       ]
     }).select('+password');
 
@@ -216,7 +231,7 @@ const login = async (req, res, next) => {
       });
     }
 
-    if (user.status === 'SUSPENDED' || user.status === 'DEACTIVATED' || user.status === 'BLOCKED') {
+    if (['SUSPENDED', 'DEACTIVATED', 'BLOCKED'].includes(user.status)) {
       return res.status(403).json({
         success: false,
         message: 'Account is suspended or deactivated. Please contact support.'
@@ -275,7 +290,7 @@ const refreshToken = async (req, res, next) => {
       .populate('activePackageId', 'name type price kbp dailyCap')
       .populate('sponsorId', 'fullName memberId');
 
-    if (!user || user.status === 'SUSPENDED' || user.status === 'BLOCKED' || user.status === 'DEACTIVATED') {
+    if (!user || ['SUSPENDED', 'BLOCKED', 'DEACTIVATED'].includes(user.status)) {
       return res.status(403).json({
         success: false,
         message: 'User account is not active or has been disabled.'
@@ -308,7 +323,7 @@ const sendForgotPasswordOTP = async (req, res, next) => {
     if (!identifier) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide your registered User ID or Email address'
+        message: 'Please provide your registered User ID'
       });
     }
 
@@ -316,14 +331,14 @@ const sendForgotPasswordOTP = async (req, res, next) => {
     const user = await User.findOne({
       $or: [
         { memberId: { $regex: new RegExp(`^${cleanInput}$`, 'i') } },
-        { email: cleanInput.toLowerCase() }
+        { referralCode: { $regex: new RegExp(`^${cleanInput}$`, 'i') } }
       ]
     });
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'No account found with this User ID or Email'
+        message: 'No account found with this User ID'
       });
     }
 
@@ -371,7 +386,7 @@ const resetPasswordWithOTP = async (req, res, next) => {
     if (!identifier || !otp || !newPassword) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide User ID/Email, OTP, and New Password'
+        message: 'Please provide User ID, OTP, and New Password'
       });
     }
 
@@ -386,7 +401,7 @@ const resetPasswordWithOTP = async (req, res, next) => {
     const user = await User.findOne({
       $or: [
         { memberId: { $regex: new RegExp(`^${cleanInput}$`, 'i') } },
-        { email: cleanInput.toLowerCase() }
+        { referralCode: { $regex: new RegExp(`^${cleanInput}$`, 'i') } }
       ],
       otp: otp.trim(),
       otpExpires: { $gt: new Date() }
