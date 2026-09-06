@@ -15,7 +15,7 @@ import styles from './DashboardPage.module.css';
  * Displays:
  * 1. Financial KPIs (Today Income, Total Income, Total Withdrawal)
  * 2. Downline Network Counts (Today Registrations, Today Active, Total Members)
- * 3. Binary Star Volumes (Today & Lifetime KBP)
+ * 3. Binary Star Volumes (Today & Total Stars)
  * 4. Recognition & Structure (Current Rank, Achieved Funds, Direct Sponsor)
  * 5. Salary Progress Bar & Direct Referral Links with One-Click Clipboard Copy
  */
@@ -76,33 +76,19 @@ const DashboardPage = () => {
   };
 
   // --------------------------------------------------------------------------
-  // 5. Star & KBP Volume Calculation
+  // 5. Star Counts (Direct Star Values Only)
   // --------------------------------------------------------------------------
   const todayStars = useMemo(() => {
-    const leftStars = Number(stats?.todayStar?.left || 0);
-    const rightStars = Number(stats?.todayStar?.right || 0);
-    const leftKbp = Number(stats?.todayStar?.leftKbp ?? leftStars * 1000);
-    const rightKbp = Number(stats?.todayStar?.rightKbp ?? rightStars * 1000);
-
     return {
-      leftStars,
-      rightStars,
-      leftKbp,
-      rightKbp
+      leftStars: Number(stats?.todayStar?.left || 0),
+      rightStars: Number(stats?.todayStar?.right || 0)
     };
   }, [stats?.todayStar]);
 
   const totalStars = useMemo(() => {
-    const leftStars = Number(stats?.totalStar?.left || 0);
-    const rightStars = Number(stats?.totalStar?.right || 0);
-    const leftKbp = Number(stats?.totalStar?.leftKbp ?? leftStars * 1000);
-    const rightKbp = Number(stats?.totalStar?.rightKbp ?? rightStars * 1000);
-
     return {
-      leftStars,
-      rightStars,
-      leftKbp,
-      rightKbp
+      leftStars: Number(stats?.totalStar?.left || 0),
+      rightStars: Number(stats?.totalStar?.right || 0)
     };
   }, [stats?.totalStar]);
 
@@ -177,7 +163,7 @@ const DashboardPage = () => {
   }
 
   // --------------------------------------------------------------------------
-  // 9. Main Render: 3D Scene + Metric Grid Layout
+  // 9. Main Render
   // --------------------------------------------------------------------------
   return (
     <div className={styles.dashboardScene}>
@@ -272,9 +258,7 @@ const DashboardPage = () => {
           </div>
         )}
 
-        {/* ===================================================================
-            4-ROW DASHBOARD METRIC GRID
-        =================================================================== */}
+        {/* 4-ROW DASHBOARD METRIC GRID */}
         <div className={styles.statsGridContainer}>
           {/* ----------------- ROW 1: FINANCIAL OVERVIEW ----------------- */}
           <div className={`${styles.statCard} ${styles.cardFinancial}`}>
@@ -410,9 +394,6 @@ const DashboardPage = () => {
                   </div>
                 </div>
               )}
-              <span className={styles.metricSubtitle}>
-                {todayStars.leftKbp.toLocaleString()} L / {todayStars.rightKbp.toLocaleString()} R KBP
-              </span>
             </div>
           </div>
 
@@ -442,9 +423,6 @@ const DashboardPage = () => {
                   </div>
                 </div>
               )}
-              <span className={styles.metricSubtitle}>
-                {totalStars.leftKbp.toLocaleString()} L / {totalStars.rightKbp.toLocaleString()} R KBP
-              </span>
             </div>
           </div>
 
@@ -506,9 +484,7 @@ const DashboardPage = () => {
         {/* Salary Wallet Progress */}
         <SalaryProgressCard />
 
-        {/* ===================================================================
-            🔗 DIRECT REFERRAL LINKS (PERMANENT PRODUCTION DOMAIN)
-        =================================================================== */}
+        {/* DIRECT REFERRAL LINKS */}
         <section className={styles.referralShareSection}>
           <div className={styles.referralHeader}>
             <div className={styles.referralHeaderIcon}>🔗</div>
