@@ -32,10 +32,6 @@ const resolveUserKbp = (userDoc) => {
 // ============================================================
 // 🏆 12-LEVEL OFFICIAL KUWIFR RANK ENGINE
 // ============================================================
-/**
- * Helper: Determines if a member has achieved Kuwi Star
- * Requires: 2:1 or 1:2 Direct 3 active joinings with minimum 3,000 KBP
- */
 const checkIsKuwiStar = async (userId) => {
   const directActives = await User.find({
     sponsorId: userId,
@@ -63,16 +59,7 @@ const checkIsKuwiStar = async (userId) => {
   return isRatioMet && isVolumeMet;
 };
 
-/**
- * Counts Kuwi Stars qualified in the left and right subtrees
- */
 const countSubtreeKuwiStars = async (userId) => {
-  const [leftDirects, rightDirects] = await Promise.all([
-    User.find({ binaryParentId: userId, binarySide: 'left' }).select('_id').lean(),
-    User.find({ binaryParentId: userId, binarySide: 'right' }).select('_id').lean()
-  ]);
-
-  // Recursively or via referrals count Kuwi Stars
   const downlineMembers = await Referral.find({ sponsorId: userId }).select('userId').lean();
   let qualifiedKuwiStars = 0;
 
@@ -84,9 +71,6 @@ const countSubtreeKuwiStars = async (userId) => {
   return qualifiedKuwiStars;
 };
 
-/**
- * Evaluates official member rank across all 12 levels
- */
 const evaluateMemberRank = async (user) => {
   if (user.currentRankId?.name) {
     return {
@@ -96,13 +80,11 @@ const evaluateMemberRank = async (user) => {
     };
   }
 
-  // 1. Level 1 Qualification Check (Kuwi Star)
   const isKuwiStarAchieved = await checkIsKuwiStar(user._id);
   if (!isKuwiStarAchieved) {
     return { name: 'Not Achieved', code: 'NONE', level: 0 };
   }
 
-  // 2. Count Kuwi Stars in team to evaluate Levels 2–12
   const downlineKuwiStars = await countSubtreeKuwiStars(user._id);
 
   if (downlineKuwiStars >= 160000) return { name: 'Crown', code: 'CROWN', level: 12 };
@@ -175,7 +157,6 @@ const getDashboardStats = async (req, res, next) => {
     const totalKbpLeft = Number(binaryNode?.leftVolume || 0);
     const totalKbpRight = Number(binaryNode?.rightVolume || 0);
 
-    // Evaluate official Kuwifr rank
     const evaluatedRank = await evaluateMemberRank(user);
 
     const baseUrl = process.env.CLIENT_URL || 'https://www.kuwifr.in';
@@ -236,7 +217,7 @@ const getDashboardStats = async (req, res, next) => {
 };
 
 // ============================================================
-// 🌲 RECURSIVE BINARY TREE BUILDING (USING DYNAMIC PACKAGE KBP)
+// 🌲 COMPLETE PRODUCTION BINARY TREE (ALL DOWNLINES INCLUDED)
 // ============================================================
 const formatNode = async (userDoc) => {
   if (!userDoc) return null;
@@ -291,56 +272,48 @@ const formatNode = async (userDoc) => {
   };
 };
 
-const buildBinarySubtree = async (userId, visited) => {
-  if (!userId || visited.has(String(userId))) return null;
-  visited.add(String(userId));
+/**
+ * Recursively cascades multiple team members down a chosen binary side
+ * so NO member is left orphaned or missing from the binary tree.
+ */
+const buildSpilloverBranch = async (membersList, side, visited) => {
+  if (!membersList || membersList.length === 0) return null;
 
-  const userDoc = await User.findById(userId)
+  const currentMember = membersList[0];
+  if (visited.has(String(currentMember._id))) return null;
+  visited.add(String(currentMember._id));
+
+  const node = await formatNode(currentMember);
+  const remainingInChain = membersList.slice(1);
+
+  // 1. Check if this member has their own downlines
+  const ownDirects = await User.find({ sponsorId: currentMember._id })
     .populate('activePackageId')
     .populate('sponsorId', 'memberId fullName')
+    .sort({ createdAt: 1 })
     .lean();
 
-  if (!userDoc) return null;
+  const ownLeft = ownDirects.filter((m) => String(m.binarySide || '').toLowerCase() === 'left');
+  const ownRight = ownDirects.filter((m) => String(m.binarySide || '').toLowerCase() === 'right');
 
-  const node = await formatNode(userDoc);
-
-  let leftChild = await User.findOne({ binaryParentId: userDoc._id, binarySide: 'left' })
-    .populate('activePackageId')
-    .populate('sponsorId', 'memberId fullName')
-    .lean();
-
-  let rightChild = await User.findOne({ binaryParentId: userDoc._id, binarySide: 'right' })
-    .populate('activePackageId')
-    .populate('sponsorId', 'memberId fullName')
-    .lean();
-
-  if (!leftChild && !rightChild) {
-    const directs = await User.find({ sponsorId: userDoc._id })
-      .populate('activePackageId')
-      .populate('sponsorId', 'memberId fullName')
-      .sort({ createdAt: 1 })
-      .lean();
-
-    leftChild = directs.find((m) => String(m.binarySide).toLowerCase() === 'left');
-    rightChild = directs.find((m) => String(m.binarySide).toLowerCase() === 'right');
+  // 2. Cascade down the current side, attaching own opposite branch
+  if (side === 'LEFT') {
+    // Continue spillover down the Left side
+    const nextLeftList = remainingInChain.concat(ownLeft);
+    node.left = await buildSpilloverBranch(nextLeftList, 'LEFT', visited);
+    // Attach own right directs to right child
+    node.right = await buildSpilloverBranch(ownRight, 'RIGHT', visited);
+  } else {
+    // Continue spillover down the Right side
+    const nextRightList = remainingInChain.concat(ownRight);
+    node.right = await buildSpilloverBranch(nextRightList, 'RIGHT', visited);
+    // Attach own left directs to left child
+    node.left = await buildSpilloverBranch(ownLeft, 'LEFT', visited);
   }
 
-  let leftVol = 0;
-  let rightVol = 0;
-
-  if (leftChild) {
-    node.left = await buildBinarySubtree(leftChild._id, visited);
-    if (node.left) {
-      leftVol = (node.left.personalKbp || 0) + (node.left.leftKbp || 0) + (node.left.rightKbp || 0);
-    }
-  }
-
-  if (rightChild) {
-    node.right = await buildBinarySubtree(rightChild._id, visited);
-    if (node.right) {
-      rightVol = (node.right.personalKbp || 0) + (node.right.leftKbp || 0) + (node.right.rightKbp || 0);
-    }
-  }
+  // 3. Compute cumulative leg volumes accurately
+  const leftVol = node.left ? (node.left.personalKbp || 0) + (node.left.leftKbp || 0) + (node.left.rightKbp || 0) : 0;
+  const rightVol = node.right ? (node.right.personalKbp || 0) + (node.right.leftKbp || 0) + (node.right.rightKbp || 0) : 0;
 
   node.leftKbp = leftVol;
   node.rightKbp = rightVol;
@@ -348,6 +321,10 @@ const buildBinarySubtree = async (userId, visited) => {
   return node;
 };
 
+/**
+ * Controller: GET /api/users/binary-tree
+ * Ensures ALL direct and indirect team members are rendered in the tree view.
+ */
 const getBinaryTree = async (req, res, next) => {
   try {
     const { memberId, userId } = req.query;
@@ -375,90 +352,326 @@ const getBinaryTree = async (req, res, next) => {
     }
 
     const visited = new Set();
-    const myNode = await buildBinarySubtree(rootUser._id, visited);
-    myNode.isMyNode = true;
+    visited.add(String(rootUser._id));
 
-    const myLeftKbp = myNode.leftKbp || 0;
-    const myRightKbp = myNode.rightKbp || 0;
-    const myTotalKbp = myLeftKbp + myRightKbp;
-    const myMatchingKbp = Math.min(myLeftKbp, myRightKbp);
+    // Initialize root node
+    const tree = await formatNode(rootUser.toObject());
+    tree.isMyNode = true;
 
+    // Fetch ALL direct downline members for this user
+    const directReferrals = await User.find({ sponsorId: rootUser._id })
+      .populate('activePackageId')
+      .populate('sponsorId', 'memberId fullName')
+      .sort({ createdAt: 1 })
+      .lean();
+
+    // Group directs by binary side
+    const leftMembers = directReferrals.filter(
+      (m) => String(m.binarySide || '').toLowerCase() === 'left'
+    );
+    const rightMembers = directReferrals.filter(
+      (m) => String(m.binarySide || '').toLowerCase() === 'right'
+    );
+
+    // Any directs without an explicit side get balanced into the shorter leg
+    const unassignedMembers = directReferrals.filter(
+      (m) => !['left', 'right'].includes(String(m.binarySide || '').toLowerCase())
+    );
+    unassignedMembers.forEach((m) => {
+      if (leftMembers.length <= rightMembers.length) {
+        leftMembers.push(m);
+      } else {
+        rightMembers.push(m);
+      }
+    });
+
+    // Build the Left and Right downline subtrees with full cascading spillover
+    tree.left = await buildSpilloverBranch(leftMembers, 'LEFT', visited);
+    tree.right = await buildSpilloverBranch(rightMembers, 'RIGHT', visited);
+
+    // Calculate total Left and Right subtree volumes
+    const leftVol = tree.left ? (tree.left.personalKbp || 0) + (tree.left.leftKbp || 0) + (tree.left.rightKbp || 0) : 0;
+    const rightVol = tree.right ? (tree.right.personalKbp || 0) + (tree.right.leftKbp || 0) + (tree.right.rightKbp || 0) : 0;
+    const totalVol = leftVol + rightVol;
+    const matchingVol = Math.min(leftVol, rightVol);
+
+    tree.leftKbp = leftVol;
+    tree.rightKbp = rightVol;
+
+    // Sync BinaryNode in database
     await BinaryNode.findOneAndUpdate(
       { userId: rootUser._id },
       {
         $set: {
-          leftVolume: myLeftKbp,
-          rightVolume: myRightKbp,
-          matchingVolume: myMatchingKbp,
-          totalKBP: myTotalKbp
+          leftChildId: leftMembers[0]?._id || null,
+          rightChildId: rightMembers[0]?._id || null,
+          leftVolume: leftVol,
+          rightVolume: rightVol,
+          matchingVolume: matchingVol,
+          totalKBP: totalVol
         }
       },
       { upsert: true }
     );
 
-    let displayRoot = myNode;
-
-    if (rootUser.sponsorId) {
-      const sponsorDoc = await User.findById(rootUser.sponsorId._id || rootUser.sponsorId)
-        .populate('activePackageId')
-        .populate('sponsorId', 'memberId fullName')
-        .lean();
-
-      if (sponsorDoc) {
-        const sponsorNode = await formatNode(sponsorDoc);
-        sponsorNode.isSponsorNode = true;
-
-        const myPlacementSide = String(rootUser.binarySide || 'left').toLowerCase();
-        const myTotalBranchKbp = (myNode.personalKbp || 0) + (myNode.leftKbp || 0) + (myNode.rightKbp || 0);
-
-        if (myPlacementSide === 'right') {
-          sponsorNode.right = myNode;
-          sponsorNode.rightKbp = myTotalBranchKbp;
-          const otherChild = await User.findOne({
-            sponsorId: sponsorDoc._id,
-            binarySide: 'left',
-            _id: { $ne: rootUser._id }
-          }).populate('activePackageId').lean();
-
-          if (otherChild) {
-            sponsorNode.left = await formatNode(otherChild);
-            sponsorNode.leftKbp = resolveUserKbp(otherChild);
-          }
-        } else {
-          sponsorNode.left = myNode;
-          sponsorNode.leftKbp = myTotalBranchKbp;
-          const otherChild = await User.findOne({
-            sponsorId: sponsorDoc._id,
-            binarySide: 'right',
-            _id: { $ne: rootUser._id }
-          }).populate('activePackageId').lean();
-
-          if (otherChild) {
-            sponsorNode.right = await formatNode(otherChild);
-            sponsorNode.rightKbp = resolveUserKbp(otherChild);
-          }
-        }
-
-        displayRoot = sponsorNode;
-      }
-    }
-
     return res.json({
       success: true,
       data: {
-        root: displayRoot,
-        tree: displayRoot,
-        myNodeId: myNode.memberId,
+        root: tree,
+        tree: tree,
+        myNodeId: tree.memberId,
         summary: {
-          totalKbp: myTotalKbp,
-          leftKbp: myLeftKbp,
-          rightKbp: myRightKbp,
-          matchingVolume: myMatchingKbp
+          totalKbp: totalVol,
+          leftKbp: leftVol,
+          rightKbp: rightVol,
+          matchingVolume: matchingVol
         }
       }
     });
   } catch (error) {
     console.error('Binary Tree Controller Error:', error);
+    next(error);
+  }
+};
+
+// ============================================================
+// 👥 TEAM DOWNLINE & SPONSOR GENEALOGY STATS
+// ============================================================
+const getReferralChain = async (req, res, next) => {
+  try {
+    const chain = [];
+    let currentId = req.userId;
+    let level = 0;
+
+    while (currentId && level < 10) {
+      const user = await User.findById(currentId).populate('sponsorId', 'fullName email memberId');
+      if (!user || !user.sponsorId) break;
+      chain.push(user.sponsorId);
+      currentId = user.sponsorId._id;
+      level++;
+    }
+
+    res.json({ success: true, data: { chain } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getTeamStats = async (req, res, next) => {
+  try {
+    const userId = req.userId;
+    const directCount = await User.countDocuments({ sponsorId: userId });
+    const activeDirectCount = await User.countDocuments({ sponsorId: userId, status: 'ACTIVE' });
+    const totalTeamCount = await Referral.countDocuments({ sponsorId: userId });
+    const binaryNode = await BinaryNode.findOne({ userId });
+
+    res.json({
+      success: true,
+      data: {
+        directReferrals: directCount,
+        activeMembers: activeDirectCount,
+        totalTeam: totalTeamCount > 0 ? totalTeamCount : directCount,
+        levels: directCount > 0 ? 1 : 0,
+        totalKBP: binaryNode?.totalKBP || 0,
+        leftVolume: binaryNode?.leftVolume || 0,
+        rightVolume: binaryNode?.rightVolume || 0,
+        matchingVolume: binaryNode?.matchingVolume || 0,
+        pairCount: binaryNode?.pairCount || 0
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getTeam = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 20, level } = req.query;
+    const userId = req.userId;
+
+    let query = { sponsorId: userId };
+    if (level && Number(level) > 0) {
+      const levelRefs = await Referral.find({ sponsorId: userId, level: Number(level) }).select('userId');
+      const userIds = levelRefs.map((r) => r.userId);
+      query = { _id: { $in: userIds } };
+    }
+
+    const teamMembers = await User.find(query)
+      .select('fullName email phoneNumber status joinedDate memberId referralCode binarySide sponsorId createdAt')
+      .populate('activePackageId', 'name type')
+      .populate('sponsorId', 'fullName memberId')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit, 10))
+      .lean();
+
+    const membersWithLevels = await Promise.all(
+      teamMembers.map(async (m) => {
+        let memberLevel = 1;
+        if (String(m.sponsorId?._id) === String(userId)) {
+          memberLevel = 1;
+        } else {
+          const ref = await Referral.findOne({ sponsorId: userId, userId: m._id });
+          if (ref) memberLevel = ref.level;
+        }
+        return { ...m, level: memberLevel };
+      })
+    );
+
+    const totalDirect = await User.countDocuments({ sponsorId: userId });
+    const activeDirect = await User.countDocuments({ sponsorId: userId, status: 'ACTIVE' });
+
+    res.json({
+      success: true,
+      data: {
+        team: membersWithLevels,
+        stats: { totalDirect, activeDirect, totalTeam: totalDirect, levels: 1 },
+        pagination: {
+          page: parseInt(page, 10),
+          limit: parseInt(limit, 10),
+          total: totalDirect,
+          pages: Math.ceil(totalDirect / limit)
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getTeamByLevel = async (req, res, next) => {
+  try {
+    const { level } = req.params;
+    const userId = req.userId;
+    const referrals = await Referral.find({
+      sponsorId: userId,
+      level: parseInt(level, 10),
+      isActive: true
+    }).populate('userId', 'fullName email phoneNumber status joinedDate memberId binarySide');
+
+    res.json({
+      success: true,
+      data: {
+        level: parseInt(level, 10),
+        count: referrals.length,
+        members: referrals.map((r) => r.userId)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getSponsorStats = async (req, res, next) => {
+  try {
+    const userId = req.userId;
+    const levelStats = await Referral.aggregate([
+      { $match: { sponsorId: userId } },
+      { $group: { _id: '$level', count: { $sum: 1 } } },
+      { $sort: { _id: 1 } }
+    ]);
+    const totalTeam = await Referral.countDocuments({ sponsorId: userId });
+    const activeTeam = await Referral.countDocuments({ sponsorId: userId, isActive: true });
+    const directReferrals = await User.countDocuments({ sponsorId: userId });
+    const binaryNode = await BinaryNode.findOne({ userId });
+
+    res.json({
+      success: true,
+      data: {
+        directReferrals,
+        totalTeam,
+        activeTeam,
+        byLevel: levelStats,
+        binary: binaryNode
+          ? {
+              leftVolume: binaryNode.leftVolume,
+              rightVolume: binaryNode.rightVolume,
+              matchingVolume: binaryNode.matchingVolume,
+              pairCount: binaryNode.pairCount,
+              totalKBP: binaryNode.totalKBP
+            }
+          : null
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ============================================================
+// 🔗 REFERRAL LINKS & VERIFICATION
+// ============================================================
+const getReferralLinks = async (req, res, next) => {
+  try {
+    const userId = req.userId;
+    let user = await User.findById(userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (!user.memberId) {
+      user.memberId = await User.generateMemberId();
+      if (!user.referralCode) user.referralCode = user.memberId;
+      await user.save();
+    }
+
+    const baseUrl = process.env.CLIENT_URL || 'https://www.kuwifr.in';
+    const identifier = user.memberId || user.referralCode;
+
+    res.json({
+      success: true,
+      data: {
+        left: {
+          url: `${baseUrl}/register?ref=${identifier}&pos=L&side=left`,
+          side: 'left',
+          label: 'Left Side Referral'
+        },
+        right: {
+          url: `${baseUrl}/register?ref=${identifier}&pos=R&side=right`,
+          side: 'right',
+          label: 'Right Side Referral'
+        },
+        referralCode: identifier,
+        memberId: user.memberId
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const verifySponsor = async (req, res, next) => {
+  try {
+    const rawCode = req.params.referralCode || req.params.code || '';
+    const cleanCode = rawCode.trim();
+    if (!cleanCode) return res.status(400).json({ success: false, message: 'Sponsor Referral Code is required' });
+
+    const sponsor = await User.findOne({
+      $or: [
+        { memberId: { $regex: new RegExp(`^${cleanCode}$`, 'i') } },
+        { referralCode: { $regex: new RegExp(`^${cleanCode}$`, 'i') } },
+        { email: cleanCode.toLowerCase() },
+        { phoneNumber: cleanCode }
+      ]
+    }).select('fullName email memberId referralCode status role');
+
+    if (!sponsor) return res.status(404).json({ success: false, message: 'Sponsor not found or inactive' });
+    if (['SUSPENDED', 'BLOCKED', 'DEACTIVATED'].includes(sponsor.status)) {
+      return res.status(400).json({ success: false, message: 'Sponsor account is inactive' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Sponsor verified successfully',
+      data: {
+        sponsor: {
+          fullName: sponsor.fullName,
+          email: sponsor.email,
+          memberId: sponsor.memberId || sponsor.referralCode,
+          referralCode: sponsor.memberId || sponsor.referralCode,
+          status: sponsor.status
+        }
+      }
+    });
+  } catch (error) {
     next(error);
   }
 };
@@ -697,242 +910,6 @@ const getUserById = async (req, res, next) => {
     const teamStats = await BinaryService.getTeamStats(user._id);
 
     res.json({ success: true, data: { user, team: teamStats } });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const getReferralChain = async (req, res, next) => {
-  try {
-    const chain = [];
-    let currentId = req.userId;
-    let level = 0;
-
-    while (currentId && level < 10) {
-      const user = await User.findById(currentId).populate('sponsorId', 'fullName email memberId');
-      if (!user || !user.sponsorId) break;
-      chain.push(user.sponsorId);
-      currentId = user.sponsorId._id;
-      level++;
-    }
-
-    res.json({ success: true, data: { chain } });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const getTeamStats = async (req, res, next) => {
-  try {
-    const userId = req.userId;
-    const directCount = await User.countDocuments({ sponsorId: userId });
-    const activeDirectCount = await User.countDocuments({ sponsorId: userId, status: 'ACTIVE' });
-    const totalTeamCount = await Referral.countDocuments({ sponsorId: userId });
-    const binaryNode = await BinaryNode.findOne({ userId });
-
-    res.json({
-      success: true,
-      data: {
-        directReferrals: directCount,
-        activeMembers: activeDirectCount,
-        totalTeam: totalTeamCount > 0 ? totalTeamCount : directCount,
-        levels: directCount > 0 ? 1 : 0,
-        totalKBP: binaryNode?.totalKBP || 0,
-        leftVolume: binaryNode?.leftVolume || 0,
-        rightVolume: binaryNode?.rightVolume || 0,
-        matchingVolume: binaryNode?.matchingVolume || 0,
-        pairCount: binaryNode?.pairCount || 0
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const getTeam = async (req, res, next) => {
-  try {
-    const { page = 1, limit = 20, level } = req.query;
-    const userId = req.userId;
-
-    let query = { sponsorId: userId };
-    if (level && Number(level) > 0) {
-      const levelRefs = await Referral.find({ sponsorId: userId, level: Number(level) }).select('userId');
-      const userIds = levelRefs.map((r) => r.userId);
-      query = { _id: { $in: userIds } };
-    }
-
-    const teamMembers = await User.find(query)
-      .select('fullName email phoneNumber status joinedDate memberId referralCode binarySide sponsorId createdAt')
-      .populate('activePackageId', 'name type')
-      .populate('sponsorId', 'fullName memberId')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit, 10))
-      .lean();
-
-    const membersWithLevels = await Promise.all(
-      teamMembers.map(async (m) => {
-        let memberLevel = 1;
-        if (String(m.sponsorId?._id) === String(userId)) {
-          memberLevel = 1;
-        } else {
-          const ref = await Referral.findOne({ sponsorId: userId, userId: m._id });
-          if (ref) memberLevel = ref.level;
-        }
-        return { ...m, level: memberLevel };
-      })
-    );
-
-    const totalDirect = await User.countDocuments({ sponsorId: userId });
-    const activeDirect = await User.countDocuments({ sponsorId: userId, status: 'ACTIVE' });
-
-    res.json({
-      success: true,
-      data: {
-        team: membersWithLevels,
-        stats: { totalDirect, activeDirect, totalTeam: totalDirect, levels: 1 },
-        pagination: {
-          page: parseInt(page, 10),
-          limit: parseInt(limit, 10),
-          total: totalDirect,
-          pages: Math.ceil(totalDirect / limit)
-        }
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const getTeamByLevel = async (req, res, next) => {
-  try {
-    const { level } = req.params;
-    const userId = req.userId;
-    const referrals = await Referral.find({
-      sponsorId: userId,
-      level: parseInt(level, 10),
-      isActive: true
-    }).populate('userId', 'fullName email phoneNumber status joinedDate memberId binarySide');
-
-    res.json({
-      success: true,
-      data: {
-        level: parseInt(level, 10),
-        count: referrals.length,
-        members: referrals.map((r) => r.userId)
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const getSponsorStats = async (req, res, next) => {
-  try {
-    const userId = req.userId;
-    const levelStats = await Referral.aggregate([
-      { $match: { sponsorId: userId } },
-      { $group: { _id: '$level', count: { $sum: 1 } } },
-      { $sort: { _id: 1 } }
-    ]);
-    const totalTeam = await Referral.countDocuments({ sponsorId: userId });
-    const activeTeam = await Referral.countDocuments({ sponsorId: userId, isActive: true });
-    const directReferrals = await User.countDocuments({ sponsorId: userId });
-    const binaryNode = await BinaryNode.findOne({ userId });
-
-    res.json({
-      success: true,
-      data: {
-        directReferrals,
-        totalTeam,
-        activeTeam,
-        byLevel: levelStats,
-        binary: binaryNode
-          ? {
-              leftVolume: binaryNode.leftVolume,
-              rightVolume: binaryNode.rightVolume,
-              matchingVolume: binaryNode.matchingVolume,
-              pairCount: binaryNode.pairCount,
-              totalKBP: binaryNode.totalKBP
-            }
-          : null
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const getReferralLinks = async (req, res, next) => {
-  try {
-    const userId = req.userId;
-    let user = await User.findById(userId);
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-
-    if (!user.memberId) {
-      user.memberId = await User.generateMemberId();
-      if (!user.referralCode) user.referralCode = user.memberId;
-      await user.save();
-    }
-
-    const baseUrl = process.env.CLIENT_URL || 'https://www.kuwifr.in';
-    const identifier = user.memberId || user.referralCode;
-
-    res.json({
-      success: true,
-      data: {
-        left: {
-          url: `${baseUrl}/register?ref=${identifier}&pos=L&side=left`,
-          side: 'left',
-          label: 'Left Side Referral'
-        },
-        right: {
-          url: `${baseUrl}/register?ref=${identifier}&pos=R&side=right`,
-          side: 'right',
-          label: 'Right Side Referral'
-        },
-        referralCode: identifier,
-        memberId: user.memberId
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const verifySponsor = async (req, res, next) => {
-  try {
-    const rawCode = req.params.referralCode || req.params.code || '';
-    const cleanCode = rawCode.trim();
-    if (!cleanCode) return res.status(400).json({ success: false, message: 'Sponsor Referral Code is required' });
-
-    const sponsor = await User.findOne({
-      $or: [
-        { memberId: { $regex: new RegExp(`^${cleanCode}$`, 'i') } },
-        { referralCode: { $regex: new RegExp(`^${cleanCode}$`, 'i') } },
-        { email: cleanCode.toLowerCase() },
-        { phoneNumber: cleanCode }
-      ]
-    }).select('fullName email memberId referralCode status role');
-
-    if (!sponsor) return res.status(404).json({ success: false, message: 'Sponsor not found or inactive' });
-    if (['SUSPENDED', 'BLOCKED', 'DEACTIVATED'].includes(sponsor.status)) {
-      return res.status(400).json({ success: false, message: 'Sponsor account is inactive' });
-    }
-
-    res.json({
-      success: true,
-      message: 'Sponsor verified successfully',
-      data: {
-        sponsor: {
-          fullName: sponsor.fullName,
-          email: sponsor.email,
-          memberId: sponsor.memberId || sponsor.referralCode,
-          referralCode: sponsor.memberId || sponsor.referralCode,
-          status: sponsor.status
-        }
-      }
-    });
   } catch (error) {
     next(error);
   }
