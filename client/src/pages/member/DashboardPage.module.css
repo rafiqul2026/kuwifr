@@ -1,8 +1,5 @@
 /* client/src/pages/member/DashboardPage.module.css */
 
-/* ============================================================
-   🌌 3D SCENE & AMBIENT CANVAS BACKGROUND
-   ============================================================ */
 .dashboardScene {
   position: relative;
   min-height: 100vh;
@@ -16,7 +13,16 @@
   box-sizing: border-box;
 }
 
-/* Background floating decorative elements container */
+.contentLayer {
+  position: relative;
+  z-index: 2;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 28px 24px 90px 24px;
+  box-sizing: border-box;
+}
+
+/* Ambient Canvas Glow Blobs */
 .ambientCanvas {
   position: absolute;
   inset: 0;
@@ -25,7 +31,6 @@
   z-index: 1;
 }
 
-/* Atmospheric Soft Glow Blobs */
 .glowBlob {
   position: absolute;
   border-radius: 50%;
@@ -64,176 +69,6 @@
   bottom: -100px;
   left: 2%;
   background: radial-gradient(circle, rgba(191, 219, 254, 0.45) 0%, rgba(219, 234, 254, 0.05) 70%);
-}
-
-/* ============================================================
-   🎨 3D FLOATING GEOMETRIC OBJECTS
-   ============================================================ */
-.floating3DObject {
-  position: absolute;
-  pointer-events: none;
-  z-index: 1;
-}
-
-/* Translucent Soft 3D Spheres */
-.sphereTopRight {
-  width: 110px;
-  height: 110px;
-  top: 60px;
-  right: 8%;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #ffffff 0%, #c7d2fe 45%, #818cf8 90%, #4338ca 100%);
-  box-shadow: 
-    0 20px 40px -10px rgba(99, 102, 241, 0.35),
-    inset -8px -8px 20px rgba(67, 56, 202, 0.4),
-    inset 8px 8px 16px rgba(255, 255, 255, 0.9);
-  opacity: 0.75;
-  animation: floatSlow 12s ease-in-out infinite alternate;
-}
-
-.sphereMidLeft {
-  width: 70px;
-  height: 70px;
-  top: 48%;
-  left: 3%;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #ffffff 0%, #bae6fd 45%, #38bdf8 85%, #0284c7 100%);
-  box-shadow: 
-    0 16px 32px -8px rgba(2, 132, 199, 0.3),
-    inset -6px -6px 14px rgba(3, 105, 161, 0.4),
-    inset 6px 6px 12px rgba(255, 255, 255, 0.9);
-  opacity: 0.65;
-  animation: floatSlowRev 10s ease-in-out infinite alternate;
-}
-
-.sphereBottomRight {
-  width: 90px;
-  height: 90px;
-  bottom: 120px;
-  right: 4%;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #ffffff 0%, #fbcfe8 45%, #f472b6 85%, #db2777 100%);
-  box-shadow: 
-    0 18px 36px -8px rgba(219, 39, 119, 0.25),
-    inset -6px -6px 16px rgba(190, 24, 93, 0.35),
-    inset 6px 6px 14px rgba(255, 255, 255, 0.9);
-  opacity: 0.6;
-  animation: floatSlow 14s ease-in-out infinite alternate;
-}
-
-/* 3D Isometric Soft Cubes */
-.cubeTopLeft {
-  width: 48px;
-  height: 48px;
-  top: 100px;
-  left: 6%;
-  transform: rotateX(60deg) rotateZ(-45deg);
-  transform-style: preserve-3d;
-  opacity: 0.7;
-  animation: rotateCube 16s ease-in-out infinite alternate;
-}
-
-.cubeBottomRight {
-  width: 42px;
-  height: 42px;
-  bottom: 240px;
-  right: 12%;
-  transform: rotateX(55deg) rotateZ(-40deg);
-  transform-style: preserve-3d;
-  opacity: 0.6;
-  animation: rotateCubeRev 18s ease-in-out infinite alternate;
-}
-
-.cubeFaceFront {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, #60a5fa, #2563eb);
-  border-radius: 8px;
-  box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.5), 0 15px 30px rgba(37, 99, 235, 0.25);
-}
-
-.cubeFaceTop {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, #bfdbfe, #93c5fd);
-  border-radius: 8px;
-  transform: translateY(-24px) rotateX(90deg);
-  opacity: 0.9;
-}
-
-.cubeFaceRight {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, #1d4ed8, #1e40af);
-  border-radius: 8px;
-  transform: translateX(24px) rotateY(90deg);
-  opacity: 0.85;
-}
-
-/* Soft 3D Torus / Rings */
-.geoRingTop {
-  width: 80px;
-  height: 80px;
-  top: 28%;
-  right: 18%;
-  border-radius: 50%;
-  border: 14px solid rgba(224, 231, 255, 0.6);
-  box-shadow: 
-    0 15px 30px rgba(99, 102, 241, 0.15),
-    inset 0 4px 8px rgba(255, 255, 255, 0.8);
-  transform: rotateX(65deg) rotateY(20deg);
-  opacity: 0.5;
-  animation: floatSlow 15s ease-in-out infinite alternate;
-}
-
-.geoRingBottom {
-  width: 95px;
-  height: 95px;
-  bottom: 60px;
-  left: 20%;
-  border-radius: 50%;
-  border: 16px solid rgba(219, 234, 254, 0.55);
-  box-shadow: 
-    0 16px 32px rgba(37, 99, 235, 0.12),
-    inset 0 4px 10px rgba(255, 255, 255, 0.8);
-  transform: rotateX(55deg) rotateY(-30deg);
-  opacity: 0.5;
-  animation: floatSlowRev 13s ease-in-out infinite alternate;
-}
-
-/* Keyframe Animations */
-@keyframes floatSlow {
-  0% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-18px) rotate(4deg); }
-  100% { transform: translateY(8px) rotate(-3deg); }
-}
-
-@keyframes floatSlowRev {
-  0% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(16px) rotate(-4deg); }
-  100% { transform: translateY(-10px) rotate(3deg); }
-}
-
-@keyframes rotateCube {
-  0% { transform: rotateX(60deg) rotateZ(-45deg) translateY(0); }
-  100% { transform: rotateX(45deg) rotateZ(-25deg) translateY(-14px); }
-}
-
-@keyframes rotateCubeRev {
-  0% { transform: rotateX(55deg) rotateZ(-40deg) translateY(0); }
-  100% { transform: rotateX(70deg) rotateZ(-60deg) translateY(12px); }
-}
-
-/* ============================================================
-   📦 FOREGROUND CONTENT LAYER
-   ============================================================ */
-.contentLayer {
-  position: relative;
-  z-index: 2;
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 28px 24px 90px 24px;
-  box-sizing: border-box;
 }
 
 /* Header */
@@ -438,7 +273,7 @@
 }
 
 /* ============================================================
-   🏛️ 4-ROW 3x4 SOFT-NEUMORPHIC CARDS GRID
+   🏛️ RESPONSIVE CARDS GRID (3 DESKTOP / 2 CARDS PER LINE MOBILE)
    ============================================================ */
 .statsGridContainer {
   display: grid;
@@ -450,9 +285,9 @@
 /* Soft Neumorphic Glass Card */
 .statCard {
   position: relative;
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(14px);
-  border: 1.5px solid rgba(255, 255, 255, 0.8);
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
   border-radius: 20px;
   padding: 22px 24px;
   display: flex;
@@ -469,7 +304,7 @@
 
 .statCard:hover {
   transform: translateY(-3px);
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.98);
   box-shadow: 
     0 18px 36px -8px rgba(37, 99, 235, 0.08),
     0 6px 16px -3px rgba(0, 0, 0, 0.03),
@@ -525,17 +360,18 @@
   color: #94a3b8;
 }
 
-/* Category Accents */
+/* Category Highlights */
 .cardFinancial:hover { border-color: rgba(37, 99, 235, 0.3); }
 .cardFinancial .primaryMetric { color: #1e3a8a; }
 
 .cardMember:hover { border-color: rgba(16, 185, 129, 0.3); }
 .cardMember .primaryMetric { color: #065f46; }
 
-.cardTeam:hover { border-color: rgba(124, 58, 237, 0.3); }
-.cardTeam .primaryMetric { color: #5b21b6; }
+.cardKbp:hover { border-color: rgba(99, 102, 241, 0.3); }
+.cardKbp .primaryMetric { color: #4338ca; }
 
 .cardStar:hover { border-color: rgba(245, 158, 11, 0.35); }
+.cardTeam:hover { border-color: rgba(20, 184, 166, 0.3); }
 .cardMeta:hover { border-color: rgba(15, 23, 42, 0.25); }
 
 /* Dual Star Volume Box */
@@ -587,7 +423,7 @@
   margin: 0 10px;
 }
 
-/* Meta Data Blocks */
+/* Meta Details */
 .primaryMetaText {
   font-size: 18px;
   font-weight: 900;
@@ -609,26 +445,7 @@
   font-size: 22px;
 }
 
-.sponsorMetaGroup {
-  display: flex;
-  flex-direction: column;
-}
-
-.sponsorIdBadge {
-  display: inline-block;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 11.5px;
-  font-weight: 800;
-  color: #2563eb;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  padding: 2px 8px;
-  border-radius: 6px;
-  width: fit-content;
-  margin-top: 2px;
-}
-
-/* Skeleton Loading Elements */
+/* Skeleton Loaders */
 .skeletonMetric {
   width: 130px;
   height: 30px;
@@ -652,9 +469,7 @@
   50% { opacity: 0.35; }
 }
 
-/* ============================================================
-   🔗 PRODUCTION DIRECT REFERRAL LINKS SECTION (REFINED)
-   ============================================================ */
+/* Direct Referral Links Section */
 .referralShareSection {
   background: #ffffff;
   border: 1.5px solid #e2e8f0;
@@ -783,7 +598,6 @@
   color: #0f172a;
 }
 
-/* Link Action Engine */
 .linkActionEngine {
   display: flex;
   flex-direction: column;
@@ -843,12 +657,9 @@
   width: 100%;
 }
 
-/* Sleek, Proportionally Fixed Copy Button */
 .copyButton {
   flex: 1;
   height: 40px;
-  min-height: 40px;
-  max-height: 40px;
   background: #0f172a;
   color: #ffffff;
   border: none;
@@ -864,7 +675,6 @@
   white-space: nowrap;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.16);
   transition: all 0.18s ease;
-  box-sizing: border-box;
   user-select: none;
 }
 
@@ -883,30 +693,9 @@
   box-shadow: 0 3px 10px rgba(5, 150, 105, 0.25) !important;
 }
 
-.btnCheckIcon {
-  font-size: 13px;
-  font-weight: 900;
-}
-
-/* Strict SVG Geometry Lock (Prevents Giant Icon Glitch) */
-.btnSvg {
-  width: 16px !important;
-  height: 16px !important;
-  min-width: 16px !important;
-  min-height: 16px !important;
-  max-width: 16px !important;
-  max-height: 16px !important;
-  display: block;
-  flex-shrink: 0;
-}
-
 .shareIconButton {
   width: 40px;
   height: 40px;
-  min-width: 40px;
-  min-height: 40px;
-  max-width: 40px;
-  max-height: 40px;
   background: #ffffff;
   border: 1.5px solid #cbd5e1;
   border-radius: 10px;
@@ -916,7 +705,6 @@
   color: #475569;
   cursor: pointer;
   transition: all 0.18s ease;
-  box-sizing: border-box;
   flex-shrink: 0;
 }
 
@@ -925,10 +713,6 @@
   border-color: #94a3b8;
   color: #0f172a;
   transform: translateY(-1px);
-}
-
-.shareIconButton:active {
-  transform: scale(0.95);
 }
 
 /* Error State */
@@ -970,7 +754,7 @@
 }
 
 /* ============================================================
-   📱 RESPONSIVE BREAKPOINTS
+   📱 RESPONSIVE RULES: EXACTLY TWO CARDS PER ROW ON MOBILE
    ============================================================ */
 @media (max-width: 1080px) {
   .statsGridContainer {
@@ -988,7 +772,7 @@
 
 @media (max-width: 768px) {
   .contentLayer {
-    padding: 16px 14px 100px 14px; /* Space for floating bottom island */
+    padding: 16px 12px 60px 12px;
   }
 
   .dashboardHeader {
@@ -998,38 +782,89 @@
   }
 
   .welcomeTitle {
-    font-size: 24px;
+    font-size: 22px;
   }
 
+  /* Force exactly two cards side by side on mobile devices */
   .statsGridContainer {
-    grid-template-columns: 1fr;
-    gap: 14px;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px;
   }
 
   .statCard {
-    padding: 18px 20px;
-    min-height: auto;
+    padding: 14px 14px;
+    border-radius: 16px;
+    min-height: 125px;
   }
 
-  .referralShareSection {
-    padding: 16px;
+  .cardHeader {
+    margin-bottom: 8px;
   }
 
-  .referralBox {
-    padding: 14px;
+  .cardTitle {
+    font-size: 9.5px;
+    letter-spacing: 0.3px;
   }
 
-  .activationNoticeBanner {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
+  .cardIconBox {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+    border-radius: 8px;
   }
 
-  .noticeActionBtn {
-    text-align: center;
+  .primaryMetric {
+    font-size: 17px;
+    margin-bottom: 2px;
   }
 
-  /* 3D background simplification for mobile performance */
-  .sphereTopRight { width: 70px; height: 70px; right: 2%; }
-  .sphereMidLeft, .geoRingTop, .geoRingBottom { display: none; }
+  .metricSubtitle {
+    font-size: 10px;
+  }
+
+  .dualVolumeBox {
+    padding: 6px 8px;
+    margin: 2px 0 4px 0;
+  }
+
+  .sideLabelLeft, .sideLabelRight {
+    font-size: 8px;
+  }
+
+  .sideValueLeft, .sideValueRight {
+    font-size: 14px;
+  }
+
+  .primaryMetaText {
+    font-size: 14.5px;
+  }
+
+  .fundIcon {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .statsGridContainer {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px;
+  }
+
+  .statCard {
+    padding: 12px 10px;
+    min-height: 115px;
+  }
+
+  .primaryMetric {
+    font-size: 15px;
+  }
+
+  .sideValueLeft, .sideValueRight {
+    font-size: 13px;
+  }
+
+  .volumeDivider {
+    height: 22px;
+    margin: 0 6px;
+  }
 }

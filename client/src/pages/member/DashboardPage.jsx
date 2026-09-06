@@ -10,44 +10,27 @@ import styles from './DashboardPage.module.css';
 
 /**
  * ============================================================================
- * 📊 MEMBER DASHBOARD COMPONENT
+ * 📊 MEMBER DASHBOARD (KBP-DRIVEN BUSINESS ENGINE)
  * ============================================================================
- * Displays:
- * 1. Financial KPIs (Today Income, Total Income, Total Withdrawal)
- * 2. Downline Network Counts (Today Registrations, Today Active, Total Members)
- * 3. Binary Star Volumes (Today & Total Stars)
- * 4. Recognition & Achievements (Current Rank, Current Fund Achieved)
- * 5. Salary Progress Bar & Direct Referral Links with One-Click Copy
  */
 const DashboardPage = () => {
-  // --------------------------------------------------------------------------
-  // 1. Context & Global Hooks
-  // --------------------------------------------------------------------------
   const { user } = useAuth();
   const { showNotification } = useNotification();
 
-  // --------------------------------------------------------------------------
-  // 2. Component State Management
-  // --------------------------------------------------------------------------
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copiedSide, setCopiedSide] = useState(null);
 
-  // --------------------------------------------------------------------------
-  // 3. API Data Fetching: Consolidated Member Statistics
-  // --------------------------------------------------------------------------
   const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-
       const res = await api.get('/api/users/dashboard-stats');
-
       if (res.data?.success && res.data?.data) {
         setStats(res.data.data);
       } else {
-        throw new Error('Invalid dashboard payload received from server');
+        throw new Error('Could not parse dashboard analytics');
       }
     } catch (err) {
       const errMsg = err.response?.data?.message || 'Failed to load dashboard data';
@@ -62,51 +45,44 @@ const DashboardPage = () => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  // --------------------------------------------------------------------------
-  // 4. Utility: Currency Formatter (Indian Rupee: ₹)
-  // --------------------------------------------------------------------------
+  // Formatter for Indian Currency (Payouts & Income)
   const formatINR = (val) => {
-    const num = Number(val) || 0;
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
       maximumFractionDigits: 0
-    }).format(num);
+    }).format(Number(val) || 0);
   };
 
-  // --------------------------------------------------------------------------
-  // 5. Star Counts (Direct Star Values Only)
-  // --------------------------------------------------------------------------
-  const todayStars = useMemo(() => {
-    return {
-      leftStars: Number(stats?.todayStar?.left || 0),
-      rightStars: Number(stats?.todayStar?.right || 0)
-    };
-  }, [stats?.todayStar]);
+  // Formatter for Business Volume (KBP)
+  const formatKBP = (val) => {
+    return `${(Number(val) || 0).toLocaleString()} KBP`;
+  };
 
-  const totalStars = useMemo(() => {
-    return {
-      leftStars: Number(stats?.totalStar?.left || 0),
-      rightStars: Number(stats?.totalStar?.right || 0)
-    };
-  }, [stats?.totalStar]);
+  // Memoized Star Metric Groups
+  const todayStars = useMemo(() => ({
+    left: Number(stats?.todayStar?.left || 0),
+    right: Number(stats?.todayStar?.right || 0)
+  }), [stats?.todayStar]);
 
-  // --------------------------------------------------------------------------
-  // 6. Direct Referral Link Generation (Permanent Production Domain)
-  // --------------------------------------------------------------------------
+  const monthlyStars = useMemo(() => ({
+    left: Number(stats?.monthlyStar?.left || 0),
+    right: Number(stats?.monthlyStar?.right || 0)
+  }), [stats?.monthlyStar]);
+
+  const totalStars = useMemo(() => ({
+    left: Number(stats?.totalStar?.left || 0),
+    right: Number(stats?.totalStar?.right || 0)
+  }), [stats?.totalStar]);
+
   const LIVE_PRODUCTION_DOMAIN = 'https://www.kuwifr.in';
   const sponsorId = user?.memberId || stats?.memberId || 'KFR665384';
 
-  const referralLinks = useMemo(() => {
-    return {
-      left: `${LIVE_PRODUCTION_DOMAIN}/register?ref=${sponsorId}&pos=L`,
-      right: `${LIVE_PRODUCTION_DOMAIN}/register?ref=${sponsorId}&pos=R`
-    };
-  }, [sponsorId]);
+  const referralLinks = useMemo(() => ({
+    left: `${LIVE_PRODUCTION_DOMAIN}/register?ref=${sponsorId}&pos=L`,
+    right: `${LIVE_PRODUCTION_DOMAIN}/register?ref=${sponsorId}&pos=R`
+  }), [sponsorId]);
 
-  // --------------------------------------------------------------------------
-  // 7. Clipboard & Web Share API Handlers
-  // --------------------------------------------------------------------------
   const handleCopyLink = async (side, url) => {
     if (!url) return;
     try {
@@ -121,31 +97,26 @@ const DashboardPage = () => {
         document.body.removeChild(tempInput);
       }
       setCopiedSide(side);
-      showNotification(`${side.toUpperCase()} team referral link copied to clipboard!`, 'info');
+      showNotification(`${side.toUpperCase()} referral link copied to clipboard!`, 'info');
       setTimeout(() => setCopiedSide(null), 2200);
-    } catch (err) {
-      showNotification('Failed to copy link. Please select and copy manually.', 'error');
+    } catch {
+      showNotification('Failed to copy link.', 'error');
     }
   };
 
   const handleNativeShare = (side, url) => {
     const teamLabel = side === 'left' ? 'LEFT' : 'RIGHT';
     if (navigator.share) {
-      navigator
-        .share({
-          title: `Join KUWIFR Network (${teamLabel} Team)`,
-          text: `Register under my KUWIFR ${teamLabel} Team placement.\nSponsor ID: ${sponsorId}\nJoin Link:`,
-          url: url
-        })
-        .catch(() => {});
+      navigator.share({
+        title: `Join KUWIFR Network (${teamLabel} Team)`,
+        text: `Register under my KUWIFR ${teamLabel} Team placement.\nSponsor ID: ${sponsorId}\nJoin Link:`,
+        url: url
+      }).catch(() => {});
     } else {
       handleCopyLink(side, url);
     }
   };
 
-  // --------------------------------------------------------------------------
-  // 8. Error Fallback UI
-  // --------------------------------------------------------------------------
   if (error && !stats) {
     return (
       <div className={styles.dashboardScene}>
@@ -161,39 +132,16 @@ const DashboardPage = () => {
     );
   }
 
-  // --------------------------------------------------------------------------
-  // 9. Main Render
-  // --------------------------------------------------------------------------
   return (
     <div className={styles.dashboardScene}>
-      {/* 3D Decorative Floating Elements */}
+      {/* 3D Ambient Canvas Background */}
       <div className={styles.ambientCanvas} aria-hidden="true">
         <div className={`${styles.glowBlob} ${styles.blobTopLeft}`}></div>
         <div className={`${styles.glowBlob} ${styles.blobTopRight}`}></div>
         <div className={`${styles.glowBlob} ${styles.blobCenterRight}`}></div>
         <div className={`${styles.glowBlob} ${styles.blobBottomLeft}`}></div>
-
-        <div className={`${styles.floating3DObject} ${styles.sphereTopRight}`}></div>
-        <div className={`${styles.floating3DObject} ${styles.sphereMidLeft}`}></div>
-        <div className={`${styles.floating3DObject} ${styles.sphereBottomRight}`}></div>
-
-        <div className={`${styles.floating3DObject} ${styles.cubeTopLeft}`}>
-          <div className={styles.cubeFaceFront}></div>
-          <div className={styles.cubeFaceTop}></div>
-          <div className={styles.cubeFaceRight}></div>
-        </div>
-
-        <div className={`${styles.floating3DObject} ${styles.cubeBottomRight}`}>
-          <div className={styles.cubeFaceFront}></div>
-          <div className={styles.cubeFaceTop}></div>
-          <div className={styles.cubeFaceRight}></div>
-        </div>
-
-        <div className={`${styles.floating3DObject} ${styles.geoRingTop}`}></div>
-        <div className={`${styles.floating3DObject} ${styles.geoRingBottom}`}></div>
       </div>
 
-      {/* Foreground Content */}
       <div className={styles.contentLayer}>
         {/* Header Bar */}
         <header className={styles.dashboardHeader}>
@@ -249,7 +197,7 @@ const DashboardPage = () => {
             <div className={styles.noticeIconBox}>⚡</div>
             <div className={styles.noticeTextBox}>
               <h4>Your Member ID is currently INACTIVE</h4>
-              <p>Purchase any 1 of our activation packages to activate your account and start earning binary matching income.</p>
+              <p>Purchase any 1 of our 5 activation packages to activate your account and begin earning binary matching income.</p>
             </div>
             <Link to="/member/packages" className={styles.noticeActionBtn}>
               Activate Account →
@@ -257,9 +205,11 @@ const DashboardPage = () => {
           </div>
         )}
 
-        {/* 4-ROW DASHBOARD METRIC GRID */}
+        {/* ============================================================
+            METRIC GRID: 3 COLUMNS DESKTOP / EXACTLY 2 PER ROW ON MOBILE
+        ============================================================ */}
         <div className={styles.statsGridContainer}>
-          {/* ----------------- ROW 1: FINANCIAL OVERVIEW ----------------- */}
+          {/* Row 1: Earnings & Financials */}
           <div className={`${styles.statCard} ${styles.cardFinancial}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>TODAY INCOME</span>
@@ -305,7 +255,7 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          {/* ----------------- ROW 2: MEMBER ACQUISITION ----------------- */}
+          {/* Row 2: Member Network Counts */}
           <div className={`${styles.statCard} ${styles.cardMember}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>TODAY ADD MEMBERS</span>
@@ -332,7 +282,7 @@ const DashboardPage = () => {
               ) : (
                 <h2 className={styles.primaryMetric}>{stats?.todayActiveMembers || 0}</h2>
               )}
-              <span className={styles.metricSubtitle}>Activated Plans Today</span>
+              <span className={styles.metricSubtitle}>Activated Today</span>
             </div>
           </div>
 
@@ -351,7 +301,111 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          {/* ----------------- ROW 3: ACTIVE & STAR METRICS ----------------- */}
+          {/* Row 3: Daily Business Volumes (KBP) & Monthly Star */}
+          <div className={`${styles.statCard} ${styles.cardKbp}`}>
+            <div className={styles.cardHeader}>
+              <span className={styles.cardTitle}>TODAY LEFT BUSINESS</span>
+              <div className={styles.cardIconBox}>📈</div>
+            </div>
+            <div className={styles.cardBody}>
+              {loading && !stats ? (
+                <div className={styles.skeletonMetric}></div>
+              ) : (
+                <h2 className={styles.primaryMetric}>{formatKBP(stats?.todayLeftBusiness)}</h2>
+              )}
+              <span className={styles.metricSubtitle}>Left Leg Volume</span>
+            </div>
+          </div>
+
+          <div className={`${styles.statCard} ${styles.cardKbp}`}>
+            <div className={styles.cardHeader}>
+              <span className={styles.cardTitle}>TODAY RIGHT BUSINESS</span>
+              <div className={styles.cardIconBox}>📊</div>
+            </div>
+            <div className={styles.cardBody}>
+              {loading && !stats ? (
+                <div className={styles.skeletonMetric}></div>
+              ) : (
+                <h2 className={styles.primaryMetric}>{formatKBP(stats?.todayRightBusiness)}</h2>
+              )}
+              <span className={styles.metricSubtitle}>Right Leg Volume</span>
+            </div>
+          </div>
+
+          <div className={`${styles.statCard} ${styles.cardStar}`}>
+            <div className={styles.cardHeader}>
+              <span className={styles.cardTitle}>MONTHLY STAR</span>
+              <div className={styles.cardIconBox}>🌟</div>
+            </div>
+            <div className={styles.cardBody}>
+              {loading && !stats ? (
+                <div className={styles.skeletonSplit}></div>
+              ) : (
+                <div className={styles.dualVolumeBox}>
+                  <div className={styles.volumeColumn}>
+                    <span className={styles.sideLabelLeft}>Left Star</span>
+                    <strong className={styles.sideValueLeft}>{monthlyStars.left}</strong>
+                  </div>
+                  <div className={styles.volumeDivider}></div>
+                  <div className={styles.volumeColumn}>
+                    <span className={styles.sideLabelRight}>Right Star</span>
+                    <strong className={styles.sideValueRight}>{monthlyStars.right}</strong>
+                  </div>
+                </div>
+              )}
+              <span className={styles.metricSubtitle}>Qualified This Month</span>
+            </div>
+          </div>
+
+          {/* Row 4: Weekly Binary KBP Production & Matching */}
+          <div className={`${styles.statCard} ${styles.cardKbp}`}>
+            <div className={styles.cardHeader}>
+              <span className={styles.cardTitle}>WEEKLY KBP</span>
+              <div className={styles.cardIconBox}>⚡</div>
+            </div>
+            <div className={styles.cardBody}>
+              {loading && !stats ? (
+                <div className={styles.skeletonMetric}></div>
+              ) : (
+                <h2 className={styles.primaryMetric}>{formatKBP(stats?.weeklyKbp?.total)}</h2>
+              )}
+              <span className={styles.metricSubtitle}>
+                L: {(stats?.weeklyKbp?.left || 0).toLocaleString()} / R: {(stats?.weeklyKbp?.right || 0).toLocaleString()} KBP
+              </span>
+            </div>
+          </div>
+
+          <div className={`${styles.statCard} ${styles.cardKbp}`}>
+            <div className={styles.cardHeader}>
+              <span className={styles.cardTitle}>WEEKLY KBP MATCH</span>
+              <div className={styles.cardIconBox}>⚖️</div>
+            </div>
+            <div className={styles.cardBody}>
+              {loading && !stats ? (
+                <div className={styles.skeletonMetric}></div>
+              ) : (
+                <h2 className={styles.primaryMetric}>{formatKBP(stats?.weeklyKbpMatch)}</h2>
+              )}
+              <span className={styles.metricSubtitle}>Current Cycle Match</span>
+            </div>
+          </div>
+
+          <div className={`${styles.statCard} ${styles.cardKbp}`}>
+            <div className={styles.cardHeader}>
+              <span className={styles.cardTitle}>TOTAL KBP MATCH</span>
+              <div className={styles.cardIconBox}>🎯</div>
+            </div>
+            <div className={styles.cardBody}>
+              {loading && !stats ? (
+                <div className={styles.skeletonMetric}></div>
+              ) : (
+                <h2 className={styles.primaryMetric}>{formatKBP(stats?.totalKbpMatch)}</h2>
+              )}
+              <span className={styles.metricSubtitle}>Lifetime Binary Match</span>
+            </div>
+          </div>
+
+          {/* Row 5: Active Downlines & Star Snapshot */}
           <div className={`${styles.statCard} ${styles.cardTeam}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>TOTAL ACTIVE MEMBERS</span>
@@ -367,7 +421,6 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          {/* TODAY STAR CARD */}
           <div className={`${styles.statCard} ${styles.cardStar}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>TODAY STAR</span>
@@ -380,23 +433,19 @@ const DashboardPage = () => {
                 <div className={styles.dualVolumeBox}>
                   <div className={styles.volumeColumn}>
                     <span className={styles.sideLabelLeft}>Left Star</span>
-                    <strong className={styles.sideValueLeft}>
-                      {todayStars.leftStars.toLocaleString()}
-                    </strong>
+                    <strong className={styles.sideValueLeft}>{todayStars.left}</strong>
                   </div>
                   <div className={styles.volumeDivider}></div>
                   <div className={styles.volumeColumn}>
                     <span className={styles.sideLabelRight}>Right Star</span>
-                    <strong className={styles.sideValueRight}>
-                      {todayStars.rightStars.toLocaleString()}
-                    </strong>
+                    <strong className={styles.sideValueRight}>{todayStars.right}</strong>
                   </div>
                 </div>
               )}
+              <span className={styles.metricSubtitle}>Today's Leg Stars</span>
             </div>
           </div>
 
-          {/* TOTAL STAR CARD */}
           <div className={`${styles.statCard} ${styles.cardStar}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>TOTAL STAR</span>
@@ -409,24 +458,20 @@ const DashboardPage = () => {
                 <div className={styles.dualVolumeBox}>
                   <div className={styles.volumeColumn}>
                     <span className={styles.sideLabelLeft}>Left Star</span>
-                    <strong className={styles.sideValueLeft}>
-                      {totalStars.leftStars.toLocaleString()}
-                    </strong>
+                    <strong className={styles.sideValueLeft}>{totalStars.left}</strong>
                   </div>
                   <div className={styles.volumeDivider}></div>
                   <div className={styles.volumeColumn}>
                     <span className={styles.sideLabelRight}>Right Star</span>
-                    <strong className={styles.sideValueRight}>
-                      {totalStars.rightStars.toLocaleString()}
-                    </strong>
+                    <strong className={styles.sideValueRight}>{totalStars.right}</strong>
                   </div>
                 </div>
               )}
+              <span className={styles.metricSubtitle}>Lifetime Downline Stars</span>
             </div>
           </div>
 
-          {/* ----------------- ROW 4: RANK & FUND RECOGNITION ----------------- */}
-          {/* Note: MY DIRECT SPONSOR card has been removed */}
+          {/* Row 6: Recognition Milestones */}
           <div className={`${styles.statCard} ${styles.cardMeta}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>CURRENT RANK</span>
@@ -464,7 +509,7 @@ const DashboardPage = () => {
         {/* Salary Wallet Progress */}
         <SalaryProgressCard />
 
-        {/* DIRECT REFERRAL LINKS */}
+        {/* Direct Referral Links */}
         <section className={styles.referralShareSection}>
           <div className={styles.referralHeader}>
             <div className={styles.referralHeaderIcon}>🔗</div>
@@ -475,7 +520,7 @@ const DashboardPage = () => {
           </div>
 
           <div className={styles.referralGrid}>
-            {/* Left Team Referral Card */}
+            {/* Left Referral */}
             <div className={styles.referralBox}>
               <div className={styles.referralSideHeader}>
                 <div className={styles.referralSidePillLeft}>
@@ -506,50 +551,17 @@ const DashboardPage = () => {
                     onClick={() => handleCopyLink('left', referralLinks.left)}
                     title="Copy Left Referral Link"
                   >
-                    {copiedSide === 'left' ? (
-                      <>
-                        <span className={styles.btnCheckIcon}>✓</span>
-                        <span>Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className={styles.btnSvg}
-                        >
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                        </svg>
-                        <span>Copy Link</span>
-                      </>
-                    )}
+                    {copiedSide === 'left' ? 'Copied!' : 'Copy Link'}
                   </button>
 
                   <button
                     type="button"
                     className={styles.shareIconButton}
                     onClick={() => handleNativeShare('left', referralLinks.left)}
-                    title="Share Link via WhatsApp or Mobile Apps"
+                    title="Share Link via Mobile Apps"
                     aria-label="Share Left Link"
                   >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className={styles.btnSvg}
-                    >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <circle cx="18" cy="5" r="3"></circle>
                       <circle cx="6" cy="12" r="3"></circle>
                       <circle cx="18" cy="19" r="3"></circle>
@@ -561,7 +573,7 @@ const DashboardPage = () => {
               </div>
             </div>
 
-            {/* Right Team Referral Card */}
+            {/* Right Referral */}
             <div className={styles.referralBox}>
               <div className={styles.referralSideHeader}>
                 <div className={styles.referralSidePillRight}>
@@ -592,50 +604,17 @@ const DashboardPage = () => {
                     onClick={() => handleCopyLink('right', referralLinks.right)}
                     title="Copy Right Referral Link"
                   >
-                    {copiedSide === 'right' ? (
-                      <>
-                        <span className={styles.btnCheckIcon}>✓</span>
-                        <span>Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className={styles.btnSvg}
-                        >
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                        </svg>
-                        <span>Copy Link</span>
-                      </>
-                    )}
+                    {copiedSide === 'right' ? 'Copied!' : 'Copy Link'}
                   </button>
 
                   <button
                     type="button"
                     className={styles.shareIconButton}
                     onClick={() => handleNativeShare('right', referralLinks.right)}
-                    title="Share Link via WhatsApp or Mobile Apps"
+                    title="Share Link via Mobile Apps"
                     aria-label="Share Right Link"
                   >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className={styles.btnSvg}
-                    >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <circle cx="18" cy="5" r="3"></circle>
                       <circle cx="6" cy="12" r="3"></circle>
                       <circle cx="18" cy="19" r="3"></circle>
