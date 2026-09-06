@@ -21,9 +21,6 @@ const FUND_PLANS = [
   { code: 'PENSION', name: 'Pension Fund', requiredLeftKBP: 1000000, requiredRightKBP: 1000000, icon: '🏦' }
 ];
 
-/**
- * Helper: Calculate live achieved fund qualifications from binary leg volume
- */
 const getMemberFundSummary = async (userId) => {
   const binaryNode = await BinaryNode.findOne({ userId }).lean();
   const leftKBP = binaryNode?.leftVolume || 0;
@@ -64,7 +61,7 @@ const getMemberFundSummary = async (userId) => {
 };
 
 // ============================================================
-// 📊 CONSOLIDATED DASHBOARD STATISTICS + SALARY WALLET
+// 📊 DASHBOARD METRICS (CALCULATED IN ACCURATE KBP)
 // ============================================================
 const getDashboardStats = async (req, res, next) => {
   try {
@@ -94,15 +91,6 @@ const getDashboardStats = async (req, res, next) => {
     ]);
 
     const totalTeamCount = await Referral.countDocuments({ sponsorId: userId });
-    const teamReferrals = await Referral.find({ sponsorId: userId }).select('userId').lean();
-    const teamUserIds = teamReferrals.map((r) => r.userId);
-
-    let totalActiveMembers = 0;
-    if (teamUserIds.length > 0) {
-      totalActiveMembers = await User.countDocuments({ _id: { $in: teamUserIds }, status: 'ACTIVE' });
-    } else {
-      totalActiveMembers = await User.countDocuments({ sponsorId: userId, status: 'ACTIVE' });
-    }
 
     let todayStarLeft = 0;
     let todayStarRight = 0;
@@ -140,7 +128,7 @@ const getDashboardStats = async (req, res, next) => {
         todayAddMembers,
         todayActiveMembers,
         totalMembers: totalTeamCount > 0 ? totalTeamCount : totalDirects,
-        totalActiveMembers,
+        totalActiveMembers: await User.countDocuments({ sponsorId: userId, status: 'ACTIVE' }),
         todayStar: {
           left: todayStarLeft,
           right: todayStarRight
@@ -150,7 +138,7 @@ const getDashboardStats = async (req, res, next) => {
           right: binaryNode?.rightVolume || 0
         },
         currentRank: {
-          name: user.currentRankId?.name || (binaryNode && (binaryNode.leftVolume + binaryNode.rightVolume >= 200) ? 'Gold Star' : 'Not Achieved'),
+          name: user.currentRankId?.name || (binaryNode && (binaryNode.leftVolume + binaryNode.rightVolume >= 200000) ? 'Gold Star' : 'Not Achieved'),
           code: user.currentRankId?.code || 'NONE'
         },
         currentFundAchieved: {
@@ -164,22 +152,11 @@ const getDashboardStats = async (req, res, next) => {
         },
         salaryBalance: wallet?.salaryBalance || 0,
         totalSalaryEarned: wallet?.totalSalaryEarned || 0,
-        salaryQualification: salaryProgress
-          ? {
-              isGoldStarRank: salaryProgress.isGoldStarAchieved,
-              currentTotalStars: salaryProgress.currentTotalStar,
-              has10PercentGrowth: salaryProgress.has10PercentGrowth,
-              has5050LegBalance: salaryProgress.has5050Balance,
-              isQualifiedThisMonth: salaryProgress.isCurrentlyQualified,
-              monthlyTTO: salaryProgress.currentMonthTTO,
-              estimatedSalary: salaryProgress.estimatedSalary
-            }
-          : null,
+        salaryQualification: salaryProgress,
         walletBalance: wallet?.incomeBalance || 0,
         repurchaseWallet: wallet?.repurchaseBalance || 0,
         userStatus: user.status || 'INACTIVE',
         memberId: user.memberId,
-        // Dual params: pos=L/R and side=left/right for universal compatibility
         referralLinks: {
           left: { url: `${baseUrl}/register?ref=${identifier}&pos=L&side=left`, side: 'left' },
           right: { url: `${baseUrl}/register?ref=${identifier}&pos=R&side=right`, side: 'right' }
@@ -192,13 +169,13 @@ const getDashboardStats = async (req, res, next) => {
 };
 
 // ============================================================
-// 👤 MEMBER PROFILE OPERATIONS
+// 👤 PROFILE OPERATIONS
 // ============================================================
 const getProfile = async (req, res, next) => {
   try {
     let user = await User.findById(req.userId)
       .populate('sponsorId', 'fullName email memberId referralCode')
-      .populate('activePackageId', 'name type price');
+      .populate('activePackageId', 'name type price kbp');
 
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -278,9 +255,6 @@ const uploadProfilePhoto = async (req, res, next) => {
   }
 };
 
-// ============================================================
-// 📑 KYC VERIFICATION ENDPOINTS
-// ============================================================
 const getKYCDetails = async (req, res, next) => {
   try {
     const user = await User.findById(req.userId).select('kyc fullName email phoneNumber memberId');
@@ -370,9 +344,6 @@ const submitKYC = async (req, res, next) => {
   }
 };
 
-// ============================================================
-// 🔍 GET USER DETAILS BY ID
-// ============================================================
 const getUserById = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -391,8 +362,31 @@ const getUserById = async (req, res, next) => {
 };
 
 // ============================================================
-// 🌲 UNLIMITED RECURSIVE BINARY TREE WITH AUTOMATIC SPILLOVER
+// 🌲 UNLIMITED RECURSIVE BINARY TREE (KBP BASED + SPONSOR PARENT)
 // ============================================================
+
+/**
+ * Resolves exact active Package KBP:
+ * Starter Package = 1,000 KBP
+ * Growth Package = 4,000 KBP
+ * Life Safe Package = 7,500 KBP
+ */
+const resolveUserKbp = (userDoc) => {
+  if (!userDoc || (userDoc.status || '').toUpperCase() !== 'ACTIVE') return 0;
+  if (userDoc.activePackageId && typeof userDoc.activePackageId === 'object') {
+    if (typeof userDoc.activePackageId.kbp === 'number' && userDoc.activePackageId.kbp > 0) {
+      return userDoc.activePackageId.kbp;
+    }
+  }
+  const pkgName = (userDoc.activePackageId?.name || userDoc.currentPackage || '').toUpperCase();
+  if (pkgName.includes('LIFE') || pkgName.includes('SAFE')) return 7500;
+  if (pkgName.includes('GROWTH')) return 4000;
+  return 1000; // Starter Package default KBP
+};
+
+/**
+ * Formats a user into binary tree node schema with full sponsor metadata
+ */
 const formatNode = async (userDoc) => {
   if (!userDoc) return null;
 
@@ -410,9 +404,22 @@ const formatNode = async (userDoc) => {
     packageName = userDoc.currentPackage;
   }
 
-  const binaryNode = await BinaryNode.findOne({ userId: userDoc._id }).lean();
-  const leftVol = binaryNode?.leftVolume || userDoc.leftKbp || 0;
-  const rightVol = binaryNode?.rightVolume || userDoc.rightKbp || 0;
+  const personalKbp = resolveUserKbp(userDoc);
+
+  let sponsorCode = 'ROOT';
+  let sponsorFullName = 'Company Direct';
+  if (userDoc.sponsorId) {
+    if (typeof userDoc.sponsorId === 'object' && userDoc.sponsorId.memberId) {
+      sponsorCode = userDoc.sponsorId.memberId;
+      sponsorFullName = userDoc.sponsorId.fullName || '';
+    } else {
+      const sp = await User.findById(userDoc.sponsorId).select('memberId fullName').lean();
+      if (sp) {
+        sponsorCode = sp.memberId;
+        sponsorFullName = sp.fullName || '';
+      }
+    }
+  }
 
   return {
     _id: userDoc._id,
@@ -420,42 +427,85 @@ const formatNode = async (userDoc) => {
     fullName: userDoc.fullName || userDoc.name || 'Member',
     status: (userDoc.status || 'ACTIVE').toUpperCase(),
     currentPackage: packageName,
-    leftKbp: Number(leftVol),
-    rightKbp: Number(rightVol),
+    personalKbp,
+    sponsorId: sponsorCode,
+    sponsorName: sponsorFullName,
+    email: userDoc.email || '',
+    phoneNumber: userDoc.phoneNumber || '',
+    joinedDate: userDoc.createdAt || userDoc.joinedDate || new Date(),
+    leftKbp: 0,
+    rightKbp: 0,
     left: null,
     right: null
   };
 };
 
-const buildSpilloverChain = async (members, side, visited) => {
-  if (!members || members.length === 0) return null;
+/**
+ * Builds binary downline subtree recursively and computes exact KBP volumes
+ */
+const buildBinarySubtree = async (userId, visited) => {
+  if (!userId || visited.has(String(userId))) return null;
+  visited.add(String(userId));
 
-  const currentMember = members[0];
-  if (visited.has(String(currentMember._id))) return null;
-  visited.add(String(currentMember._id));
+  const userDoc = await User.findById(userId)
+    .populate('activePackageId')
+    .populate('sponsorId', 'memberId fullName')
+    .lean();
 
-  const node = await formatNode(currentMember);
-  const remainingMembers = members.slice(1);
+  if (!userDoc) return null;
 
-  const ownDirects = await User.find({ sponsorId: currentMember._id }).populate('activePackageId').sort({ createdAt: 1 }).lean();
-  const ownOppositeSide = side === 'LEFT' ? 'RIGHT' : 'LEFT';
-  const ownOppositeDirects = ownDirects.filter((m) => String(m.binarySide).toUpperCase() === ownOppositeSide);
+  const node = await formatNode(userDoc);
 
-  if (side === 'LEFT') {
-    node.left = await buildSpilloverChain(remainingMembers, 'LEFT', visited);
-    if (ownOppositeDirects.length > 0) {
-      node.right = await buildSpilloverChain(ownOppositeDirects, 'RIGHT', visited);
-    }
-  } else {
-    node.right = await buildSpilloverChain(remainingMembers, 'RIGHT', visited);
-    if (ownOppositeDirects.length > 0) {
-      node.left = await buildSpilloverChain(ownOppositeDirects, 'LEFT', visited);
+  // Retrieve placed downlines
+  let leftChild = await User.findOne({ binaryParentId: userDoc._id, binarySide: 'left' })
+    .populate('activePackageId')
+    .populate('sponsorId', 'memberId fullName')
+    .lean();
+
+  let rightChild = await User.findOne({ binaryParentId: userDoc._id, binarySide: 'right' })
+    .populate('activePackageId')
+    .populate('sponsorId', 'memberId fullName')
+    .lean();
+
+  // Fallback to direct referrals if binaryParentId is unlinked
+  if (!leftChild && !rightChild) {
+    const directs = await User.find({ sponsorId: userDoc._id })
+      .populate('activePackageId')
+      .populate('sponsorId', 'memberId fullName')
+      .sort({ createdAt: 1 })
+      .lean();
+
+    leftChild = directs.find((m) => String(m.binarySide).toLowerCase() === 'left');
+    rightChild = directs.find((m) => String(m.binarySide).toLowerCase() === 'right');
+  }
+
+  let leftVol = 0;
+  let rightVol = 0;
+
+  if (leftChild) {
+    node.left = await buildBinarySubtree(leftChild._id, visited);
+    if (node.left) {
+      leftVol = (node.left.personalKbp || 0) + (node.left.leftKbp || 0) + (node.left.rightKbp || 0);
     }
   }
+
+  if (rightChild) {
+    node.right = await buildBinarySubtree(rightChild._id, visited);
+    if (node.right) {
+      rightVol = (node.right.personalKbp || 0) + (node.right.leftKbp || 0) + (node.right.rightKbp || 0);
+    }
+  }
+
+  node.leftKbp = leftVol;
+  node.rightKbp = rightVol;
 
   return node;
 };
 
+/**
+ * Controller: GET /api/users/binary-tree
+ * Builds complete binary tree showing Sponsor at Top -> My Node -> Downlines, with accurate KBP volumes
+ */
 const getBinaryTree = async (req, res, next) => {
   try {
     const { memberId, userId } = req.query;
@@ -464,18 +514,18 @@ const getBinaryTree = async (req, res, next) => {
     if (memberId && memberId.trim() !== '') {
       rootUser = await User.findOne({
         $or: [
-          { memberId: memberId.trim() },
-          { referralCode: memberId.trim() }
+          { memberId: memberId.trim().toUpperCase() },
+          { referralCode: memberId.trim().toUpperCase() }
         ]
-      }).populate('activePackageId');
+      }).populate('activePackageId').populate('sponsorId', 'memberId fullName');
     }
 
     if (!rootUser && userId && mongoose.isValidObjectId(userId)) {
-      rootUser = await User.findById(userId).populate('activePackageId');
+      rootUser = await User.findById(userId).populate('activePackageId').populate('sponsorId', 'memberId fullName');
     }
 
     if (!rootUser && req.userId && mongoose.isValidObjectId(req.userId)) {
-      rootUser = await User.findById(req.userId).populate('activePackageId');
+      rootUser = await User.findById(req.userId).populate('activePackageId').populate('sponsorId', 'memberId fullName');
     }
 
     if (!rootUser) {
@@ -483,75 +533,94 @@ const getBinaryTree = async (req, res, next) => {
     }
 
     const visited = new Set();
-    visited.add(String(rootUser._id));
-    const tree = await formatNode(rootUser.toObject());
+    // 1. Build My Node with its complete downline tree
+    const myNode = await buildBinarySubtree(rootUser._id, visited);
+    myNode.isMyNode = true;
 
-    const directReferrals = await User.find({ sponsorId: rootUser._id })
-      .populate('activePackageId')
-      .sort({ createdAt: 1 })
-      .lean();
+    // Summary stats representing My Node in KBP
+    const myLeftKbp = myNode.leftKbp || 0;
+    const myRightKbp = myNode.rightKbp || 0;
+    const myTotalKbp = myLeftKbp + myRightKbp;
+    const myMatchingKbp = Math.min(myLeftKbp, myRightKbp);
+    const myPairs = Math.floor(myMatchingKbp / 1000); // 1 Pair = 1,000 KBP
 
-    const leftMembers = directReferrals.filter(
-      (m) => String(m.binarySide).toUpperCase() === 'LEFT'
-    );
-    const rightMembers = directReferrals.filter(
-      (m) => String(m.binarySide).toUpperCase() === 'RIGHT'
-    );
-
-    const unassigned = directReferrals.filter(
-      (m) => !['LEFT', 'RIGHT'].includes(String(m.binarySide).toUpperCase())
-    );
-    unassigned.forEach((member) => {
-      if (leftMembers.length <= rightMembers.length) {
-        leftMembers.push(member);
-      } else {
-        rightMembers.push(member);
-      }
-    });
-
-    tree.left = await buildSpilloverChain(leftMembers, 'LEFT', visited);
-    tree.right = await buildSpilloverChain(rightMembers, 'RIGHT', visited);
-
-    const calculatedLeftKbp = leftMembers.filter((m) => m.status === 'ACTIVE').length * 1500;
-    const calculatedRightKbp = rightMembers.filter((m) => m.status === 'ACTIVE').length * 1500;
-
-    const binaryNode = await BinaryNode.findOne({ userId: rootUser._id }).lean();
-    const leftVol = Number(binaryNode?.leftVolume || calculatedLeftKbp);
-    const rightVol = Number(binaryNode?.rightVolume || calculatedRightKbp);
-    const totalVol = leftVol + rightVol;
-    const matchingVol = Math.min(leftVol, rightVol);
-    const pairs = Math.floor(matchingVol / 1500);
-
-    tree.leftKbp = leftVol;
-    tree.rightKbp = rightVol;
-
+    // Sync BinaryNode in DB with calculated KBP values
     await BinaryNode.findOneAndUpdate(
       { userId: rootUser._id },
       {
         $set: {
-          leftChildId: leftMembers[0]?._id || null,
-          rightChildId: rightMembers[0]?._id || null,
-          leftVolume: leftVol,
-          rightVolume: rightVol,
-          matchingVolume: matchingVol,
-          pairCount: pairs,
-          totalKBP: totalVol
+          leftVolume: myLeftKbp,
+          rightVolume: myRightKbp,
+          matchingVolume: myMatchingKbp,
+          pairCount: myPairs,
+          totalKBP: myTotalKbp
         }
       },
       { upsert: true }
     );
 
+    let displayRoot = myNode;
+
+    // 2. Prepend Sponsor node above My Node (Sponsor -> My Node -> Downlines)
+    if (rootUser.sponsorId) {
+      const sponsorDoc = await User.findById(rootUser.sponsorId._id || rootUser.sponsorId)
+        .populate('activePackageId')
+        .populate('sponsorId', 'memberId fullName')
+        .lean();
+
+      if (sponsorDoc) {
+        const sponsorNode = await formatNode(sponsorDoc);
+        sponsorNode.isSponsorNode = true;
+
+        const myPlacementSide = String(rootUser.binarySide || 'left').toLowerCase();
+        const myTotalBranchKbp = (myNode.personalKbp || 0) + (myNode.leftKbp || 0) + (myNode.rightKbp || 0);
+
+        if (myPlacementSide === 'right') {
+          sponsorNode.right = myNode;
+          sponsorNode.rightKbp = myTotalBranchKbp;
+          // Check if sponsor has another direct or child on the left
+          const otherChild = await User.findOne({
+            sponsorId: sponsorDoc._id,
+            binarySide: 'left',
+            _id: { $ne: rootUser._id }
+          }).populate('activePackageId').lean();
+
+          if (otherChild) {
+            sponsorNode.left = await formatNode(otherChild);
+            sponsorNode.leftKbp = resolveUserKbp(otherChild);
+          }
+        } else {
+          sponsorNode.left = myNode;
+          sponsorNode.leftKbp = myTotalBranchKbp;
+          // Check if sponsor has another direct or child on the right
+          const otherChild = await User.findOne({
+            sponsorId: sponsorDoc._id,
+            binarySide: 'right',
+            _id: { $ne: rootUser._id }
+          }).populate('activePackageId').lean();
+
+          if (otherChild) {
+            sponsorNode.right = await formatNode(otherChild);
+            sponsorNode.rightKbp = resolveUserKbp(otherChild);
+          }
+        }
+
+        displayRoot = sponsorNode;
+      }
+    }
+
     return res.json({
       success: true,
       data: {
-        root: tree,
-        tree: tree,
+        root: displayRoot,
+        tree: displayRoot,
+        myNodeId: myNode.memberId,
         summary: {
-          totalKbp: totalVol,
-          leftKbp: leftVol,
-          rightKbp: rightVol,
-          matchingVolume: matchingVol,
-          totalPairs: pairs
+          totalKbp: myTotalKbp,
+          leftKbp: myLeftKbp,
+          rightKbp: myRightKbp,
+          matchingVolume: myMatchingKbp,
+          totalPairs: myPairs
         }
       }
     });

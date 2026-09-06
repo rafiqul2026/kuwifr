@@ -6,9 +6,9 @@ import { useNotification } from '../../hooks/useNotification';
 import styles from './BinaryTreePage.module.css';
 
 /**
- * Compact recursive binary tree node with responsive styling
+ * Clickable Tree Node Box displaying Member ID, Name, Package Name, Sponsor ID, and L/R KBP
  */
-const BinaryTreeNode = ({ node, onSelectNode, isRoot = false }) => {
+const BinaryTreeNode = ({ node, onOpenModal, isRoot = false }) => {
   if (!node) {
     return (
       <div className={styles.treeBranch}>
@@ -21,32 +21,40 @@ const BinaryTreeNode = ({ node, onSelectNode, isRoot = false }) => {
   }
 
   const isActive = (node.status || '').toUpperCase() === 'ACTIVE';
-  const roleName = node.currentPackage || node.package || (isActive ? 'Active Plan' : 'Inactive');
+  const roleName = node.currentPackage || 'Starter Package';
 
   return (
     <div className={styles.treeBranch}>
-      {/* Compact Member Node Card */}
+      {/* Clickable Member Node Card */}
       <div
-        className={`${styles.nodeCard} ${isRoot ? styles.rootNodeCard : ''} ${
+        className={`${styles.nodeCard} ${node.isSponsorNode ? styles.sponsorNodeCard : isRoot ? styles.rootNodeCard : ''} ${
           isActive ? styles.activeNodeCard : styles.inactiveNodeCard
         }`}
         onClick={(e) => {
           e.stopPropagation();
-          onSelectNode(node);
+          onOpenModal(node);
         }}
-        title="Tap to focus on this member's subtree"
+        title="Click to view details & sponsor information"
       >
+        {node.isSponsorNode && <span className={styles.sponsorBadgeTop}>👑 SPONSOR</span>}
+        {node.isMyNode && <span className={styles.myNodeBadgeTop}>★ YOU</span>}
+
         <div className={styles.nodeAvatar}>{isActive ? '👑' : '👤'}</div>
         <div className={styles.nodeBody}>
           <div className={styles.nodeIdBadge}>{node.memberId}</div>
           <strong className={styles.nodeName}>{node.fullName || node.name}</strong>
           <span className={styles.nodePkg}>{roleName}</span>
+          
+          {/* Sponsor ID below Package Name */}
+          <div className={styles.nodeSponsorLabel}>
+            Sponsor ID: <span>{node.sponsorId || 'ROOT'}</span>
+          </div>
         </div>
 
-        {/* Binary Leg Volume Tracker */}
+        {/* Binary Leg Volume Tracker in KBP */}
         <div className={styles.nodePills}>
-          <span className={styles.leftPill}>L: {node.leftKbp || 0}</span>
-          <span className={styles.rightPill}>R: {node.rightKbp || 0}</span>
+          <span className={styles.leftPill}>L: {Number(node.leftKbp || 0).toLocaleString('en-IN')}</span>
+          <span className={styles.rightPill}>R: {Number(node.rightKbp || 0).toLocaleString('en-IN')}</span>
         </div>
       </div>
 
@@ -58,13 +66,13 @@ const BinaryTreeNode = ({ node, onSelectNode, isRoot = false }) => {
             {/* Left Subtree */}
             <div className={styles.childColumn}>
               <span className={styles.positionBadgeLeft}>LEFT</span>
-              <BinaryTreeNode node={node.left} onSelectNode={onSelectNode} />
+              <BinaryTreeNode node={node.left} onOpenModal={onOpenModal} />
             </div>
 
             {/* Right Subtree */}
             <div className={styles.childColumn}>
               <span className={styles.positionBadgeRight}>RIGHT</span>
-              <BinaryTreeNode node={node.right} onSelectNode={onSelectNode} />
+              <BinaryTreeNode node={node.right} onOpenModal={onOpenModal} />
             </div>
           </div>
         </div>
@@ -85,6 +93,7 @@ const BinaryTreePage = () => {
   });
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedMember, setSelectedMember] = useState(null); // Clicked node details modal
 
   // Transform states: Scale & 2D Pan Positions
   const [zoomScale, setZoomScale] = useState(0.9);
@@ -156,11 +165,9 @@ const BinaryTreePage = () => {
 
   const handleTouchStart = (e) => {
     if (e.touches.length === 2) {
-      // Two fingers -> Pinch to zoom
       initialTouchDistRef.current = getTouchDistance(e);
       initialScaleRef.current = zoomScale;
     } else if (e.touches.length === 1) {
-      // Single finger -> Drag to pan
       isDraggingRef.current = true;
       startPanRef.current = {
         x: e.touches[0].clientX - panPosition.x,
@@ -171,13 +178,11 @@ const BinaryTreePage = () => {
 
   const handleTouchMove = (e) => {
     if (e.touches.length === 2 && initialTouchDistRef.current) {
-      // Handle pinch zoom
       const currentDist = getTouchDistance(e);
       const factor = currentDist / initialTouchDistRef.current;
       const newScale = Math.min(Math.max(initialScaleRef.current * factor, 0.4), 1.6);
       setZoomScale(Number(newScale.toFixed(2)));
     } else if (e.touches.length === 1 && isDraggingRef.current) {
-      // Handle pan translation
       setPanPosition({
         x: e.touches[0].clientX - startPanRef.current.x,
         y: e.touches[0].clientY - startPanRef.current.y
@@ -190,9 +195,8 @@ const BinaryTreePage = () => {
     initialTouchDistRef.current = null;
   };
 
-  // Mouse Drag Panning for Desktops
+  // Mouse Drag Panning
   const handleMouseDown = (e) => {
-    // Only left click triggers panning
     if (e.button !== 0) return;
     isDraggingRef.current = true;
     startPanRef.current = {
@@ -211,14 +215,6 @@ const BinaryTreePage = () => {
 
   const handleMouseUp = () => {
     isDraggingRef.current = false;
-  };
-
-  // Node Selection Handler
-  const handleSelectNode = (clickedNode) => {
-    if (clickedNode?.memberId) {
-      setPanPosition({ x: 0, y: 0 }); // Re-center
-      fetchBinaryTree(clickedNode.memberId);
-    }
   };
 
   // Reset to personal root
@@ -255,7 +251,7 @@ const BinaryTreePage = () => {
           </div>
           <h1 className={styles.pageTitle}>Binary Tree Network</h1>
           <p className={styles.pageSubtitle}>
-            1st Pair = <strong>2:1 or 1:2</strong> (2 Directs Required) • Kuwi Star = <strong>3 Directs</strong> • Next <strong>1:1 Matching</strong> to Unlimited Depth.
+            1st Pair = <strong>2:1 or 1:2</strong> (2 Directs Required) • Kuwi Star = <strong>3 Directs</strong> • Next <strong>1:1 Matching (1,000 KBP)</strong> to Unlimited Depth.
           </p>
         </div>
 
@@ -312,23 +308,23 @@ const BinaryTreePage = () => {
         </div>
       </header>
 
-      {/* KPI Volume Cards */}
+      {/* KPI Volume Cards Calculated in Authentic KBP Values */}
       <div className={styles.kpiGrid}>
         <div className={styles.kpiCard}>
           <span className={styles.kpiLabel}>TOTAL KBP VOLUME</span>
-          <h2 className={styles.kpiValueDark}>{summaryStats.totalKbp.toLocaleString()}</h2>
+          <h2 className={styles.kpiValueDark}>{summaryStats.totalKbp.toLocaleString('en-IN')}</h2>
         </div>
         <div className={styles.kpiCard}>
           <span className={styles.kpiLabel}>LEFT VOLUME (KBP)</span>
-          <h2 className={styles.kpiValueBlue}>{summaryStats.leftKbp.toLocaleString()}</h2>
+          <h2 className={styles.kpiValueBlue}>{summaryStats.leftKbp.toLocaleString('en-IN')}</h2>
         </div>
         <div className={styles.kpiCard}>
           <span className={styles.kpiLabel}>RIGHT VOLUME (KBP)</span>
-          <h2 className={styles.kpiValuePink}>{summaryStats.rightKbp.toLocaleString()}</h2>
+          <h2 className={styles.kpiValuePink}>{summaryStats.rightKbp.toLocaleString('en-IN')}</h2>
         </div>
         <div className={styles.kpiCard}>
           <span className={styles.kpiLabel}>MATCHING VOLUME</span>
-          <h2 className={styles.kpiValueGreen}>{summaryStats.matchingVolume.toLocaleString()}</h2>
+          <h2 className={styles.kpiValueGreen}>{summaryStats.matchingVolume.toLocaleString('en-IN')}</h2>
         </div>
         <div className={styles.kpiCard}>
           <span className={styles.kpiLabel}>TOTAL PAIRS MATCHED</span>
@@ -349,7 +345,7 @@ const BinaryTreePage = () => {
         onMouseLeave={handleMouseUp}
       >
         <div className={styles.touchHintPill}>
-          <span>👆 Drag to explore left/right • Pinch with 2 fingers to zoom</span>
+          <span>👆 Click any Member Box for details • Drag to explore • Pinch to zoom</span>
         </div>
 
         {loading ? (
@@ -371,10 +367,98 @@ const BinaryTreePage = () => {
               transformOrigin: 'top center'
             }}
           >
-            <BinaryTreeNode node={treeData} onSelectNode={handleSelectNode} isRoot={true} />
+            <BinaryTreeNode node={treeData} onOpenModal={setSelectedMember} isRoot={true} />
           </div>
         )}
       </div>
+
+      {/* Member Details Modal */}
+      {selectedMember && (
+        <div className={styles.modalOverlay} onClick={() => setSelectedMember(null)}>
+          <div className={styles.modalBox} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div>
+                <h3>Member Profile</h3>
+                <span className={styles.modalIdBadge}>{selectedMember.memberId}</span>
+              </div>
+              <button
+                type="button"
+                className={styles.closeBtn}
+                onClick={() => setSelectedMember(null)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className={styles.modalBody}>
+              <div className={styles.detailRow}>
+                <span>Full Name:</span>
+                <strong>{selectedMember.fullName}</strong>
+              </div>
+
+              <div className={styles.detailRow}>
+                <span>Sponsor ID:</span>
+                <strong className={styles.sponsorHighlight}>{selectedMember.sponsorId || 'ROOT'}</strong>
+              </div>
+
+              {selectedMember.sponsorName && (
+                <div className={styles.detailRow}>
+                  <span>Sponsor Name:</span>
+                  <span>{selectedMember.sponsorName}</span>
+                </div>
+              )}
+
+              <div className={styles.detailRow}>
+                <span>Account Status:</span>
+                <span className={selectedMember.status === 'ACTIVE' ? styles.statusActive : styles.statusInactive}>
+                  ● {selectedMember.status}
+                </span>
+              </div>
+
+              <div className={styles.detailRow}>
+                <span>Active Package:</span>
+                <strong>{selectedMember.currentPackage}</strong>
+              </div>
+
+              <div className={styles.detailRow}>
+                <span>Personal Point:</span>
+                <strong>{(selectedMember.personalKbp || 0).toLocaleString('en-IN')} KBP</strong>
+              </div>
+
+              <div className={styles.divider}></div>
+
+              <div className={styles.volumeBlock}>
+                <div>
+                  <small>Left Leg Volume</small>
+                  <strong className={styles.blueText}>{(selectedMember.leftKbp || 0).toLocaleString('en-IN')} KBP</strong>
+                </div>
+                <div>
+                  <small>Right Leg Volume</small>
+                  <strong className={styles.pinkText}>{(selectedMember.rightKbp || 0).toLocaleString('en-IN')} KBP</strong>
+                </div>
+              </div>
+
+              <div className={styles.detailRow}>
+                <span>Joined Date:</span>
+                <small>{new Date(selectedMember.joinedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</small>
+              </div>
+            </div>
+
+            <div className={styles.modalFooter}>
+              <button
+                type="button"
+                className={styles.modalActionBtn}
+                onClick={() => {
+                  fetchBinaryTree(selectedMember.memberId);
+                  setSelectedMember(null);
+                }}
+              >
+                Explore Downline Tree →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
