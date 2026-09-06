@@ -10,6 +10,71 @@ const SalaryService = require('../services/salary.service');
 const cloudinary = require('../config/cloudinary');
 
 // ============================================================
+// 🏆 12-LEVEL OFFICIAL KUWIFR RANK EVALUATION ENGINE
+// ============================================================
+/**
+ * Resolves current member rank based on the official Kuwifr rank ladder:
+ * - Level 1: Kuwi Star (2:1 or 1:2 Direct 3 active joinings with min 3,000 KBP, 15 days)
+ * - Level 2: Bronze Star (6 Kuwi Stars / Matched Stars)
+ * - Level 3: Silver Star (20 Kuwi Stars / Matched Stars)
+ * - Level 4: Platinum Star (70 Kuwi Stars / Matched Stars)
+ * - Level 5: Gold Star (200 Kuwi Stars / Matched Stars)
+ * - Level 6: Sapphire Star (700 Kuwi Stars / Matched Stars)
+ * - Level 7: Emerald Star (2,200 Kuwi Stars / Matched Stars)
+ * - Level 8: Ruby Star (7,000 Kuwi Stars / Matched Stars)
+ * - Level 9: Diamond Star (15,000 Kuwi Stars / Matched Stars)
+ * - Level 10: Sales Director (35,000 Kuwi Stars / Matched Stars)
+ * - Level 11: Ambassador (75,000 Kuwi Stars / Matched Stars)
+ * - Level 12: Crown (160,000 Kuwi Stars / Matched Stars)
+ */
+const evaluateMemberRank = async (user, totalStarLeft, totalStarRight, totalKbp) => {
+  // 1. If an official rank is explicitly assigned in DB, honor it first
+  if (user.currentRankId?.name) {
+    return {
+      name: user.currentRankId.name,
+      code: user.currentRankId.code || 'RANK',
+      level: user.currentRankId.level || 1
+    };
+  }
+
+  // 2. Compute 1:1 matched stars (1 Star = 1,000 KBP)
+  const matchedStars = Math.min(totalStarLeft, totalStarRight);
+
+  // 3. Evaluate Higher Tiers (Level 12 down to Level 2)
+  if (matchedStars >= 160000) return { name: 'Crown', code: 'CROWN', level: 12 };
+  if (matchedStars >= 75000) return { name: 'Ambassador', code: 'AMBASSADOR', level: 11 };
+  if (matchedStars >= 35000) return { name: 'Sales Director', code: 'SALES_DIRECTOR', level: 10 };
+  if (matchedStars >= 15000) return { name: 'Diamond Star', code: 'DIAMOND_STAR', level: 9 };
+  if (matchedStars >= 7000) return { name: 'Ruby Star', code: 'RUBY_STAR', level: 8 };
+  if (matchedStars >= 2200) return { name: 'Emerald Star', code: 'EMERALD_STAR', level: 7 };
+  if (matchedStars >= 700) return { name: 'Sapphire Star', code: 'SAPPHIRE_STAR', level: 6 };
+  if (matchedStars >= 200) return { name: 'Gold Star', code: 'GOLD_STAR', level: 5 };
+  if (matchedStars >= 70) return { name: 'Platinum Star', code: 'PLATINUM_STAR', level: 4 };
+  if (matchedStars >= 20) return { name: 'Silver Star', code: 'SILVER_STAR', level: 3 };
+  if (matchedStars >= 6) return { name: 'Bronze Star', code: 'BRONZE_STAR', level: 2 };
+
+  // 4. Evaluate Level 1: Kuwi Star
+  // Condition: 2:1 or 1:2 ratio, minimum 3,000 KBP total volume, and 3 active direct joinings
+  const isRatioMet =
+    (totalStarLeft >= 2 && totalStarRight >= 1) ||
+    (totalStarLeft >= 1 && totalStarRight >= 2);
+  const isVolumeMet = totalKbp >= 3000;
+
+  if (isRatioMet && isVolumeMet) {
+    const directActiveCount = await User.countDocuments({
+      sponsorId: user._id,
+      status: 'ACTIVE'
+    });
+
+    if (directActiveCount >= 3) {
+      return { name: 'Kuwi Star', code: 'KUWI_STAR', level: 1 };
+    }
+  }
+
+  return { name: 'Not Achieved', code: 'NONE', level: 0 };
+};
+
+// ============================================================
 // 🏆 FUND BENEFIT PLANS DEFINITIONS
 // ============================================================
 const FUND_PLANS = [
@@ -61,7 +126,7 @@ const getMemberFundSummary = async (userId) => {
 };
 
 // ============================================================
-// 📊 DASHBOARD METRICS (CALCULATED IN ACCURATE KBP)
+// 📊 DASHBOARD METRICS (STAR CALCULATION: 1 STAR = 1,000 KBP)
 // ============================================================
 const getDashboardStats = async (req, res, next) => {
   try {
@@ -72,7 +137,7 @@ const getDashboardStats = async (req, res, next) => {
     const [user, wallet, binaryNode, fundSummary, salaryProgress] = await Promise.all([
       User.findById(userId)
         .populate({ path: 'sponsorId', select: 'fullName memberId referralCode email' })
-        .populate({ path: 'currentRankId', select: 'name code', strictPopulate: false })
+        .populate({ path: 'currentRankId', select: 'name code level', strictPopulate: false })
         .lean(),
       Wallet.findOne({ userId }).lean(),
       BinaryNode.findOne({ userId }).lean(),
@@ -92,8 +157,8 @@ const getDashboardStats = async (req, res, next) => {
 
     const totalTeamCount = await Referral.countDocuments({ sponsorId: userId });
 
-    let todayStarLeft = 0;
-    let todayStarRight = 0;
+    let todayKbpLeft = 0;
+    let todayKbpRight = 0;
 
     if (binaryNode) {
       if (binaryNode.leftChildId) {
@@ -102,7 +167,9 @@ const getDashboardStats = async (req, res, next) => {
           createdAt: { $gte: todayStart }
         }).populate('activePackageId').lean();
         if (leftTodayUser?.activePackageId?.kbp) {
-          todayStarLeft += leftTodayUser.activePackageId.kbp;
+          todayKbpLeft += leftTodayUser.activePackageId.kbp;
+        } else if (leftTodayUser?.status === 'ACTIVE') {
+          todayKbpLeft += 1000;
         }
       }
       if (binaryNode.rightChildId) {
@@ -111,10 +178,30 @@ const getDashboardStats = async (req, res, next) => {
           createdAt: { $gte: todayStart }
         }).populate('activePackageId').lean();
         if (rightTodayUser?.activePackageId?.kbp) {
-          todayStarRight += rightTodayUser.activePackageId.kbp;
+          todayKbpRight += rightTodayUser.activePackageId.kbp;
+        } else if (rightTodayUser?.status === 'ACTIVE') {
+          todayKbpRight += 1000;
         }
       }
     }
+
+    const totalKbpLeft = Number(binaryNode?.leftVolume || 0);
+    const totalKbpRight = Number(binaryNode?.rightVolume || 0);
+    const totalVolumeKbp = totalKbpLeft + totalKbpRight;
+
+    // Star calculation: 1 Star = 1,000 KBP
+    const totalStarLeft = Math.floor(totalKbpLeft / 1000);
+    const totalStarRight = Math.floor(totalKbpRight / 1000);
+    const todayStarLeft = Math.floor(todayKbpLeft / 1000);
+    const todayStarRight = Math.floor(todayKbpRight / 1000);
+
+    // Evaluate Kuwifr 12-level rank plan
+    const evaluatedRank = await evaluateMemberRank(
+      user,
+      totalStarLeft,
+      totalStarRight,
+      totalVolumeKbp
+    );
 
     const baseUrl = process.env.CLIENT_URL || 'https://www.kuwifr.in';
     const identifier = user.memberId || user.referralCode;
@@ -131,15 +218,20 @@ const getDashboardStats = async (req, res, next) => {
         totalActiveMembers: await User.countDocuments({ sponsorId: userId, status: 'ACTIVE' }),
         todayStar: {
           left: todayStarLeft,
-          right: todayStarRight
+          right: todayStarRight,
+          leftKbp: todayKbpLeft,
+          rightKbp: todayKbpRight
         },
         totalStar: {
-          left: binaryNode?.leftVolume || 0,
-          right: binaryNode?.rightVolume || 0
+          left: totalStarLeft,
+          right: totalStarRight,
+          leftKbp: totalKbpLeft,
+          rightKbp: totalKbpRight
         },
         currentRank: {
-          name: user.currentRankId?.name || (binaryNode && (binaryNode.leftVolume + binaryNode.rightVolume >= 200000) ? 'Gold Star' : 'Not Achieved'),
-          code: user.currentRankId?.code || 'NONE'
+          name: evaluatedRank.name,
+          code: evaluatedRank.code,
+          level: evaluatedRank.level
         },
         currentFundAchieved: {
           name: fundSummary.currentFundName,
@@ -362,15 +454,8 @@ const getUserById = async (req, res, next) => {
 };
 
 // ============================================================
-// 🌲 UNLIMITED RECURSIVE BINARY TREE (KBP BASED + SPONSOR PARENT)
+// 🌲 UNLIMITED RECURSIVE BINARY TREE
 // ============================================================
-
-/**
- * Resolves exact active Package KBP:
- * Starter Package = 1,000 KBP
- * Growth Package = 4,000 KBP
- * Life Safe Package = 7,500 KBP
- */
 const resolveUserKbp = (userDoc) => {
   if (!userDoc || (userDoc.status || '').toUpperCase() !== 'ACTIVE') return 0;
   if (userDoc.activePackageId && typeof userDoc.activePackageId === 'object') {
@@ -381,12 +466,9 @@ const resolveUserKbp = (userDoc) => {
   const pkgName = (userDoc.activePackageId?.name || userDoc.currentPackage || '').toUpperCase();
   if (pkgName.includes('LIFE') || pkgName.includes('SAFE')) return 7500;
   if (pkgName.includes('GROWTH')) return 4000;
-  return 1000; // Starter Package default KBP
+  return 1000;
 };
 
-/**
- * Formats a user into binary tree node schema with full sponsor metadata
- */
 const formatNode = async (userDoc) => {
   if (!userDoc) return null;
 
@@ -440,9 +522,6 @@ const formatNode = async (userDoc) => {
   };
 };
 
-/**
- * Builds binary downline subtree recursively and computes exact KBP volumes
- */
 const buildBinarySubtree = async (userId, visited) => {
   if (!userId || visited.has(String(userId))) return null;
   visited.add(String(userId));
@@ -456,7 +535,6 @@ const buildBinarySubtree = async (userId, visited) => {
 
   const node = await formatNode(userDoc);
 
-  // Retrieve placed downlines
   let leftChild = await User.findOne({ binaryParentId: userDoc._id, binarySide: 'left' })
     .populate('activePackageId')
     .populate('sponsorId', 'memberId fullName')
@@ -467,7 +545,6 @@ const buildBinarySubtree = async (userId, visited) => {
     .populate('sponsorId', 'memberId fullName')
     .lean();
 
-  // Fallback to direct referrals if binaryParentId is unlinked
   if (!leftChild && !rightChild) {
     const directs = await User.find({ sponsorId: userDoc._id })
       .populate('activePackageId')
@@ -502,10 +579,6 @@ const buildBinarySubtree = async (userId, visited) => {
   return node;
 };
 
-/**
- * Controller: GET /api/users/binary-tree
- * Builds complete binary tree showing Sponsor at Top -> My Node -> Downlines, with accurate KBP volumes
- */
 const getBinaryTree = async (req, res, next) => {
   try {
     const { memberId, userId } = req.query;
@@ -533,18 +606,15 @@ const getBinaryTree = async (req, res, next) => {
     }
 
     const visited = new Set();
-    // 1. Build My Node with its complete downline tree
     const myNode = await buildBinarySubtree(rootUser._id, visited);
     myNode.isMyNode = true;
 
-    // Summary stats representing My Node in KBP
     const myLeftKbp = myNode.leftKbp || 0;
     const myRightKbp = myNode.rightKbp || 0;
     const myTotalKbp = myLeftKbp + myRightKbp;
     const myMatchingKbp = Math.min(myLeftKbp, myRightKbp);
-    const myPairs = Math.floor(myMatchingKbp / 1000); // 1 Pair = 1,000 KBP
+    const myPairs = Math.floor(myMatchingKbp / 1000);
 
-    // Sync BinaryNode in DB with calculated KBP values
     await BinaryNode.findOneAndUpdate(
       { userId: rootUser._id },
       {
@@ -561,7 +631,7 @@ const getBinaryTree = async (req, res, next) => {
 
     let displayRoot = myNode;
 
-    // 2. Prepend Sponsor node above My Node (Sponsor -> My Node -> Downlines)
+    // Display Sponsor node above My Node
     if (rootUser.sponsorId) {
       const sponsorDoc = await User.findById(rootUser.sponsorId._id || rootUser.sponsorId)
         .populate('activePackageId')
@@ -578,7 +648,6 @@ const getBinaryTree = async (req, res, next) => {
         if (myPlacementSide === 'right') {
           sponsorNode.right = myNode;
           sponsorNode.rightKbp = myTotalBranchKbp;
-          // Check if sponsor has another direct or child on the left
           const otherChild = await User.findOne({
             sponsorId: sponsorDoc._id,
             binarySide: 'left',
@@ -592,7 +661,6 @@ const getBinaryTree = async (req, res, next) => {
         } else {
           sponsorNode.left = myNode;
           sponsorNode.leftKbp = myTotalBranchKbp;
-          // Check if sponsor has another direct or child on the right
           const otherChild = await User.findOne({
             sponsorId: sponsorDoc._id,
             binarySide: 'right',

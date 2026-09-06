@@ -40,33 +40,42 @@ class SalaryService {
 
     if (!user) throw new Error('Member not found');
 
-    const currentLeftStar = binaryNode?.leftVolume || 0;
-    const currentRightStar = binaryNode?.rightVolume || 0;
+    // 1. Convert raw KBP volume to genuine Star Units (1 Star = 1,000 KBP)
+    const rawLeftKbp = Number(binaryNode?.leftVolume || 0);
+    const rawRightKbp = Number(binaryNode?.rightVolume || 0);
+
+    const currentLeftStar = Math.floor(rawLeftKbp / 1000);
+    const currentRightStar = Math.floor(rawRightKbp / 1000);
+    const currentMatchedStars = Math.min(currentLeftStar, currentRightStar);
     const currentTotalStar = currentLeftStar + currentRightStar;
 
-    // 1. Condition: Gold Star Rank (Minimum 200 Stars)
-    const isGoldStarAchieved = currentTotalStar >= 200;
+    // 2. Official Rank Condition: Gold Star Rank (Level 5 = 200 Matched Stars)
+    const isGoldStarAchieved =
+      user.currentRankId?.name === 'Gold Star' ||
+      user.currentRankId?.code === 'GOLD_STAR' ||
+      currentMatchedStars >= 200;
 
-    // 2. Baseline from previous month log (or conservative fallback if first month of tracking)
-    const startingLeftStar = prevMonthLog?.currentLeftStar || Math.max(0, currentLeftStar * 0.9);
-    const startingRightStar = prevMonthLog?.currentRightStar || Math.max(0, currentRightStar * 0.9);
+    // 3. Baseline for Gold Star monthly maintenance
+    const startingLeftStar = prevMonthLog?.currentLeftStar || (isGoldStarAchieved ? Math.max(100, Math.floor(currentLeftStar * 0.9)) : 0);
+    const startingRightStar = prevMonthLog?.currentRightStar || (isGoldStarAchieved ? Math.max(100, Math.floor(currentRightStar * 0.9)) : 0);
     const startingTotalStar = startingLeftStar + startingRightStar;
 
-    // 3. Current net increases
+    // 4. Current month Star increases
     const leftGrowth = Math.max(0, currentLeftStar - startingLeftStar);
     const rightGrowth = Math.max(0, currentRightStar - startingRightStar);
     const totalGrowth = leftGrowth + rightGrowth;
 
-    // 4. Required: 10% monthly increase overall, split 50:50 (5% Left leg, 5% Right leg)
-    const requiredTotalGrowth = startingTotalStar > 0 ? startingTotalStar * 0.10 : 20; // 20 stars min if starting from 200
-    const requiredPerLegGrowth = requiredTotalGrowth / 2; // 50% on Left, 50% on Right
+    // 5. Growth Requirement: 10% monthly growth (split 50:50 across Left and Right legs)
+    const requiredTotalGrowth = isGoldStarAchieved
+      ? Math.max(20, Math.round(startingTotalStar * 0.10))
+      : 20;
+    const requiredPerLegGrowth = Math.ceil(requiredTotalGrowth / 2);
 
     const has10PercentGrowth = totalGrowth >= requiredTotalGrowth;
     const has5050Balance = leftGrowth >= requiredPerLegGrowth && rightGrowth >= requiredPerLegGrowth;
-
     const isCurrentlyQualified = isGoldStarAchieved && has10PercentGrowth && has5050Balance;
 
-    // 5. Downline Team Turn Over (TTO) month-to-date
+    // 6. Downline Team Turn Over (TTO) month-to-date
     const downlineRefs = await Referral.find({ sponsorId: userId }).select('userId').lean();
     const teamUserIds = downlineRefs.map((r) => r.userId);
 
@@ -80,7 +89,7 @@ class SalaryService {
         {
           $match: {
             userId: { $in: teamUserIds },
-            status: 'COMPLETED',
+            status: { $in: ['COMPLETED', 'PAID', 'DELIVERED'] },
             createdAt: { $gte: startOfMonth, $lte: endOfMonth }
           }
         },
@@ -98,7 +107,10 @@ class SalaryService {
 
     return {
       currentMonth,
+      isGoldStarRank: isGoldStarAchieved,
       isGoldStarAchieved,
+      currentMatchedStars,
+      currentTotalStars: currentMatchedStars, // Matched stars required for rank milestone
       currentTotalStar,
       requiredMinStar: 200,
       startingTotalStar,
@@ -106,6 +118,8 @@ class SalaryService {
       startingRightStar,
       currentLeftStar,
       currentRightStar,
+      leftGrowthAchieved: leftGrowth,
+      rightGrowthAchieved: rightGrowth,
       leftGrowth,
       rightGrowth,
       totalGrowth,
@@ -113,17 +127,18 @@ class SalaryService {
       requiredPerLegGrowth,
       has10PercentGrowth,
       has5050Balance,
+      isQualifiedThisMonth: isCurrentlyQualified,
       isCurrentlyQualified,
+      teamTurnoverThisMonth: currentMonthTTO,
       currentMonthTTO,
-      salaryPercentage: 1,
-      estimatedSalary
+      projected1PercentSalary: estimatedSalary,
+      estimatedSalary,
+      salaryPercentage: 1
     };
   }
 
   /**
-   * Final Monthly Settlement Processor (Run via scheduler / admin at end of each month)
-   * @param {String|ObjectId} userId
-   * @param {String} targetMonth - "YYYY-MM"
+   * Final Monthly Settlement Processor (Executed on monthly cron/scheduler)
    */
   static async processMonthlySalaryPayout(userId, targetMonth) {
     if (!targetMonth) {
@@ -148,29 +163,29 @@ class SalaryService {
     }
 
     if (existingLog && existingLog.status === 'PROCESSED') {
-      return { success: false, message: `Salary for ${targetMonth} has already been settled and processed.` };
+      return { success: false, message: `Salary for ${targetMonth} has already been settled.` };
     }
 
-    const currentLeftStar = binaryNode.leftVolume || 0;
-    const currentRightStar = binaryNode.rightVolume || 0;
-    const totalStar = currentLeftStar + currentRightStar;
+    const currentLeftStar = Math.floor((binaryNode.leftVolume || 0) / 1000);
+    const currentRightStar = Math.floor((binaryNode.rightVolume || 0) / 1000);
+    const currentMatchedStars = Math.min(currentLeftStar, currentRightStar);
 
-    // Condition 1: Gold Star Rank
-    if (totalStar < 200) {
+    // Condition 1: Gold Star Rank (Level 5 = 200 Matched Stars)
+    if (currentMatchedStars < 200 && user.currentRankId?.name !== 'Gold Star') {
       await SalaryLog.findOneAndUpdate(
         { userId, month: targetMonth },
         {
           userId,
           month: targetMonth,
           rankAtEvaluation: user.currentRankId?.name || 'Below Gold Star',
-          totalStarAtEvaluation: totalStar,
+          totalStarAtEvaluation: currentMatchedStars,
           isQualified: false,
-          disqualificationReason: 'Total Star volume is below 200 Star (Gold Star requirement not met)',
+          disqualificationReason: 'Total matched star volume is below 200 Stars (Gold Star requirement not met)',
           status: 'DISQUALIFIED'
         },
         { upsert: true, new: true }
       );
-      return { success: false, message: 'Disqualified: Minimum 200 Star Gold Star rank requirement not met.' };
+      return { success: false, message: 'Disqualified: Minimum 200 Matched Star Gold Star requirement not met.' };
     }
 
     // Baseline from previous month
@@ -178,16 +193,16 @@ class SalaryService {
     const prevMonthStr = this.getMonthString(prevMonthDate);
     const prevMonthLog = await SalaryLog.findOne({ userId, month: prevMonthStr });
 
-    const startingLeftStar = prevMonthLog?.currentLeftStar || Math.max(0, currentLeftStar * 0.9);
-    const startingRightStar = prevMonthLog?.currentRightStar || Math.max(0, currentRightStar * 0.9);
+    const startingLeftStar = prevMonthLog?.currentLeftStar || Math.max(100, Math.floor(currentLeftStar * 0.9));
+    const startingRightStar = prevMonthLog?.currentRightStar || Math.max(100, Math.floor(currentRightStar * 0.9));
     const startingTotalStar = startingLeftStar + startingRightStar;
 
     const leftGrowth = Math.max(0, currentLeftStar - startingLeftStar);
     const rightGrowth = Math.max(0, currentRightStar - startingRightStar);
     const totalGrowth = leftGrowth + rightGrowth;
 
-    const requiredTotalGrowth = startingTotalStar * 0.10; // 10% monthly increase
-    const requiredPerLeg = requiredTotalGrowth / 2; // 50:50 ratio
+    const requiredTotalGrowth = Math.max(20, Math.round(startingTotalStar * 0.10));
+    const requiredPerLeg = Math.ceil(requiredTotalGrowth / 2);
 
     const has10Percent = totalGrowth >= requiredTotalGrowth;
     const is5050Balanced = leftGrowth >= requiredPerLeg && rightGrowth >= requiredPerLeg;
@@ -203,7 +218,7 @@ class SalaryService {
         {
           $match: {
             userId: { $in: teamUserIds },
-            status: 'COMPLETED',
+            status: { $in: ['COMPLETED', 'PAID', 'DELIVERED'] },
             createdAt: { $gte: startOfMonth, $lte: endOfMonth }
           }
         },
@@ -221,9 +236,9 @@ class SalaryService {
 
     let disqualificationReason = '';
     if (!has10Percent) {
-      disqualificationReason = `Monthly Star growth was less than 10% (Required: +${requiredTotalGrowth.toFixed(1)} Stars, Achieved: +${totalGrowth} Stars)`;
+      disqualificationReason = `Monthly Star growth was less than 10% (Required: +${requiredTotalGrowth} Stars, Achieved: +${totalGrowth} Stars)`;
     } else if (!is5050Balanced) {
-      disqualificationReason = `Star growth was not balanced 50:50 across Left and Right legs (Required per leg: +${requiredPerLeg.toFixed(1)} Stars. Left: +${leftGrowth}, Right: +${rightGrowth})`;
+      disqualificationReason = `Star growth was not balanced 50:50 across Left and Right legs (Required per leg: +${requiredPerLeg} Stars. Left: +${leftGrowth}, Right: +${rightGrowth})`;
     }
 
     const log = await SalaryLog.findOneAndUpdate(
@@ -232,7 +247,7 @@ class SalaryService {
         userId,
         month: targetMonth,
         rankAtEvaluation: user.currentRankId?.name || 'Gold Star',
-        totalStarAtEvaluation: totalStar,
+        totalStarAtEvaluation: currentMatchedStars,
         startingLeftStar,
         startingRightStar,
         currentLeftStar,
@@ -253,7 +268,6 @@ class SalaryService {
       { upsert: true, new: true }
     );
 
-    // Credit member's wallet if qualified
     if (isQualified && salaryAmount > 0) {
       let wallet = await Wallet.findOne({ userId });
       if (!wallet) {
