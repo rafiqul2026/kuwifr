@@ -10,7 +10,7 @@ import styles from './DashboardPage.module.css';
 
 /**
  * ============================================================================
- * 📊 MEMBER DASHBOARD (KBP-DRIVEN BUSINESS ENGINE)
+ * 📊 MEMBER DASHBOARD COMPONENT (STANDARDIZED COMPACT CARDS)
  * ============================================================================
  */
 const DashboardPage = () => {
@@ -30,7 +30,7 @@ const DashboardPage = () => {
       if (res.data?.success && res.data?.data) {
         setStats(res.data.data);
       } else {
-        throw new Error('Could not parse dashboard analytics');
+        throw new Error('Invalid dashboard analytics data');
       }
     } catch (err) {
       const errMsg = err.response?.data?.message || 'Failed to load dashboard data';
@@ -45,7 +45,7 @@ const DashboardPage = () => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  // Formatter for Indian Currency (Payouts & Income)
+  // Currency Formatter
   const formatINR = (val) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -54,7 +54,7 @@ const DashboardPage = () => {
     }).format(Number(val) || 0);
   };
 
-  // Formatter for Business Volume (KBP)
+  // KBP Volume Formatter
   const formatKBP = (val) => {
     return `${(Number(val) || 0).toLocaleString()} KBP`;
   };
@@ -97,8 +97,8 @@ const DashboardPage = () => {
         document.body.removeChild(tempInput);
       }
       setCopiedSide(side);
-      showNotification(`${side.toUpperCase()} referral link copied to clipboard!`, 'info');
-      setTimeout(() => setCopiedSide(null), 2200);
+      showNotification(`${side.toUpperCase()} referral link copied!`, 'info');
+      setTimeout(() => setCopiedSide(null), 2000);
     } catch {
       showNotification('Failed to copy link.', 'error');
     }
@@ -143,7 +143,7 @@ const DashboardPage = () => {
       </div>
 
       <div className={styles.contentLayer}>
-        {/* Header Bar */}
+        {/* Compact Header Bar */}
         <header className={styles.dashboardHeader}>
           <div className={styles.headerLeft}>
             <div className={styles.greetingBadge}>
@@ -173,8 +173,8 @@ const DashboardPage = () => {
             >
               <svg
                 className={loading ? styles.spinIcon : ''}
-                width="16"
-                height="16"
+                width="14"
+                height="14"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -191,13 +191,13 @@ const DashboardPage = () => {
           </div>
         </header>
 
-        {/* Inactive Member Activation Banner */}
+        {/* Compact Inactive Member Banner */}
         {user?.status !== 'ACTIVE' && (
           <div className={styles.activationNoticeBanner}>
             <div className={styles.noticeIconBox}>⚡</div>
             <div className={styles.noticeTextBox}>
-              <h4>Your Member ID is currently INACTIVE</h4>
-              <p>Purchase any 1 of our 5 activation packages to activate your account and begin earning binary matching income.</p>
+              <h4>Account Currently INACTIVE</h4>
+              <p>Purchase any 1 of our 5 packages to activate your account and start earning binary matching income.</p>
             </div>
             <Link to="/member/packages" className={styles.noticeActionBtn}>
               Activate Account →
@@ -206,10 +206,10 @@ const DashboardPage = () => {
         )}
 
         {/* ============================================================
-            METRIC GRID: 3 COLUMNS DESKTOP / EXACTLY 2 PER ROW ON MOBILE
+            STANDARDIZED COMPACT METRICS GRID (3 DESKTOP / 2 MOBILE)
         ============================================================ */}
         <div className={styles.statsGridContainer}>
-          {/* Row 1: Earnings & Financials */}
+          {/* Row 1: Core Financials */}
           <div className={`${styles.statCard} ${styles.cardFinancial}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>TODAY INCOME</span>
@@ -343,12 +343,12 @@ const DashboardPage = () => {
               ) : (
                 <div className={styles.dualVolumeBox}>
                   <div className={styles.volumeColumn}>
-                    <span className={styles.sideLabelLeft}>Left Star</span>
+                    <span className={styles.sideLabelLeft}>Left:</span>
                     <strong className={styles.sideValueLeft}>{monthlyStars.left}</strong>
                   </div>
                   <div className={styles.volumeDivider}></div>
                   <div className={styles.volumeColumn}>
-                    <span className={styles.sideLabelRight}>Right Star</span>
+                    <span className={styles.sideLabelRight}>Right:</span>
                     <strong className={styles.sideValueRight}>{monthlyStars.right}</strong>
                   </div>
                 </div>
@@ -405,7 +405,7 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          {/* Row 5: Active Downlines & Star Snapshot */}
+          {/* Row 5: Active Downlines & Star Snapshots */}
           <div className={`${styles.statCard} ${styles.cardTeam}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>TOTAL ACTIVE MEMBERS</span>
@@ -432,17 +432,17 @@ const DashboardPage = () => {
               ) : (
                 <div className={styles.dualVolumeBox}>
                   <div className={styles.volumeColumn}>
-                    <span className={styles.sideLabelLeft}>Left Star</span>
+                    <span className={styles.sideLabelLeft}>Left:</span>
                     <strong className={styles.sideValueLeft}>{todayStars.left}</strong>
                   </div>
                   <div className={styles.volumeDivider}></div>
                   <div className={styles.volumeColumn}>
-                    <span className={styles.sideLabelRight}>Right Star</span>
+                    <span className={styles.sideLabelRight}>Right:</span>
                     <strong className={styles.sideValueRight}>{todayStars.right}</strong>
                   </div>
                 </div>
               )}
-              <span className={styles.metricSubtitle}>Today's Leg Stars</span>
+              <span className={styles.metricSubtitle}>Today's Stars</span>
             </div>
           </div>
 
@@ -457,21 +457,21 @@ const DashboardPage = () => {
               ) : (
                 <div className={styles.dualVolumeBox}>
                   <div className={styles.volumeColumn}>
-                    <span className={styles.sideLabelLeft}>Left Star</span>
+                    <span className={styles.sideLabelLeft}>Left:</span>
                     <strong className={styles.sideValueLeft}>{totalStars.left}</strong>
                   </div>
                   <div className={styles.volumeDivider}></div>
                   <div className={styles.volumeColumn}>
-                    <span className={styles.sideLabelRight}>Right Star</span>
+                    <span className={styles.sideLabelRight}>Right:</span>
                     <strong className={styles.sideValueRight}>{totalStars.right}</strong>
                   </div>
                 </div>
               )}
-              <span className={styles.metricSubtitle}>Lifetime Downline Stars</span>
+              <span className={styles.metricSubtitle}>Lifetime Stars</span>
             </div>
           </div>
 
-          {/* Row 6: Recognition Milestones */}
+          {/* Row 6: Career & Fund Achievements */}
           <div className={`${styles.statCard} ${styles.cardMeta}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>CURRENT RANK</span>
@@ -506,10 +506,10 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        {/* Salary Wallet Progress */}
+        {/* Salary Live Progress */}
         <SalaryProgressCard />
 
-        {/* Direct Referral Links */}
+        {/* Streamlined Direct Referral Links */}
         <section className={styles.referralShareSection}>
           <div className={styles.referralHeader}>
             <div className={styles.referralHeaderIcon}>🔗</div>
@@ -558,10 +558,10 @@ const DashboardPage = () => {
                     type="button"
                     className={styles.shareIconButton}
                     onClick={() => handleNativeShare('left', referralLinks.left)}
-                    title="Share Link via Mobile Apps"
+                    title="Share Link"
                     aria-label="Share Left Link"
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <circle cx="18" cy="5" r="3"></circle>
                       <circle cx="6" cy="12" r="3"></circle>
                       <circle cx="18" cy="19" r="3"></circle>
@@ -611,10 +611,10 @@ const DashboardPage = () => {
                     type="button"
                     className={styles.shareIconButton}
                     onClick={() => handleNativeShare('right', referralLinks.right)}
-                    title="Share Link via Mobile Apps"
+                    title="Share Link"
                     aria-label="Share Right Link"
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <circle cx="18" cy="5" r="3"></circle>
                       <circle cx="6" cy="12" r="3"></circle>
                       <circle cx="18" cy="19" r="3"></circle>
@@ -631,5 +631,4 @@ const DashboardPage = () => {
     </div>
   );
 };
-
 export default DashboardPage;
