@@ -1,12 +1,59 @@
 // client/src/pages/member/GrowthGenerationPage.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './GrowthGenerationPage.module.css';
 
 /**
- * 🌲 Classical Hierarchical Member Node Box
+ * Modern Slim Curved Connector matching enterprise genealogy layouts (1.2px)
+ */
+const TreeBranchConnector = () => {
+  return (
+    <div className={styles.svgConnectorWrapper} aria-hidden="true">
+      <svg
+        className={styles.branchSvg}
+        viewBox="0 0 100 40"
+        preserveAspectRatio="none"
+      >
+        <defs>
+          <linearGradient id="leftLegGradient" x1="50%" y1="0%" x2="25%" y2="100%">
+            <stop offset="0%" stopColor="#94a3b8" />
+            <stop offset="100%" stopColor="#3b82f6" />
+          </linearGradient>
+          <linearGradient id="rightLegGradient" x1="50%" y1="0%" x2="75%" y2="100%">
+            <stop offset="0%" stopColor="#94a3b8" />
+            <stop offset="100%" stopColor="#f43f5e" />
+          </linearGradient>
+        </defs>
+
+        {/* Stem down from Parent */}
+        <line x1="50" y1="0" x2="50" y2="14" className={styles.parentStemLine} />
+
+        {/* Left Leg: Slim graceful curve to Left child */}
+        <path
+          d="M 50 14 C 50 24, 25 20, 25 40"
+          fill="none"
+          stroke="url(#leftLegGradient)"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+
+        {/* Right Leg: Slim graceful curve to Right child */}
+        <path
+          d="M 50 14 C 50 24, 75 20, 75 40"
+          fill="none"
+          stroke="url(#rightLegGradient)"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+      </svg>
+    </div>
+  );
+};
+
+/**
+ * Member Node Box
  */
 const GrowthGenerationNode = ({ node, level = 1, onNodeClick, onMouseEnter, onMouseLeave }) => {
   const isVacant = !node || node.isVacant;
@@ -44,16 +91,17 @@ const GrowthGenerationNode = ({ node, level = 1, onNodeClick, onMouseEnter, onMo
         </div>
       </div>
 
-      {/* Hierarchical Connecting Lines & Downline Sub-branches (Renders 3 Full Generations) */}
+      {/* Downline Sub-branches */}
       {!isVacant && level < 4 && (
         <div className={styles.treeChildrenCluster}>
-          <div className={styles.branchVertical}></div>
-          <div className={styles.branchHorizontal}></div>
+          <TreeBranchConnector />
+
           <div className={styles.childrenRow}>
-            {/* Left Leg Sub-Branch */}
+            {/* Left Child Leg */}
             <div className={styles.childLegColumn}>
-              <div className={styles.subVertical}></div>
-              <span className={styles.legBadgeLeft}>L</span>
+              <div className={styles.legIndicatorWrapper}>
+                <span className={styles.legBadgeLeft}>L</span>
+              </div>
               <GrowthGenerationNode
                 node={node.left || { isVacant: true }}
                 level={level + 1}
@@ -63,10 +111,11 @@ const GrowthGenerationNode = ({ node, level = 1, onNodeClick, onMouseEnter, onMo
               />
             </div>
 
-            {/* Right Leg Sub-Branch */}
+            {/* Right Child Leg */}
             <div className={styles.childLegColumn}>
-              <div className={styles.subVertical}></div>
-              <span className={styles.legBadgeRight}>R</span>
+              <div className={styles.legIndicatorWrapper}>
+                <span className={styles.legBadgeRight}>R</span>
+              </div>
               <GrowthGenerationNode
                 node={node.right || { isVacant: true }}
                 level={level + 1}
@@ -82,6 +131,14 @@ const GrowthGenerationNode = ({ node, level = 1, onNodeClick, onMouseEnter, onMo
   );
 };
 
+/**
+ * 🔢 Deep Recursive Counter for all registered members in a branch (excludes vacant spots)
+ */
+const countRegisteredMembers = (branchRoot) => {
+  if (!branchRoot || branchRoot.isVacant || !branchRoot.memberId) return 0;
+  return 1 + countRegisteredMembers(branchRoot.left) + countRegisteredMembers(branchRoot.right);
+};
+
 const GrowthGenerationPage = () => {
   const { user } = useAuth();
   const { showNotification } = useNotification();
@@ -94,9 +151,6 @@ const GrowthGenerationPage = () => {
   const [hoveredNode, setHoveredNode] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
-  // --------------------------------------------------------------------------
-  // API: Fetch Growth Generation for target member ID
-  // --------------------------------------------------------------------------
   const fetchGrowthGeneration = useCallback(async (targetId = '') => {
     try {
       setLoading(true);
@@ -122,9 +176,6 @@ const GrowthGenerationPage = () => {
     fetchGrowthGeneration();
   }, [fetchGrowthGeneration]);
 
-  // --------------------------------------------------------------------------
-  // Drill-Down: Click any node to open their downline as root
-  // --------------------------------------------------------------------------
   const handleNodeClick = (node) => {
     if (!node || node.isVacant) return;
     if (node.memberId === currentRootId) return;
@@ -156,13 +207,12 @@ const GrowthGenerationPage = () => {
     fetchGrowthGeneration(cleanId);
   };
 
-  // Hover Tooltip
   const handleMouseEnter = (e, node) => {
     if (!node || node.isVacant) return;
     const rect = e.currentTarget.getBoundingClientRect();
     setTooltipPos({
       x: rect.left + window.scrollX + rect.width / 2,
-      y: rect.bottom + window.scrollY + 10
+      y: rect.bottom + window.scrollY + 8
     });
     setHoveredNode(node);
   };
@@ -173,9 +223,20 @@ const GrowthGenerationPage = () => {
 
   const formatKBP = (val) => `${(Number(val) || 0).toLocaleString('en-IN')} KBP`;
 
+  // --------------------------------------------------------------------------
+  // Exact Registered Member Counts in Left and Right branches of Root
+  // --------------------------------------------------------------------------
+  const memberCounts = useMemo(() => {
+    if (!rootNode) return { left: 0, right: 0 };
+    return {
+      left: countRegisteredMembers(rootNode.left),
+      right: countRegisteredMembers(rootNode.right)
+    };
+  }, [rootNode]);
+
   return (
     <div className={styles.pageScene}>
-      {/* Top Header Block */}
+      {/* Header Block */}
       <div className={styles.headerBlock}>
         <div className={styles.headerTitleGroup}>
           <span className={styles.pillBadge}>NETWORK STRUCTURE</span>
@@ -208,40 +269,42 @@ const GrowthGenerationPage = () => {
         </div>
       </div>
 
-      {/* Main Glass Workspace */}
+      {/* Main Workspace Card */}
       <div className={styles.mainCanvasCard}>
-        {/* Search Toolbar & Leg Volume Summary */}
+        {/* Search Toolbar */}
         <div className={styles.toolbar}>
           <form onSubmit={handleSearchSubmit} className={styles.searchForm}>
             <label htmlFor="memberIdInput" className={styles.searchLabel}>
-              Jump to Member:
+              Enter Member ID:
             </label>
             <input
               id="memberIdInput"
               type="text"
-              placeholder="Enter Member ID (e.g. KFR437046)..."
+              placeholder="e.g. KFR437046"
               value={searchMemberId}
               onChange={(e) => setSearchMemberId(e.target.value)}
               className={styles.searchInput}
             />
             <button type="submit" className={styles.searchBtn}>
-              Locate
+              Submit
             </button>
           </form>
+        </div>
 
-          <div className={styles.volumeCounters}>
-            <div className={styles.counterPillLeft}>
-              <span className={styles.dotLeft}></span>
-              Member Left: <strong>{rootNode?.leftKbp ? Math.floor(rootNode.leftKbp / 1000) : 0} Stars</strong> ({formatKBP(rootNode?.leftKbp || 0)})
-            </div>
-            <div className={styles.counterPillRight}>
-              <span className={styles.dotRight}></span>
-              Member Right: <strong>{rootNode?.rightKbp ? Math.floor(rootNode.rightKbp / 1000) : 0} Stars</strong> ({formatKBP(rootNode?.rightKbp || 0)})
-            </div>
+        {/* Reference Legend: Member Left : X and Member Right : Y */}
+        <div className={styles.legendSummaryRow}>
+          <div className={styles.legendLeft}>
+            <strong>Member Left : </strong>
+            <span>{memberCounts.left}</span>
+          </div>
+
+          <div className={styles.legendRight}>
+            <strong>Member Right : </strong>
+            <span>{memberCounts.right}</span>
           </div>
         </div>
 
-        {/* Tree Canvas Stage */}
+        {/* Tree Stage Viewport */}
         <div className={styles.stageViewport}>
           {loading ? (
             <div className={styles.centerState}>
@@ -266,7 +329,7 @@ const GrowthGenerationPage = () => {
         </div>
       </div>
 
-      {/* Hover Tooltip (Classical MLM Style) */}
+      {/* Hover Tooltip Card */}
       {hoveredNode && (
         <div
           className={styles.detailTooltip}
