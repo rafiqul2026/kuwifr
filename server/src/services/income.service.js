@@ -60,7 +60,7 @@ class IncomeService {
    * Process Referral Income (10% of KBP)
    * Income goes to the sponsor (upline level 1)
    */
-  async processReferralIncome(userId, kbp, orderId) {
+  async processReferralIncome(userId, inputKbp, orderId) {
     // Find the sponsor
     const user = await User.findById(userId);
     if (!user || !user.sponsorId) {
@@ -74,11 +74,19 @@ class IncomeService {
       return null;
     }
 
-    // Calculate income
-    const rate = 0.10; // 10%
-    const grossAmount = kbp * rate;
+    // 🌟 Normalize KBP strictly according to package tier rules (handles cash amount vs KBP mapping)
+    let effectiveKbp = Number(inputKbp) || 1000;
+    if (effectiveKbp === 1500) effectiveKbp = 1000;       // Starter cash -> 1,000 KBP
+    else if (effectiveKbp === 5000) effectiveKbp = 5000;  // Growth cash -> 5,000 KBP
+    else if (effectiveKbp === 10000) effectiveKbp = 7500; // LifeSafe cash -> 7,500 KBP
+    else if (effectiveKbp === 15000) effectiveKbp = 10000;// Elite cash -> 10,000 KBP
+    else if (effectiveKbp === 110000) effectiveKbp = 50000;// Titanium cash -> 50,000 KBP
 
-    console.log(`   Referral Income: ${grossAmount} for sponsor ${sponsor.email}`);
+    // Calculate income (10% of Package KBP Value)
+    const rate = 0.10; // 10%
+    const grossAmount = effectiveKbp * rate;
+
+    console.log(`   Referral Income: ${grossAmount} for sponsor ${sponsor.email} (Based on KBP: ${effectiveKbp})`);
 
     // Apply caps
     const cappedResult = await this.applyCaps(sponsor._id, grossAmount);
@@ -90,7 +98,7 @@ class IncomeService {
       'REFERRAL_INCOME',
       orderId,
       'Order',
-      kbp,
+      effectiveKbp,
       rate,
       {
         sponsoredUserId: userId,
@@ -641,7 +649,7 @@ class IncomeService {
 
     // Determine wallet type
     const walletType = ['REFERRAL_INCOME', 'MATCHING_INCOME', 'LEADERSHIP_INCOME_L1', 
-                        'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3'].includes(type)
+                         'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3'].includes(type)
       ? 'INCOME' : 'REPURCHASE';
 
     try {
