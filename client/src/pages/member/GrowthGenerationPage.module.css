@@ -1,7 +1,7 @@
 /* client/src/pages/member/GrowthGenerationPage.module.css */
 
 .pageScene {
-  max-width: 1360px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 16px 20px 60px 20px;
   box-sizing: border-box;
@@ -9,7 +9,9 @@
   color: #0f172a;
 }
 
-/* Header Block */
+/* ============================================================
+   HEADER BLOCK
+   ============================================================ */
 .headerBlock {
   display: flex;
   justify-content: space-between;
@@ -87,7 +89,9 @@
   color: #ffffff;
 }
 
-/* Main Container Card */
+/* ============================================================
+   CANVAS CARD & TOOLBAR
+   ============================================================ */
 .mainCanvasCard {
   background: #ffffff;
   border: 1px solid #e2e8f0;
@@ -96,102 +100,113 @@
   overflow: hidden;
 }
 
-/* Toolbar */
 .toolbar {
-  padding: 12px 20px;
-  background: #ffffff;
-  border-bottom: 1px solid #f1f5f9;
+  padding: 12px 18px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
   display: flex;
-  justify-content: flex-start;
+  justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .searchForm {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  width: 100%;
+  max-width: 440px;
 }
 
 .searchLabel {
-  font-size: 13px;
-  font-weight: 700;
-  color: #334155;
+  font-size: 12px;
+  font-weight: 750;
+  color: #475569;
+  white-space: nowrap;
 }
 
 .searchInput {
-  padding: 6px 12px;
+  flex: 1;
+  height: 36px;
+  padding: 0 12px;
   border: 1.5px solid #cbd5e1;
   border-radius: 8px;
   font-size: 12.5px;
   outline: none;
   font-family: ui-monospace, SFMono-Regular, monospace;
-  width: 180px;
+  background: #ffffff;
+  transition: border-color 0.15s ease;
 }
 
 .searchInput:focus {
-  border-color: #22c55e;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 .searchBtn {
-  background: #22c55e;
+  background: #16a34a;
   color: #ffffff;
   border: none;
-  padding: 6px 16px;
+  height: 36px;
+  padding: 0 16px;
   border-radius: 8px;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 800;
   cursor: pointer;
   transition: background 0.15s ease;
 }
 
 .searchBtn:hover {
-  background: #16a34a;
+  background: #15803d;
 }
 
-/* Reference Legend Banner (Clean Left / Right Split) */
+/* Legend Summary Row */
 .legendSummaryRow {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 12px 24px;
   background: #f8fafc;
   border-bottom: 1px solid #e2e8f0;
+  padding: 10px 20px;
+  font-size: 12.5px;
+  font-weight: 700;
 }
 
-.legendLeft,
-.legendRight {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: #334155;
+.legendLeft strong, .legendRight strong {
+  color: #0f172a;
+  font-weight: 850;
+  margin-left: 6px;
 }
 
-.legendLeft strong { color: #1e293b; }
-.legendRight strong { color: #1e293b; }
-
-.legendDotLeft {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #2563eb;
+.legendLeft span, .legendRight span {
+  color: #64748b;
 }
 
-.legendDotRight {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #e11d48;
-}
-
-/* Viewport Area */
+/* ============================================================
+   STAGE VIEWPORT & TOUCH SCROLL
+   ============================================================ */
 .stageViewport {
-  padding: 36px 20px;
+  padding: 30px 16px;
   overflow-x: auto;
-  min-height: 520px;
+  overflow-y: hidden;
+  min-height: 500px;
   display: flex;
   justify-content: center;
-  background: #ffffff;
+  background: radial-gradient(circle, rgba(241, 245, 249, 0.4) 0%, #ffffff 100%);
+  -webkit-overflow-scrolling: touch;
+}
+
+.stageViewport::-webkit-scrollbar {
+  height: 6px;
+}
+
+.stageViewport::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.stageViewport::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
 }
 
 .treeWrapper {
@@ -200,7 +215,9 @@
   margin: 0 auto;
 }
 
-/* Branch Structure */
+/* ============================================================
+   TREE BRANCH STRUCTURE & SLIM CONNECTORS
+   ============================================================ */
 .treeBranchContainer {
   display: flex;
   flex-direction: column;
@@ -208,32 +225,56 @@
   position: relative;
 }
 
-/* Node Box */
+/* SVG Connector Lines */
+.svgConnectorWrapper {
+  width: 100%;
+  height: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.branchSvg {
+  width: 100%;
+  height: 20px;
+}
+
+.parentStemLine {
+  stroke: #94a3b8;
+  stroke-width: 1;
+}
+
+/* 🌟 Compact Professional Node Box */
 .nodeBox {
   display: flex;
   flex-direction: column;
   align-items: center;
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 12px;
-  transition: transform 0.15s ease;
+  background: #ffffff;
+  border: 1.2px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 5px 8px;
+  width: 86px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   z-index: 5;
 }
 
 .nodeBox:hover {
-  transform: scale(1.06);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+  border-color: #3b82f6;
 }
 
 .avatarPill {
-  width: 42px;
-  height: 42px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 4px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+  margin-bottom: 3px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
 }
 
 .nodeActive .avatarPill {
@@ -245,18 +286,18 @@
   background: #f1f5f9;
   border: 1px dashed #cbd5e1;
   color: #94a3b8;
-  cursor: default;
   box-shadow: none;
+  cursor: default;
 }
 
 .vacantPlus {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 800;
 }
 
 .memberSvg {
-  width: 22px;
-  height: 22px;
+  width: 13px;
+  height: 13px;
 }
 
 .nodeLabels {
@@ -264,28 +305,27 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
+  width: 100%;
 }
 
 .nodeName {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #334155;
-  max-width: 110px;
+  font-size: 9.5px;
+  font-weight: 750;
+  color: #1e293b;
+  max-width: 78px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .nodeId {
-  font-size: 11px;
+  font-size: 8.5px;
   font-weight: 800;
-  color: #0f172a;
+  color: #64748b;
   font-family: ui-monospace, SFMono-Regular, monospace;
 }
 
-/* ============================================================
-   🌲 SLIM & MODERN SVG RADIUS CONNECTORS (1.2px)
-   ============================================================ */
+/* Sub-branch rows */
 .treeChildrenCluster {
   display: flex;
   flex-direction: column;
@@ -293,41 +333,17 @@
   width: 100%;
 }
 
-.svgConnectorWrapper {
-  width: 100%;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: -1px 0;
-  pointer-events: none;
-}
-
-.branchSvg {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.parentStemLine {
-  stroke: #94a3b8;
-  stroke-width: 1.2;
-  stroke-linecap: round;
-}
-
-/* Children Row */
 .childrenRow {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   width: 100%;
-  gap: 24px;
+  gap: 12px;
 }
 
 .childLegColumn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex: 1;
   position: relative;
 }
 
@@ -337,12 +353,10 @@
 
 .legBadgeLeft,
 .legBadgeRight {
-  font-size: 8px;
-  font-weight: 900;
-  padding: 1px 5px;
-  border-radius: 4px;
-  letter-spacing: 0.5px;
-  display: inline-block;
+  font-size: 7.5px;
+  font-weight: 850;
+  padding: 0.5px 3.5px;
+  border-radius: 3px;
 }
 
 .legBadgeLeft {
@@ -352,21 +366,23 @@
 }
 
 .legBadgeRight {
-  color: #e11d48;
-  background: #fff1f2;
-  border: 1px solid #fecdd3;
+  color: #db2777;
+  background: #fdf2f8;
+  border: 1px solid #fbcfe8;
 }
 
-/* Floating Tooltip */
+/* ============================================================
+   FLOATING TOOLTIP PANEL
+   ============================================================ */
 .detailTooltip {
   position: absolute;
   transform: translateX(-50%);
   background: #ffffff;
   border: 1px solid #cbd5e1;
   border-radius: 12px;
-  box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.2);
   z-index: 99999;
-  min-width: 230px;
+  min-width: 220px;
   overflow: hidden;
   pointer-events: none;
   animation: popIn 0.15s ease-out;
@@ -375,37 +391,37 @@
 .tooltipHeader {
   background: #0f172a;
   color: #ffffff;
-  padding: 8px 12px;
+  padding: 7px 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 11px;
+  font-size: 10.5px;
 }
 
 .statusActive {
   color: #4ade80;
   font-weight: 800;
-  font-size: 10px;
+  font-size: 9.5px;
 }
 
 .statusInactive {
   color: #f87171;
   font-weight: 800;
-  font-size: 10px;
+  font-size: 9.5px;
 }
 
 .tooltipBody {
-  padding: 10px 12px;
+  padding: 9px 11px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
   background: #ffffff;
 }
 
 .tooltipRow {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 10.5px;
   color: #64748b;
 }
 
@@ -418,14 +434,16 @@
 }
 
 .leftVol { color: #2563eb; }
-.rightVol { color: #e11d48; }
+.rightVol { color: #db2777; }
 
 @keyframes popIn {
   from { opacity: 0; transform: translate(-50%, 6px); }
   to { opacity: 1; transform: translate(-50%, 0); }
 }
 
-/* States */
+/* ============================================================
+   LOADING & EMPTY STATES
+   ============================================================ */
 .centerState {
   display: flex;
   flex-direction: column;
@@ -437,8 +455,8 @@
 }
 
 .spinner {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border: 2.5px solid #e2e8f0;
   border-top-color: #2563eb;
   border-radius: 50%;
@@ -450,35 +468,35 @@
   to { transform: rotate(360deg); }
 }
 
-/* Mobile Breakpoints */
+/* ============================================================
+   📱 MOBILE BREAKPOINTS
+   ============================================================ */
 @media (max-width: 768px) {
   .pageScene {
-    padding: 12px 10px;
+    padding: 10px;
   }
 
-  .headerBlock,
   .toolbar {
     flex-direction: column;
     align-items: stretch;
+    padding: 10px 12px;
   }
 
   .searchForm {
-    width: 100%;
-  }
-
-  .searchInput {
-    flex: 1;
-    width: auto;
+    max-width: 100%;
   }
 
   .legendSummaryRow {
-    flex-direction: row;
-    justify-content: space-between;
     padding: 8px 14px;
     font-size: 11.5px;
   }
 
+  .nodeBox {
+    width: 76px;
+    padding: 4px 5px;
+  }
+
   .childrenRow {
-    gap: 14px;
+    gap: 8px;
   }
 }

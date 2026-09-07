@@ -40,9 +40,8 @@ async function getReferralChainForUser(userId) {
   return chain;
 }
 
-// ============ REGISTRATION (AUTO-DROPS LEGACY UNIQUE INDEXES FOR EMAIL & PHONE) ============
+// ============ REGISTRATION (IDEMPOTENT & MULTI-ACCOUNT FRIENDLY) ============
 const register = async (req, res, next) => {
-  let user;
   try {
     const { fullName, email, phoneNumber, password, sponsorId, side, binarySide, position, pos } = req.body;
 
@@ -58,7 +57,7 @@ const register = async (req, res, next) => {
 
     const generatedMemberId = await User.generateMemberId();
 
-    user = new User({
+    const user = new User({
       memberId: generatedMemberId,
       referralCode: generatedMemberId,
       fullName: fullName.trim(),
@@ -100,16 +99,14 @@ const register = async (req, res, next) => {
       user.binarySide = inputSide === 'right' ? 'right' : 'left';
     }
 
-    // Attempt save with automatic legacy index cleanup on duplicate key error
+    // Save user with automatic legacy index cleanup if triggered
     try {
       await user.save();
     } catch (saveErr) {
       if (saveErr.code === 11000) {
         const duplicateField = Object.keys(saveErr.keyPattern || {})[0] || '';
-        if (duplicateField === 'email' || duplicateField === 'phoneNumber') {
-          console.warn(`⚠️ Dropping legacy unique index on '${duplicateField}' to allow shared contact registration...`);
+        if (['email', 'phoneNumber'].includes(duplicateField)) {
           await User.collection.dropIndex(`${duplicateField}_1`).catch(() => {});
-          // Retry save successfully after dropping index
           await user.save();
         } else {
           throw saveErr;
@@ -119,27 +116,25 @@ const register = async (req, res, next) => {
       }
     }
 
-    // 10-level Unilevel genealogy
+    // 10-level Unilevel genealogy (Using upsert to prevent duplicate key errors)
     if (user.sponsorId) {
       const chain = await getReferralChainForUser(user.sponsorId);
       for (let i = 0; i < chain.length && i < 10; i++) {
         const sponsor = chain[i];
         const level = i + 1;
-        const existingRef = await Referral.findOne({
-          sponsorId: sponsor._id,
-          userId: user._id
-        });
 
-        if (!existingRef) {
-          await Referral.create({
-            sponsorId: sponsor._id,
-            userId: user._id,
-            level: level,
-            parentId: i === 0 ? user.sponsorId : chain[i - 1]._id,
-            path: chain.slice(0, i + 1).map((s) => s._id).join('-'),
-            isActive: false
-          });
-        }
+        await Referral.findOneAndUpdate(
+          { sponsorId: sponsor._id, userId: user._id },
+          {
+            $set: {
+              level: level,
+              parentId: i === 0 ? user.sponsorId : chain[i - 1]._id,
+              path: chain.slice(0, i + 1).map((s) => s._id).join('-'),
+              isActive: false
+            }
+          },
+          { upsert: true, new: true }
+        );
       }
 
       await User.findByIdAndUpdate(user.sponsorId, {
@@ -152,32 +147,41 @@ const register = async (req, res, next) => {
         console.error('Binary placement notice:', error.message);
       }
     } else {
-      const rootNode = new BinaryNode({
-        userId: user._id,
-        parentId: null,
-        position: 'root',
-        level: 1,
-        leftChildId: null,
-        rightChildId: null,
-        leftVolume: 0,
-        rightVolume: 0,
-        matchingVolume: 0,
-        availableLeftVolume: 0,
-        availableRightVolume: 0,
-        pairCount: 0,
-        totalKBP: 0
-      });
-      await rootNode.save();
+      await BinaryNode.findOneAndUpdate(
+        { userId: user._id },
+        {
+          $setOnInsert: {
+            parentId: null,
+            position: 'root',
+            level: 1,
+            leftChildId: null,
+            rightChildId: null,
+            leftVolume: 0,
+            rightVolume: 0,
+            matchingVolume: 0,
+            availableLeftVolume: 0,
+            availableRightVolume: 0,
+            pairCount: 0,
+            totalKBP: 0
+          }
+        },
+        { upsert: true, new: true }
+      );
     }
 
-    // Create Wallet for new user
-    await Wallet.create({
-      userId: user._id,
-      incomeBalance: 0,
-      repurchaseBalance: 0,
-      totalIncome: 0,
-      totalWithdrawn: 0
-    });
+    // Create Wallet for new user (Idempotent upsert)
+    await Wallet.findOneAndUpdate(
+      { userId: user._id },
+      {
+        $setOnInsert: {
+          incomeBalance: 0,
+          repurchaseBalance: 0,
+          totalIncome: 0,
+          totalWithdrawn: 0
+        }
+      },
+      { upsert: true, new: true }
+    );
 
     const token = generateToken(user._id);
     setTokenCookie(res, token);
@@ -199,15 +203,9 @@ const register = async (req, res, next) => {
 
     if (error.code === 11000) {
       const duplicateField = Object.keys(error.keyPattern || {})[0] || 'Field';
-      if (duplicateField === 'memberId' || duplicateField === 'referralCode') {
-        return res.status(400).json({
-          success: false,
-          message: 'Member ID collision occurred. Please submit registration again.'
-        });
-      }
       return res.status(400).json({
         success: false,
-        message: `Unique index constraint triggered on ${duplicateField}.`
+        message: `Database constraint conflict detected on (${duplicateField}). Please try again.`
       });
     }
 
@@ -229,7 +227,6 @@ const login = async (req, res, next) => {
     }
 
     const cleanInput = inputIdentifier.trim();
-
     const user = await User.findOne({
       $or: [
         { memberId: { $regex: new RegExp(`^${cleanInput}$`, 'i') } },
@@ -238,25 +235,16 @@ const login = async (req, res, next) => {
     }).select('+password');
 
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid User ID or Password'
-      });
+      return res.status(401).json({ success: false, message: 'Invalid User ID or Password' });
     }
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid User ID or Password'
-      });
+      return res.status(401).json({ success: false, message: 'Invalid User ID or Password' });
     }
 
     if (['SUSPENDED', 'DEACTIVATED', 'BLOCKED'].includes(user.status)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Account is suspended or deactivated. Please contact support.'
-      });
+      return res.status(403).json({ success: false, message: 'Account is suspended or deactivated. Please contact support.' });
     }
 
     if (user.status === 'PENDING_VERIFICATION') {
@@ -275,10 +263,7 @@ const login = async (req, res, next) => {
     res.json({
       success: true,
       message: 'Login successful',
-      data: {
-        token,
-        user: userResponse
-      }
+      data: { token, user: userResponse }
     });
   } catch (error) {
     next(error);
@@ -452,7 +437,10 @@ const changePasswordWithOTP = async (req, res, next) => {
     const userId = req.userId;
 
     if (!currentPassword || !newPassword || !otp) {
-      return res.status(400).json({ success: false, message: 'Current Password, New Password, and OTP are required' });
+      return res.status(400).json({
+        success: false,
+        message: 'Current Password, New Password, and OTP are required'
+      });
     }
 
     const user = await User.findOne({
