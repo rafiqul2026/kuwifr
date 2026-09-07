@@ -1,501 +1,561 @@
-/* ============================================================
-   PROFILE PAGE - MODERN PROFESSIONAL DESIGN
-   ============================================================ */
+/* client/src/pages/member/ProfilePage.module.css */
 
-.profilePage {
-  max-width: 1000px;
+.profileContainer {
+  max-width: 1080px;
   margin: 0 auto;
+  padding: 20px 24px 60px 24px;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #0f172a;
 }
 
-/* ============ PAGE HEADER ============ */
-.pageHeader {
+/* ============================================================
+   HEADER BLOCK & COMPACT SAAS BUTTONS
+   ============================================================ */
+.headerBlock {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 12px;
+}
+
+.headerTitleGroup {
+  flex: 1;
+  min-width: 240px;
 }
 
 .pageTitle {
-  font-size: 26px;
-  font-weight: 700;
+  font-size: 24px;
+  font-weight: 850;
   color: #0f172a;
   margin: 0 0 4px 0;
+  letter-spacing: -0.02em;
 }
 
 .pageSubtitle {
-  font-size: 15px;
+  font-size: 13px;
   color: #64748b;
   margin: 0;
 }
 
-.headerActions {
-  display: flex;
-  gap: 12px;
-}
-
-.editBtn {
-  padding: 10px 24px;
-  border: none;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
-  color: white;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
+/* Compact SaaS Action Buttons */
+.headerActionGroup {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
-.editBtn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(37, 99, 235, 0.3);
+.btnSecondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #0f172a;
+  color: #f8fafc;
+  border: 1px solid #1e293b;
+  padding: 7px 13px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
-/* ============ PROFILE CARD ============ */
-.profileCard {
-  background: linear-gradient(135deg, #0f172a, #1e293b);
-  border-radius: 16px;
-  padding: 32px;
+.btnSecondary:hover {
+  background: #1e293b;
+  border-color: #334155;
+  transform: translateY(-1px);
+}
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #2563eb;
+  color: #ffffff;
+  border: 1px solid #1d4ed8;
+  padding: 7px 15px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
+}
+
+.btnPrimary:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+}
+
+.btnActive {
+  background: #dc2626 !important;
+  border-color: #b91c1c !important;
+}
+
+/* ============================================================
+   HERO PROFILE CARD (MODERN SAAS GLASS DESIGN)
+   ============================================================ */
+.heroProfileCard {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border-radius: 18px;
+  padding: 24px 28px;
+  color: #ffffff;
+  margin-bottom: 24px;
+  border: 1px solid #334155;
+  box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.15);
+}
+
+.heroMainRow {
   display: flex;
   align-items: center;
-  gap: 32px;
-  margin-bottom: 28px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  gap: 24px;
 }
 
-.profileAvatar {
+/* Avatar Unit */
+.avatarWrapper {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
-/* Enhanced Avatar Wrapper with Relative Positioning for Photo Button */
-.avatarWrapper {
+.avatarCircle {
   position: relative;
-  width: 104px;
-  height: 104px;
+  width: 76px;
+  height: 76px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 4px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 8px 30px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.15);
 }
 
-.avatarImage {
+.avatarImg {
   width: 100%;
   height: 100%;
-  object-fit: cover;
   border-radius: 50%;
-  display: block;
+  object-fit: cover;
 }
 
-.avatarText {
-  font-size: 40px;
-  font-weight: 700;
-  color: white;
-  text-transform: uppercase;
+.avatarInitial {
+  font-size: 30px;
+  font-weight: 800;
+  color: #ffffff;
 }
 
-/* Upload Photo Button Badge */
-.photoUploadBtn {
+.avatarUploadBadge {
   position: absolute;
   bottom: 0;
-  right: 0;
-  width: 34px;
-  height: 34px;
+  right: -2px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: #0f172a;
-  border: 2px solid #ffffff;
+  border: 2px solid #334155;
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-  transition: all 0.2s ease;
-  font-size: 14px;
-  padding: 0;
+  transition: all 0.15s ease;
 }
 
-.photoUploadBtn:hover:not(:disabled) {
+.avatarUploadBadge:hover {
   background: #2563eb;
-  transform: scale(1.1);
+  border-color: #60a5fa;
+  transform: scale(1.08);
 }
 
-.photoUploadBtn:disabled {
-  opacity: 0.8;
-  cursor: wait;
+.statusBadgeSmall {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  color: #34d399;
+  font-size: 10.5px;
+  font-weight: 750;
+  padding: 2px 8px;
+  border-radius: 999px;
 }
 
-.uploadSpinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #ffffff;
+.verifiedDot {
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  background: #34d399;
 }
 
-.profileBadge {
+/* User Identity Info */
+.heroInfoContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.nameLine {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.userName {
+  font-size: 20px;
+  font-weight: 850;
+  margin: 0;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.userIdPill {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #60a5fa;
+  margin-bottom: 10px;
+}
+
+.userIdPill strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #93c5fd;
+}
+
+.contactMetaList {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.contactItem {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(34, 197, 94, 0.15);
-  padding: 4px 14px;
-  border-radius: 20px;
-  border: 1px solid rgba(34, 197, 94, 0.2);
-}
-
-.badgeIcon {
-  font-size: 14px;
-}
-
-.badgeText {
   font-size: 12px;
-  color: #22c55e;
-  font-weight: 500;
+  color: #cbd5e1;
 }
 
-.profileInfo {
-  flex: 1;
-  color: white;
+.otpTag {
+  font-size: 10.5px;
+  color: #94a3b8;
 }
 
-.profileName {
-  font-size: 24px;
-  font-weight: 700;
-  margin: 0 0 4px 0;
-}
-
-.profileEmail {
-  font-size: 15px;
-  color: rgba(255, 255, 255, 0.6);
-  margin: 0;
-}
-
-.profilePhone {
-  font-size: 15px;
-  color: rgba(255, 255, 255, 0.6);
-  margin: 0 0 12px 0;
-}
-
-.profileStats {
+.heroStatsRow {
   display: flex;
-  gap: 24px;
+  align-items: center;
+  gap: 16px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.statItem {
+.heroStatItem {
   display: flex;
   flex-direction: column;
 }
 
 .statLabel {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
-  text-transform: uppercase;
+  font-size: 9.5px;
+  font-weight: 750;
+  color: #94a3b8;
   letter-spacing: 0.5px;
 }
 
 .statValue {
-  font-size: 14px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.9);
+  font-size: 12.5px;
+  font-weight: 750;
+  color: #e2e8f0;
 }
 
-.statusActive {
-  color: #22c55e !important;
+.statValueActive {
+  font-size: 12px;
+  font-weight: 800;
+  color: #4ade80;
 }
 
-/* ============ PROFILE FORM ============ */
-.profileForm {
+.statValueInactive {
+  font-size: 12px;
+  font-weight: 800;
+  color: #fbbf24;
+}
+
+.statDivider {
+  width: 1px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ============================================================
+   SECTIONS & FORMS
+   ============================================================ */
+.formContainer {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
-.section {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(226, 232, 240, 0.6);
-  border-radius: 14px;
-  padding: 24px;
+.contentSection {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.02);
 }
 
 .sectionHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   margin-bottom: 16px;
 }
 
-.section h2 {
-  font-size: 17px;
-  font-weight: 600;
+.sectionHeader h3 {
+  font-size: 15px;
+  font-weight: 850;
   color: #0f172a;
-  margin: 0;
+  margin: 0 0 2px 0;
 }
 
-.editIndicator {
+.sectionSub {
   font-size: 12px;
-  color: #2563eb;
-  background: rgba(37, 99, 235, 0.08);
-  padding: 2px 12px;
-  border-radius: 12px;
-  font-weight: 500;
+  color: #64748b;
 }
 
 .formGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
 }
 
-.formGroup {
+.gridSpan2 {
+  grid-column: span 2;
+}
+
+.inputGroup {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 
-.formGroup label {
-  font-size: 13px;
-  font-weight: 500;
-  color: #1e293b;
+.inputGroup label {
+  font-size: 11.5px;
+  font-weight: 750;
+  color: #475569;
 }
 
-.required {
-  color: #ef4444;
-}
-
-.formGroup input {
-  padding: 10px 14px;
-  border: 2px solid #e2e8f0;
-  border-radius: 10px;
-  font-size: 14px;
-  background: #f8fafc;
+.formInput {
+  height: 38px;
+  padding: 0 12px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  font-size: 12.5px;
   color: #0f172a;
-  transition: all 0.2s ease;
-  width: 100%;
+  outline: none;
+  transition: all 0.15s ease;
   box-sizing: border-box;
 }
 
-.formGroup input:focus {
-  outline: none;
+.formInput:focus {
   border-color: #2563eb;
-  background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-.formGroup input:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.formGroup input.disabled {
+.inputLocked {
   background: #f1f5f9;
-  border-color: #e2e8f0;
   color: #64748b;
+  cursor: not-allowed;
+  border-color: #e2e8f0;
 }
 
-/* ============ FORM ACTIONS ============ */
-.formActions {
+.inputReadOnly {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #334155;
+}
+
+/* Edit Mode Action Footer */
+.editFooterBar {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  padding-top: 8px;
+  align-items: center;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
 .cancelBtn {
-  padding: 12px 28px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  background: white;
-  color: #64748b;
-  font-size: 15px;
-  font-weight: 500;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .cancelBtn:hover {
-  background: #f8fafc;
+  background: #e2e8f0;
 }
 
 .saveBtn {
-  padding: 12px 32px;
+  background: #2563eb;
+  color: #ffffff;
   border: none;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
-  color: white;
-  font-size: 15px;
-  font-weight: 600;
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 750;
   cursor: pointer;
-  transition: all 0.3s ease;
-  min-width: 150px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  transition: all 0.15s ease;
 }
 
 .saveBtn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(37, 99, 235, 0.3);
+  background: #1d4ed8;
 }
 
-.saveBtn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btnLoading {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.btnSpinner {
-  width: 18px;
-  height: 18px;
-  border: 3px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #ffffff;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* ============ LOADING ============ */
-.loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 400px;
-  gap: 16px;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #e2e8f0;
-  border-top-color: #2563eb;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-/* ============ RESPONSIVE ============ */
-@media (max-width: 1024px) {
-  .profileCard {
-    flex-direction: column;
-    text-align: center;
-    padding: 24px;
-  }
-
-  .profileStats {
-    justify-content: center;
-  }
-}
-
+/* ============================================================
+   📱 MOBILE RESPONSIVENESS (PERFECT CENTER ALIGNMENT)
+   ============================================================ */
 @media (max-width: 768px) {
-  .pageHeader {
+  .profileContainer {
+    padding: 14px 12px 70px 12px;
+  }
+
+  .headerBlock {
     flex-direction: column;
-    align-items: stretch;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
   }
 
-  .headerActions {
+  .headerTitleGroup {
+    text-align: center;
+  }
+
+  .headerActionGroup {
     width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
   }
 
-  .editBtn {
+  .btnSecondary,
+  .btnPrimary {
     width: 100%;
     justify-content: center;
+    padding: 8px 10px;
+    font-size: 11.5px;
   }
 
+  /* Centered Hero Profile Card */
+  .heroProfileCard {
+    padding: 22px 16px;
+    border-radius: 16px;
+  }
+
+  .heroMainRow {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 14px;
+  }
+
+  .avatarWrapper {
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .avatarCircle {
+    width: 68px;
+    height: 68px;
+  }
+
+  .avatarInitial {
+    font-size: 26px;
+  }
+
+  .heroInfoContent {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    width: 100%;
+  }
+
+  .nameLine {
+    justify-content: center;
+    margin-bottom: 4px;
+  }
+
+  .userName {
+    font-size: 19px;
+  }
+
+  .userIdPill {
+    margin-bottom: 12px;
+  }
+
+  .contactMetaList {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 16px;
+  }
+
+  .contactItem {
+    justify-content: center;
+    font-size: 12px;
+  }
+
+  .heroStatsRow {
+    justify-content: center;
+    gap: 24px;
+    width: 100%;
+    padding-top: 14px;
+  }
+
+  .heroStatItem {
+    align-items: center;
+    text-align: center;
+  }
+
+  /* Form Responsive */
   .formGrid {
     grid-template-columns: 1fr;
   }
 
-  .profileCard {
-    padding: 20px;
+  .gridSpan2 {
+    grid-column: span 1;
   }
 
-  .avatarWrapper {
-    width: 88px;
-    height: 88px;
-  }
-
-  .photoUploadBtn {
-    width: 30px;
-    height: 30px;
-    font-size: 12px;
-  }
-
-  .avatarText {
-    font-size: 32px;
-  }
-
-  .profileName {
-    font-size: 20px;
-  }
-
-  .section {
+  .contentSection {
     padding: 16px;
   }
 
-  .formActions {
+  .editFooterBar {
     flex-direction: column;
-  }
-
-  .formActions button {
     width: 100%;
+    box-sizing: border-box;
   }
 
-  .profileStats {
-    flex-direction: column;
-    gap: 8px;
-    align-items: center;
-  }
-}
-
-@media (max-width: 480px) {
-  .pageTitle {
-    font-size: 22px;
-  }
-
-  .profileName {
-    font-size: 18px;
-  }
-
-  .avatarWrapper {
-    width: 76px;
-    height: 76px;
-  }
-
-  .avatarText {
-    font-size: 28px;
-  }
-
-  .photoUploadBtn {
-    width: 28px;
-    height: 28px;
-    font-size: 11px;
-  }
-
-  .section {
-    padding: 12px;
-  }
-
-  .formGroup input {
-    padding: 8px 12px;
-    font-size: 13px;
+  .cancelBtn,
+  .saveBtn {
+    width: 100%;
   }
 }

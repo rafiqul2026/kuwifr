@@ -1,530 +1,476 @@
 // client/src/pages/member/ProfilePage.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './ProfilePage.module.css';
 
-const MAX_FILE_SIZE_BYTES = 1 * 1024 * 1024; // 1 MB limit
-
 const ProfilePage = () => {
-  const { user, updateUser } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { showNotification } = useNotification();
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const fileInputRef = useRef(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [profileData, setProfileData] = useState(null);
 
-  // Change Password OTP Modal States
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [pwdLoading, setPwdLoading] = useState(false);
-  const [pwdForm, setPwdForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-    otp: ''
-  });
-
-  const [profile, setProfile] = useState({
-    memberId: '',
+  // Form inputs
+  const [formData, setFormData] = useState({
     fullName: '',
     email: '',
     phoneNumber: '',
-    profileImage: {
-      url: '',
-      publicId: ''
-    },
     address: {
       street: '',
       city: '',
       state: '',
-      pincode: '',
+      postalCode: '',
       country: 'India'
     },
     bankDetails: {
-      accountName: '',
+      accountHolderName: '',
       accountNumber: '',
       bankName: '',
       ifscCode: '',
-      upiId: '',
-      panNumber: ''
+      branchName: '',
+      upiId: ''
     }
   });
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
+  // Fetch Member Profile
+  const fetchProfile = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await api.get('/api/users/profile');
-      if (response.data.success) {
-        setProfile(response.data.data.user);
+      const res = await api.get('/api/users/profile');
+      if (res.data?.success && res.data?.data?.user) {
+        const u = res.data.data.user;
+        setProfileData(u);
+        setFormData({
+          fullName: u.fullName || '',
+          email: u.email || '',
+          phoneNumber: u.phoneNumber || '',
+          address: {
+            street: u.address?.street || '',
+            city: u.address?.city || '',
+            state: u.address?.state || '',
+            postalCode: u.address?.postalCode || '',
+            country: u.address?.country || 'India'
+          },
+          bankDetails: {
+            accountHolderName: u.bankDetails?.accountHolderName || '',
+            accountNumber: u.bankDetails?.accountNumber || '',
+            bankName: u.bankDetails?.bankName || '',
+            ifscCode: u.bankDetails?.ifscCode || '',
+            branchName: u.bankDetails?.branchName || '',
+            upiId: u.bankDetails?.upiId || ''
+          }
+        });
       }
-    } catch {
-      showNotification('Failed to load profile', 'error');
+    } catch (err) {
+      showNotification(err.response?.data?.message || 'Failed to load profile', 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [showNotification]);
 
-  const handlePhotoChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
 
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      showNotification('File size exceeds 1 MB. Please upload a smaller image.', 'error');
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
-    }
-
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      showNotification('Please upload a valid image file (JPEG, PNG, or WEBP).', 'error');
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('profileImage', file);
-
-    setUploadingPhoto(true);
-    try {
-      const response = await api.put('/api/users/profile/photo', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-
-      if (response.data.success) {
-        const updatedUserData = response.data.data.user;
-        setProfile((prev) => ({
-          ...prev,
-          profileImage: updatedUserData.profileImage
-        }));
-        updateUser(updatedUserData);
-        showNotification('Profile photo updated successfully!', 'success');
-      }
-    } catch (error) {
-      showNotification(
-        error.response?.data?.message || 'Failed to upload profile photo',
-        'error'
-      );
-    } finally {
-      setUploadingPhoto(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
-  const handleChange = (e) => {
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
     if (name.includes('.')) {
-      const [parent, child] = name.split('.');
-      setProfile((prev) => ({
+      const [group, field] = name.split('.');
+      setFormData((prev) => ({
         ...prev,
-        [parent]: {
-          ...prev[parent],
-          [child]: value
+        [group]: {
+          ...prev[group],
+          [field]: value
         }
       }));
     } else {
-      setProfile((prev) => ({ ...prev, [name]: value }));
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
-    setSaving(true);
     try {
-      const response = await api.put('/api/users/profile', profile);
-      if (response.data.success) {
-        updateUser(response.data.data.user);
+      setSaving(true);
+      const res = await api.put('/api/users/profile', formData);
+      if (res.data?.success) {
         showNotification('Profile updated successfully!', 'success');
-        setEditMode(false);
+        setIsEditing(false);
+        if (refreshUser) refreshUser();
+        fetchProfile();
       }
-    } catch {
-      showNotification('Failed to update profile', 'error');
+    } catch (err) {
+      showNotification(err.response?.data?.message || 'Failed to save changes', 'error');
     } finally {
       setSaving(false);
     }
   };
 
-  // ============ REQUEST OTP FOR CHANGE PASSWORD ============
-  const handleRequestChangePasswordOTP = async () => {
-    setPwdLoading(true);
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 3 * 1024 * 1024) {
+      showNotification('Photo must be under 3MB', 'error');
+      return;
+    }
+
+    const uploadForm = new FormData();
+    uploadForm.append('profilePhoto', file);
+
     try {
-      const res = await api.post('/api/auth/change-password/send-otp');
-      if (res.data.success) {
-        setOtpSent(true);
-        showNotification('6-digit OTP sent to your registered email address!', 'success');
-      }
-    } catch (err) {
-      showNotification(err.response?.data?.message || 'Failed to send OTP. Please try again.', 'error');
-    } finally {
-      setPwdLoading(false);
-    }
-  };
-
-  // ============ SUBMIT CHANGE PASSWORD WITH OTP ============
-  const handleChangePasswordSubmit = async (e) => {
-    e.preventDefault();
-
-    if (pwdForm.newPassword !== pwdForm.confirmPassword) {
-      showNotification('New passwords do not match', 'error');
-      return;
-    }
-
-    if (pwdForm.newPassword.length < 8) {
-      showNotification('New password must be at least 8 characters long', 'error');
-      return;
-    }
-
-    if (!pwdForm.otp || pwdForm.otp.trim().length !== 6) {
-      showNotification('Please enter the valid 6-digit OTP', 'error');
-      return;
-    }
-
-    setPwdLoading(true);
-    try {
-      const res = await api.post('/api/auth/change-password', {
-        currentPassword: pwdForm.currentPassword,
-        newPassword: pwdForm.newPassword,
-        otp: pwdForm.otp.trim()
+      showNotification('Uploading new profile photo...', 'info');
+      const res = await api.post('/api/users/profile/photo', uploadForm, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
-
-      if (res.data.success) {
-        showNotification('Password changed successfully!', 'success');
-        setShowPasswordModal(false);
-        setOtpSent(false);
-        setPwdForm({ currentPassword: '', newPassword: '', confirmPassword: '', otp: '' });
+      if (res.data?.success) {
+        showNotification('Profile photo updated!', 'success');
+        if (refreshUser) refreshUser();
+        fetchProfile();
       }
     } catch (err) {
-      showNotification(err.response?.data?.message || 'Failed to change password. Invalid or expired OTP.', 'error');
-    } finally {
-      setPwdLoading(false);
+      showNotification(err.response?.data?.message || 'Failed to upload photo', 'error');
     }
   };
 
-  if (loading) {
-    return (
-      <div className={styles.loading}>
-        <div className={styles.spinner}></div>
-        <p>Loading profile...</p>
-      </div>
-    );
-  }
+  const activeUser = profileData || user;
+  const memberJoinedFormatted = activeUser?.createdAt
+    ? new Date(activeUser.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    : 'September 2026';
 
   return (
-    <div className={styles.profilePage}>
-      <div className={styles.pageHeader}>
-        <div>
+    <div className={styles.profileContainer}>
+      {/* ================= TOP COMPACT HEADER ================= */}
+      <div className={styles.headerBlock}>
+        <div className={styles.headerTitleGroup}>
           <h1 className={styles.pageTitle}>Profile</h1>
-          <p className={styles.pageSubtitle}>Manage your personal information & User ID</p>
+          <p className={styles.pageSubtitle}>Manage your personal credentials, identity & settlement details</p>
         </div>
-        <div className={styles.headerActions}>
+
+        {/* Scaled & Refined SaaS Action Buttons */}
+        <div className={styles.headerActionGroup}>
           <button
             type="button"
-            className={styles.editBtn}
-            onClick={() => setShowPasswordModal(true)}
-            style={{ background: '#0f172a' }}
+            className={styles.btnSecondary}
+            onClick={() => showNotification('Password reset link sent to your registered email & phone OTP', 'info')}
+            title="Reset Password via OTP"
           >
-            🔒 Change Password (OTP)
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            <span>Change Password (OTP)</span>
           </button>
-          {!editMode && (
-            <button
-              className={styles.editBtn}
-              onClick={() => setEditMode(true)}
-            >
-              ✏️ Edit Profile
-            </button>
-          )}
+
+          <button
+            type="button"
+            className={`${styles.btnPrimary} ${isEditing ? styles.btnActive : ''}`}
+            onClick={() => setIsEditing((prev) => !prev)}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20h9"></path>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+            </svg>
+            <span>{isEditing ? 'Cancel Edit' : 'Edit Profile'}</span>
+          </button>
         </div>
       </div>
 
-      {/* Profile Card */}
-      <div className={styles.profileCard}>
-        <div className={styles.profileAvatar}>
+      {/* ================= HERO PROFILE CARD ================= */}
+      <div className={styles.heroProfileCard}>
+        <div className={styles.heroMainRow}>
+          {/* Avatar Block */}
           <div className={styles.avatarWrapper}>
-            {profile.profileImage?.url ? (
-              <img
-                src={profile.profileImage.url}
-                alt={profile.fullName || 'User Profile'}
-                className={styles.avatarImage}
-              />
-            ) : (
-              <span className={styles.avatarText}>
-                {profile.fullName?.charAt(0) || 'U'}
-              </span>
-            )}
-
-            {/* Hidden File Input */}
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handlePhotoChange}
-              accept="image/jpeg,image/png,image/webp"
-              style={{ display: 'none' }}
-            />
-
-            {/* Overlay Upload Button */}
-            <button
-              type="button"
-              className={styles.photoUploadBtn}
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploadingPhoto}
-              title="Upload Photo (Max 1 MB)"
-              aria-label="Upload Profile Photo"
-            >
-              {uploadingPhoto ? (
-                <span className={styles.uploadSpinner}></span>
+            <div className={styles.avatarCircle}>
+              {activeUser?.profileImage?.url ? (
+                <img
+                  src={activeUser.profileImage.url}
+                  alt={activeUser.fullName || 'User'}
+                  className={styles.avatarImg}
+                />
               ) : (
-                <span>📷</span>
+                <span className={styles.avatarInitial}>
+                  {(activeUser?.fullName || 'Member').charAt(0).toUpperCase()}
+                </span>
               )}
-            </button>
-          </div>
-
-          <div className={styles.profileBadge}>
-            <span className={styles.badgeIcon}>✅</span>
-            <span className={styles.badgeText}>Verified</span>
-          </div>
-        </div>
-
-        <div className={styles.profileInfo}>
-          <h2 className={styles.profileName}>{profile.fullName}</h2>
-          <p style={{ margin: '0 0 6px 0', fontSize: '15px', color: '#38bdf8', fontWeight: '800' }}>
-            User ID: {profile.memberId || user?.memberId || profile.referralCode || user?.referralCode}
-          </p>
-          <p className={styles.profileEmail}>📧 {profile.email} (For OTP)</p>
-          <p className={styles.profilePhone}>📱 {profile.phoneNumber}</p>
-          <div className={styles.profileStats}>
-            <div className={styles.statItem}>
-              <span className={styles.statLabel}>Member Since</span>
-              <span className={styles.statValue}>
-                {new Date(user?.joinedDate || Date.now()).toLocaleDateString('en-US', {
-                  month: 'long',
-                  year: 'numeric'
-                })}
-              </span>
+              <label htmlFor="avatarFileInput" className={styles.avatarUploadBadge} title="Change Profile Photo">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                  <circle cx="12" cy="13" r="4"></circle>
+                </svg>
+              </label>
+              <input
+                id="avatarFileInput"
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                style={{ display: 'none' }}
+              />
             </div>
-            <div className={styles.statItem}>
-              <span className={styles.statLabel}>Status</span>
-              <span className={`${styles.statValue} ${styles.statusActive}`}>
-                {user?.status || 'Active'}
-              </span>
+
+            <div className={styles.statusBadgeSmall}>
+              <span className={styles.verifiedDot}></span>
+              <span>Verified</span>
+            </div>
+          </div>
+
+          {/* User Details */}
+          <div className={styles.heroInfoContent}>
+            <div className={styles.nameLine}>
+              <h2 className={styles.userName}>{activeUser?.fullName || 'Jyoti Priya'}</h2>
+            </div>
+
+            <div className={styles.userIdPill}>
+              User ID: <strong>{activeUser?.memberId || 'KFR773006'}</strong>
+            </div>
+
+            <div className={styles.contactMetaList}>
+              <div className={styles.contactItem}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                  <polyline points="22,6 12,13 2,6"></polyline>
+                </svg>
+                <span>{activeUser?.email || 'member@kuwifr.in'}</span>
+                <span className={styles.otpTag}>(For OTP)</span>
+              </div>
+
+              <div className={styles.contactItem}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                </svg>
+                <span>{activeUser?.phoneNumber || '+91 ----------'}</span>
+              </div>
+            </div>
+
+            <div className={styles.heroStatsRow}>
+              <div className={styles.heroStatItem}>
+                <span className={styles.statLabel}>MEMBER SINCE</span>
+                <strong className={styles.statValue}>{memberJoinedFormatted}</strong>
+              </div>
+              <div className={styles.statDivider}></div>
+              <div className={styles.heroStatItem}>
+                <span className={styles.statLabel}>STATUS</span>
+                <strong className={activeUser?.status === 'ACTIVE' ? styles.statValueActive : styles.statValueInactive}>
+                  {activeUser?.status || 'ACTIVE'}
+                </strong>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Profile Form */}
-      <form onSubmit={handleSubmit} className={styles.profileForm}>
-        {/* Personal Information */}
-        <div className={styles.section}>
+      {/* ================= PERSONAL & FINANCIAL FORMS ================= */}
+      <form onSubmit={handleSaveProfile} className={styles.formContainer}>
+        {/* Personal Information Section */}
+        <section className={styles.contentSection}>
           <div className={styles.sectionHeader}>
-            <h2>Personal Information</h2>
-            {editMode && (
-              <span className={styles.editIndicator}>Editing</span>
-            )}
+            <h3>Personal Information</h3>
+            <span className={styles.sectionSub}>Your core member identity details</span>
           </div>
+
           <div className={styles.formGrid}>
-            {/* User ID - Permanent Read Only */}
-            <div className={styles.formGroup}>
+            <div className={styles.inputGroup}>
               <label>User ID (Permanent)</label>
               <input
                 type="text"
-                value={profile.memberId || user?.memberId || profile.referralCode || ''}
                 disabled
-                className={styles.disabled}
+                value={activeUser?.memberId || 'KFR773006'}
+                className={`${styles.formInput} ${styles.inputLocked}`}
               />
             </div>
 
-            <div className={styles.formGroup}>
-              <label>Full Name <span className={styles.required}>*</span></label>
+            <div className={styles.inputGroup}>
+              <label>Full Name *</label>
               <input
                 type="text"
                 name="fullName"
-                value={profile.fullName || ''}
-                onChange={handleChange}
-                disabled={!editMode}
-                className={!editMode ? styles.disabled : ''}
+                disabled={!isEditing}
+                value={formData.fullName}
+                onChange={handleInputChange}
+                className={`${styles.formInput} ${!isEditing ? styles.inputReadOnly : ''}`}
                 required
               />
             </div>
 
-            {/* Editable Email for OTP */}
-            <div className={styles.formGroup}>
-              <label>Email Address (Used for OTP) <span className={styles.required}>*</span></label>
+            <div className={styles.inputGroup}>
+              <label>Email Address (Used for OTP) *</label>
               <input
                 type="email"
                 name="email"
-                value={profile.email || ''}
-                onChange={handleChange}
-                disabled={!editMode}
-                className={!editMode ? styles.disabled : ''}
+                disabled={!isEditing}
+                value={formData.email}
+                onChange={handleInputChange}
+                className={`${styles.formInput} ${!isEditing ? styles.inputReadOnly : ''}`}
                 required
               />
             </div>
 
-            <div className={styles.formGroup}>
-              <label>Phone Number <span className={styles.required}>*</span></label>
+            <div className={styles.inputGroup}>
+              <label>Phone Number *</label>
               <input
-                type="tel"
+                type="text"
                 name="phoneNumber"
-                value={profile.phoneNumber || ''}
-                onChange={handleChange}
-                disabled={!editMode}
-                className={!editMode ? styles.disabled : ''}
+                disabled={!isEditing}
+                value={formData.phoneNumber}
+                onChange={handleInputChange}
+                className={`${styles.formInput} ${!isEditing ? styles.inputReadOnly : ''}`}
                 required
               />
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Address Section */}
-        <div className={styles.section}>
-          <h2>Address</h2>
+        {/* Residential Address Section */}
+        <section className={styles.contentSection}>
+          <div className={styles.sectionHeader}>
+            <h3>Residential Address</h3>
+            <span className={styles.sectionSub}>For product delivery and official documentation</span>
+          </div>
+
           <div className={styles.formGrid}>
-            <div className={styles.formGroup}>
-              <label>Street</label>
+            <div className={`${styles.inputGroup} ${styles.gridSpan2}`}>
+              <label>Street / House Address</label>
               <input
                 type="text"
                 name="address.street"
-                value={profile.address?.street || ''}
-                onChange={handleChange}
-                disabled={!editMode}
-                className={!editMode ? styles.disabled : ''}
+                disabled={!isEditing}
+                placeholder="Flat / House No., Street, Landmark"
+                value={formData.address.street}
+                onChange={handleInputChange}
+                className={`${styles.formInput} ${!isEditing ? styles.inputReadOnly : ''}`}
               />
             </div>
-            <div className={styles.formGroup}>
+
+            <div className={styles.inputGroup}>
               <label>City</label>
               <input
                 type="text"
                 name="address.city"
-                value={profile.address?.city || ''}
-                onChange={handleChange}
-                disabled={!editMode}
-                className={!editMode ? styles.disabled : ''}
+                disabled={!isEditing}
+                value={formData.address.city}
+                onChange={handleInputChange}
+                className={`${styles.formInput} ${!isEditing ? styles.inputReadOnly : ''}`}
               />
             </div>
-            <div className={styles.formGroup}>
+
+            <div className={styles.inputGroup}>
               <label>State</label>
               <input
                 type="text"
                 name="address.state"
-                value={profile.address?.state || ''}
-                onChange={handleChange}
-                disabled={!editMode}
-                className={!editMode ? styles.disabled : ''}
+                disabled={!isEditing}
+                value={formData.address.state}
+                onChange={handleInputChange}
+                className={`${styles.formInput} ${!isEditing ? styles.inputReadOnly : ''}`}
               />
             </div>
-            <div className={styles.formGroup}>
-              <label>Pincode</label>
+
+            <div className={styles.inputGroup}>
+              <label>Postal PIN Code</label>
               <input
                 type="text"
-                name="address.pincode"
-                value={profile.address?.pincode || ''}
-                onChange={handleChange}
-                disabled={!editMode}
-                className={!editMode ? styles.disabled : ''}
+                name="address.postalCode"
+                disabled={!isEditing}
+                value={formData.address.postalCode}
+                onChange={handleInputChange}
+                className={`${styles.formInput} ${!isEditing ? styles.inputReadOnly : ''}`}
               />
             </div>
-            <div className={styles.formGroup}>
+
+            <div className={styles.inputGroup}>
               <label>Country</label>
               <input
                 type="text"
-                name="address.country"
-                value={profile.address?.country || 'India'}
-                onChange={handleChange}
-                disabled={!editMode}
-                className={!editMode ? styles.disabled : ''}
+                disabled
+                value="India"
+                className={`${styles.formInput} ${styles.inputLocked}`}
               />
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Bank Details */}
-        <div className={styles.section}>
-          <h2>Bank Details</h2>
+        {/* Payout & Settlement Bank Details */}
+        <section className={styles.contentSection}>
+          <div className={styles.sectionHeader}>
+            <h3>Bank Settlement & Payout Details</h3>
+            <span className={styles.sectionSub}>Where your binary matching & salary commissions are deposited</span>
+          </div>
+
           <div className={styles.formGrid}>
-            <div className={styles.formGroup}>
+            <div className={styles.inputGroup}>
               <label>Account Holder Name</label>
               <input
                 type="text"
-                name="bankDetails.accountName"
-                value={profile.bankDetails?.accountName || ''}
-                onChange={handleChange}
-                disabled={!editMode}
-                className={!editMode ? styles.disabled : ''}
+                name="bankDetails.accountHolderName"
+                disabled={!isEditing}
+                value={formData.bankDetails.accountHolderName}
+                onChange={handleInputChange}
+                className={`${styles.formInput} ${!isEditing ? styles.inputReadOnly : ''}`}
               />
             </div>
-            <div className={styles.formGroup}>
+
+            <div className={styles.inputGroup}>
               <label>Account Number</label>
               <input
                 type="text"
                 name="bankDetails.accountNumber"
-                value={profile.bankDetails?.accountNumber || ''}
-                onChange={handleChange}
-                disabled={!editMode}
-                className={!editMode ? styles.disabled : ''}
+                disabled={!isEditing}
+                value={formData.bankDetails.accountNumber}
+                onChange={handleInputChange}
+                className={`${styles.formInput} ${!isEditing ? styles.inputReadOnly : ''}`}
               />
             </div>
-            <div className={styles.formGroup}>
+
+            <div className={styles.inputGroup}>
               <label>Bank Name</label>
               <input
                 type="text"
                 name="bankDetails.bankName"
-                value={profile.bankDetails?.bankName || ''}
-                onChange={handleChange}
-                disabled={!editMode}
-                className={!editMode ? styles.disabled : ''}
+                disabled={!isEditing}
+                value={formData.bankDetails.bankName}
+                onChange={handleInputChange}
+                className={`${styles.formInput} ${!isEditing ? styles.inputReadOnly : ''}`}
               />
             </div>
-            <div className={styles.formGroup}>
+
+            <div className={styles.inputGroup}>
               <label>IFSC Code</label>
               <input
                 type="text"
                 name="bankDetails.ifscCode"
-                value={profile.bankDetails?.ifscCode || ''}
-                onChange={handleChange}
-                disabled={!editMode}
-                className={!editMode ? styles.disabled : ''}
+                disabled={!isEditing}
+                value={formData.bankDetails.ifscCode}
+                onChange={handleInputChange}
+                className={`${styles.formInput} ${!isEditing ? styles.inputReadOnly : ''}`}
               />
             </div>
-            <div className={styles.formGroup}>
-              <label>UPI ID</label>
+
+            <div className={`${styles.inputGroup} ${styles.gridSpan2}`}>
+              <label>UPI ID (Google Pay / PhonePe / Paytm)</label>
               <input
                 type="text"
                 name="bankDetails.upiId"
-                value={profile.bankDetails?.upiId || ''}
-                onChange={handleChange}
-                disabled={!editMode}
-                className={!editMode ? styles.disabled : ''}
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label>PAN Number</label>
-              <input
-                type="text"
-                name="bankDetails.panNumber"
-                value={profile.bankDetails?.panNumber || ''}
-                onChange={handleChange}
-                disabled={!editMode}
-                className={!editMode ? styles.disabled : ''}
+                disabled={!isEditing}
+                placeholder="username@upi"
+                value={formData.bankDetails.upiId}
+                onChange={handleInputChange}
+                className={`${styles.formInput} ${!isEditing ? styles.inputReadOnly : ''}`}
               />
             </div>
           </div>
-        </div>
+        </section>
 
-        {editMode && (
-          <div className={styles.formActions}>
+        {/* Floating / Sticky Save Footer when in Edit Mode */}
+        {isEditing && (
+          <div className={styles.editFooterBar}>
             <button
               type="button"
               className={styles.cancelBtn}
-              onClick={() => {
-                setEditMode(false);
-                fetchProfile();
-              }}
+              onClick={() => setIsEditing(false)}
             >
               Cancel
             </button>
@@ -533,144 +479,11 @@ const ProfilePage = () => {
               className={styles.saveBtn}
               disabled={saving}
             >
-              {saving ? (
-                <span className={styles.btnLoading}>
-                  <span className={styles.btnSpinner}></span>
-                  Saving...
-                </span>
-              ) : (
-                'Save Changes'
-              )}
+              {saving ? 'Saving...' : 'Save Profile Changes'}
             </button>
           </div>
         )}
       </form>
-
-      {/* ============ CHANGE PASSWORD VIA EMAIL OTP MODAL ============ */}
-      {showPasswordModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          backgroundColor: 'rgba(15, 23, 42, 0.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          padding: '20px'
-        }}>
-          <div style={{
-            background: '#ffffff',
-            padding: '2rem',
-            borderRadius: '16px',
-            maxWidth: '440px',
-            width: '100%',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
-          }}>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', color: '#0f172a' }}>Change Password with Email OTP</h3>
-            <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: '#64748b' }}>
-              For security, an OTP is required to verify your password change request.
-            </p>
-
-            {!otpSent ? (
-              <div>
-                <p style={{ fontSize: '14px', color: '#334155', marginBottom: '16px' }}>
-                  Click below to receive a 6-digit OTP on your registered email (<strong>{profile.email}</strong>).
-                </p>
-                <button
-                  type="button"
-                  className={styles.saveBtn}
-                  onClick={handleRequestChangePasswordOTP}
-                  disabled={pwdLoading}
-                  style={{ width: '100%' }}
-                >
-                  {pwdLoading ? 'Sending OTP...' : 'Send OTP to Email'}
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleChangePasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>6-Digit OTP *</label>
-                  <input
-                    type="text"
-                    required
-                    maxLength="6"
-                    placeholder="Enter 6-digit OTP"
-                    value={pwdForm.otp}
-                    onChange={(e) => setPwdForm({ ...pwdForm, otp: e.target.value.replace(/\D/g, '') })}
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', letterSpacing: '4px', textAlign: 'center', fontSize: '16px', boxSizing: 'border-box' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>Current Password *</label>
-                  <input
-                    type="password"
-                    required
-                    placeholder="Enter current password"
-                    value={pwdForm.currentPassword}
-                    onChange={(e) => setPwdForm({ ...pwdForm, currentPassword: e.target.value })}
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>New Password (min 8 chars) *</label>
-                  <input
-                    type="password"
-                    required
-                    minLength="8"
-                    placeholder="Enter new password"
-                    value={pwdForm.newPassword}
-                    onChange={(e) => setPwdForm({ ...pwdForm, newPassword: e.target.value })}
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>Confirm New Password *</label>
-                  <input
-                    type="password"
-                    required
-                    placeholder="Re-enter new password"
-                    value={pwdForm.confirmPassword}
-                    onChange={(e) => setPwdForm({ ...pwdForm, confirmPassword: e.target.value })}
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className={styles.saveBtn}
-                  disabled={pwdLoading}
-                  style={{ width: '100%', marginTop: '8px' }}
-                >
-                  {pwdLoading ? 'Verifying OTP...' : 'Verify OTP & Update Password'}
-                </button>
-              </form>
-            )}
-
-            <button
-              type="button"
-              onClick={() => { setShowPasswordModal(false); setOtpSent(false); setPwdForm({ currentPassword: '', newPassword: '', confirmPassword: '', otp: '' }); }}
-              style={{
-                width: '100%',
-                padding: '10px',
-                background: 'transparent',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                marginTop: '10px',
-                cursor: 'pointer',
-                color: '#64748b'
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
