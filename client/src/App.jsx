@@ -26,19 +26,17 @@ import MemberRoutes from './routes/MemberRoutes';
 import AdminRoutes from './routes/AdminRoutes';
 import ProtectedRoute from './routes/ProtectedRoute';
 
+// Member Core Pages
+import GrowthMapPage from './pages/member/GrowthMapPage';
+
 import './App.css';
 
 /**
  * 🧭 Intelligent Portal Dispatcher
- * Evaluates authentication status and directs traffic immediately:
- * - Unauthenticated -> /login
- * - ADMIN / SUPER_ADMIN -> /admin/dashboard
- * - MEMBER -> /member/dashboard
  */
 const DashboardRedirector = () => {
   const { isAuthenticated, user, loading } = useAuth();
 
-  // Clean micro-loader during token rehydration to avoid blank screens
   if (loading) {
     return (
       <div style={{
@@ -86,12 +84,11 @@ function App() {
           <ShopProvider>
             <BrowserRouter>
               <div className="app">
-                {/* Global Drawer Drawers Accessible Everywhere */}
                 <CartSlideOver />
                 <WishlistSlideOver />
 
                 <Routes>
-                  {/* ================= 1. PUBLIC AUTHENTICATION ROUTES ================= */}
+                  {/* Public Auth Routes */}
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/admin/login" element={<LoginPage isAdminLogin={true} />} />
                   <Route path="/register" element={<RegisterPage />} />
@@ -100,14 +97,25 @@ function App() {
                   <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
                   <Route path="/shop" element={<ShopPage />} />
 
-                  {/* ================= 2. UNIVERSAL PORTAL RESOLVERS ================= */}
-                  {/* Catch /dashboard, /portal, or root aliases to prevent broken 404 footers */}
+                  {/* Portal Resolvers */}
                   <Route path="/dashboard" element={<DashboardRedirector />} />
                   <Route path="/portal" element={<DashboardRedirector />} />
                   <Route path="/member" element={<Navigate to="/member/dashboard" replace />} />
                   <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
 
-                  {/* ================= 3. PROTECTED MEMBER PORTAL ================= */}
+                  {/* Explicit Growth Map Path Direct Mappings */}
+                  <Route
+                    path="/member/growth-map"
+                    element={
+                      <ProtectedRoute requiredRole="MEMBER">
+                        <GrowthMapPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="/member/binary" element={<Navigate to="/member/growth-map" replace />} />
+                  <Route path="/member/genealogy" element={<Navigate to="/member/growth-map" replace />} />
+
+                  {/* Protected Member Portal Sub-Routes */}
                   <Route 
                     path="/member/*" 
                     element={
@@ -117,7 +125,7 @@ function App() {
                     } 
                   />
 
-                  {/* ================= 4. PROTECTED ADMIN PORTAL ================= */}
+                  {/* Protected Admin Portal Sub-Routes */}
                   <Route 
                     path="/admin/*" 
                     element={
@@ -127,8 +135,7 @@ function App() {
                     } 
                   />
 
-                  {/* ================= 5. STOREFRONT & PUBLIC CATCH-ALL ================= */}
-                  {/* Must remain the last route */}
+                  {/* Public Storefront Catch-All */}
                   <Route path="/*" element={<PublicRoutes />} />
                 </Routes>
               </div>

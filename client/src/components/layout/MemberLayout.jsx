@@ -14,7 +14,7 @@ const navItems = [
   { id: "repurchase", label: "Repurchase Store", icon: "🛍️", path: "/member/repurchase" },
   { id: "income", label: "Income Stream", icon: "📈", path: "/member/income" },
   { id: "team", label: "My Team", icon: "👥", path: "/member/team" },
-  { id: "binary", label: "Binary Tree", icon: "🌳", path: "/member/binary" },
+  { id: "growth_map", label: "Growth Map", icon: "🌳", path: "/member/growth-map" },
   {
     id: "package_group",
     label: "Package",
@@ -42,7 +42,6 @@ const MemberLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Screen size detection
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth <= 1024;
@@ -59,7 +58,6 @@ const MemberLayout = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Lock body scroll when mobile drawer or full sidebar is active
   useEffect(() => {
     const isMenuOpen = isMobile && (sidebarOpen || mobileDrawerOpen);
     if (isMenuOpen) {
@@ -76,7 +74,6 @@ const MemberLayout = () => {
     };
   }, [isMobile, sidebarOpen, mobileDrawerOpen]);
 
-  // Auto-close menus on page route changes
   useEffect(() => {
     if (isMobile) {
       setSidebarOpen(false);
@@ -110,7 +107,7 @@ const MemberLayout = () => {
 
   return (
     <div className={styles.memberLayout}>
-      {/* ================= TOP HEADER ================= */}
+      {/* Header */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>
           <button
@@ -155,7 +152,7 @@ const MemberLayout = () => {
         </div>
       </header>
 
-      {/* ================= BACKDROP OVERLAY ================= */}
+      {/* Backdrop */}
       {isMobile && (sidebarOpen || mobileDrawerOpen) && (
         <div
           className={`${styles.overlay} ${styles.overlayVisible}`}
@@ -164,13 +161,12 @@ const MemberLayout = () => {
         />
       )}
 
-      {/* ================= SIDEBAR (DESKTOP + MOBILE SLIDE-OUT) ================= */}
+      {/* Sidebar */}
       <aside
         className={`${styles.sidebar} ${sidebarOpen ? styles.open : ""}`}
         aria-label="Sidebar Navigation"
       >
         <div className={styles.sidebarInnerScroll}>
-          {/* User Profile Card */}
           <div className={styles.sidebarUser}>
             <div className={styles.sidebarAvatar}>
               {user?.profileImage?.url ? (
@@ -191,7 +187,6 @@ const MemberLayout = () => {
             </div>
           </div>
 
-          {/* Nav Items */}
           <nav className={styles.sidebarNav}>
             {navItems.map((item) => {
               if (item.isDropdown) {
@@ -249,7 +244,6 @@ const MemberLayout = () => {
             })}
           </nav>
 
-          {/* Sidebar Footer Logout */}
           <div className={styles.sidebarFooter}>
             <button type="button" className={styles.logoutBtnSidebar} onClick={handleLogout}>
               <span>🚪</span>
@@ -259,12 +253,12 @@ const MemberLayout = () => {
         </div>
       </aside>
 
-      {/* ================= MAIN CONTENT OUTLET ================= */}
+      {/* Main Content Outlet */}
       <main className={`${styles.mainContent} ${!sidebarOpen ? styles.expanded : ""}`}>
         <Outlet />
       </main>
 
-      {/* ================= 📱 AIRTEL-INSPIRED FLOATING BOTTOM MENU ================= */}
+      {/* Floating Bottom Menu */}
       <div className={styles.bottomNavContainer}>
         <nav className={styles.bottomNavIsland}>
           {/* 1. Home */}
@@ -301,21 +295,23 @@ const MemberLayout = () => {
             <span className={styles.bottomNavLabel}>Income</span>
           </button>
 
-          {/* 3. My Team */}
+          {/* 3. Growth Map */}
           <button
             type="button"
-            className={`${styles.bottomNavItem} ${isActive("/member/team") || isActive("/member/binary") ? styles.bottomActive : ""}`}
+            className={`${styles.bottomNavItem} ${isActive("/member/growth-map") ? styles.bottomActive : ""}`}
             onClick={() => {
-              navigate("/member/team");
+              navigate("/member/growth-map");
               closeAllMenus();
             }}
           >
             <div className={styles.iconCircle}>
               <svg className={styles.navSvg} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+                <line x1="8" y1="2" x2="8" y2="18"></line>
+                <line x1="16" y1="6" x2="16" y2="22"></line>
               </svg>
             </div>
-            <span className={styles.bottomNavLabel}>My Team</span>
+            <span className={styles.bottomNavLabel}>Growth Map</span>
           </button>
 
           {/* 4. Buy Package */}
@@ -352,9 +348,8 @@ const MemberLayout = () => {
         </nav>
       </div>
 
-     {/* ================= MOBILE BOTTOM DRAWER MENU ================= */}
+      {/* Mobile Drawer Menu */}
       <div className={`${styles.mobileDrawer} ${mobileDrawerOpen ? styles.drawerOpen : ""}`}>
-        {/* Mobile Pull Handle Indicator */}
         <div className={styles.drawerHandleBar}></div>
 
         <div className={styles.drawerHeader}>
