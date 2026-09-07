@@ -1,379 +1,263 @@
 /* client/src/components/member/SalaryProgressCard.module.css */
 
-.salaryCardContainer {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1.5px solid #e2e8f0;
-  border-radius: 22px;
-  padding: 24px 26px;
-  box-shadow: 
-    0 14px 34px -6px rgba(37, 99, 235, 0.06),
-    0 4px 12px -2px rgba(15, 23, 42, 0.03);
-  margin-bottom: 26px;
+.salaryCardWrapper {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 18px 20px;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.03);
   box-sizing: border-box;
-  font-family: inherit;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #0f172a;
+  margin-bottom: 20px;
+  width: 100%;
 }
 
-/* Card Header */
+/* ============================================================
+   HEADER BLOCK
+   ============================================================ */
 .cardHeader {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 18px;
+  gap: 12px;
+  margin-bottom: 14px;
   flex-wrap: wrap;
-  gap: 16px;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 12px;
 }
 
-.headerLeft {
+.titleGroup {
   flex: 1;
-  min-width: 260px;
+  min-width: 200px;
 }
 
-.badgeTag {
+.categoryPill {
   display: inline-block;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
-  letter-spacing: 0.8px;
-  color: #2563eb;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  padding: 3px 10px;
+  letter-spacing: 0.6px;
+  color: #d97706;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  padding: 2.5px 8px;
   border-radius: 999px;
   margin-bottom: 6px;
 }
 
-.mainTitle {
-  font-size: 20px;
-  font-weight: 900;
+.titleGroup h3 {
+  font-size: 15.5px;
+  font-weight: 850;
   color: #0f172a;
-  margin: 0 0 4px 0;
-  letter-spacing: -0.02em;
+  margin: 0 0 3px 0;
+  letter-spacing: -0.01em;
 }
 
-.subTitle {
-  font-size: 12.5px;
+.titleGroup p {
+  font-size: 11.5px;
   color: #64748b;
   margin: 0;
+  line-height: 1.35;
 }
 
-/* Balance Box */
-.balanceBox {
+/* Salary Balance Display Badge */
+.balanceBadge {
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   color: #ffffff;
-  padding: 12px 20px;
-  border-radius: 14px;
-  text-align: right;
-  min-width: 160px;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.15);
-}
-
-.balanceLabel {
-  display: block;
-  font-size: 9.5px;
-  font-weight: 700;
-  color: #94a3b8;
-  letter-spacing: 0.5px;
-  margin-bottom: 2px;
-}
-
-.balanceValue {
-  font-size: 22px;
-  font-weight: 900;
-  color: #ffffff;
-  display: block;
-  letter-spacing: -0.02em;
-}
-
-.lifetimeEarned {
-  display: block;
-  font-size: 10.5px;
-  color: #cbd5e1;
-  margin-top: 2px;
-}
-
-/* Rank Status Banners */
-.rankNoticeYellow,
-.rankNoticeGreen {
+  padding: 10px 14px;
+  border-radius: 12px;
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 18px;
-  border-radius: 14px;
-  margin-bottom: 18px;
-  box-sizing: border-box;
-}
-
-.rankNoticeYellow {
-  background: #fffbeb;
-  border: 1.5px solid #fde68a;
-  color: #92400e;
-}
-
-.rankNoticeGreen {
-  background: #f0fdf4;
-  border: 1.5px solid #bbf7d0;
-  color: #166534;
-}
-
-.noticeIcon {
-  font-size: 22px;
+  flex-direction: column;
+  align-items: flex-end;
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.12);
+  border: 1px solid #334155;
   flex-shrink: 0;
 }
 
-.noticeText strong {
+.balanceLabel {
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.5px;
+  color: #94a3b8;
+  margin-bottom: 1px;
+}
+
+.balanceBadge strong {
+  font-size: 15px;
+  font-weight: 900;
+  color: #f8fafc;
+  letter-spacing: -0.02em;
+}
+
+.balanceBadge small {
+  font-size: 9.5px;
+  color: #cbd5e1;
+  margin-top: 1px;
+}
+
+/* ============================================================
+   RANK NOTICE BANNER
+   ============================================================ */
+.rankNoticeBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #fffbeb;
+  border: 1.2px solid #fde68a;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  box-sizing: border-box;
+}
+
+.starIcon {
+  font-size: 17px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.rankNoticeContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.rankNoticeContent strong {
   display: block;
-  font-size: 13.5px;
+  font-size: 12.5px;
   font-weight: 800;
+  color: #92400e;
   margin-bottom: 2px;
 }
 
-.noticeText p {
-  font-size: 12px;
+.rankNoticeContent p {
+  font-size: 11.5px;
+  color: #b45309;
   margin: 0;
-  opacity: 0.95;
+  line-height: 1.35;
 }
 
-/* Pre-Gold Star Progress Card */
-.rankProgressCard {
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 14px 18px;
-  margin-bottom: 18px;
+/* ============================================================
+   PROGRESS BAR SECTION
+   ============================================================ */
+.progressBarSection {
+  margin-bottom: 14px;
 }
 
-.rankProgressHeader {
+.progressLabels {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 750;
   color: #475569;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
-.progressBarTrack {
+.progressLabels span {
+  color: #64748b;
+}
+
+.progressLabels strong {
+  color: #0f172a;
+}
+
+.track {
   width: 100%;
   height: 8px;
-  background: #e2e8f0;
+  background: #f1f5f9;
   border-radius: 999px;
   overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+  border: 1px solid #e2e8f0;
 }
 
-.progressBarFillGold {
+.fill {
   height: 100%;
-  background: linear-gradient(90deg, #f59e0b, #eab308);
+  background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
   border-radius: 999px;
-  transition: width 0.4s ease;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Gauges Grid */
-.gaugesContainer {
+/* ============================================================
+   STATS SUMMARY FOOTER GRID
+   ============================================================ */
+.statsSummaryFooter {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 18px;
-}
-
-.legCard {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
   background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 14px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 14px;
 }
 
-.legHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.legTagLeft {
-  font-size: 10px;
-  font-weight: 800;
-  color: #2563eb;
-  letter-spacing: 0.5px;
-}
-
-.legTagRight {
-  font-size: 10px;
-  font-weight: 800;
-  color: #db2777;
-  letter-spacing: 0.5px;
-}
-
-.pctBadgeLeft {
-  font-size: 11px;
-  font-weight: 800;
-  color: #2563eb;
-  background: #eff6ff;
-  padding: 2px 6px;
-  border-radius: 6px;
-}
-
-.pctBadgeRight {
-  font-size: 11px;
-  font-weight: 800;
-  color: #db2777;
-  background: #fdf2f8;
-  padding: 2px 6px;
-  border-radius: 6px;
-}
-
-.volumeStatRow {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-.volumeStatRow strong {
-  font-size: 17px;
-  font-weight: 900;
-  color: #0f172a;
-}
-
-.volumeStatRow small {
-  font-size: 11.5px;
-  color: #64748b;
-}
-
-.progressBarBg {
-  width: 100%;
-  height: 7px;
-  background: #e2e8f0;
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.progressBarFillLeft {
-  height: 100%;
-  background: linear-gradient(90deg, #60a5fa, #2563eb);
-  border-radius: 999px;
-  transition: width 0.4s ease;
-}
-
-.progressBarFillRight {
-  height: 100%;
-  background: linear-gradient(90deg, #f472b6, #db2777);
-  border-radius: 999px;
-  transition: width 0.4s ease;
-}
-
-/* Summary Footer */
-.summaryFooter {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 14px 20px;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.summaryItem {
+.statCol {
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
-.summaryLabel {
-  font-size: 10px;
-  font-weight: 700;
+.statCol span {
+  font-size: 9.5px;
+  font-weight: 750;
   color: #64748b;
   letter-spacing: 0.4px;
-  margin-bottom: 2px;
 }
 
-.summaryValue {
-  font-size: 15px;
-  font-weight: 900;
+.statCol strong {
+  font-size: 12.5px;
+  font-weight: 850;
   color: #0f172a;
 }
 
-.qualifiedValue {
-  font-size: 15px;
-  font-weight: 900;
-  color: #16a34a;
-}
-
-.normalValue {
-  font-size: 15px;
-  font-weight: 900;
-  color: #64748b;
-}
-
-.summaryDivider {
-  width: 1px;
-  height: 28px;
-  background: #cbd5e1;
-}
-
-.statusBadgeQualified {
-  display: inline-block;
+/* Status Badges */
+.statusLocked {
   font-size: 11px;
   font-weight: 800;
-  background: #f0fdf4;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
-  padding: 2px 10px;
-  border-radius: 6px;
-  width: fit-content;
-}
-
-.statusBadgeProgress {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 800;
-  background: #fffbeb;
   color: #d97706;
-  border: 1px solid #fde68a;
-  padding: 2px 10px;
-  border-radius: 6px;
-  width: fit-content;
 }
 
-/* Skeleton Loading State */
-.loadingSkeleton {
-  padding: 12px 0;
+.statusUnlocked {
+  font-size: 11px;
+  font-weight: 800;
+  color: #16a34a;
 }
 
-.skeletonPulseHeader {
-  width: 50%;
-  height: 24px;
-  background: #e2e8f0;
-  border-radius: 6px;
-  margin-bottom: 16px;
-  animation: pulse 1.4s infinite;
-}
-
-.skeletonPulseRow {
-  width: 100%;
-  height: 60px;
-  background: #e2e8f0;
-  border-radius: 10px;
-  animation: pulse 1.4s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 0.3; }
-}
-
-/* Mobile Responsiveness */
-@media (max-width: 680px) {
-  .gaugesContainer {
-    grid-template-columns: 1fr;
-    gap: 12px;
+/* ============================================================
+   📱 MOBILE RESPONSIVENESS
+   ============================================================ */
+@media (max-width: 768px) {
+  .salaryCardWrapper {
+    padding: 14px 12px;
+    border-radius: 14px;
   }
 
-  .summaryFooter {
+  .cardHeader {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    gap: 10px;
+    padding-bottom: 10px;
   }
 
-  .summaryDivider {
-    display: none;
+  .balanceBadge {
+    align-items: flex-start;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 12px;
+  }
+
+  .statsSummaryFooter {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .titleGroup h3 {
+    font-size: 14.5px;
+  }
+
+  .titleGroup p {
+    font-size: 11px;
   }
 }
