@@ -40,7 +40,7 @@ async function getReferralChainForUser(userId) {
   return chain;
 }
 
-// ============ REGISTRATION (NO EMAIL / PHONE RESTRICTIONS) ============
+// ============ REGISTRATION (MULTIPLE ACCOUNTS PER EMAIL & PHONE ALLOWED) ============
 const register = async (req, res, next) => {
   try {
     const { fullName, email, phoneNumber, password, sponsorId, side, binarySide, position, pos } = req.body;
@@ -180,12 +180,18 @@ const register = async (req, res, next) => {
   } catch (error) {
     console.error('Registration error:', error);
 
-    // If MongoDB index error occurs, show detailed message
     if (error.code === 11000) {
       const duplicateField = Object.keys(error.keyPattern || {})[0] || 'Field';
+      // If memberId or referralCode collided, retry or inform
+      if (duplicateField === 'memberId' || duplicateField === 'referralCode') {
+        return res.status(400).json({
+          success: false,
+          message: 'Member ID collision occurred. Please submit registration again.'
+        });
+      }
       return res.status(400).json({
         success: false,
-        message: `${duplicateField} already exists in database. If this is phoneNumber or email, drop the legacy index in MongoDB.`
+        message: `Unique index constraint triggered on ${duplicateField}. Please drop legacy indexes in MongoDB for email and phoneNumber.`
       });
     }
 
@@ -208,7 +214,6 @@ const login = async (req, res, next) => {
 
     const cleanInput = inputIdentifier.trim();
 
-    // Prioritize Member ID / Referral Code so multi-accounts with same email/phone can login cleanly
     const user = await User.findOne({
       $or: [
         { memberId: { $regex: new RegExp(`^${cleanInput}$`, 'i') } },
@@ -270,20 +275,14 @@ const refreshToken = async (req, res, next) => {
     const token = req.cookies?.token || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.split(' ')[1] : null);
 
     if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: 'No session token provided'
-      });
+      return res.status(401).json({ success: false, message: 'No session token provided' });
     }
 
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch {
-      return res.status(401).json({
-        success: false,
-        message: 'Session expired. Please log in again.'
-      });
+      return res.status(401).json({ success: false, message: 'Session expired. Please log in again.' });
     }
 
     const user = await User.findById(decoded.userId)
@@ -291,10 +290,7 @@ const refreshToken = async (req, res, next) => {
       .populate('sponsorId', 'fullName memberId');
 
     if (!user || ['SUSPENDED', 'BLOCKED', 'DEACTIVATED'].includes(user.status)) {
-      return res.status(403).json({
-        success: false,
-        message: 'User account is not active or has been disabled.'
-      });
+      return res.status(403).json({ success: false, message: 'User account is not active or has been disabled.' });
     }
 
     const newToken = generateToken(user._id);
@@ -303,13 +299,7 @@ const refreshToken = async (req, res, next) => {
     const userResponse = user.toObject();
     delete userResponse.password;
 
-    res.json({
-      success: true,
-      data: {
-        token: newToken,
-        user: userResponse
-      }
-    });
+    res.json({ success: true, data: { token: newToken, user: userResponse } });
   } catch (error) {
     next(error);
   }
@@ -319,12 +309,8 @@ const refreshToken = async (req, res, next) => {
 const sendForgotPasswordOTP = async (req, res, next) => {
   try {
     const { identifier } = req.body;
-
     if (!identifier) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide your registered User ID'
-      });
+      return res.status(400).json({ success: false, message: 'Please provide your registered User ID' });
     }
 
     const cleanInput = identifier.trim();
@@ -336,10 +322,7 @@ const sendForgotPasswordOTP = async (req, res, next) => {
     });
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'No account found with this User ID'
-      });
+      return res.status(404).json({ success: false, message: 'No account found with this User ID' });
     }
 
     const otpCode = user.generateOTP();
@@ -357,10 +340,10 @@ const sendForgotPasswordOTP = async (req, res, next) => {
             <div style="font-size: 28px; font-weight: 800; color: #2563eb; letter-spacing: 4px; margin: 20px 0;">
               ${otpCode}
             </div>
-            <p>This OTP is valid for 10 minutes. If you did not request this, please ignore this email.</p>
+            <p>This OTP is valid for 10 minutes.</p>
           </div>
         `,
-        text: `Your KUWIFR Password Reset OTP is ${otpCode}. It is valid for 10 minutes.`
+        text: `Your KUWIFR Password Reset OTP is ${otpCode}. Valid for 10 minutes.`
       });
     } catch (emailErr) {
       console.error('Failed to send OTP email:', emailErr);
@@ -369,9 +352,7 @@ const sendForgotPasswordOTP = async (req, res, next) => {
     res.json({
       success: true,
       message: `A 6-digit OTP has been sent to your registered email (${user.email.replace(/(.{2})(.*)(?=@)/, '$1***')}).`,
-      data: {
-        emailMasked: user.email.replace(/(.{2})(.*)(?=@)/, '$1***')
-      }
+      data: { emailMasked: user.email.replace(/(.{2})(.*)(?=@)/, '$1***') }
     });
   } catch (error) {
     next(error);
@@ -382,19 +363,11 @@ const sendForgotPasswordOTP = async (req, res, next) => {
 const resetPasswordWithOTP = async (req, res, next) => {
   try {
     const { identifier, otp, newPassword } = req.body;
-
     if (!identifier || !otp || !newPassword) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide User ID, OTP, and New Password'
-      });
+      return res.status(400).json({ success: false, message: 'Please provide User ID, OTP, and New Password' });
     }
-
     if (newPassword.length < 8) {
-      return res.status(400).json({
-        success: false,
-        message: 'New password must be at least 8 characters long'
-      });
+      return res.status(400).json({ success: false, message: 'New password must be at least 8 characters long' });
     }
 
     const cleanInput = identifier.trim();
@@ -408,10 +381,7 @@ const resetPasswordWithOTP = async (req, res, next) => {
     }).select('+password');
 
     if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid or expired OTP. Please request a new OTP.'
-      });
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP. Please request a new OTP.' });
     }
 
     user.password = newPassword;
@@ -419,10 +389,7 @@ const resetPasswordWithOTP = async (req, res, next) => {
     user.otpExpires = null;
     await user.save();
 
-    res.json({
-      success: true,
-      message: 'Password reset successfully! You can now log in with your new password.'
-    });
+    res.json({ success: true, message: 'Password reset successfully! You can now log in with your new password.' });
   } catch (error) {
     next(error);
   }
@@ -432,9 +399,7 @@ const resetPasswordWithOTP = async (req, res, next) => {
 const sendChangePasswordOTP = async (req, res, next) => {
   try {
     const user = await User.findById(req.userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     const otpCode = user.generateOTP();
     await user.save();
@@ -446,12 +411,10 @@ const sendChangePasswordOTP = async (req, res, next) => {
         html: `
           <div style="font-family: Arial, sans-serif; padding: 20px; color: #0f172a;">
             <h2>Change Password Verification</h2>
-            <p>Hello <strong>${user.fullName}</strong>,</p>
             <p>Your OTP to verify password change is:</p>
             <div style="font-size: 28px; font-weight: 800; color: #2563eb; letter-spacing: 4px; margin: 20px 0;">
               ${otpCode}
             </div>
-            <p>Valid for 10 minutes. Do not share this OTP with anyone.</p>
           </div>
         `,
         text: `Your KUWIFR Password Change OTP is ${otpCode}`
@@ -460,10 +423,7 @@ const sendChangePasswordOTP = async (req, res, next) => {
       console.error('Failed to send Change Password OTP email:', emailErr);
     }
 
-    res.json({
-      success: true,
-      message: `OTP sent to ${user.email}`
-    });
+    res.json({ success: true, message: `OTP sent to ${user.email}` });
   } catch (error) {
     next(error);
   }
@@ -476,10 +436,7 @@ const changePasswordWithOTP = async (req, res, next) => {
     const userId = req.userId;
 
     if (!currentPassword || !newPassword || !otp) {
-      return res.status(400).json({
-        success: false,
-        message: 'Current Password, New Password, and OTP are required'
-      });
+      return res.status(400).json({ success: false, message: 'Current Password, New Password, and OTP are required' });
     }
 
     const user = await User.findOne({
@@ -488,30 +445,17 @@ const changePasswordWithOTP = async (req, res, next) => {
       otpExpires: { $gt: new Date() }
     }).select('+password');
 
-    if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid or expired OTP'
-      });
-    }
+    if (!user) return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
 
     const isMatch = await user.comparePassword(currentPassword);
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Current password is incorrect'
-      });
-    }
+    if (!isMatch) return res.status(401).json({ success: false, message: 'Current password is incorrect' });
 
     user.password = newPassword;
     user.otp = null;
     user.otpExpires = null;
     await user.save();
 
-    res.json({
-      success: true,
-      message: 'Password changed successfully!'
-    });
+    res.json({ success: true, message: 'Password changed successfully!' });
   } catch (error) {
     next(error);
   }
@@ -534,9 +478,7 @@ const getCurrentUser = async (req, res, next) => {
       .populate('activePackageId', 'name type price kbp dailyCap')
       .populate('sponsorId', 'fullName memberId');
 
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     const userResponse = user.toObject();
     delete userResponse.password;
