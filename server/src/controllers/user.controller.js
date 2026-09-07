@@ -10,8 +10,12 @@ const SalaryService = require('../services/salary.service');
 const cloudinary = require('../config/cloudinary');
 
 // ============================================================
-// 📦 5-TIER PACKAGE KBP RESOLUTION (CORE BUSINESS ENGINE)
-// All business volume, team matching, and income depend on KBP
+// 📦 5-TIER OFFICIAL PACKAGE KBP RESOLUTION
+// 1. Starter Package: 1,500/- -> 1,000 KBP
+// 2. Growth Package: 5,000/- -> 5,000 KBP
+// 3. LifeSafe Package: 10,000/- -> 7,500 KBP
+// 4. LifeSafe Elite Package: 15,000/- -> 10,000 KBP
+// 5. Titanium Package: 110,000/- -> 50,000 KBP
 // ============================================================
 const resolveUserKbp = (userDoc) => {
   if (!userDoc || (userDoc.status || '').toUpperCase() !== 'ACTIVE') return 0;
@@ -31,9 +35,8 @@ const resolveUserKbp = (userDoc) => {
 };
 
 // ============================================================
-// 🏆 12-LEVEL OFFICIAL KUWIFR RANK ENGINE
-// Milestone Rule: 2:1 or 1:2 Direct 3 active joining with Min 3,000 KBP
-// Higher ranks require accumulated downline Kuwi Stars
+// 🏆 KUWI STAR VALIDATOR ENGINE
+// Rule: 2:1 or 1:2 Direct 3 active joinings with minimum 3,000 KBP
 // ============================================================
 const checkIsKuwiStar = async (userId) => {
   const directActives = await User.find({
@@ -41,27 +44,33 @@ const checkIsKuwiStar = async (userId) => {
     status: 'ACTIVE'
   }).populate('activePackageId').lean();
 
-  if (directActives.length < 3) return false;
+  // Condition 1: Must have at least 3 active directs
+  if (!directActives || directActives.length < 3) return false;
 
   let leftDirects = 0;
   let rightDirects = 0;
   let totalDirectKbp = 0;
 
   for (const direct of directActives) {
-    totalDirectKbp += resolveUserKbp(direct);
+    const kbp = resolveUserKbp(direct);
+    totalDirectKbp += kbp;
+
     const side = String(direct.binarySide || '').toLowerCase();
     if (side === 'left') leftDirects++;
     else if (side === 'right') rightDirects++;
   }
 
+  // Condition 2: 2:1 or 1:2 ratio on direct joinings
   const isRatioMet = (leftDirects >= 2 && rightDirects >= 1) || (leftDirects >= 1 && rightDirects >= 2);
+
+  // Condition 3: Minimum 3000 KBP combined across directs
   const isVolumeMet = totalDirectKbp >= 3000;
 
   return isRatioMet && isVolumeMet;
 };
 
 /**
- * High-performance indexed aggregation to count Kuwi Stars downline
+ * Counts qualified Kuwi Stars in Left and Right branches of a user
  */
 const countSubtreeKuwiStars = async (userId, sinceDate = null) => {
   const downlineMembers = await Referral.find({ sponsorId: userId }).select('userId').lean();
@@ -81,6 +90,9 @@ const countSubtreeKuwiStars = async (userId, sinceDate = null) => {
   return { leftStars, rightStars, totalStars: leftStars + rightStars };
 };
 
+// ============================================================
+// 🏆 12-LEVEL OFFICIAL KUWIFR RANK ENGINE
+// ============================================================
 const evaluateMemberRank = async (user) => {
   if (user.currentRankId?.name) {
     return {
@@ -90,11 +102,13 @@ const evaluateMemberRank = async (user) => {
     };
   }
 
+  // Must achieve Kuwi Star first (3 directs, 2:1 or 1:2, >= 3000 KBP)
   const isKuwiStarAchieved = await checkIsKuwiStar(user._id);
   if (!isKuwiStarAchieved) {
     return { name: 'Not Achieved', code: 'NONE', level: 0 };
   }
 
+  // Higher ranks depend on accumulated Kuwi Stars in downline
   const { totalStars: downlineKuwiStars } = await countSubtreeKuwiStars(user._id);
 
   if (downlineKuwiStars >= 160000) return { name: 'Crown', code: 'CROWN', level: 12 };
@@ -113,24 +127,21 @@ const evaluateMemberRank = async (user) => {
 };
 
 // ============================================================
-// 📊 DASHBOARD METRICS CONTROLLER (KBP-DRIVEN ARCHITECTURE)
+// 📊 DASHBOARD METRICS (ALL BUSINESS IN KBP, STARS ACCORDING TO RULE)
 // ============================================================
 const getDashboardStats = async (req, res, next) => {
   try {
     const userId = req.userId;
     const now = new Date();
 
-    // 1. Time boundary: Today 00:00:00
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
 
-    // 2. Time boundary: Current Week Monday 00:00:00
     const dayOfWeek = now.getDay();
     const diffToMonday = (dayOfWeek + 6) % 7;
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - diffToMonday);
     weekStart.setHours(0, 0, 0, 0);
 
-    // 3. Time boundary: Current Month 1st 00:00:00
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
 
     const [user, wallet, binaryNode, fundSummary, salaryProgress] = await Promise.all([
@@ -156,12 +167,12 @@ const getDashboardStats = async (req, res, next) => {
 
     const totalTeamCount = await Referral.countDocuments({ sponsorId: userId });
 
-    // Lifetime Binary Volumes
+    // Lifetime binary volumes from node
     const totalKbpLeft = Number(binaryNode?.leftVolume || 0);
     const totalKbpRight = Number(binaryNode?.rightVolume || 0);
     const totalKbpMatch = Number(binaryNode?.matchingVolume || Math.min(totalKbpLeft, totalKbpRight));
 
-    // Resolve leg-based KBP production over specific intervals
+    // Resolve leg-based KBP production
     const directs = await User.find({ sponsorId: userId }).populate('activePackageId').lean();
     const leftDirects = directs.filter((d) => String(d.binarySide || '').toLowerCase() === 'left');
     const rightDirects = directs.filter((d) => String(d.binarySide || '').toLowerCase() === 'right');
@@ -172,7 +183,6 @@ const getDashboardStats = async (req, res, next) => {
         .reduce((sum, m) => sum + resolveUserKbp(m), 0);
     };
 
-    // Metrics for requested panels
     const todayLeftBusiness = sumKbpSince(leftDirects, todayStart);
     const todayRightBusiness = sumKbpSince(rightDirects, todayStart);
 
@@ -181,11 +191,12 @@ const getDashboardStats = async (req, res, next) => {
     const weeklyTotalKbp = weeklyLeftKbp + weeklyRightKbp;
     const weeklyKbpMatch = Math.min(weeklyLeftKbp, weeklyRightKbp);
 
-    // Kuwi Star achievements
-    const lifetimeStars = await countSubtreeKuwiStars(userId);
+    // Strict Kuwi Star Counts: Calculated via checkIsKuwiStar (3 directs, 2:1/1:2, >= 3000 KBP)
+    const todayStars = await countSubtreeKuwiStars(userId, todayStart);
     const monthlyStars = await countSubtreeKuwiStars(userId, monthStart);
+    const lifetimeStars = await countSubtreeKuwiStars(userId, null);
 
-    // Official 12-Level rank evaluation
+    // Official 12-Level rank check
     const evaluatedRank = await evaluateMemberRank(user);
 
     const baseUrl = process.env.CLIENT_URL || 'https://www.kuwifr.in';
@@ -194,18 +205,15 @@ const getDashboardStats = async (req, res, next) => {
     res.json({
       success: true,
       data: {
-        // Core Wallet & Financials
         todayIncome: wallet?.todayIncome || 0,
         totalIncome: wallet?.totalIncome || 0,
         totalWithdrawal: wallet?.totalWithdrawn || 0,
-
-        // Acquisition Counts
         todayAddMembers,
         todayActiveMembers,
         totalMembers: totalTeamCount > 0 ? totalTeamCount : totalDirects,
         totalActiveMembers: await User.countDocuments({ sponsorId: userId, status: 'ACTIVE' }),
 
-        // 🌟 KBP BUSINESS VOLUMES
+        // 🌟 KBP BUSINESS METRICS
         todayLeftBusiness,
         todayRightBusiness,
         weeklyKbp: {
@@ -216,10 +224,10 @@ const getDashboardStats = async (req, res, next) => {
         weeklyKbpMatch,
         totalKbpMatch,
 
-        // Star Recognitions
+        // 🌟 VERIFIED KUWI STAR COUNTS (Counts members who achieved the rank)
         todayStar: {
-          left: Math.floor(todayLeftBusiness / 1000),
-          right: Math.floor(todayRightBusiness / 1000)
+          left: todayStars.leftStars,
+          right: todayStars.rightStars
         },
         monthlyStar: {
           left: monthlyStars.leftStars,
@@ -230,7 +238,7 @@ const getDashboardStats = async (req, res, next) => {
           right: lifetimeStars.rightStars
         },
 
-        // Rank and Fund Achievements
+        // Rank & Fund
         currentRank: {
           name: evaluatedRank.name,
           code: evaluatedRank.code,
@@ -242,7 +250,6 @@ const getDashboardStats = async (req, res, next) => {
           count: fundSummary.totalAchievedCount
         },
 
-        // Royalty & Balance
         salaryBalance: wallet?.salaryBalance || 0,
         totalSalaryEarned: wallet?.totalSalaryEarned || 0,
         salaryQualification: salaryProgress,
@@ -378,7 +385,7 @@ const getBinaryTree = async (req, res, next) => {
     }
 
     if (!rootUser) {
-      return res.status(404).json({ success: false, message: 'Member not found in binary tree.' });
+      return res.status(404).json({ success: false, message: 'Member not found in growth generation tree.' });
     }
 
     const visited = new Set();
@@ -445,7 +452,7 @@ const getBinaryTree = async (req, res, next) => {
       }
     });
   } catch (error) {
-    console.error('Binary Tree Controller Error:', error);
+    console.error('Growth Generation Tree Controller Error:', error);
     next(error);
   }
 };
@@ -750,7 +757,7 @@ const getTeam = async (req, res, next) => {
 
     const teamMembers = await User.find(query)
       .select('fullName email phoneNumber status joinedDate memberId referralCode binarySide sponsorId createdAt')
-      .populate('activePackageId', 'name type')
+      .populate('activePackageId', 'name type price kbp')
       .populate('sponsorId', 'fullName memberId')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
