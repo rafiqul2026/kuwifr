@@ -11,6 +11,7 @@ const ProfilePage = () => {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [profileData, setProfileData] = useState(null);
 
@@ -110,30 +111,40 @@ const ProfilePage = () => {
     }
   };
 
+  // Profile photo upload handler
   const handleAvatarUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (file.size > 3 * 1024 * 1024) {
-      showNotification('Photo must be under 3MB', 'error');
+      showNotification('Photo must be less than 3MB', 'error');
+      e.target.value = '';
       return;
     }
 
     const uploadForm = new FormData();
     uploadForm.append('profilePhoto', file);
+    uploadForm.append('profileImage', file);
 
     try {
+      setUploadingPhoto(true);
       showNotification('Uploading new profile photo...', 'info');
+
       const res = await api.post('/api/users/profile/photo', uploadForm, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
+
       if (res.data?.success) {
-        showNotification('Profile photo updated!', 'success');
+        showNotification('Profile photo updated successfully!', 'success');
         if (refreshUser) refreshUser();
-        fetchProfile();
+        await fetchProfile();
       }
     } catch (err) {
-      showNotification(err.response?.data?.message || 'Failed to upload photo', 'error');
+      const errMsg = err.response?.data?.message || 'Failed to upload photo';
+      showNotification(errMsg, 'error');
+    } finally {
+      setUploadingPhoto(false);
+      e.target.value = '';
     }
   };
 
@@ -186,7 +197,9 @@ const ProfilePage = () => {
           {/* Avatar Block */}
           <div className={styles.avatarWrapper}>
             <div className={styles.avatarCircle}>
-              {activeUser?.profileImage?.url ? (
+              {uploadingPhoto ? (
+                <div className={styles.avatarSpinner}></div>
+              ) : activeUser?.profileImage?.url ? (
                 <img
                   src={activeUser.profileImage.url}
                   alt={activeUser.fullName || 'User'}
@@ -197,7 +210,12 @@ const ProfilePage = () => {
                   {(activeUser?.fullName || 'Member').charAt(0).toUpperCase()}
                 </span>
               )}
-              <label htmlFor="avatarFileInput" className={styles.avatarUploadBadge} title="Change Profile Photo">
+
+              <label
+                htmlFor="avatarFileInput"
+                className={`${styles.avatarUploadBadge} ${uploadingPhoto ? styles.badgeDisabled : ''}`}
+                title="Change Profile Photo"
+              >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
                   <circle cx="12" cy="13" r="4"></circle>
@@ -207,6 +225,7 @@ const ProfilePage = () => {
                 id="avatarFileInput"
                 type="file"
                 accept="image/*"
+                disabled={uploadingPhoto}
                 onChange={handleAvatarUpload}
                 style={{ display: 'none' }}
               />

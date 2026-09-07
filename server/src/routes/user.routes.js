@@ -26,7 +26,7 @@ const User = require('../models/User');
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 1 * 1024 * 1024 }
+  limits: { fileSize: 3 * 1024 * 1024 } // 3 MB
 });
 
 const kycUploadFields = upload.fields([
@@ -34,6 +34,29 @@ const kycUploadFields = upload.fields([
   { name: 'aadhaarBack', maxCount: 1 },
   { name: 'panCard', maxCount: 1 }
 ]);
+
+// Handle both 'profileImage' and 'profilePhoto' field names safely
+const avatarUpload = (req, res, next) => {
+  const singleUpload = upload.fields([
+    { name: 'profilePhoto', maxCount: 1 },
+    { name: 'profileImage', maxCount: 1 }
+  ]);
+
+  singleUpload(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    // Normalize req.file for controller consumption
+    if (req.files) {
+      if (req.files.profilePhoto && req.files.profilePhoto[0]) {
+        req.file = req.files.profilePhoto[0];
+      } else if (req.files.profileImage && req.files.profileImage[0]) {
+        req.file = req.files.profileImage[0];
+      }
+    }
+    next();
+  });
+};
 
 // ============ PUBLIC ROUTES ============
 router.get('/verify-sponsor/:referralCode', verifySponsor);
@@ -104,7 +127,10 @@ router.get('/dashboard-stats', getDashboardStats);
 router.get('/dashboard', getDashboardStats);
 router.get('/profile', getProfile);
 router.put('/profile', updateProfile);
-router.put('/profile/photo', upload.single('profileImage'), uploadProfilePhoto);
+
+// Both PUT and POST supported for seamless frontend compatibility
+router.post('/profile/photo', avatarUpload, uploadProfilePhoto);
+router.put('/profile/photo', avatarUpload, uploadProfilePhoto);
 
 // KYC
 router.get('/kyc', getKYCDetails);
