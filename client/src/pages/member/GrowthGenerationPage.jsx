@@ -53,10 +53,14 @@ const TreeBranchConnector = () => {
 };
 
 /**
- * Member Node Box
+ * 🌲 Unlimited Depth Member Node Component
+ * Recursively renders indefinitely whenever a left or right child node exists.
  */
-const GrowthGenerationNode = ({ node, level = 1, onNodeClick, onMouseEnter, onMouseLeave }) => {
+const GrowthGenerationNode = ({ node, onNodeClick, onMouseEnter, onMouseLeave }) => {
   const isVacant = !node || node.isVacant;
+
+  // Render children if this is an active node that has children OR if it's the root/early tier
+  const hasChildren = !isVacant && (Boolean(node.left) || Boolean(node.right));
 
   return (
     <div className={styles.treeBranchContainer}>
@@ -91,8 +95,8 @@ const GrowthGenerationNode = ({ node, level = 1, onNodeClick, onMouseEnter, onMo
         </div>
       </div>
 
-      {/* Downline Sub-branches */}
-      {!isVacant && level < 4 && (
+      {/* 🚀 INFINITE RECURSIVE SUB-BRANCHES (No Generation Limits) */}
+      {!isVacant && (hasChildren || node.showOpenSpots) && (
         <div className={styles.treeChildrenCluster}>
           <TreeBranchConnector />
 
@@ -104,7 +108,6 @@ const GrowthGenerationNode = ({ node, level = 1, onNodeClick, onMouseEnter, onMo
               </div>
               <GrowthGenerationNode
                 node={node.left || { isVacant: true }}
-                level={level + 1}
                 onNodeClick={onNodeClick}
                 onMouseEnter={onMouseEnter}
                 onMouseLeave={onMouseLeave}
@@ -118,7 +121,6 @@ const GrowthGenerationNode = ({ node, level = 1, onNodeClick, onMouseEnter, onMo
               </div>
               <GrowthGenerationNode
                 node={node.right || { isVacant: true }}
-                level={level + 1}
                 onNodeClick={onNodeClick}
                 onMouseEnter={onMouseEnter}
                 onMouseLeave={onMouseLeave}
@@ -132,7 +134,7 @@ const GrowthGenerationNode = ({ node, level = 1, onNodeClick, onMouseEnter, onMo
 };
 
 /**
- * 🔢 Deep Recursive Counter for all registered members in a branch (excludes vacant spots)
+ * Recursively counts registered members in a branch without depth constraints
  */
 const countRegisteredMembers = (branchRoot) => {
   if (!branchRoot || branchRoot.isVacant || !branchRoot.memberId) return 0;
@@ -223,9 +225,6 @@ const GrowthGenerationPage = () => {
 
   const formatKBP = (val) => `${(Number(val) || 0).toLocaleString('en-IN')} KBP`;
 
-  // --------------------------------------------------------------------------
-  // Exact Registered Member Counts in Left and Right branches of Root
-  // --------------------------------------------------------------------------
   const memberCounts = useMemo(() => {
     if (!rootNode) return { left: 0, right: 0 };
     return {
@@ -242,7 +241,7 @@ const GrowthGenerationPage = () => {
           <span className={styles.pillBadge}>NETWORK STRUCTURE</span>
           <h1 className={styles.pageTitle}>Growth Generation</h1>
           <p className={styles.pageSubtitle}>
-            Interactive dual-leg network structure. Click any member to expand their growth generation.
+            Full infinite-depth dual-leg network structure. Click any member to focus their tree.
           </p>
         </div>
 
@@ -291,7 +290,7 @@ const GrowthGenerationPage = () => {
           </form>
         </div>
 
-        {/* Reference Legend: Member Left : X and Member Right : Y */}
+        {/* Legend Summary Row */}
         <div className={styles.legendSummaryRow}>
           <div className={styles.legendLeft}>
             <strong>Member Left : </strong>
@@ -304,7 +303,7 @@ const GrowthGenerationPage = () => {
           </div>
         </div>
 
-        {/* Tree Stage Viewport */}
+        {/* Tree Stage Viewport with Smooth Infinite Canvas */}
         <div className={styles.stageViewport}>
           {loading ? (
             <div className={styles.centerState}>
@@ -315,7 +314,6 @@ const GrowthGenerationPage = () => {
             <div className={styles.treeWrapper}>
               <GrowthGenerationNode
                 node={rootNode}
-                level={1}
                 onNodeClick={handleNodeClick}
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}

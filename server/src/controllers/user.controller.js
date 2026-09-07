@@ -11,11 +11,11 @@ const cloudinary = require('../config/cloudinary');
 
 // ============================================================
 // 📦 5-TIER OFFICIAL PACKAGE KBP RESOLUTION
-// 1. Starter Package: 1,500/- -> 1,000 KBP
-// 2. Growth Package: 5,000/- -> 5,000 KBP
-// 3. LifeSafe Package: 10,000/- -> 7,500 KBP
-// 4. LifeSafe Elite Package: 15,000/- -> 10,000 KBP
-// 5. Titanium Package: 110,000/- -> 50,000 KBP
+// 1. Starter Package: ₹1,500 -> 1,000 KBP
+// 2. Growth Package: ₹5,000 -> 5,000 KBP
+// 3. LifeSafe Package: ₹10,000 -> 7,500 KBP
+// 4. LifeSafe Elite Package: ₹15,000 -> 10,000 KBP
+// 5. Titanium Package: ₹110,000 -> 50,000 KBP
 // ============================================================
 const resolveUserKbp = (userDoc) => {
   if (!userDoc || (userDoc.status || '').toUpperCase() !== 'ACTIVE') return 0;
@@ -31,6 +31,7 @@ const resolveUserKbp = (userDoc) => {
   if (pkgName.includes('ELITE')) return 10000;
   if (pkgName.includes('LIFESAFE') || pkgName.includes('LIFE SAFE')) return 7500;
   if (pkgName.includes('GROWTH')) return 5000;
+  if (pkgName.includes('STARTER')) return 1000;
   return 1000; // Starter Package default
 };
 
@@ -44,7 +45,7 @@ const checkIsKuwiStar = async (userId) => {
     status: 'ACTIVE'
   }).populate('activePackageId').lean();
 
-  // Condition 1: Must have at least 3 active directs
+  // Condition 1: Must have at least 3 active direct referrals
   if (!directActives || directActives.length < 3) return false;
 
   let leftDirects = 0;
@@ -53,17 +54,19 @@ const checkIsKuwiStar = async (userId) => {
 
   for (const direct of directActives) {
     const kbp = resolveUserKbp(direct);
-    totalDirectKbp += kbp;
-
-    const side = String(direct.binarySide || '').toLowerCase();
-    if (side === 'left') leftDirects++;
-    else if (side === 'right') rightDirects++;
+    // Every qualifying direct must have purchased a package (min 1,000 KBP)
+    if (kbp > 0) {
+      totalDirectKbp += kbp;
+      const side = String(direct.binarySide || '').toLowerCase();
+      if (side === 'left') leftDirects++;
+      else if (side === 'right') rightDirects++;
+    }
   }
 
   // Condition 2: 2:1 or 1:2 ratio on direct joinings
   const isRatioMet = (leftDirects >= 2 && rightDirects >= 1) || (leftDirects >= 1 && rightDirects >= 2);
 
-  // Condition 3: Minimum 3000 KBP combined across directs
+  // Condition 3: Minimum 3,000 KBP combined across directs
   const isVolumeMet = totalDirectKbp >= 3000;
 
   return isRatioMet && isVolumeMet;
@@ -102,7 +105,7 @@ const evaluateMemberRank = async (user) => {
     };
   }
 
-  // Must achieve Kuwi Star first (3 directs, 2:1 or 1:2, >= 3000 KBP)
+  // Must achieve Kuwi Star first (3 directs, 2:1 or 1:2, >= 3,000 KBP)
   const isKuwiStarAchieved = await checkIsKuwiStar(user._id);
   if (!isKuwiStarAchieved) {
     return { name: 'Not Achieved', code: 'NONE', level: 0 };
@@ -127,7 +130,7 @@ const evaluateMemberRank = async (user) => {
 };
 
 // ============================================================
-// 📊 DASHBOARD METRICS (ALL BUSINESS IN KBP, STARS ACCORDING TO RULE)
+// 📊 DASHBOARD METRICS
 // ============================================================
 const getDashboardStats = async (req, res, next) => {
   try {
@@ -191,12 +194,12 @@ const getDashboardStats = async (req, res, next) => {
     const weeklyTotalKbp = weeklyLeftKbp + weeklyRightKbp;
     const weeklyKbpMatch = Math.min(weeklyLeftKbp, weeklyRightKbp);
 
-    // Strict Kuwi Star Counts: Calculated via checkIsKuwiStar (3 directs, 2:1/1:2, >= 3000 KBP)
+    // Verified Kuwi Star Counts: Calculated strictly via checkIsKuwiStar
     const todayStars = await countSubtreeKuwiStars(userId, todayStart);
     const monthlyStars = await countSubtreeKuwiStars(userId, monthStart);
     const lifetimeStars = await countSubtreeKuwiStars(userId, null);
 
-    // Official 12-Level rank check
+    // Official 12-Level rank evaluation
     const evaluatedRank = await evaluateMemberRank(user);
 
     const baseUrl = process.env.CLIENT_URL || 'https://www.kuwifr.in';
@@ -213,7 +216,7 @@ const getDashboardStats = async (req, res, next) => {
         totalMembers: totalTeamCount > 0 ? totalTeamCount : totalDirects,
         totalActiveMembers: await User.countDocuments({ sponsorId: userId, status: 'ACTIVE' }),
 
-        // 🌟 KBP BUSINESS METRICS
+        // KBP Business Metrics
         todayLeftBusiness,
         todayRightBusiness,
         weeklyKbp: {
@@ -224,7 +227,7 @@ const getDashboardStats = async (req, res, next) => {
         weeklyKbpMatch,
         totalKbpMatch,
 
-        // 🌟 VERIFIED KUWI STAR COUNTS (Counts members who achieved the rank)
+        // Verified Kuwi Star Counts
         todayStar: {
           left: todayStars.leftStars,
           right: todayStars.rightStars
@@ -269,7 +272,7 @@ const getDashboardStats = async (req, res, next) => {
 };
 
 // ============================================================
-// 🌲 COMPLETE PRODUCTION BINARY TREE
+// 🌲 UNLIMITED-DEPTH INFINITE GENERATION BINARY TREE
 // ============================================================
 const formatNode = async (userDoc) => {
   if (!userDoc) return null;
@@ -324,31 +327,49 @@ const formatNode = async (userDoc) => {
   };
 };
 
+/**
+ * Recursive Spillover Engine without Depth Limits
+ * Automatically pushes spillover down the extreme leg to unlimited generations.
+ */
 const buildSpilloverBranch = async (membersList, side, visited) => {
   if (!membersList || membersList.length === 0) return null;
 
   const currentMember = membersList[0];
-  if (visited.has(String(currentMember._id))) return null;
-  visited.add(String(currentMember._id));
+  const memberIdStr = String(currentMember._id);
+
+  if (visited.has(memberIdStr)) return null;
+  visited.add(memberIdStr);
 
   const node = await formatNode(currentMember);
   const remainingInChain = membersList.slice(1);
 
+  // Fetch downline direct referrals for this member
   const ownDirects = await User.find({ sponsorId: currentMember._id })
     .populate('activePackageId')
     .populate('sponsorId', 'memberId fullName')
     .sort({ createdAt: 1 })
     .lean();
 
-  const ownLeft = ownDirects.filter((m) => String(m.binarySide || '').toLowerCase() === 'left');
-  const ownRight = ownDirects.filter((m) => String(m.binarySide || '').toLowerCase() === 'right');
+  let ownLeft = ownDirects.filter((m) => String(m.binarySide || '').toLowerCase() === 'left');
+  let ownRight = ownDirects.filter((m) => String(m.binarySide || '').toLowerCase() === 'right');
+
+  // Handle unassigned members
+  const unassigned = ownDirects.filter(
+    (m) => !['left', 'right'].includes(String(m.binarySide || '').toLowerCase())
+  );
+  unassigned.forEach((m) => {
+    if (ownLeft.length <= ownRight.length) ownLeft.push(m);
+    else ownRight.push(m);
+  });
 
   if (side === 'LEFT') {
-    const nextLeftList = remainingInChain.concat(ownLeft);
+    // Outer Left Power Leg: Spillover chain cascades down to unlimited depth
+    const nextLeftList = [...remainingInChain, ...ownLeft];
     node.left = await buildSpilloverBranch(nextLeftList, 'LEFT', visited);
     node.right = await buildSpilloverBranch(ownRight, 'RIGHT', visited);
   } else {
-    const nextRightList = remainingInChain.concat(ownRight);
+    // Outer Right Power Leg: Spillover chain cascades down to unlimited depth
+    const nextRightList = [...remainingInChain, ...ownRight];
     node.right = await buildSpilloverBranch(nextRightList, 'RIGHT', visited);
     node.left = await buildSpilloverBranch(ownLeft, 'LEFT', visited);
   }
@@ -394,6 +415,7 @@ const getBinaryTree = async (req, res, next) => {
     const tree = await formatNode(rootUser.toObject());
     tree.isMyNode = true;
 
+    // Fetch all frontline direct referrals for root
     const directReferrals = await User.find({ sponsorId: rootUser._id })
       .populate('activePackageId')
       .populate('sponsorId', 'memberId fullName')
@@ -411,6 +433,7 @@ const getBinaryTree = async (req, res, next) => {
       else rightMembers.push(m);
     });
 
+    // Recursively build branches down to unlimited depth
     tree.left = await buildSpilloverBranch(leftMembers, 'LEFT', visited);
     tree.right = await buildSpilloverBranch(rightMembers, 'RIGHT', visited);
 
