@@ -4,11 +4,20 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import styles from "./MemberLayout.module.css";
 
-// 🧭 FULL MEMBER NAVIGATION CONFIGURATION
+// 🧭 FULL MEMBER NAVIGATION CONFIGURATION (Profile configured as Collapsible Dropdown)
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: "📊", path: "/member/dashboard" },
-  { id: "profile", label: "Profile", icon: "👤", path: "/member/profile" },
-  { id: "kyc", label: "KYC Verification", icon: "🪪", path: "/member/kyc" },
+  {
+    id: "profile_group",
+    label: "Profile",
+    icon: "👤",
+    path: "/member/profile",
+    isDropdown: true,
+    subItems: [
+      { id: "my_profile", label: "My Profile", icon: "👤", path: "/member/profile" },
+      { id: "kyc_verification", label: "KYC Verification", icon: "🪪", path: "/member/kyc" }
+    ]
+  },
   { id: "wallet", label: "Wallet & Payouts", icon: "💰", path: "/member/wallet" },
   { id: "bonanza", label: "Bonanza Offers", icon: "🎯", path: "/member/bonanza" },
   { id: "repurchase", label: "Repurchase Store", icon: "🛍️", path: "/member/repurchase" },
@@ -36,7 +45,8 @@ const navItems = [
 const MemberLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
-  const [packageDropdownOpen, setPackageDropdownOpen] = useState(true);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(true);
+  const [packageDropdownOpen, setPackageDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -74,6 +84,13 @@ const MemberLayout = () => {
     };
   }, [isMobile, sidebarOpen, mobileDrawerOpen]);
 
+  // Keep Profile dropdown expanded when visiting /member/profile or /member/kyc
+  useEffect(() => {
+    if (location.pathname.startsWith("/member/profile") || location.pathname.startsWith("/member/kyc")) {
+      setProfileDropdownOpen(true);
+    }
+  }, [location.pathname]);
+
   useEffect(() => {
     if (isMobile) {
       setSidebarOpen(false);
@@ -103,6 +120,8 @@ const MemberLayout = () => {
   };
 
   const isActive = (path) => location.pathname === path;
+  const isProfileGroupActive =
+    location.pathname.startsWith("/member/profile") || location.pathname.startsWith("/member/kyc");
   const isPackageGroupActive = location.pathname.startsWith("/member/packages");
 
   return (
@@ -190,27 +209,45 @@ const MemberLayout = () => {
           <nav className={styles.sidebarNav}>
             {navItems.map((item) => {
               if (item.isDropdown) {
+                const isGroupActive =
+                  item.id === "profile_group" ? isProfileGroupActive : isPackageGroupActive;
+                const isDropdownOpen =
+                  item.id === "profile_group" ? profileDropdownOpen : packageDropdownOpen;
+                const toggleDropdown = () => {
+                  if (item.id === "profile_group") {
+                    setProfileDropdownOpen((prev) => !prev);
+                  } else {
+                    setPackageDropdownOpen((prev) => !prev);
+                  }
+                };
+
                 return (
                   <div key={item.id} className={styles.dropdownGroup}>
                     <button
                       type="button"
-                      className={`${styles.navItem} ${isPackageGroupActive ? styles.active : ""}`}
-                      onClick={() => setPackageDropdownOpen(!packageDropdownOpen)}
+                      className={`${styles.navItem} ${isGroupActive ? styles.active : ""}`}
+                      onClick={toggleDropdown}
                     >
                       <span className={styles.navIcon}>{item.icon}</span>
                       <span className={styles.navLabel}>{item.label}</span>
-                      <span className={`${styles.dropdownCaret} ${packageDropdownOpen ? styles.caretOpen : ""}`}>
+                      <span
+                        className={`${styles.dropdownCaret} ${
+                          isDropdownOpen ? styles.caretOpen : ""
+                        }`}
+                      >
                         ▼
                       </span>
                     </button>
 
-                    {packageDropdownOpen && (
+                    {isDropdownOpen && (
                       <div className={styles.submenuList}>
                         {item.subItems.map((sub) => (
                           <button
                             key={sub.id}
                             type="button"
-                            className={`${styles.submenuItem} ${isActive(sub.path) ? styles.submenuActive : ""}`}
+                            className={`${styles.submenuItem} ${
+                              isActive(sub.path) ? styles.submenuActive : ""
+                            }`}
                             onClick={() => {
                               navigate(sub.path);
                               if (isMobile) closeAllMenus();
@@ -264,7 +301,9 @@ const MemberLayout = () => {
           {/* 1. Home */}
           <button
             type="button"
-            className={`${styles.bottomNavItem} ${isActive("/member/dashboard") ? styles.bottomActive : ""}`}
+            className={`${styles.bottomNavItem} ${
+              isActive("/member/dashboard") ? styles.bottomActive : ""
+            }`}
             onClick={() => {
               navigate("/member/dashboard");
               closeAllMenus();
@@ -281,7 +320,9 @@ const MemberLayout = () => {
           {/* 2. Income */}
           <button
             type="button"
-            className={`${styles.bottomNavItem} ${isActive("/member/income") || isActive("/member/wallet") ? styles.bottomActive : ""}`}
+            className={`${styles.bottomNavItem} ${
+              isActive("/member/income") || isActive("/member/wallet") ? styles.bottomActive : ""
+            }`}
             onClick={() => {
               navigate("/member/income");
               closeAllMenus();
@@ -298,7 +339,9 @@ const MemberLayout = () => {
           {/* 3. Growth Generation */}
           <button
             type="button"
-            className={`${styles.bottomNavItem} ${isActive("/member/growth-generation") ? styles.bottomActive : ""}`}
+            className={`${styles.bottomNavItem} ${
+              isActive("/member/growth-generation") ? styles.bottomActive : ""
+            }`}
             onClick={() => {
               navigate("/member/growth-generation");
               closeAllMenus();
@@ -317,7 +360,9 @@ const MemberLayout = () => {
           {/* 4. Buy Package */}
           <button
             type="button"
-            className={`${styles.bottomNavItem} ${isPackageGroupActive ? styles.bottomActive : ""}`}
+            className={`${styles.bottomNavItem} ${
+              isPackageGroupActive ? styles.bottomActive : ""
+            }`}
             onClick={() => {
               navigate("/member/packages");
               closeAllMenus();
@@ -373,13 +418,15 @@ const MemberLayout = () => {
               return (
                 <div key={item.id} className={styles.drawerSubmenuGroup}>
                   <div className={styles.drawerSubmenuHeader}>
-                    <span>📦 {item.label}</span>
+                    <span>{item.icon} {item.label}</span>
                   </div>
                   {item.subItems.map((sub) => (
                     <button
                       key={sub.id}
                       type="button"
-                      className={`${styles.drawerNavItem} ${styles.drawerSubItem} ${isActive(sub.path) ? styles.drawerActive : ""}`}
+                      className={`${styles.drawerNavItem} ${styles.drawerSubItem} ${
+                        isActive(sub.path) ? styles.drawerActive : ""
+                      }`}
                       onClick={() => {
                         navigate(sub.path);
                         closeAllMenus();
@@ -397,7 +444,9 @@ const MemberLayout = () => {
               <button
                 key={item.id}
                 type="button"
-                className={`${styles.drawerNavItem} ${isActive(item.path) ? styles.drawerActive : ""}`}
+                className={`${styles.drawerNavItem} ${
+                  isActive(item.path) ? styles.drawerActive : ""
+                }`}
                 onClick={() => {
                   navigate(item.path);
                   closeAllMenus();

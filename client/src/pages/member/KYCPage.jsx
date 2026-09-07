@@ -1,16 +1,16 @@
 // client/src/pages/member/KYCPage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './KYCPage.module.css';
 
-const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1 MB
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
 
 const KYCPage = () => {
   const { showNotification } = useNotification();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  
+
   const [kycData, setKycData] = useState({
     status: 'NOT_SUBMITTED',
     aadhaarNumber: '',
@@ -38,21 +38,23 @@ const KYCPage = () => {
     panCard: ''
   });
 
-  useEffect(() => {
-    fetchKYCStatus();
-  }, []);
-
-  const fetchKYCStatus = async () => {
+  const fetchKYCStatus = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.get('/api/users/kyc');
-      if (res.data.success && res.data.data.kyc) {
+      if (res.data?.success && res.data?.data?.kyc) {
         const kyc = res.data.data.kyc;
         setKycData(kyc);
+
+        // Pre-fill numbers if available
+        const rawAadhaar = kyc.aadhaarNumber ? String(kyc.aadhaarNumber).replace(/\D/g, '') : '';
+        const formattedAadhaar = rawAadhaar.replace(/(\d{4})(?=\d)/g, '$1 ');
+
         setFormData({
-          aadhaarNumber: kyc.aadhaarNumber || '',
+          aadhaarNumber: formattedAadhaar,
           panNumber: kyc.panNumber || ''
         });
+
         setPreviews({
           aadhaarFront: kyc.aadhaarFront?.url || '',
           aadhaarBack: kyc.aadhaarBack?.url || '',
@@ -60,10 +62,29 @@ const KYCPage = () => {
         });
       }
     } catch (err) {
-      showNotification('Failed to load KYC information', 'error');
+      if (err.response?.status !== 404) {
+        showNotification('Failed to load KYC information', 'error');
+      }
     } finally {
       setLoading(false);
     }
+  }, [showNotification]);
+
+  useEffect(() => {
+    fetchKYCStatus();
+  }, [fetchKYCStatus]);
+
+  // Format 12-digit number with spaces: 1234 5678 9012
+  const handleAadhaarChange = (e) => {
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 12);
+    const formatted = raw.replace(/(\d{4})(?=\d)/g, '$1 ');
+    setFormData((prev) => ({ ...prev, aadhaarNumber: formatted }));
+  };
+
+  // Format PAN: ABCDE1234F (Auto-uppercase)
+  const handlePanChange = (e) => {
+    const raw = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+    setFormData((prev) => ({ ...prev, panNumber: raw }));
   };
 
   const handleFileSelect = (field, e) => {
@@ -71,7 +92,7 @@ const KYCPage = () => {
     if (!file) return;
 
     if (file.size > MAX_FILE_SIZE) {
-      showNotification(`File is too large! Maximum limit is 1 MB.`, 'error');
+      showNotification('File is too large! Maximum limit is 2 MB.', 'error');
       e.target.value = '';
       return;
     }
@@ -90,17 +111,33 @@ const KYCPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!files.aadhaarFront || !files.aadhaarBack || !files.panCard) {
-      showNotification('Please select and upload all three required documents.', 'error');
+    const cleanAadhaar = formData.aadhaarNumber.replace(/\s/g, '');
+    if (cleanAadhaar.length !== 12) {
+      showNotification('Please enter a valid 12-digit Aadhaar number', 'error');
+      return;
+    }
+
+    if (formData.panNumber.length !== 10) {
+      showNotification('Please enter a valid 10-character PAN number', 'error');
+      return;
+    }
+
+    const hasFront = files.aadhaarFront || previews.aadhaarFront;
+    const hasBack = files.aadhaarBack || previews.aadhaarBack;
+    const hasPan = files.panCard || previews.panCard;
+
+    if (!hasFront || !hasBack || !hasPan) {
+      showNotification('Please select and upload all three required identity documents.', 'error');
       return;
     }
 
     const payload = new FormData();
-    payload.append('aadhaarNumber', formData.aadhaarNumber);
+    payload.append('aadhaarNumber', cleanAadhaar);
     payload.append('panNumber', formData.panNumber);
-    payload.append('aadhaarFront', files.aadhaarFront);
-    payload.append('aadhaarBack', files.aadhaarBack);
-    payload.append('panCard', files.panCard);
+
+    if (files.aadhaarFront) payload.append('aadhaarFront', files.aadhaarFront);
+    if (files.aadhaarBack) payload.append('aadhaarBack', files.aadhaarBack);
+    if (files.panCard) payload.append('panCard', files.panCard);
 
     setSubmitting(true);
     try {
@@ -108,12 +145,16 @@ const KYCPage = () => {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      if (res.data.success) {
+      if (res.data?.success) {
         showNotification('KYC Documents submitted successfully!', 'success');
-        setKycData(res.data.data.kyc);
+        if (res.data.data?.kyc) {
+          setKycData(res.data.data.kyc);
+        } else {
+          fetchKYCStatus();
+        }
       }
     } catch (err) {
-      showNotification(err.response?.data?.message || 'Failed to submit KYC', 'error');
+      showNotification(err.response?.data?.message || 'Failed to submit KYC documents', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -123,171 +164,237 @@ const KYCPage = () => {
     return (
       <div className={styles.loading}>
         <div className={styles.spinner}></div>
-        <p>Loading KYC status...</p>
+        <p>Loading compliance profile...</p>
       </div>
     );
   }
 
-  const isLocked = kycData.status === 'VERIFIED' || kycData.status === 'PENDING';
+  const status = (kycData.status || 'NOT_SUBMITTED').toUpperCase();
+  const isLocked = status === 'VERIFIED' || status === 'PENDING';
 
   return (
     <div className={styles.kycPage}>
-      {/* Header */}
+      {/* ================= COMPACT HEADER ================= */}
       <div className={styles.pageHeader}>
-        <div>
-          <h1 className={styles.pageTitle}>KYC Verification</h1>
-          <p className={styles.pageSubtitle}>Upload government-issued identity documents to activate your payouts</p>
+        <span className={styles.headerPill}>SECURITY & COMPLIANCE</span>
+        <h1 className={styles.pageTitle}>KYC Verification</h1>
+        <p className={styles.pageSubtitle}>
+          Upload government-issued identity documents to activate your payouts & wallet withdrawals.
+        </p>
+      </div>
+
+      {/* ================= DYNAMIC STATUS HERO BANNER ================= */}
+      <div
+        className={`${styles.statusBanner} ${
+          status === 'VERIFIED'
+            ? styles.bannerVerified
+            : status === 'PENDING'
+            ? styles.bannerPending
+            : status === 'REJECTED'
+            ? styles.bannerRejected
+            : styles.bannerActionRequired
+        }`}
+      >
+        <div className={styles.statusLeft}>
+          <div className={styles.statusIconWrap}>
+            {status === 'VERIFIED' && '✅'}
+            {status === 'PENDING' && '⏳'}
+            {status === 'REJECTED' && '⚠️'}
+            {status === 'NOT_SUBMITTED' && '📋'}
+          </div>
+          <div className={styles.statusTextWrap}>
+            <div className={styles.statusTitleRow}>
+              <span className={styles.statusPrefix}>Status:</span>
+              <span className={styles.statusCurrent}>
+                {status === 'VERIFIED' && 'Verified & Approved'}
+                {status === 'PENDING' && 'Under Review'}
+                {status === 'REJECTED' && 'Action Required (Rejected)'}
+                {status === 'NOT_SUBMITTED' && 'Action Required'}
+              </span>
+              <span className={styles.pulseDot}></span>
+            </div>
+            <p className={styles.statusMessage}>
+              {status === 'VERIFIED' && 'Your documents have been verified. Payouts and transfers are fully unlocked.'}
+              {status === 'PENDING' && 'Your documents are being verified by our compliance team (typically within 24 hours).'}
+              {status === 'REJECTED' && (kycData.rejectionReason || 'Document unreadable or invalid. Please re-upload clear photos.')}
+              {status === 'NOT_SUBMITTED' && 'Please upload your Aadhaar (Front & Back) and PAN Card.'}
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Status Banner */}
-      <div className={`${styles.statusBanner} ${styles[kycData.status || 'NOT_SUBMITTED']}`}>
-        <div className={styles.statusIcon}>
-          {kycData.status === 'VERIFIED' && '✅'}
-          {kycData.status === 'PENDING' && '⏳'}
-          {kycData.status === 'REJECTED' && '❌'}
-          {kycData.status === 'NOT_SUBMITTED' && '📋'}
-        </div>
-        <div className={styles.statusInfo}>
-          <h3>
-            Status:{' '}
-            <span>
-              {kycData.status === 'VERIFIED' && 'Verified'}
-              {kycData.status === 'PENDING' && 'Under Review'}
-              {kycData.status === 'REJECTED' && 'Rejected'}
-              {kycData.status === 'NOT_SUBMITTED' && 'Action Required'}
-            </span>
-          </h3>
-          <p>
-            {kycData.status === 'VERIFIED' && 'Your identity documents have been approved.'}
-            {kycData.status === 'PENDING' && 'Your documents are being verified by our compliance team (typically within 24-48 hours).'}
-            {kycData.status === 'REJECTED' && `Reason: ${kycData.rejectionReason || 'Document unreadable or invalid. Please re-upload.'}`}
-            {kycData.status === 'NOT_SUBMITTED' && 'Please upload your Aadhaar (Front & Back) and PAN Card.'}
-          </p>
-        </div>
-      </div>
-
-      {/* Upload Form */}
+      {/* ================= FORM WORKSPACE ================= */}
       <form onSubmit={handleSubmit} className={styles.kycForm}>
-        {/* Document Numbers Section */}
+        {/* Step 1: Identification Numbers */}
         <div className={styles.section}>
-          <h2>Identity Details</h2>
+          <div className={styles.sectionHeader}>
+            <h2>Identity Details</h2>
+            <span className={styles.sectionHint}>Details must match your government documents</span>
+          </div>
+
           <div className={styles.formGrid}>
             <div className={styles.formGroup}>
-              <label>Aadhaar Card Number (12 Digits) *</label>
-              <input
-                type="text"
-                placeholder="1234 5678 9012"
-                maxLength="12"
-                required
-                disabled={isLocked}
-                value={formData.aadhaarNumber}
-                onChange={(e) => setFormData({ ...formData, aadhaarNumber: e.target.value.replace(/\D/g, '') })}
-              />
+              <label htmlFor="aadhaarInput">Aadhaar Card Number (12 Digits) *</label>
+              <div className={styles.inputShell}>
+                <input
+                  id="aadhaarInput"
+                  type="text"
+                  placeholder="1234 5678 9012"
+                  required
+                  disabled={isLocked}
+                  value={formData.aadhaarNumber}
+                  onChange={handleAadhaarChange}
+                  className={styles.formInput}
+                />
+                <span className={styles.badgeFormat}>12 DIGITS</span>
+              </div>
             </div>
 
             <div className={styles.formGroup}>
-              <label>PAN Card Number (10 Characters) *</label>
-              <input
-                type="text"
-                placeholder="ABCDE1234F"
-                maxLength="10"
-                required
-                disabled={isLocked}
-                value={formData.panNumber}
-                onChange={(e) => setFormData({ ...formData, panNumber: e.target.value.toUpperCase() })}
-              />
+              <label htmlFor="panInput">PAN Card Number (10 Characters) *</label>
+              <div className={styles.inputShell}>
+                <input
+                  id="panInput"
+                  type="text"
+                  placeholder="ABCDE1234F"
+                  required
+                  disabled={isLocked}
+                  value={formData.panNumber}
+                  onChange={handlePanChange}
+                  className={styles.formInput}
+                />
+                <span className={styles.badgeFormat}>PAN</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Document File Uploads */}
+        {/* Step 2: Document Photos */}
         <div className={styles.section}>
-          <h2>Upload Documents <span className={styles.subtext}>(Max 1 MB each • JPG, PNG, WEBP)</span></h2>
+          <div className={styles.sectionHeader}>
+            <div className={styles.sectionHeaderSplit}>
+              <h2>Upload Documents</h2>
+              <span className={styles.limitTag}>Max 2 MB each • JPG, PNG, WEBP</span>
+            </div>
+            <span className={styles.sectionHint}>Ensure full edges and text are legible with no glare</span>
+          </div>
 
           <div className={styles.uploadGrid}>
-            {/* Aadhaar Front */}
+            {/* 1. Aadhaar Front */}
             <div className={styles.uploadCard}>
               <div className={styles.cardHeader}>
                 <h4>Aadhaar Card (Front Side) *</h4>
               </div>
-              <div className={styles.previewBox}>
+
+              <div className={`${styles.previewBox} ${previews.aadhaarFront ? styles.hasPreview : ''}`}>
                 {previews.aadhaarFront ? (
-                  <img src={previews.aadhaarFront} alt="Aadhaar Front" />
+                  <img src={previews.aadhaarFront} alt="Aadhaar Front Preview" className={styles.docImg} />
                 ) : (
                   <div className={styles.placeholder}>
-                    <span>🪪</span>
+                    <span className={styles.placeholderIcon}>🪪</span>
                     <p>No document selected</p>
                   </div>
                 )}
               </div>
-              {!isLocked && (
-                <label className={styles.fileButton}>
-                  <span>Choose File</span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={(e) => handleFileSelect('aadhaarFront', e)}
-                    required={!kycData.aadhaarFront?.url}
-                  />
-                </label>
-              )}
+
+              <div className={styles.cardFooter}>
+                <div className={styles.statusChip}>
+                  {previews.aadhaarFront ? (
+                    <span className={styles.chipUploaded}>● Ready</span>
+                  ) : (
+                    <span className={styles.chipRequired}>● Required</span>
+                  )}
+                </div>
+
+                {!isLocked && (
+                  <label className={styles.fileButton}>
+                    <span>{previews.aadhaarFront ? 'Change' : 'Choose File'}</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/jpg"
+                      onChange={(e) => handleFileSelect('aadhaarFront', e)}
+                    />
+                  </label>
+                )}
+              </div>
             </div>
 
-            {/* Aadhaar Back */}
+            {/* 2. Aadhaar Back */}
             <div className={styles.uploadCard}>
               <div className={styles.cardHeader}>
                 <h4>Aadhaar Card (Back Side) *</h4>
               </div>
-              <div className={styles.previewBox}>
+
+              <div className={`${styles.previewBox} ${previews.aadhaarBack ? styles.hasPreview : ''}`}>
                 {previews.aadhaarBack ? (
-                  <img src={previews.aadhaarBack} alt="Aadhaar Back" />
+                  <img src={previews.aadhaarBack} alt="Aadhaar Back Preview" className={styles.docImg} />
                 ) : (
                   <div className={styles.placeholder}>
-                    <span>🪪</span>
+                    <span className={styles.placeholderIcon}>🪪</span>
                     <p>No document selected</p>
                   </div>
                 )}
               </div>
-              {!isLocked && (
-                <label className={styles.fileButton}>
-                  <span>Choose File</span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={(e) => handleFileSelect('aadhaarBack', e)}
-                    required={!kycData.aadhaarBack?.url}
-                  />
-                </label>
-              )}
+
+              <div className={styles.cardFooter}>
+                <div className={styles.statusChip}>
+                  {previews.aadhaarBack ? (
+                    <span className={styles.chipUploaded}>● Ready</span>
+                  ) : (
+                    <span className={styles.chipRequired}>● Required</span>
+                  )}
+                </div>
+
+                {!isLocked && (
+                  <label className={styles.fileButton}>
+                    <span>{previews.aadhaarBack ? 'Change' : 'Choose File'}</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/jpg"
+                      onChange={(e) => handleFileSelect('aadhaarBack', e)}
+                    />
+                  </label>
+                )}
+              </div>
             </div>
 
-            {/* PAN Card */}
+            {/* 3. PAN Card */}
             <div className={styles.uploadCard}>
               <div className={styles.cardHeader}>
                 <h4>PAN Card (Front Side) *</h4>
               </div>
-              <div className={styles.previewBox}>
+
+              <div className={`${styles.previewBox} ${previews.panCard ? styles.hasPreview : ''}`}>
                 {previews.panCard ? (
-                  <img src={previews.panCard} alt="PAN Card" />
+                  <img src={previews.panCard} alt="PAN Card Preview" className={styles.docImg} />
                 ) : (
                   <div className={styles.placeholder}>
-                    <span>💳</span>
+                    <span className={styles.placeholderIcon}>💳</span>
                     <p>No document selected</p>
                   </div>
                 )}
               </div>
-              {!isLocked && (
-                <label className={styles.fileButton}>
-                  <span>Choose File</span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={(e) => handleFileSelect('panCard', e)}
-                    required={!kycData.panCard?.url}
-                  />
-                </label>
-              )}
+
+              <div className={styles.cardFooter}>
+                <div className={styles.statusChip}>
+                  {previews.panCard ? (
+                    <span className={styles.chipUploaded}>● Ready</span>
+                  ) : (
+                    <span className={styles.chipRequired}>● Required</span>
+                  )}
+                </div>
+
+                {!isLocked && (
+                  <label className={styles.fileButton}>
+                    <span>{previews.panCard ? 'Change' : 'Choose File'}</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/jpg"
+                      onChange={(e) => handleFileSelect('panCard', e)}
+                    />
+                  </label>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -296,7 +403,7 @@ const KYCPage = () => {
         {!isLocked && (
           <div className={styles.formActions}>
             <button type="submit" className={styles.submitBtn} disabled={submitting}>
-              {submitting ? 'Uploading Documents...' : 'Submit KYC for Verification'}
+              {submitting ? 'Uploading Documents...' : 'Submit KYC for Verification →'}
             </button>
           </div>
         )}

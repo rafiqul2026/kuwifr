@@ -28,15 +28,20 @@ const MemberRoutes = () => {
       <Route element={<MemberLayout />}>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
+
+        {/* Profile & Sub-routes */}
         <Route path="profile" element={<ProfilePage />} />
+        <Route path="profile/kyc" element={<KYCPage />} />
         <Route path="kyc" element={<KYCPage />} />
+
+        {/* Financial & Team Routes */}
         <Route path="wallet" element={<WalletPage />} />
         <Route path="bonanza" element={<BonanzaPage />} />
         <Route path="repurchase" element={<RepurchasePage />} />
         <Route path="income" element={<IncomePage />} />
         <Route path="team" element={<TeamPage />} />
 
-        {/* 🌟 Growth Generation Routes */}
+        {/* Growth Generation Routes */}
         <Route path="growth-generation" element={<GrowthGenerationPage />} />
         <Route path="growth-map" element={<Navigate to="../growth-generation" replace />} />
         <Route path="binary" element={<Navigate to="../growth-generation" replace />} />
@@ -46,7 +51,7 @@ const MemberRoutes = () => {
         <Route path="packages" element={<PackagesPage />} />
         <Route path="packages/upgrade" element={<UpgradePackagePage />} />
 
-        {/* Financial & Activity Routes */}
+        {/* Financial & Support Routes */}
         <Route path="orders" element={<OrdersPage />} />
         <Route path="withdrawals" element={<WithdrawalsPage />} />
         <Route path="ranks" element={<RanksPage />} />
