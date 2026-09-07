@@ -1,16 +1,15 @@
-// client/src/pages/member/GrowthMapPage.jsx
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+// client/src/pages/member/GrowthGenerationPage.jsx
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
-import styles from './GrowthMapPage.module.css';
+import styles from './GrowthGenerationPage.module.css';
 
 /**
  * 🌲 Classical Hierarchical Member Node Box
  */
-const GrowthMapNode = ({ node, level = 1, onNodeClick, onMouseEnter, onMouseLeave }) => {
+const GrowthGenerationNode = ({ node, level = 1, onNodeClick, onMouseEnter, onMouseLeave }) => {
   const isVacant = !node || node.isVacant;
-  const isActive = !isVacant && (node.status || '').toUpperCase() === 'ACTIVE';
 
   return (
     <div className={styles.treeBranchContainer}>
@@ -23,7 +22,7 @@ const GrowthMapNode = ({ node, level = 1, onNodeClick, onMouseEnter, onMouseLeav
         }}
         onMouseEnter={(e) => !isVacant && onMouseEnter(e, node)}
         onMouseLeave={onMouseLeave}
-        title={isVacant ? 'Vacant Position' : `Click to view ${node.fullName}'s growth downline`}
+        title={isVacant ? 'Vacant Position' : `Click to view ${node.fullName}'s growth generation`}
       >
         <div className={styles.avatarPill}>
           {isVacant ? (
@@ -55,7 +54,7 @@ const GrowthMapNode = ({ node, level = 1, onNodeClick, onMouseEnter, onMouseLeav
             <div className={styles.childLegColumn}>
               <div className={styles.subVertical}></div>
               <span className={styles.legBadgeLeft}>L</span>
-              <GrowthMapNode
+              <GrowthGenerationNode
                 node={node.left || { isVacant: true }}
                 level={level + 1}
                 onNodeClick={onNodeClick}
@@ -68,7 +67,7 @@ const GrowthMapNode = ({ node, level = 1, onNodeClick, onMouseEnter, onMouseLeav
             <div className={styles.childLegColumn}>
               <div className={styles.subVertical}></div>
               <span className={styles.legBadgeRight}>R</span>
-              <GrowthMapNode
+              <GrowthGenerationNode
                 node={node.right || { isVacant: true }}
                 level={level + 1}
                 onNodeClick={onNodeClick}
@@ -83,7 +82,7 @@ const GrowthMapNode = ({ node, level = 1, onNodeClick, onMouseEnter, onMouseLeav
   );
 };
 
-const GrowthMapPage = () => {
+const GrowthGenerationPage = () => {
   const { user } = useAuth();
   const { showNotification } = useNotification();
 
@@ -96,9 +95,9 @@ const GrowthMapPage = () => {
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
   // --------------------------------------------------------------------------
-  // API: Fetch Growth Map for target member ID
+  // API: Fetch Growth Generation for target member ID
   // --------------------------------------------------------------------------
-  const fetchGrowthMap = useCallback(async (targetId = '') => {
+  const fetchGrowthGeneration = useCallback(async (targetId = '') => {
     try {
       setLoading(true);
       const query = targetId ? `?memberId=${encodeURIComponent(targetId.trim())}` : '';
@@ -112,7 +111,7 @@ const GrowthMapPage = () => {
         showNotification('Member ID not found in your downline network', 'error');
       }
     } catch (err) {
-      const msg = err.response?.data?.message || 'Failed to load Growth Map';
+      const msg = err.response?.data?.message || 'Failed to load Growth Generation';
       showNotification(msg, 'error');
     } finally {
       setLoading(false);
@@ -120,8 +119,8 @@ const GrowthMapPage = () => {
   }, [showNotification]);
 
   useEffect(() => {
-    fetchGrowthMap();
-  }, [fetchGrowthMap]);
+    fetchGrowthGeneration();
+  }, [fetchGrowthGeneration]);
 
   // --------------------------------------------------------------------------
   // Drill-Down: Click any node to open their downline as root
@@ -131,13 +130,13 @@ const GrowthMapPage = () => {
     if (node.memberId === currentRootId) return;
 
     setHistoryStack((prev) => [...prev, currentRootId]);
-    fetchGrowthMap(node.memberId);
+    fetchGrowthGeneration(node.memberId);
   };
 
   const handleReturnToMyRoot = () => {
     setHistoryStack([]);
     setSearchMemberId('');
-    fetchGrowthMap('');
+    fetchGrowthGeneration('');
   };
 
   const handleUpOneLevel = () => {
@@ -145,7 +144,7 @@ const GrowthMapPage = () => {
     const stackCopy = [...historyStack];
     const previousId = stackCopy.pop();
     setHistoryStack(stackCopy);
-    fetchGrowthMap(previousId);
+    fetchGrowthGeneration(previousId);
   };
 
   const handleSearchSubmit = (e) => {
@@ -154,7 +153,7 @@ const GrowthMapPage = () => {
     if (!cleanId) return;
 
     setHistoryStack((prev) => [...prev, currentRootId]);
-    fetchGrowthMap(cleanId);
+    fetchGrowthGeneration(cleanId);
   };
 
   // Hover Tooltip
@@ -180,9 +179,9 @@ const GrowthMapPage = () => {
       <div className={styles.headerBlock}>
         <div className={styles.headerTitleGroup}>
           <span className={styles.pillBadge}>NETWORK STRUCTURE</span>
-          <h1 className={styles.pageTitle}>Growth Map</h1>
+          <h1 className={styles.pageTitle}>Growth Generation</h1>
           <p className={styles.pageSubtitle}>
-            Interactive dual-leg network structure. Click any member to expand their growth tree.
+            Interactive dual-leg network structure. Click any member to expand their growth generation.
           </p>
         </div>
 
@@ -203,7 +202,7 @@ const GrowthMapPage = () => {
               className={`${styles.actionBtn} ${styles.btnPrimary}`}
               onClick={handleReturnToMyRoot}
             >
-              🏠 My Root Map
+              🏠 My Root
             </button>
           )}
         </div>
@@ -247,11 +246,11 @@ const GrowthMapPage = () => {
           {loading ? (
             <div className={styles.centerState}>
               <div className={styles.spinner}></div>
-              <p>Rendering Growth Map...</p>
+              <p>Rendering Growth Generation...</p>
             </div>
           ) : rootNode ? (
             <div className={styles.treeWrapper}>
-              <GrowthMapNode
+              <GrowthGenerationNode
                 node={rootNode}
                 level={1}
                 onNodeClick={handleNodeClick}
@@ -315,4 +314,4 @@ const GrowthMapPage = () => {
   );
 };
 
-export default GrowthMapPage;
+export default GrowthGenerationPage;

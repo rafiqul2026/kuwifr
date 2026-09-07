@@ -14,7 +14,7 @@ const navItems = [
   { id: "repurchase", label: "Repurchase Store", icon: "🛍️", path: "/member/repurchase" },
   { id: "income", label: "Income Stream", icon: "📈", path: "/member/income" },
   { id: "team", label: "My Team", icon: "👥", path: "/member/team" },
-  { id: "growth_map", label: "Growth Map", icon: "🌳", path: "/member/growth-map" },
+  { id: "growth_generation", label: "Growth Generation", icon: "🌳", path: "/member/growth-generation" },
   {
     id: "package_group",
     label: "Package",
@@ -107,7 +107,7 @@ const MemberLayout = () => {
 
   return (
     <div className={styles.memberLayout}>
-      {/* Header */}
+      {/* Top Header */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>
           <button
@@ -258,7 +258,7 @@ const MemberLayout = () => {
         <Outlet />
       </main>
 
-      {/* Floating Bottom Menu */}
+      {/* Floating Bottom Navigation */}
       <div className={styles.bottomNavContainer}>
         <nav className={styles.bottomNavIsland}>
           {/* 1. Home */}
@@ -295,12 +295,12 @@ const MemberLayout = () => {
             <span className={styles.bottomNavLabel}>Income</span>
           </button>
 
-          {/* 3. Growth Map */}
+          {/* 3. Growth Generation */}
           <button
             type="button"
-            className={`${styles.bottomNavItem} ${isActive("/member/growth-map") ? styles.bottomActive : ""}`}
+            className={`${styles.bottomNavItem} ${isActive("/member/growth-generation") ? styles.bottomActive : ""}`}
             onClick={() => {
-              navigate("/member/growth-map");
+              navigate("/member/growth-generation");
               closeAllMenus();
             }}
           >
@@ -311,7 +311,7 @@ const MemberLayout = () => {
                 <line x1="16" y1="6" x2="16" y2="22"></line>
               </svg>
             </div>
-            <span className={styles.bottomNavLabel}>Growth Map</span>
+            <span className={styles.bottomNavLabel}>Growth Gen</span>
           </button>
 
           {/* 4. Buy Package */}

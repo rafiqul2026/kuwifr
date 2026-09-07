@@ -26,8 +26,7 @@ import MemberRoutes from './routes/MemberRoutes';
 import AdminRoutes from './routes/AdminRoutes';
 import ProtectedRoute from './routes/ProtectedRoute';
 
-// Member Core Pages
-import GrowthMapPage from './pages/member/GrowthMapPage';
+import GrowthGenerationPage from './pages/member/GrowthGenerationPage';
 
 import './App.css';
 
@@ -103,19 +102,20 @@ function App() {
                   <Route path="/member" element={<Navigate to="/member/dashboard" replace />} />
                   <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
 
-                  {/* Explicit Growth Map Path Direct Mappings */}
+                  {/* Direct Growth Generation Mapping */}
                   <Route
-                    path="/member/growth-map"
+                    path="/member/growth-generation"
                     element={
                       <ProtectedRoute requiredRole="MEMBER">
-                        <GrowthMapPage />
+                        <GrowthGenerationPage />
                       </ProtectedRoute>
                     }
                   />
-                  <Route path="/member/binary" element={<Navigate to="/member/growth-map" replace />} />
-                  <Route path="/member/genealogy" element={<Navigate to="/member/growth-map" replace />} />
+                  <Route path="/member/growth-map" element={<Navigate to="/member/growth-generation" replace />} />
+                  <Route path="/member/binary" element={<Navigate to="/member/growth-generation" replace />} />
+                  <Route path="/member/genealogy" element={<Navigate to="/member/growth-generation" replace />} />
 
-                  {/* Protected Member Portal Sub-Routes */}
+                  {/* Member Portal Sub-Routes */}
                   <Route 
                     path="/member/*" 
                     element={
@@ -125,7 +125,7 @@ function App() {
                     } 
                   />
 
-                  {/* Protected Admin Portal Sub-Routes */}
+                  {/* Admin Portal Sub-Routes */}
                   <Route 
                     path="/admin/*" 
                     element={
