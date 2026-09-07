@@ -40,8 +40,9 @@ async function getReferralChainForUser(userId) {
   return chain;
 }
 
-// ============ REGISTRATION (MULTIPLE ACCOUNTS PER EMAIL & PHONE ALLOWED) ============
+// ============ REGISTRATION (AUTO-DROPS LEGACY UNIQUE INDEXES FOR EMAIL & PHONE) ============
 const register = async (req, res, next) => {
+  let user;
   try {
     const { fullName, email, phoneNumber, password, sponsorId, side, binarySide, position, pos } = req.body;
 
@@ -55,10 +56,9 @@ const register = async (req, res, next) => {
       });
     }
 
-    // Generate guaranteed unique Member ID
     const generatedMemberId = await User.generateMemberId();
 
-    const user = new User({
+    user = new User({
       memberId: generatedMemberId,
       referralCode: generatedMemberId,
       fullName: fullName.trim(),
@@ -100,7 +100,24 @@ const register = async (req, res, next) => {
       user.binarySide = inputSide === 'right' ? 'right' : 'left';
     }
 
-    await user.save();
+    // Attempt save with automatic legacy index cleanup on duplicate key error
+    try {
+      await user.save();
+    } catch (saveErr) {
+      if (saveErr.code === 11000) {
+        const duplicateField = Object.keys(saveErr.keyPattern || {})[0] || '';
+        if (duplicateField === 'email' || duplicateField === 'phoneNumber') {
+          console.warn(`⚠️ Dropping legacy unique index on '${duplicateField}' to allow shared contact registration...`);
+          await User.collection.dropIndex(`${duplicateField}_1`).catch(() => {});
+          // Retry save successfully after dropping index
+          await user.save();
+        } else {
+          throw saveErr;
+        }
+      } else {
+        throw saveErr;
+      }
+    }
 
     // 10-level Unilevel genealogy
     if (user.sponsorId) {
@@ -182,7 +199,6 @@ const register = async (req, res, next) => {
 
     if (error.code === 11000) {
       const duplicateField = Object.keys(error.keyPattern || {})[0] || 'Field';
-      // If memberId or referralCode collided, retry or inform
       if (duplicateField === 'memberId' || duplicateField === 'referralCode') {
         return res.status(400).json({
           success: false,
@@ -191,7 +207,7 @@ const register = async (req, res, next) => {
       }
       return res.status(400).json({
         success: false,
-        message: `Unique index constraint triggered on ${duplicateField}. Please drop legacy indexes in MongoDB for email and phoneNumber.`
+        message: `Unique index constraint triggered on ${duplicateField}.`
       });
     }
 
