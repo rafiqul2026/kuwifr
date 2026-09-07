@@ -12,7 +12,7 @@ const DEFAULT_PACKAGES = [
     price: 1500,
     kbp: 1000,
     dailyCap: 1500,
-    directBonus: 200,
+    directBonus: 100, // 10% of 1000 KBP
     weeklyCap: 10500,
     monthlyCap: 45000,
     description: 'Perfect entry package for beginners to start earning in KUWIFR.',
@@ -24,9 +24,9 @@ const DEFAULT_PACKAGES = [
     name: 'Growth Package',
     type: 'GROWTH',
     price: 5000,
-    kbp: 4000,
+    kbp: 5000,
     dailyCap: 7000,
-    directBonus: 600,
+    directBonus: 500, // 10% of 5000 KBP
     weeklyCap: 49000,
     monthlyCap: 210000,
     description: 'Designed for ambitious members scaling their binary team network.',
@@ -40,7 +40,7 @@ const DEFAULT_PACKAGES = [
     price: 10000,
     kbp: 7500,
     dailyCap: 15000,
-    directBonus: 1200,
+    directBonus: 750, // 10% of 7500 KBP
     weeklyCap: 105000,
     monthlyCap: 450000,
     description: 'Comprehensive health & alkaline water purification solutions.',
@@ -54,7 +54,7 @@ const DEFAULT_PACKAGES = [
     price: 15000,
     kbp: 10000,
     dailyCap: 20000,
-    directBonus: 1800,
+    directBonus: 1000, // 10% of 10000 KBP
     weeklyCap: 140000,
     monthlyCap: 600000,
     description: 'Premium alkaline filtration with high daily earning caps for elite performers.',
@@ -68,7 +68,7 @@ const DEFAULT_PACKAGES = [
     price: 110000,
     kbp: 50000,
     dailyCap: 50000,
-    directBonus: 12000,
+    directBonus: 5000, // 10% of 50000 KBP
     weeklyCap: 350000,
     monthlyCap: 1500000,
     description: 'The ultimate pinnacle tier with Electric Vehicle benefit and maximum capping.',
@@ -98,7 +98,6 @@ const seedPackagesIfEmpty = async () => {
 const getAllPackages = async (req, res, next) => {
   try {
     await seedPackagesIfEmpty();
-    // Return all documents where isActive is not explicitly false
     const packages = await Package.find({
       $or: [
         { isActive: true },
@@ -212,7 +211,8 @@ const createPackage = async (req, res, next) => {
     }
 
     const resolvedDailyCap = Number(dailyCap !== undefined ? dailyCap : (dailyBinaryCap !== undefined ? dailyBinaryCap : resolvedPrice));
-    const resolvedDirectBonus = Number(directBonus !== undefined ? directBonus : (directSponsorBonus || 0));
+    // 🌟 Strictly calculate direct bonus as 10% of package KBP value
+    const resolvedDirectBonus = resolvedKbp * 0.10;
     const resolvedWeeklyCap = Number(weeklyCap !== undefined ? weeklyCap : resolvedDailyCap * 7);
     const resolvedMonthlyCap = Number(monthlyCap !== undefined ? monthlyCap : resolvedDailyCap * 30);
     const resolvedDesc = description || entitlements || '';
@@ -267,9 +267,12 @@ const updatePackage = async (req, res, next) => {
     if (b.name !== undefined || b.packageName !== undefined) updates.name = (b.name || b.packageName).trim();
     if (b.type !== undefined || b.packageType !== undefined) updates.type = (b.type || b.packageType).toUpperCase();
     if (b.price !== undefined) updates.price = Number(b.price);
-    if (b.kbp !== undefined || b.kbpPoints !== undefined) updates.kbp = Number(b.kbp !== undefined ? b.kbp : b.kbpPoints);
+    if (b.kbp !== undefined || b.kbpPoints !== undefined) {
+      updates.kbp = Number(b.kbp !== undefined ? b.kbp : b.kbpPoints);
+      // Automatically update direct bonus to 10% of new KBP value
+      updates.directBonus = updates.kbp * 0.10;
+    }
     if (b.dailyCap !== undefined || b.dailyBinaryCap !== undefined) updates.dailyCap = Number(b.dailyCap !== undefined ? b.dailyCap : b.dailyBinaryCap);
-    if (b.directBonus !== undefined || b.directSponsorBonus !== undefined) updates.directBonus = Number(b.directBonus !== undefined ? b.directBonus : b.directSponsorBonus);
     if (b.weeklyCap !== undefined) updates.weeklyCap = Number(b.weeklyCap);
     if (b.monthlyCap !== undefined) updates.monthlyCap = Number(b.monthlyCap);
     if (b.description !== undefined || b.entitlements !== undefined) updates.description = b.description !== undefined ? b.description : b.entitlements;
@@ -384,7 +387,9 @@ const purchasePackage = async (req, res, next) => {
     }
 
     const packageKBP = Number(kbp) || selectedPackage.kbp || 1000;
-    const directBonus = selectedPackage.directBonus || 200;
+    
+    // 🌟 STRICT BUSINESS RULE: Direct Referral Income = 10% of Package KBP Value
+    const directBonus = packageKBP * 0.10;
 
     user.status = 'ACTIVE';
     user.activationDate = new Date();
