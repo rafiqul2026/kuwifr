@@ -1,6 +1,10 @@
 // server/src/controllers/order.controller.js
+const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const User = require('../models/User');
+const Package = require('../models/Package');
+const PackagePurchase = require('../models/PackagePurchase');
+const IncomeService = require('../services/income.service');
 
 const seedOrdersIfEmpty = async () => {
   try {
@@ -44,82 +48,8 @@ const seedOrdersIfEmpty = async () => {
             { status: 'DELIVERED', timestamp: new Date(), note: 'Delivered to customer' }
           ],
           createdAt: new Date(Date.now() - 48 * 3600000)
-        },
-        {
-          orderNumber: 'INV-10024892',
-          customerName: 'Priya Das',
-          customerEmail: 'priya.das@example.com',
-          customerPhone: '+91 91234 56789',
-          packageName: 'Growth Package',
-          orderType: 'PACKAGE',
-          totalAmount: 5000,
-          totalKBP: 4000,
-          kbpGenerated: 4000,
-          paymentMethod: 'Razorpay',
-          paymentType: 'ONLINE_GATEWAY',
-          paymentStatus: 'PAID',
-          orderStatus: 'SHIPPED',
-          status: 'COMPLETED',
-          trackingNumber: 'BD-AIR-55412',
-          courierPartner: 'BlueDart Air',
-          deliveryAddress: {
-            addressLine1: 'Zoo Road Tiniali',
-            city: 'Guwahati',
-            state: 'Assam',
-            pincode: '781024'
-          },
-          products: [
-            {
-              name: 'Kuwi Shilajit 99 (Pure Himalayan Resin 30g)',
-              quantity: 1,
-              price: 5000,
-              kbp: 4000
-            }
-          ],
-          statusHistory: [
-            { status: 'PAID', timestamp: new Date(Date.now() - 12 * 3600000), note: 'Payment verified' },
-            { status: 'SHIPPED', timestamp: new Date(), note: 'In transit via BlueDart' }
-          ],
-          createdAt: new Date(Date.now() - 12 * 3600000)
-        },
-        {
-          orderNumber: 'INV-10024893',
-          customerName: 'Amit Baruah',
-          customerEmail: 'amit.b@example.com',
-          customerPhone: '+91 94350 11223',
-          packageName: 'Life Safe Package',
-          orderType: 'PACKAGE',
-          totalAmount: 10000,
-          totalKBP: 7500,
-          kbpGenerated: 7500,
-          paymentMethod: 'NetBanking',
-          paymentType: 'ONLINE_GATEWAY',
-          paymentStatus: 'PAID',
-          orderStatus: 'PROCESSING',
-          status: 'COMPLETED',
-          trackingNumber: '',
-          courierPartner: 'DTDC Courier',
-          deliveryAddress: {
-            addressLine1: 'Paltan Bazaar',
-            city: 'Guwahati',
-            state: 'Assam',
-            pincode: '781008'
-          },
-          products: [
-            {
-              name: 'Alkaline Water Ionizer Device (15k Ltr Capacity)',
-              quantity: 1,
-              price: 10000,
-              kbp: 7500
-            }
-          ],
-          statusHistory: [
-            { status: 'PAID', timestamp: new Date(), note: 'Order placed, awaiting packaging' }
-          ],
-          createdAt: new Date()
         }
       ];
-
       await Order.insertMany(sampleOrders);
     }
   } catch (err) {
@@ -127,10 +57,6 @@ const seedOrdersIfEmpty = async () => {
   }
 };
 
-/**
- * Get Orders Split by Type (Member Portal)
- * GET /api/orders
- */
 const getMyOrders = async (req, res, next) => {
   try {
     const userId = req.userId || req.user?.id || req.user?._id;
@@ -157,10 +83,6 @@ const getMyOrders = async (req, res, next) => {
   }
 };
 
-/**
- * Get Specific Invoice / Order by ID
- * GET /api/orders/:id
- */
 const getOrderById = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -183,10 +105,6 @@ const getOrderById = async (req, res, next) => {
   }
 };
 
-/**
- * Admin: Get All Orders with Status Filter & Safe Pagination
- * GET /api/admin/orders
- */
 const getAllOrders = async (req, res, next) => {
   try {
     await seedOrdersIfEmpty();
@@ -240,8 +158,7 @@ const getAllOrders = async (req, res, next) => {
 };
 
 /**
- * Admin: Get Package Sales Report with Package-wise & Member Search Filters
- * GET /api/admin/package-sales-report
+ * Admin: Get Package Sales Report combining Orders & PackagePurchases (Cash)
  */
 const getPackageSalesReport = async (req, res, next) => {
   try {
@@ -317,9 +234,121 @@ const getPackageSalesReport = async (req, res, next) => {
 };
 
 /**
- * Admin: Update Order Status & Courier Tracking
- * PUT /api/admin/orders/:id/status
+ * Admin Cash Package Activation & Automatic Income Distribution (Transactional)
  */
+const activateCashPackage = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { memberIdentifier, packageId, cashAmount, receiptNumber, notes } = req.body;
+    const adminUser = req.user;
+
+    if (!memberIdentifier || !packageId || !cashAmount) {
+      throw new Error('Member ID/Email, package selection, and cash amount are required.');
+    }
+
+    const cleanInput = memberIdentifier.trim();
+    const member = await User.findOne({
+      $or: [
+        { memberId: { $regex: new RegExp(`^${cleanInput}$`, 'i') } },
+        { email: { $regex: new RegExp(`^${cleanInput}$`, 'i') } },
+        { phoneNumber: cleanInput }
+      ]
+    }).session(session);
+
+    if (!member) {
+      throw new Error('Member not found matching the provided identifier.');
+    }
+
+    const pkg = await Package.findById(packageId).session(session);
+    if (!pkg) {
+      throw new Error('Selected package not found in master catalog.');
+    }
+
+    const authoritativePrice = pkg.price || pkg.packagePrice || 1500;
+    const authoritativeKbp = pkg.kbpValue || pkg.kbp || 1000;
+
+    if (Number(cashAmount) !== Number(authoritativePrice)) {
+      throw new Error(`Cash amount (₹${cashAmount}) must exactly match package price (₹${authoritativePrice}).`);
+    }
+
+    // Update Member State
+    member.status = 'ACTIVE';
+    member.activePackageId = pkg._id;
+    member.activationDate = new Date();
+    await member.save({ session });
+
+    // Create PackagePurchase audit record
+    const purchaseRecord = await PackagePurchase.create([{
+      memberId: member.memberId,
+      memberMongoId: member._id,
+      memberName: member.fullName,
+      sponsorId: member.sponsorId ? member.sponsorId.toString() : '',
+      packageId: pkg._id,
+      packageName: pkg.name,
+      packagePrice: authoritativePrice,
+      kbp: authoritativeKbp,
+      paymentMethod: 'CASH',
+      paymentStatus: 'PAID',
+      activationStatus: 'ACTIVE',
+      receiptNumber: receiptNumber || `CASH-RCPT-${Date.now()}`,
+      activatedByAdminId: adminUser._id,
+      activatedByAdminName: adminUser.fullName || 'Admin',
+      notes: notes || 'Cash payment activated by admin'
+    }], { session });
+
+    // Create corresponding Order record for Sales Report visibility
+    const orderNumber = `INV-CASH-${Date.now().toString().slice(-8)}`;
+    const newOrder = await Order.create([{
+      userId: member._id,
+      orderNumber,
+      orderType: 'PACKAGE',
+      packageId: pkg._id,
+      packageName: pkg.name,
+      customerName: member.fullName,
+      customerEmail: member.email,
+      customerPhone: member.phoneNumber,
+      totalAmount: authoritativePrice,
+      totalKBP: authoritativeKbp,
+      kbpGenerated: authoritativeKbp,
+      paymentMethod: 'CASH',
+      paymentType: 'CASH',
+      paymentStatus: 'PAID',
+      orderStatus: 'DELIVERED',
+      status: 'COMPLETED',
+      products: [{
+        name: pkg.name,
+        quantity: 1,
+        price: authoritativePrice,
+        kbp: authoritativeKbp
+      }],
+      statusHistory: [{ status: 'PAID', timestamp: new Date(), note: `Cash payment verified by Admin ${adminUser.fullName || ''}` }]
+    }], { session });
+
+    // Trigger authoritative KBP Income Distribution (Direct 10% & Matching 10%)
+    await IncomeService.processOrderIncome(newOrder[0]);
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.json({
+      success: true,
+      message: `Package ${pkg.name} activated successfully for ${member.memberId}! Income distributed.`,
+      data: {
+        memberId: member.memberId,
+        package: pkg.name,
+        kbp: authoritativeKbp,
+        amount: authoritativePrice
+      }
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    next(error);
+  }
+};
+
 const updateOrderStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -361,10 +390,6 @@ const updateOrderStatus = async (req, res, next) => {
   }
 };
 
-/**
- * Create Order (Checkout flow)
- * POST /api/orders
- */
 const createOrder = async (req, res, next) => {
   try {
     const userId = req.userId || req.user?.id || req.user?._id;
@@ -431,5 +456,6 @@ module.exports = {
   updateOrderStatus,
   createOrder,
   getPackageSalesReport,
+  activateCashPackage,
   cancelOrder: updateOrderStatus
 };

@@ -5,6 +5,7 @@ const Wallet = require('../models/Wallet');
 const Rank = require('../models/Rank');
 const Package = require('../models/Package');
 const Fund = require('../models/Fund');
+const IncomeService = require('../services/income.service');
 
 /**
  * Get Admin Dashboard Overview Statistics
@@ -60,11 +61,12 @@ const getAllUsers = async (req, res, next) => {
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
     const skip = (pageNum - 1) * limitNum;
 
-    // Fetch members with populated sponsor details
+    // Fetch members with populated sponsor details & active package
     const [users, total] = await Promise.all([
       User.find(query)
         .select('-password -resetPasswordToken -resetPasswordExpire')
         .populate('sponsorId', 'fullName memberId email phoneNumber')
+        .populate('activePackageId', 'name price kbpValue kbp dailyCap')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum)
@@ -74,7 +76,6 @@ const getAllUsers = async (req, res, next) => {
 
     const totalPages = Math.ceil(total / limitNum) || 1;
 
-    // Return both 'members' and 'users' for complete frontend compatibility
     res.json({
       success: true,
       data: {
@@ -131,6 +132,79 @@ const updateUserStatus = async (req, res, next) => {
       success: true,
       message: `Member status updated to ${status}`,
       data: { user }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Admin Manually Activate Member ID with Selected Package & Trigger KBP Commissions
+ * POST /api/admin/members/:id/activate-package
+ */
+const activateMemberWithPackage = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { packageId } = req.body;
+
+    if (!packageId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please select a valid package for activation.'
+      });
+    }
+
+    const member = await User.findById(id);
+    if (!member) {
+      return res.status(404).json({
+        success: false,
+        message: 'Member not found.'
+      });
+    }
+
+    const pkg = await Package.findById(packageId);
+    if (!pkg) {
+      return res.status(404).json({
+        success: false,
+        message: 'Selected package not found in master catalog.'
+      });
+    }
+
+    // Update user activation state
+    member.status = 'ACTIVE';
+    member.activePackageId = pkg._id;
+    member.activationDate = new Date();
+    await member.save();
+
+    // Create completed order for audit trail
+    const orderNumber = `ORD-ADM-${Date.now().toString(36).toUpperCase()}`;
+    const kbpAmount = pkg.kbpValue || pkg.kbp || 1000;
+    const packagePrice = pkg.price || pkg.packagePrice || 1500;
+
+    const newOrder = await Order.create({
+      orderNumber,
+      userId: member._id,
+      packageId: pkg._id,
+      packageName: pkg.name,
+      packagePrice: packagePrice,
+      kbpGenerated: kbpAmount,
+      paymentMethod: 'ADMIN_MANUAL',
+      paymentStatus: 'SUCCESS',
+      orderStatus: 'COMPLETED'
+    });
+
+    // Automatically trigger authoritative KBP-based commission distribution (Direct 10% & Matching 10%)
+    const incomeResult = await IncomeService.processOrderIncome(newOrder);
+
+    res.json({
+      success: true,
+      message: `Member ${member.memberId} successfully activated with ${pkg.name}. Commissions distributed based on ₹${kbpAmount} KBP.`,
+      data: {
+        memberId: member.memberId,
+        package: pkg.name,
+        kbp: kbpAmount,
+        incomeResult
+      }
     });
   } catch (error) {
     next(error);
@@ -227,6 +301,7 @@ const adjustWallet = async (req, res, next) => {
     const numAmount = Number(amount);
     if (type === 'CREDIT') {
       wallet.incomeBalance = (wallet.incomeBalance || 0) + numAmount;
+      wallet.totalIncome = (wallet.totalIncome || 0) + numAmount;
     } else {
       if ((wallet.incomeBalance || 0) < numAmount) {
         return res.status(400).json({ success: false, message: 'Insufficient wallet balance for debit' });
@@ -265,6 +340,7 @@ module.exports = {
   getDashboardStats,
   getAllUsers,
   updateUserStatus,
+  activateMemberWithPackage,
   getPendingKYC,
   reviewKYC,
   adjustWallet,
