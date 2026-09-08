@@ -1,27 +1,25 @@
 // server/src/controllers/auth.controller.js
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-const Wallet = require('../models/Wallet');
-const Referral = require('../models/Referral');
-const BinaryNode = require('../models/BinaryNode');
-const BinaryService = require('../services/binary.service');
-const EmailService = require('../services/email.service');
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
+const Wallet = require("../models/Wallet");
+const Referral = require("../models/Referral");
+const BinaryNode = require("../models/BinaryNode");
+const BinaryService = require("../services/binary.service");
+const EmailService = require("../services/email.service");
 
 const generateToken = (userId) => {
-  return jwt.sign(
-    { userId },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-  );
+  return jwt.sign({ userId }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+  });
 };
 
 const setTokenCookie = (res, token) => {
-  res.cookie('token', token, {
+  res.cookie("token", token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
     maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: '/'
+    path: "/",
   });
 };
 
@@ -43,15 +41,26 @@ async function getReferralChainForUser(userId) {
 // ============ REGISTRATION (IDEMPOTENT & MULTI-ACCOUNT FRIENDLY) ============
 const register = async (req, res, next) => {
   try {
-    const { fullName, email, phoneNumber, password, sponsorId, side, binarySide, position, pos } = req.body;
+    const {
+      fullName,
+      email,
+      phoneNumber,
+      password,
+      sponsorId,
+      side,
+      binarySide,
+      position,
+      pos,
+    } = req.body;
 
-    const cleanEmail = email ? email.toLowerCase().trim() : '';
-    const cleanPhone = phoneNumber ? phoneNumber.trim() : '';
+    const cleanEmail = email ? email.toLowerCase().trim() : "";
+    const cleanPhone = phoneNumber ? phoneNumber.trim() : "";
 
     if (!fullName || !cleanEmail || !cleanPhone || !password) {
       return res.status(400).json({
         success: false,
-        message: 'All fields (Full Name, Email, Phone Number, Password) are required.'
+        message:
+          "All fields (Full Name, Email, Phone Number, Password) are required.",
       });
     }
 
@@ -65,38 +74,45 @@ const register = async (req, res, next) => {
       phoneNumber: cleanPhone,
       password,
       registrationIP: req.ip,
-      userAgent: req.headers['user-agent'],
-      status: 'INACTIVE',
+      userAgent: req.headers["user-agent"],
+      status: "INACTIVE",
       activePackageId: null,
-      activationDate: null
+      activationDate: null,
     });
 
     if (sponsorId) {
       const cleanSponsorInput = sponsorId.trim();
       const sponsor = await User.findOne({
         $or: [
-          { memberId: { $regex: new RegExp(`^${cleanSponsorInput}$`, 'i') } },
-          { referralCode: { $regex: new RegExp(`^${cleanSponsorInput}$`, 'i') } }
-        ]
+          { memberId: { $regex: new RegExp(`^${cleanSponsorInput}$`, "i") } },
+          {
+            referralCode: { $regex: new RegExp(`^${cleanSponsorInput}$`, "i") },
+          },
+        ],
       });
 
       if (!sponsor) {
         return res.status(404).json({
           success: false,
-          message: 'Sponsor User ID not found or invalid.'
+          message: "Sponsor User ID not found or invalid.",
         });
       }
 
-      if (['SUSPENDED', 'BLOCKED', 'DEACTIVATED'].includes(sponsor.status)) {
+      if (["SUSPENDED", "BLOCKED", "DEACTIVATED"].includes(sponsor.status)) {
         return res.status(400).json({
           success: false,
-          message: 'Sponsor account is suspended or inactive.'
+          message: "Sponsor account is suspended or inactive.",
         });
       }
 
-      const inputSide = (binarySide || position || side || (pos === 'R' ? 'right' : 'left')).toLowerCase();
+      const inputSide = (
+        binarySide ||
+        position ||
+        side ||
+        (pos === "R" ? "right" : "left")
+      ).toLowerCase();
       user.sponsorId = sponsor._id;
-      user.binarySide = inputSide === 'right' ? 'right' : 'left';
+      user.binarySide = inputSide === "right" ? "right" : "left";
     }
 
     // Save user with automatic legacy index cleanup if triggered
@@ -104,9 +120,11 @@ const register = async (req, res, next) => {
       await user.save();
     } catch (saveErr) {
       if (saveErr.code === 11000) {
-        const duplicateField = Object.keys(saveErr.keyPattern || {})[0] || '';
-        if (['email', 'phoneNumber'].includes(duplicateField)) {
-          await User.collection.dropIndex(`${duplicateField}_1`).catch(() => {});
+        const duplicateField = Object.keys(saveErr.keyPattern || {})[0] || "";
+        if (["email", "phoneNumber"].includes(duplicateField)) {
+          await User.collection
+            .dropIndex(`${duplicateField}_1`)
+            .catch(() => {});
           await user.save();
         } else {
           throw saveErr;
@@ -129,22 +147,29 @@ const register = async (req, res, next) => {
             $set: {
               level: level,
               parentId: i === 0 ? user.sponsorId : chain[i - 1]._id,
-              path: chain.slice(0, i + 1).map((s) => s._id).join('-'),
-              isActive: false
-            }
+              path: chain
+                .slice(0, i + 1)
+                .map((s) => s._id)
+                .join("-"),
+              isActive: false,
+            },
           },
-          { upsert: true, new: true }
+          { upsert: true, new: true },
         );
       }
 
       await User.findByIdAndUpdate(user.sponsorId, {
-        $inc: { directReferrals: 1 }
+        $inc: { directReferrals: 1 },
       });
 
       try {
-        await BinaryService.placeMember(user._id, user.sponsorId, user.binarySide);
+        await BinaryService.placeMember(
+          user._id,
+          user.sponsorId,
+          user.binarySide,
+        );
       } catch (error) {
-        console.error('Binary placement notice:', error.message);
+        console.error("Binary placement notice:", error.message);
       }
     } else {
       await BinaryNode.findOneAndUpdate(
@@ -152,7 +177,7 @@ const register = async (req, res, next) => {
         {
           $setOnInsert: {
             parentId: null,
-            position: 'root',
+            position: "root",
             level: 1,
             leftChildId: null,
             rightChildId: null,
@@ -162,14 +187,14 @@ const register = async (req, res, next) => {
             availableLeftVolume: 0,
             availableRightVolume: 0,
             pairCount: 0,
-            totalKBP: 0
-          }
+            totalKBP: 0,
+          },
         },
-        { upsert: true, new: true }
+        { upsert: true, new: true },
       );
     }
 
-    // Create Wallet for new user (Idempotent upsert)
+    // Create Wallet for new user (Idempotent upsert to prevent userId constraint conflicts)
     await Wallet.findOneAndUpdate(
       { userId: user._id },
       {
@@ -177,10 +202,10 @@ const register = async (req, res, next) => {
           incomeBalance: 0,
           repurchaseBalance: 0,
           totalIncome: 0,
-          totalWithdrawn: 0
-        }
+          totalWithdrawn: 0,
+        },
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
 
     const token = generateToken(user._id);
@@ -195,17 +220,17 @@ const register = async (req, res, next) => {
       data: {
         token,
         memberId: user.memberId,
-        user: userResponse
-      }
+        user: userResponse,
+      },
     });
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error("Registration error:", error);
 
     if (error.code === 11000) {
-      const duplicateField = Object.keys(error.keyPattern || {})[0] || 'Field';
+      const duplicateField = Object.keys(error.keyPattern || {})[0] || "Field";
       return res.status(400).json({
         success: false,
-        message: `Database constraint conflict detected on (${duplicateField}). Please try again.`
+        message: `Database constraint conflict detected on (${duplicateField}). Please try again.`,
       });
     }
 
@@ -216,39 +241,50 @@ const register = async (req, res, next) => {
 // ============ LOGIN ============
 const login = async (req, res, next) => {
   try {
-    const inputIdentifier = req.body.userId || req.body.email || req.body.memberId;
+    const inputIdentifier =
+      req.body.userId || req.body.email || req.body.memberId;
     const password = req.body.password;
 
     if (!inputIdentifier || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide your User ID (e.g. KFR123456) and Password'
+        message: "Please provide your User ID (e.g. KFR123456) and Password",
       });
     }
 
     const cleanInput = inputIdentifier.trim();
     const user = await User.findOne({
       $or: [
-        { memberId: { $regex: new RegExp(`^${cleanInput}$`, 'i') } },
-        { referralCode: { $regex: new RegExp(`^${cleanInput}$`, 'i') } }
-      ]
-    }).select('+password');
+        { memberId: { $regex: new RegExp(`^${cleanInput}$`, "i") } },
+        { referralCode: { $regex: new RegExp(`^${cleanInput}$`, "i") } },
+      ],
+    }).select("+password");
 
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid User ID or Password' });
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid User ID or Password" });
     }
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid User ID or Password' });
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid User ID or Password" });
     }
 
-    if (['SUSPENDED', 'DEACTIVATED', 'BLOCKED'].includes(user.status)) {
-      return res.status(403).json({ success: false, message: 'Account is suspended or deactivated. Please contact support.' });
+    if (["SUSPENDED", "DEACTIVATED", "BLOCKED"].includes(user.status)) {
+      return res
+        .status(403)
+        .json({
+          success: false,
+          message:
+            "Account is suspended or deactivated. Please contact support.",
+        });
     }
 
-    if (user.status === 'PENDING_VERIFICATION') {
-      user.status = 'INACTIVE';
+    if (user.status === "PENDING_VERIFICATION") {
+      user.status = "INACTIVE";
     }
 
     user.lastLogin = new Date();
@@ -262,8 +298,8 @@ const login = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: 'Login successful',
-      data: { token, user: userResponse }
+      message: "Login successful",
+      data: { token, user: userResponse },
     });
   } catch (error) {
     next(error);
@@ -273,25 +309,44 @@ const login = async (req, res, next) => {
 // ============ REFRESH TOKEN ============
 const refreshToken = async (req, res, next) => {
   try {
-    const token = req.cookies?.token || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.split(' ')[1] : null);
+    const token =
+      req.cookies?.token ||
+      (req.headers.authorization?.startsWith("Bearer ")
+        ? req.headers.authorization.split(" ")[1]
+        : null);
 
     if (!token) {
-      return res.status(401).json({ success: false, message: 'No session token provided' });
+      return res
+        .status(401)
+        .json({ success: false, message: "No session token provided" });
     }
 
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch {
-      return res.status(401).json({ success: false, message: 'Session expired. Please log in again.' });
+      return res
+        .status(401)
+        .json({
+          success: false,
+          message: "Session expired. Please log in again.",
+        });
     }
 
     const user = await User.findById(decoded.userId)
-      .populate('activePackageId', 'name type price kbp dailyCap')
-      .populate('sponsorId', 'fullName memberId');
+      .populate("activePackageId", "name type price kbp dailyCap")
+      .populate("sponsorId", "fullName memberId");
 
-    if (!user || ['SUSPENDED', 'BLOCKED', 'DEACTIVATED'].includes(user.status)) {
-      return res.status(403).json({ success: false, message: 'User account is not active or has been disabled.' });
+    if (
+      !user ||
+      ["SUSPENDED", "BLOCKED", "DEACTIVATED"].includes(user.status)
+    ) {
+      return res
+        .status(403)
+        .json({
+          success: false,
+          message: "User account is not active or has been disabled.",
+        });
     }
 
     const newToken = generateToken(user._id);
@@ -311,19 +366,29 @@ const sendForgotPasswordOTP = async (req, res, next) => {
   try {
     const { identifier } = req.body;
     if (!identifier) {
-      return res.status(400).json({ success: false, message: 'Please provide your registered User ID' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Please provide your registered User ID",
+        });
     }
 
     const cleanInput = identifier.trim();
     const user = await User.findOne({
       $or: [
-        { memberId: { $regex: new RegExp(`^${cleanInput}$`, 'i') } },
-        { referralCode: { $regex: new RegExp(`^${cleanInput}$`, 'i') } }
-      ]
+        { memberId: { $regex: new RegExp(`^${cleanInput}$`, "i") } },
+        { referralCode: { $regex: new RegExp(`^${cleanInput}$`, "i") } },
+      ],
     });
 
     if (!user) {
-      return res.status(404).json({ success: false, message: 'No account found with this User ID' });
+      return res
+        .status(404)
+        .json({
+          success: false,
+          message: "No account found with this User ID",
+        });
     }
 
     const otpCode = user.generateOTP();
@@ -344,16 +409,16 @@ const sendForgotPasswordOTP = async (req, res, next) => {
             <p>This OTP is valid for 10 minutes.</p>
           </div>
         `,
-        text: `Your KUWIFR Password Reset OTP is ${otpCode}. Valid for 10 minutes.`
+        text: `Your KUWIFR Password Reset OTP is ${otpCode}. Valid for 10 minutes.`,
       });
     } catch (emailErr) {
-      console.error('Failed to send OTP email:', emailErr);
+      console.error("Failed to send OTP email:", emailErr);
     }
 
     res.json({
       success: true,
-      message: `A 6-digit OTP has been sent to your registered email (${user.email.replace(/(.{2})(.*)(?=@)/, '$1***')}).`,
-      data: { emailMasked: user.email.replace(/(.{2})(.*)(?=@)/, '$1***') }
+      message: `A 6-digit OTP has been sent to your registered email (${user.email.replace(/(.{2})(.*)(?=@)/, "$1***")}).`,
+      data: { emailMasked: user.email.replace(/(.{2})(.*)(?=@)/, "$1***") },
     });
   } catch (error) {
     next(error);
@@ -365,24 +430,39 @@ const resetPasswordWithOTP = async (req, res, next) => {
   try {
     const { identifier, otp, newPassword } = req.body;
     if (!identifier || !otp || !newPassword) {
-      return res.status(400).json({ success: false, message: 'Please provide User ID, OTP, and New Password' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Please provide User ID, OTP, and New Password",
+        });
     }
     if (newPassword.length < 8) {
-      return res.status(400).json({ success: false, message: 'New password must be at least 8 characters long' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "New password must be at least 8 characters long",
+        });
     }
 
     const cleanInput = identifier.trim();
     const user = await User.findOne({
       $or: [
-        { memberId: { $regex: new RegExp(`^${cleanInput}$`, 'i') } },
-        { referralCode: { $regex: new RegExp(`^${cleanInput}$`, 'i') } }
+        { memberId: { $regex: new RegExp(`^${cleanInput}$`, "i") } },
+        { referralCode: { $regex: new RegExp(`^${cleanInput}$`, "i") } },
       ],
       otp: otp.trim(),
-      otpExpires: { $gt: new Date() }
-    }).select('+password');
+      otpExpires: { $gt: new Date() },
+    }).select("+password");
 
     if (!user) {
-      return res.status(400).json({ success: false, message: 'Invalid or expired OTP. Please request a new OTP.' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Invalid or expired OTP. Please request a new OTP.",
+        });
     }
 
     user.password = newPassword;
@@ -390,7 +470,11 @@ const resetPasswordWithOTP = async (req, res, next) => {
     user.otpExpires = null;
     await user.save();
 
-    res.json({ success: true, message: 'Password reset successfully! You can now log in with your new password.' });
+    res.json({
+      success: true,
+      message:
+        "Password reset successfully! You can now log in with your new password.",
+    });
   } catch (error) {
     next(error);
   }
@@ -400,7 +484,10 @@ const resetPasswordWithOTP = async (req, res, next) => {
 const sendChangePasswordOTP = async (req, res, next) => {
   try {
     const user = await User.findById(req.userId);
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (!user)
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
 
     const otpCode = user.generateOTP();
     await user.save();
@@ -418,10 +505,10 @@ const sendChangePasswordOTP = async (req, res, next) => {
             </div>
           </div>
         `,
-        text: `Your KUWIFR Password Change OTP is ${otpCode}`
+        text: `Your KUWIFR Password Change OTP is ${otpCode}`,
       });
     } catch (emailErr) {
-      console.error('Failed to send Change Password OTP email:', emailErr);
+      console.error("Failed to send Change Password OTP email:", emailErr);
     }
 
     res.json({ success: true, message: `OTP sent to ${user.email}` });
@@ -439,27 +526,33 @@ const changePasswordWithOTP = async (req, res, next) => {
     if (!currentPassword || !newPassword || !otp) {
       return res.status(400).json({
         success: false,
-        message: 'Current Password, New Password, and OTP are required'
+        message: "Current Password, New Password, and OTP are required",
       });
     }
 
     const user = await User.findOne({
       _id: userId,
       otp: otp.trim(),
-      otpExpires: { $gt: new Date() }
-    }).select('+password');
+      otpExpires: { $gt: new Date() },
+    }).select("+password");
 
-    if (!user) return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    if (!user)
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid or expired OTP" });
 
     const isMatch = await user.comparePassword(currentPassword);
-    if (!isMatch) return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    if (!isMatch)
+      return res
+        .status(401)
+        .json({ success: false, message: "Current password is incorrect" });
 
     user.password = newPassword;
     user.otp = null;
     user.otpExpires = null;
     await user.save();
 
-    res.json({ success: true, message: 'Password changed successfully!' });
+    res.json({ success: true, message: "Password changed successfully!" });
   } catch (error) {
     next(error);
   }
@@ -467,22 +560,25 @@ const changePasswordWithOTP = async (req, res, next) => {
 
 // ============ LOGOUT ============
 const logout = async (req, res) => {
-  res.clearCookie('token', {
+  res.clearCookie("token", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict'
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
   });
-  res.json({ success: true, message: 'Logged out successfully' });
+  res.json({ success: true, message: "Logged out successfully" });
 };
 
 // ============ CURRENT AUTHENTICATED USER ============
 const getCurrentUser = async (req, res, next) => {
   try {
-    const user = await User.findById(req.userId)
-      .populate('activePackageId', 'name type price kbp dailyCap')
-      .populate('sponsorId', 'fullName memberId');
+    const user = await User.findById(decoded.userId || req.userId)
+      .populate("activePackageId", "name type price kbp dailyCap")
+      .populate("sponsorId", "fullName memberId");
 
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (!user)
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
 
     const userResponse = user.toObject();
     delete userResponse.password;
@@ -502,5 +598,5 @@ module.exports = {
   sendForgotPasswordOTP,
   resetPasswordWithOTP,
   sendChangePasswordOTP,
-  changePasswordWithOTP
+  changePasswordWithOTP,
 };
