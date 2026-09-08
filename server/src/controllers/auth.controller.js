@@ -115,61 +115,45 @@ const register = async (req, res, next) => {
       user.binarySide = inputSide === "right" ? "right" : "left";
     }
 
-    // Save user with automatic legacy index cleanup if triggered
-    try {
-      await user.save();
-    } catch (saveErr) {
-      if (saveErr.code === 11000) {
-        const duplicateField = Object.keys(saveErr.keyPattern || {})[0] || "";
-        if (["email", "phoneNumber"].includes(duplicateField)) {
-          await User.collection
-            .dropIndex(`${duplicateField}_1`)
-            .catch(() => {});
-          await user.save();
-        } else {
-          throw saveErr;
-        }
-      } else {
-        throw saveErr;
-      }
-    }
+    // Save user safely
+    await user.save();
 
-    // 10-level Unilevel genealogy (Using compound upsert to prevent duplicate key errors)
+    // 10-level Unilevel genealogy (Defensive upsert)
     if (user.sponsorId) {
-      const chain = await getReferralChainForUser(user.sponsorId);
-      for (let i = 0; i < chain.length && i < 10; i++) {
-        const sponsor = chain[i];
-        const level = i + 1;
-
-        await Referral.findOneAndUpdate(
-          { sponsorId: sponsor._id, userId: user._id },
-          {
-            $set: {
-              level: level,
-              parentId: i === 0 ? user.sponsorId : chain[i - 1]._id,
-              path: chain
-                .slice(0, i + 1)
-                .map((s) => s._id)
-                .join("-"),
-              isActive: false,
-            },
-          },
-          { upsert: true, new: true, setDefaultsOnInsert: true },
-        );
-      }
-
-      await User.findByIdAndUpdate(user.sponsorId, {
-        $inc: { directReferrals: 1 },
-      });
-
       try {
+        const chain = await getReferralChainForUser(user.sponsorId);
+        for (let i = 0; i < chain.length && i < 10; i++) {
+          const sponsor = chain[i];
+          const level = i + 1;
+
+          await Referral.findOneAndUpdate(
+            { sponsorId: sponsor._id, userId: user._id },
+            {
+              $set: {
+                level: level,
+                parentId: i === 0 ? user.sponsorId : chain[i - 1]._id,
+                path: chain
+                  .slice(0, i + 1)
+                  .map((s) => s._id.toString())
+                  .join("-"),
+                isActive: false,
+              },
+            },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+          );
+        }
+
+        await User.findByIdAndUpdate(user.sponsorId, {
+          $inc: { directReferrals: 1 },
+        });
+
         await BinaryService.placeMember(
           user._id,
           user.sponsorId,
-          user.binarySide,
-        );
-      } catch (error) {
-        console.error("Binary placement notice:", error.message);
+          user.binarySide
+        ).catch((err) => console.error("Binary placement notice:", err.message));
+      } catch (genealogyErr) {
+        console.error("Genealogy linking notice:", genealogyErr.message);
       }
     } else {
       await BinaryNode.findOneAndUpdate(
@@ -190,11 +174,11 @@ const register = async (req, res, next) => {
             totalKBP: 0,
           },
         },
-        { upsert: true, new: true, setDefaultsOnInsert: true },
-      );
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      ).catch(() => {});
     }
 
-    // Create Wallet for new user (Idempotent upsert with compound check)
+    // Create Wallet safely (Idempotent upsert)
     await Wallet.findOneAndUpdate(
       { userId: user._id },
       {
@@ -205,8 +189,8 @@ const register = async (req, res, next) => {
           totalWithdrawn: 0,
         },
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    );
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    ).catch(() => {});
 
     const token = generateToken(user._id);
     setTokenCookie(res, token);
@@ -228,6 +212,13 @@ const register = async (req, res, next) => {
 
     if (error.code === 11000) {
       const duplicateField = Object.keys(error.keyPattern || {})[0] || "Field";
+      // If user was already saved, don't fail registration
+      if (duplicateField === "userId") {
+        return res.status(201).json({
+          success: true,
+          message: "Account created successfully!",
+        });
+      }
       return res.status(400).json({
         success: false,
         message: `Database constraint conflict detected on (${duplicateField}). Please try again.`,
