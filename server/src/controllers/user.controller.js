@@ -11,11 +11,6 @@ const cloudinary = require('../config/cloudinary');
 
 // ============================================================
 // 📦 5-TIER OFFICIAL PACKAGE KBP RESOLUTION
-// 1. Starter Package: ₹1,500 -> 1,000 KBP
-// 2. Growth Package: ₹5,000 -> 5,000 KBP
-// 3. LifeSafe Package: ₹10,000 -> 7,500 KBP
-// 4. LifeSafe Elite Package: ₹15,000 -> 10,000 KBP
-// 5. Titanium Package: ₹110,000 -> 50,000 KBP
 // ============================================================
 const resolveUserKbp = (userDoc) => {
   if (!userDoc || (userDoc.status || '').toUpperCase() !== 'ACTIVE') return 0;
@@ -32,20 +27,15 @@ const resolveUserKbp = (userDoc) => {
   if (pkgName.includes('LIFESAFE') || pkgName.includes('LIFE SAFE')) return 7500;
   if (pkgName.includes('GROWTH')) return 5000;
   if (pkgName.includes('STARTER')) return 1000;
-  return 1000; // Starter Package default
+  return 1000;
 };
 
-// ============================================================
-// 🏆 KUWI STAR VALIDATOR ENGINE
-// Rule: 2:1 or 1:2 Direct 3 active joinings with minimum 3,000 KBP
-// ============================================================
 const checkIsKuwiStar = async (userId) => {
   const directActives = await User.find({
     sponsorId: userId,
     status: 'ACTIVE'
   }).populate('activePackageId').lean();
 
-  // Condition 1: Must have at least 3 active direct referrals
   if (!directActives || directActives.length < 3) return false;
 
   let leftDirects = 0;
@@ -54,7 +44,6 @@ const checkIsKuwiStar = async (userId) => {
 
   for (const direct of directActives) {
     const kbp = resolveUserKbp(direct);
-    // Every qualifying direct must have purchased a package (min 1,000 KBP)
     if (kbp > 0) {
       totalDirectKbp += kbp;
       const side = String(direct.binarySide || '').toLowerCase();
@@ -63,18 +52,12 @@ const checkIsKuwiStar = async (userId) => {
     }
   }
 
-  // Condition 2: 2:1 or 1:2 ratio on direct joinings
   const isRatioMet = (leftDirects >= 2 && rightDirects >= 1) || (leftDirects >= 1 && rightDirects >= 2);
-
-  // Condition 3: Minimum 3,000 KBP combined across directs
   const isVolumeMet = totalDirectKbp >= 3000;
 
   return isRatioMet && isVolumeMet;
 };
 
-/**
- * Counts qualified Kuwi Stars in Left and Right branches of a user
- */
 const countSubtreeKuwiStars = async (userId, sinceDate = null) => {
   const downlineMembers = await Referral.find({ sponsorId: userId }).select('userId').lean();
   let leftStars = 0;
@@ -93,9 +76,6 @@ const countSubtreeKuwiStars = async (userId, sinceDate = null) => {
   return { leftStars, rightStars, totalStars: leftStars + rightStars };
 };
 
-// ============================================================
-// 🏆 12-LEVEL OFFICIAL KUWIFR RANK ENGINE
-// ============================================================
 const evaluateMemberRank = async (user) => {
   if (user.currentRankId?.name) {
     return {
@@ -105,13 +85,11 @@ const evaluateMemberRank = async (user) => {
     };
   }
 
-  // Must achieve Kuwi Star first (3 directs, 2:1 or 1:2, >= 3,000 KBP)
   const isKuwiStarAchieved = await checkIsKuwiStar(user._id);
   if (!isKuwiStarAchieved) {
     return { name: 'Not Achieved', code: 'NONE', level: 0 };
   }
 
-  // Higher ranks depend on accumulated Kuwi Stars in downline
   const { totalStars: downlineKuwiStars } = await countSubtreeKuwiStars(user._id);
 
   if (downlineKuwiStars >= 160000) return { name: 'Crown', code: 'CROWN', level: 12 };
@@ -129,9 +107,6 @@ const evaluateMemberRank = async (user) => {
   return { name: 'Kuwi Star', code: 'KUWI_STAR', level: 1 };
 };
 
-// ============================================================
-// 📊 DASHBOARD METRICS
-// ============================================================
 const getDashboardStats = async (req, res, next) => {
   try {
     const userId = req.userId;
@@ -170,12 +145,10 @@ const getDashboardStats = async (req, res, next) => {
 
     const totalTeamCount = await Referral.countDocuments({ sponsorId: userId });
 
-    // Lifetime binary volumes from node
     const totalKbpLeft = Number(binaryNode?.leftVolume || 0);
     const totalKbpRight = Number(binaryNode?.rightVolume || 0);
     const totalKbpMatch = Number(binaryNode?.matchingVolume || Math.min(totalKbpLeft, totalKbpRight));
 
-    // Resolve leg-based KBP production
     const directs = await User.find({ sponsorId: userId }).populate('activePackageId').lean();
     const leftDirects = directs.filter((d) => String(d.binarySide || '').toLowerCase() === 'left');
     const rightDirects = directs.filter((d) => String(d.binarySide || '').toLowerCase() === 'right');
@@ -194,12 +167,10 @@ const getDashboardStats = async (req, res, next) => {
     const weeklyTotalKbp = weeklyLeftKbp + weeklyRightKbp;
     const weeklyKbpMatch = Math.min(weeklyLeftKbp, weeklyRightKbp);
 
-    // Verified Kuwi Star Counts: Calculated strictly via checkIsKuwiStar
     const todayStars = await countSubtreeKuwiStars(userId, todayStart);
     const monthlyStars = await countSubtreeKuwiStars(userId, monthStart);
     const lifetimeStars = await countSubtreeKuwiStars(userId, null);
 
-    // Official 12-Level rank evaluation
     const evaluatedRank = await evaluateMemberRank(user);
 
     const baseUrl = process.env.CLIENT_URL || 'https://www.kuwifr.in';
@@ -216,7 +187,6 @@ const getDashboardStats = async (req, res, next) => {
         totalMembers: totalTeamCount > 0 ? totalTeamCount : totalDirects,
         totalActiveMembers: await User.countDocuments({ sponsorId: userId, status: 'ACTIVE' }),
 
-        // KBP Business Metrics
         todayLeftBusiness,
         todayRightBusiness,
         weeklyKbp: {
@@ -227,7 +197,6 @@ const getDashboardStats = async (req, res, next) => {
         weeklyKbpMatch,
         totalKbpMatch,
 
-        // Verified Kuwi Star Counts
         todayStar: {
           left: todayStars.leftStars,
           right: todayStars.rightStars
@@ -241,7 +210,6 @@ const getDashboardStats = async (req, res, next) => {
           right: lifetimeStars.rightStars
         },
 
-        // Rank & Fund
         currentRank: {
           name: evaluatedRank.name,
           code: evaluatedRank.code,
@@ -271,9 +239,6 @@ const getDashboardStats = async (req, res, next) => {
   }
 };
 
-// ============================================================
-// 🌲 UNLIMITED-DEPTH INFINITE GENERATION BINARY TREE
-// ============================================================
 const formatNode = async (userDoc) => {
   if (!userDoc) return null;
 
@@ -327,10 +292,6 @@ const formatNode = async (userDoc) => {
   };
 };
 
-/**
- * Recursive Spillover Engine without Depth Limits
- * Automatically pushes spillover down the extreme leg to unlimited generations.
- */
 const buildSpilloverBranch = async (membersList, side, visited) => {
   if (!membersList || membersList.length === 0) return null;
 
@@ -343,7 +304,6 @@ const buildSpilloverBranch = async (membersList, side, visited) => {
   const node = await formatNode(currentMember);
   const remainingInChain = membersList.slice(1);
 
-  // Fetch downline direct referrals for this member
   const ownDirects = await User.find({ sponsorId: currentMember._id })
     .populate('activePackageId')
     .populate('sponsorId', 'memberId fullName')
@@ -353,7 +313,6 @@ const buildSpilloverBranch = async (membersList, side, visited) => {
   let ownLeft = ownDirects.filter((m) => String(m.binarySide || '').toLowerCase() === 'left');
   let ownRight = ownDirects.filter((m) => String(m.binarySide || '').toLowerCase() === 'right');
 
-  // Handle unassigned members
   const unassigned = ownDirects.filter(
     (m) => !['left', 'right'].includes(String(m.binarySide || '').toLowerCase())
   );
@@ -363,12 +322,10 @@ const buildSpilloverBranch = async (membersList, side, visited) => {
   });
 
   if (side === 'LEFT') {
-    // Outer Left Power Leg: Spillover chain cascades down to unlimited depth
     const nextLeftList = [...remainingInChain, ...ownLeft];
     node.left = await buildSpilloverBranch(nextLeftList, 'LEFT', visited);
     node.right = await buildSpilloverBranch(ownRight, 'RIGHT', visited);
   } else {
-    // Outer Right Power Leg: Spillover chain cascades down to unlimited depth
     const nextRightList = [...remainingInChain, ...ownRight];
     node.right = await buildSpilloverBranch(nextRightList, 'RIGHT', visited);
     node.left = await buildSpilloverBranch(ownLeft, 'LEFT', visited);
@@ -415,7 +372,6 @@ const getBinaryTree = async (req, res, next) => {
     const tree = await formatNode(rootUser.toObject());
     tree.isMyNode = true;
 
-    // Fetch all frontline direct referrals for root
     const directReferrals = await User.find({ sponsorId: rootUser._id })
       .populate('activePackageId')
       .populate('sponsorId', 'memberId fullName')
@@ -433,7 +389,6 @@ const getBinaryTree = async (req, res, next) => {
       else rightMembers.push(m);
     });
 
-    // Recursively build branches down to unlimited depth
     tree.left = await buildSpilloverBranch(leftMembers, 'LEFT', visited);
     tree.right = await buildSpilloverBranch(rightMembers, 'RIGHT', visited);
 
@@ -480,9 +435,6 @@ const getBinaryTree = async (req, res, next) => {
   }
 };
 
-// ============================================================
-// 🏆 FUND & PROFILE HELPERS
-// ============================================================
 const FUND_PLANS = [
   { code: 'SCHOOL', name: 'School Fund', requiredLeftKBP: 25000, requiredRightKBP: 25000, icon: '🏫' },
   { code: 'FAMILY', name: 'Family Fund', requiredLeftKBP: 100000, requiredRightKBP: 100000, icon: '👨‍👩‍👦' },
@@ -650,6 +602,22 @@ const submitKYC = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Please upload all required KYC documents' });
     }
 
+    const cleanPan = panNumber ? panNumber.toUpperCase().trim() : '';
+    if (cleanPan) {
+      // 🌟 Enforce 1 PAN per member ID across the entire system
+      const existingPanUser = await User.findOne({
+        'kyc.panNumber': cleanPan,
+        _id: { $ne: user._id }
+      });
+
+      if (existingPanUser) {
+        return res.status(400).json({
+          success: false,
+          message: `This PAN card is already registered and verified with another Member ID (${existingPanUser.memberId}). One PAN can only be used for one account.`
+        });
+      }
+    }
+
     const uploadToCloudinary = (fileBuffer, folderName) => {
       return new Promise((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
@@ -686,7 +654,7 @@ const submitKYC = async (req, res, next) => {
 
     user.kyc = {
       status: 'PENDING',
-      panNumber: (panNumber || user.kyc?.panNumber || '').toUpperCase(),
+      panNumber: cleanPan || user.kyc?.panNumber || '',
       aadhaarFront: { url: aadhaarFrontRes.secure_url, publicId: aadhaarFrontRes.public_id },
       aadhaarBack: { url: aadhaarBackRes.secure_url, publicId: aadhaarBackRes.public_id },
       panCard: { url: panCardRes.secure_url, publicId: panCardRes.public_id },
@@ -698,6 +666,12 @@ const submitKYC = async (req, res, next) => {
     await user.save();
     res.json({ success: true, message: 'KYC documents submitted successfully!', data: { kyc: user.kyc } });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Duplicate constraint conflict: This PAN card is already registered with another member ID.'
+      });
+    }
     next(error);
   }
 };

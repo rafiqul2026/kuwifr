@@ -60,7 +60,13 @@ const UserSchema = new mongoose.Schema(
         default: 'NOT_SUBMITTED'
       },
       aadhaarNumber: { type: String, default: '' },
-      panNumber: { type: String, default: '' },
+      panNumber: { 
+        type: String, 
+        default: '',
+        uppercase: true,
+        trim: true,
+        index: { unique: true, sparse: true } // 🌟 Enforces strict 1 PAN per ID rule while allowing blanks
+      },
       aadhaarFront: { url: { type: String, default: '' }, publicId: { type: String, default: '' } },
       aadhaarBack: { url: { type: String, default: '' }, publicId: { type: String, default: '' } },
       panCard: { url: { type: String, default: '' }, publicId: { type: String, default: '' } },
