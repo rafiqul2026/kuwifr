@@ -64,8 +64,8 @@ const UserSchema = new mongoose.Schema(
         type: String, 
         default: '',
         uppercase: true,
-        trim: true,
-        index: { unique: true, sparse: true } // 🌟 Enforces strict 1 PAN per ID rule while allowing blanks
+        trim: true
+        // 🌟 Uniqueness check handled in submitKYC controller to prevent registration errors
       },
       aadhaarFront: { url: { type: String, default: '' }, publicId: { type: String, default: '' } },
       aadhaarBack: { url: { type: String, default: '' }, publicId: { type: String, default: '' } },
