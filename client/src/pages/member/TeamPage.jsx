@@ -111,8 +111,9 @@ const TeamPage = () => {
               <span>🤝 MY DIRECT SPONSOR / SENIOR</span>
             </div>
             <div className={styles.sponsorInfoRow}>
-              <strong className={styles.sponsorName}>{sponsorInfo.fullName}</strong>
-              <span className={styles.sponsorIdPill}>ID: {sponsorInfo.memberId}</span>
+              <div className={styles.sponsorAvatar}>
+                <span className={styles.sponsorIdPill}>ID: {sponsorInfo.memberId}</span>
+              </div>
             </div>
           </div>
 
