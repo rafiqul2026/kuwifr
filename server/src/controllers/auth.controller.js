@@ -134,7 +134,7 @@ const register = async (req, res, next) => {
       }
     }
 
-    // 10-level Unilevel genealogy (Using upsert to prevent duplicate key errors)
+    // 10-level Unilevel genealogy (Using compound upsert to prevent duplicate key errors)
     if (user.sponsorId) {
       const chain = await getReferralChainForUser(user.sponsorId);
       for (let i = 0; i < chain.length && i < 10; i++) {
@@ -154,7 +154,7 @@ const register = async (req, res, next) => {
               isActive: false,
             },
           },
-          { upsert: true, new: true },
+          { upsert: true, new: true, setDefaultsOnInsert: true },
         );
       }
 
@@ -190,11 +190,11 @@ const register = async (req, res, next) => {
             totalKBP: 0,
           },
         },
-        { upsert: true, new: true },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
       );
     }
 
-    // Create Wallet for new user (Idempotent upsert to prevent userId constraint conflicts)
+    // Create Wallet for new user (Idempotent upsert with compound check)
     await Wallet.findOneAndUpdate(
       { userId: user._id },
       {
@@ -205,7 +205,7 @@ const register = async (req, res, next) => {
           totalWithdrawn: 0,
         },
       },
-      { upsert: true, new: true },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
     );
 
     const token = generateToken(user._id);
@@ -571,7 +571,6 @@ const logout = async (req, res) => {
 // ============ CURRENT AUTHENTICATED USER ============
 const getCurrentUser = async (req, res, next) => {
   try {
-    // 🌟 Fixed: using req.userId directly (provided by auth middleware) instead of undefined decoded variable
     const user = await User.findById(req.userId)
       .populate("activePackageId", "name type price kbp dailyCap")
       .populate("sponsorId", "fullName memberId");
