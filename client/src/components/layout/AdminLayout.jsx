@@ -9,13 +9,12 @@ const AdminLayout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  // Navigation Items for Admin Suite
+  // Navigation Items for Admin Suite (Replaced Package Sales & Activations with Package Sales Report)
   const navItems = [
     { label: 'Dashboard', path: '/admin/dashboard', icon: '📊' },
     { label: 'Members', path: '/admin/members', icon: '👥' },
     { label: 'Packages', path: '/admin/packages', icon: '📦' },
-    // 📈 Dedicated Package Sales & Activations Intelligence
-    { label: 'Package Sales & Activations', path: '/admin/package-sales', icon: '📈' },
+    { label: 'Package Sales Report', path: '/admin/package-sales-report', icon: '📈' },
     { label: 'Products', path: '/admin/products', icon: '🛍️' },
     { label: 'Orders', path: '/admin/orders', icon: '🛒' },
     { label: 'Withdrawals', path: '/admin/withdrawals', icon: '💸' },

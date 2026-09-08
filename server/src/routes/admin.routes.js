@@ -1,4 +1,4 @@
-// server/src/routes/adminRoutes.js
+// server/src/routes/admin.routes.js
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/admin.controller');
@@ -67,9 +67,10 @@ router.put('/kyc/:id', adminController.reviewKYC);
 // ============ WALLET ADJUSTMENTS ============
 router.post('/wallet/adjust', adminController.adjustWallet);
 
-// ============ ORDERS MANAGEMENT ============
+// ============ ORDERS MANAGEMENT & PACKAGE SALES REPORT ============
 router.get('/orders', orderController.getAllOrders);
 router.put('/orders/:id/status', orderController.updateOrderStatus);
+router.get('/package-sales-report', orderController.getPackageSalesReport); // 🌟 Added route to resolve 404
 
 // ============ RANKS MANAGEMENT ============
 router.post('/ranks/initialize', rankController.initializeRanks);

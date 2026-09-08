@@ -571,7 +571,8 @@ const logout = async (req, res) => {
 // ============ CURRENT AUTHENTICATED USER ============
 const getCurrentUser = async (req, res, next) => {
   try {
-    const user = await User.findById(decoded.userId || req.userId)
+    // 🌟 Fixed: using req.userId directly (provided by auth middleware) instead of undefined decoded variable
+    const user = await User.findById(req.userId)
       .populate("activePackageId", "name type price kbp dailyCap")
       .populate("sponsorId", "fullName memberId");
 

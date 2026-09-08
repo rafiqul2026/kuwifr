@@ -21,6 +21,9 @@ import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import VerifyEmailPage from './pages/auth/VerifyEmailPage';
 
+// 🌟 Import with the correct filename you created
+import AdminPackageSalesReport from './pages/admin/AdminPackageSalesReport';
+
 // Protected Dashboards
 import MemberRoutes from './routes/MemberRoutes';
 import AdminRoutes from './routes/AdminRoutes';
@@ -125,7 +128,16 @@ function App() {
                     } 
                   />
 
-                  {/* Admin Portal Sub-Routes */}
+                  {/* Admin Portal Sub-Routes & Dedicated Package Sales Report Mapping */}
+                  <Route 
+                    path="/admin/package-sales-report" 
+                    element={
+                      <ProtectedRoute requiredRole="ADMIN">
+                        <AdminPackageSalesReport />
+                      </ProtectedRoute>
+                    } 
+                  />
+
                   <Route 
                     path="/admin/*" 
                     element={
