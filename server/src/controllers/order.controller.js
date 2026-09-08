@@ -240,6 +240,83 @@ const getAllOrders = async (req, res, next) => {
 };
 
 /**
+ * Admin: Get Package Sales Report with Package-wise & Member Search Filters
+ * GET /api/admin/package-sales-report
+ */
+const getPackageSalesReport = async (req, res, next) => {
+  try {
+    await seedOrdersIfEmpty();
+    const { packageName, search, page = 1, limit = 20 } = req.query;
+
+    const query = { orderType: 'PACKAGE' };
+
+    if (packageName && packageName !== 'ALL') {
+      query.packageName = { $regex: new RegExp(packageName, 'i') };
+    }
+
+    if (search) {
+      const cleanSearch = search.trim();
+      const matchingUsers = await User.find({
+        $or: [
+          { memberId: { $regex: cleanSearch, $options: 'i' } },
+          { email: { $regex: cleanSearch, $options: 'i' } },
+          { fullName: { $regex: cleanSearch, $options: 'i' } }
+        ]
+      }).select('_id');
+
+      const userIds = matchingUsers.map(u => u._id);
+
+      query.$or = [
+        { orderNumber: { $regex: cleanSearch, $options: 'i' } },
+        { customerName: { $regex: cleanSearch, $options: 'i' } },
+        { customerEmail: { $regex: cleanSearch, $options: 'i' } },
+        { userId: { $in: userIds } }
+      ];
+    }
+
+    const currentPage = Math.max(1, parseInt(page, 10) || 1);
+    const pageLimit = Math.max(1, parseInt(limit, 10) || 20);
+    const skip = (currentPage - 1) * pageLimit;
+
+    const [orders, total, stats] = await Promise.all([
+      Order.find(query)
+        .populate('userId', 'fullName email phoneNumber memberId')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(pageLimit)
+        .lean(),
+      Order.countDocuments(query),
+      Order.aggregate([
+        { $match: { orderType: 'PACKAGE' } },
+        { 
+          $group: { 
+            _id: '$packageName', 
+            totalUnits: { $sum: 1 }, 
+            totalRevenue: { $sum: '$totalAmount' } 
+          } 
+        }
+      ])
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        sales: orders || [],
+        statistics: stats || [],
+        pagination: {
+          page: currentPage,
+          limit: pageLimit,
+          total,
+          pages: Math.ceil(total / pageLimit) || 1
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Admin: Update Order Status & Courier Tracking
  * PUT /api/admin/orders/:id/status
  */
@@ -353,5 +430,6 @@ module.exports = {
   getAllOrders,
   updateOrderStatus,
   createOrder,
+  getPackageSalesReport,
   cancelOrder: updateOrderStatus
 };
