@@ -38,7 +38,7 @@ const processOrderIncome = async (req, res, next) => {
 };
 
 /**
- * Get income summary
+ * Get income summary (Aggregates Direct Referral and Binary Matching strictly from ledger)
  * GET /api/income/summary
  */
 const getIncomeSummary = async (req, res, next) => {

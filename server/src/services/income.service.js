@@ -8,7 +8,7 @@ const BinaryService = require('./binary.service');
 
 /**
  * Income Service - Handles all income calculations
- * Authoritative Compensation Plan Engine
+ * Authoritative Compensation Plan Engine (KBP-Based)
  */
 class IncomeService {
   /**
@@ -56,7 +56,7 @@ class IncomeService {
   // ============ REFERRAL INCOME ============
 
   /**
-   * Process Referral Income (10% of KBP)
+   * Process Referral Income (10% of authoritative KBP)
    * Rule: Only active direct referrals generate referral income.
    * Income goes to the sponsor (upline level 1).
    */
@@ -67,7 +67,7 @@ class IncomeService {
       return null;
     }
 
-    // Verify downline user is ACTIVE (Inactive referrals generate ₹0)
+    // Verify downline user is ACTIVE
     if (user.status !== 'ACTIVE') {
       console.log('   Downline user is not active. Referral income skipped.');
       return null;
@@ -79,28 +79,23 @@ class IncomeService {
       return null;
     }
 
-    // Authoritative KBP Resolution based on package master data rules
-    let effectiveKbp = Number(order.kbpGenerated) || 1000;
-    if (effectiveKbp === 1500 || effectiveKbp === 1500) effectiveKbp = 1000; // Starter Price fallback -> 1,000 KBP
-    else if (effectiveKbp === 5000) effectiveKbp = 5000;   // Growth KBP
-    else if (effectiveKbp === 10000) effectiveKbp = 7500;  // LifeSafe KBP
-    else if (effectiveKbp === 15000) effectiveKbp = 10000; // Elite KBP
-    else if (effectiveKbp === 110000) effectiveKbp = 50000;// Titanium KBP
-
-    // If order has a package reference, lookup package to ensure authoritative KBP
+    // Authoritative KBP Resolution from Package Master Data
+    let effectiveKbp = 1000; // Default Starter KBP fallback
     if (order.packageId) {
       const pkg = await Package.findById(order.packageId);
-      if (pkg && pkg.kbpValue) {
+      if (pkg && typeof pkg.kbpValue === 'number') {
         effectiveKbp = pkg.kbpValue;
       }
+    } else if (order.kbpGenerated) {
+      effectiveKbp = Number(order.kbpGenerated);
     }
 
     const rate = 0.10; // Exactly 10%
-    const grossAmount = effectiveKbp * rate; // e.g. 1000 * 0.10 = 100
+    const grossAmount = effectiveKbp * rate; // e.g., ₹1,000 KBP * 0.10 = ₹100
 
     console.log(`   Referral Income: ₹${grossAmount} for sponsor ${sponsor.email} (Based on KBP: ₹${effectiveKbp})`);
 
-    // Idempotency Check: Prevent duplicate referral commission for the same order/source user
+    // Strict Idempotency Check: Prevent duplicate referral commission for the same order/source user
     const existingTx = await IncomeTransaction.findOne({
       userId: sponsor._id,
       sourceId: order._id,
