@@ -8,14 +8,16 @@ const Fund = require('../models/Fund');
 const IncomeService = require('../services/income.service');
 
 /**
- * Get Admin Dashboard Overview Statistics
+ * Get Admin Dashboard Overview Statistics (With Frontend Aliases)
  * GET /api/admin/dashboard
  */
 const getDashboardStats = async (req, res, next) => {
   try {
+    const adminRoles = ['ADMIN', 'SUPER_ADMIN', 'admin', 'super_admin'];
+
     const [totalUsers, activeUsers, pendingKYC, totalOrders] = await Promise.all([
-      User.countDocuments({ role: { $ne: 'ADMIN' } }),
-      User.countDocuments({ role: { $ne: 'ADMIN' }, status: 'ACTIVE' }),
+      User.countDocuments({ role: { $nin: adminRoles } }),
+      User.countDocuments({ role: { $nin: adminRoles }, status: 'ACTIVE' }),
       User.countDocuments({ 'kyc.status': 'PENDING' }),
       Order.countDocuments()
     ]);
@@ -24,7 +26,10 @@ const getDashboardStats = async (req, res, next) => {
       success: true,
       data: {
         totalUsers,
+        totalMembers: totalUsers, // 🌟 Dual alias for frontend compatibility
+        total: totalUsers,
         activeUsers,
+        activeMembers: activeUsers, // 🌟 Dual alias for frontend compatibility
         pendingKYC,
         totalOrders
       }
@@ -41,7 +46,8 @@ const getDashboardStats = async (req, res, next) => {
 const getAllUsers = async (req, res, next) => {
   try {
     const { page = 1, limit = 20, search, status } = req.query;
-    const query = { role: { $ne: 'ADMIN' } };
+    const adminRoles = ['ADMIN', 'SUPER_ADMIN', 'admin', 'super_admin'];
+    const query = { role: { $nin: adminRoles } };
 
     if (status && status !== 'ALL') {
       query.status = status;
@@ -61,7 +67,6 @@ const getAllUsers = async (req, res, next) => {
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
     const skip = (pageNum - 1) * limitNum;
 
-    // Fetch members with populated sponsor details & active package
     const [users, total] = await Promise.all([
       User.find(query)
         .select('-password -resetPasswordToken -resetPasswordExpire')
@@ -74,19 +79,12 @@ const getAllUsers = async (req, res, next) => {
       User.countDocuments(query)
     ]);
 
-    const totalPages = Math.ceil(total / limitNum) || 1;
-
     res.json({
       success: true,
       data: {
         members: users || [],
         users: users || [],
-        pagination: {
-          total,
-          page: pageNum,
-          limit: limitNum,
-          pages: totalPages
-        }
+        pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) || 1 }
       }
     });
   } catch (error) {
@@ -95,32 +93,52 @@ const getAllUsers = async (req, res, next) => {
 };
 
 /**
- * Update member account status (ACTIVE, INACTIVE, BLOCKED, SUSPENDED, DEACTIVATED)
- * PUT /api/admin/users/:id/status or PUT /api/admin/members/:id/status
+ * Dedicated Member Search for Cash Activation Modal
+ * GET /api/admin/members/search?query=...
  */
+const searchMembersForActivation = async (req, res, next) => {
+  try {
+    const { query } = req.query;
+    if (!query || !query.trim()) {
+      return res.status(400).json({ success: false, message: 'Search query is required' });
+    }
+
+    const adminRoles = ['ADMIN', 'SUPER_ADMIN', 'admin', 'super_admin'];
+    const sanitized = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
+    const members = await User.find({
+      role: { $nin: adminRoles },
+      $or: [
+        { memberId: { $regex: new RegExp(`^${sanitized}`, 'i') } },
+        { email: { $regex: new RegExp(sanitized, 'i') } },
+        { fullName: { $regex: new RegExp(sanitized, 'i') } },
+        { phoneNumber: { $regex: new RegExp(sanitized, 'i') } }
+      ]
+    })
+      .select('memberId fullName email phoneNumber status sponsorId kyc activePackageId')
+      .limit(10)
+      .lean();
+
+    res.json({
+      success: true,
+      data: { members }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const updateUserStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
 
-    const validStatuses = [
-      'ACTIVE',
-      'INACTIVE',
-      'SUSPENDED',
-      'DEACTIVATED',
-      'BLOCKED',
-      'PENDING_VERIFICATION'
-    ];
-
+    const validStatuses = ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'DEACTIVATED', 'BLOCKED', 'PENDING_VERIFICATION'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ success: false, message: 'Invalid status type' });
     }
 
-    const user = await User.findByIdAndUpdate(
-      id,
-      { status },
-      { new: true }
-    )
+    const user = await User.findByIdAndUpdate(id, { status }, { new: true })
       .select('-password -resetPasswordToken -resetPasswordExpire')
       .populate('sponsorId', 'fullName memberId email phoneNumber');
 
@@ -138,45 +156,30 @@ const updateUserStatus = async (req, res, next) => {
   }
 };
 
-/**
- * Admin Manually Activate Member ID with Selected Package & Trigger KBP Commissions
- * POST /api/admin/members/:id/activate-package
- */
 const activateMemberWithPackage = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { packageId } = req.body;
 
     if (!packageId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please select a valid package for activation.'
-      });
+      return res.status(400).json({ success: false, message: 'Please select a valid package for activation.' });
     }
 
     const member = await User.findById(id);
     if (!member) {
-      return res.status(404).json({
-        success: false,
-        message: 'Member not found.'
-      });
+      return res.status(404).json({ success: false, message: 'Member not found.' });
     }
 
     const pkg = await Package.findById(packageId);
     if (!pkg) {
-      return res.status(404).json({
-        success: false,
-        message: 'Selected package not found in master catalog.'
-      });
+      return res.status(404).json({ success: false, message: 'Selected package not found in master catalog.' });
     }
 
-    // Update user activation state
     member.status = 'ACTIVE';
     member.activePackageId = pkg._id;
     member.activationDate = new Date();
     await member.save();
 
-    // Create completed order for audit trail
     const orderNumber = `ORD-ADM-${Date.now().toString(36).toUpperCase()}`;
     const kbpAmount = pkg.kbpValue || pkg.kbp || 1000;
     const packagePrice = pkg.price || pkg.packagePrice || 1500;
@@ -193,28 +196,18 @@ const activateMemberWithPackage = async (req, res, next) => {
       orderStatus: 'COMPLETED'
     });
 
-    // Automatically trigger authoritative KBP-based commission distribution (Direct 10% & Matching 10%)
     const incomeResult = await IncomeService.processOrderIncome(newOrder);
 
     res.json({
       success: true,
       message: `Member ${member.memberId} successfully activated with ${pkg.name}. Commissions distributed based on ₹${kbpAmount} KBP.`,
-      data: {
-        memberId: member.memberId,
-        package: pkg.name,
-        kbp: kbpAmount,
-        incomeResult
-      }
+      data: { memberId: member.memberId, package: pkg.name, kbp: kbpAmount, incomeResult }
     });
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * Get all KYC verification submissions
- * GET /api/admin/kyc
- */
 const getPendingKYC = async (req, res, next) => {
   try {
     const { page = 1, limit = 20, status = 'PENDING' } = req.query;
@@ -237,12 +230,7 @@ const getPendingKYC = async (req, res, next) => {
       success: true,
       data: {
         submissions: users || [],
-        pagination: {
-          total,
-          page: pageNum,
-          limit: limitNum,
-          pages: Math.ceil(total / limitNum) || 1
-        }
+        pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) || 1 }
       }
     });
   } catch (error) {
@@ -250,10 +238,6 @@ const getPendingKYC = async (req, res, next) => {
   }
 };
 
-/**
- * Review / Approve / Reject KYC
- * POST /api/admin/kyc/review or PUT /api/admin/kyc/:id
- */
 const reviewKYC = async (req, res, next) => {
   try {
     const { userId, status, rejectionReason } = req.body;
@@ -281,10 +265,6 @@ const reviewKYC = async (req, res, next) => {
   }
 };
 
-/**
- * Admin Manual Wallet Adjustment (Credit / Debit)
- * POST /api/admin/wallet/adjust
- */
 const adjustWallet = async (req, res, next) => {
   try {
     const { userId, amount, type } = req.body;
@@ -321,10 +301,6 @@ const adjustWallet = async (req, res, next) => {
   }
 };
 
-/**
- * Initialize system databases (Packages, Ranks, Funds)
- * POST /api/admin/system/initialize
- */
 const initializeSystem = async (req, res, next) => {
   try {
     res.json({
@@ -339,6 +315,7 @@ const initializeSystem = async (req, res, next) => {
 module.exports = {
   getDashboardStats,
   getAllUsers,
+  searchMembersForActivation,
   updateUserStatus,
   activateMemberWithPackage,
   getPendingKYC,

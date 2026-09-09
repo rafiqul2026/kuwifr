@@ -290,7 +290,6 @@ class BinaryService {
       .populate('sponsorId', 'fullName memberId referralCode')
       .lean();
 
-    // Determine unilevel generation level relative to root viewer
     let referralLevel = 1;
     if (String(userId) === String(actualRootId)) {
       referralLevel = 0;
@@ -358,6 +357,71 @@ class BinaryService {
       pairCount: binaryNode ? binaryNode.pairCount : 0,
       totalKBP: binaryNode ? binaryNode.totalKBP : 0,
       directCount: directReferrals.length
+    };
+  }
+
+  /**
+   * Recursively fetch all downline members under a specific branch (LEFT or RIGHT) up to unlimited depth.
+   */
+  async getBranchMembers(userId, position) {
+    const directChildNode = await BinaryNode.findOne({ 
+      parentId: userId, 
+      position: position.toUpperCase() 
+    }).populate('userId');
+
+    if (!directChildNode || !directChildNode.userId) {
+      return { count: 0, members: [] };
+    }
+
+    let membersList = [];
+    let queue = [directChildNode.userId._id];
+    let visited = new Set([userId.toString()]);
+
+    while (queue.length > 0) {
+      const currentUserId = queue.shift();
+      if (visited.has(currentUserId.toString())) continue;
+      visited.add(currentUserId.toString());
+
+      const userDoc = await User.findById(currentUserId)
+        .select('memberId fullName email phoneNumber status activePackageId createdAt binarySide')
+        .populate('activePackageId', 'name')
+        .lean();
+
+      if (userDoc) {
+        membersList.push(userDoc);
+      }
+
+      const childNodes = await BinaryNode.find({ parentId: currentUserId }).lean();
+      for (const child of childNodes) {
+        if (child.userId && !visited.has(child.userId.toString())) {
+          queue.push(child.userId);
+        }
+      }
+    }
+
+    return {
+      count: membersList.length,
+      members: membersList
+    };
+  }
+
+  /**
+   * Get complete binary team overview with Left and Right downline breakdown for any member up to unlimited depth.
+   */
+  async getTeamOverview(userId) {
+    const [leftBranch, rightBranch] = await Promise.all([
+      this.getBranchMembers(userId, 'LEFT'),
+      this.getBranchMembers(userId, 'RIGHT')
+    ]);
+
+    const userDoc = await User.findById(userId).select('fullName memberId status').lean();
+
+    return {
+      user: userDoc,
+      leftCount: leftBranch.count,
+      rightCount: rightBranch.count,
+      leftMembers: leftBranch.members,
+      rightMembers: rightBranch.members
     };
   }
 }

@@ -19,11 +19,12 @@ const seedOrdersIfEmpty = async () => {
           packageName: 'Starter Package',
           orderType: 'PACKAGE',
           totalAmount: 1500,
+          subtotal: 1500,
           totalKBP: 1000,
           kbpGenerated: 1000,
           paymentMethod: 'UPI',
           paymentType: 'ONLINE_GATEWAY',
-          paymentStatus: 'PAID',
+          paymentStatus: 'COMPLETED',
           orderStatus: 'DELIVERED',
           status: 'COMPLETED',
           trackingNumber: 'DEL-IN-88921',
@@ -43,7 +44,7 @@ const seedOrdersIfEmpty = async () => {
             }
           ],
           statusHistory: [
-            { status: 'PAID', timestamp: new Date(Date.now() - 48 * 3600000), note: 'Payment confirmed via UPI' },
+            { status: 'COMPLETED', timestamp: new Date(Date.now() - 48 * 3600000), note: 'Payment confirmed via UPI' },
             { status: 'SHIPPED', timestamp: new Date(Date.now() - 24 * 3600000), note: 'Dispatched via Delhivery Express' },
             { status: 'DELIVERED', timestamp: new Date(), note: 'Delivered to customer' }
           ],
@@ -245,7 +246,7 @@ const activateCashPackage = async (req, res, next) => {
     const adminUser = req.user;
 
     if (!memberIdentifier || !packageId || !cashAmount) {
-      throw new Error('Member ID/Email, package selection, and cash amount are required.');
+      return res.status(400).json({ success: false, message: 'Member ID/Email, package selection, and cash amount are required.' });
     }
 
     const cleanInput = memberIdentifier.trim();
@@ -258,63 +259,69 @@ const activateCashPackage = async (req, res, next) => {
     }).session(session);
 
     if (!member) {
-      throw new Error('Member not found matching the provided identifier.');
+      return res.status(404).json({ success: false, message: 'Member not found matching the provided identifier.' });
     }
 
     const pkg = await Package.findById(packageId).session(session);
     if (!pkg) {
-      throw new Error('Selected package not found in master catalog.');
+      return res.status(404).json({ success: false, message: 'Selected package not found in master catalog.' });
     }
 
     const authoritativePrice = pkg.price || pkg.packagePrice || 1500;
     const authoritativeKbp = pkg.kbpValue || pkg.kbp || 1000;
 
     if (Number(cashAmount) !== Number(authoritativePrice)) {
-      throw new Error(`Cash amount (₹${cashAmount}) must exactly match package price (₹${authoritativePrice}).`);
+      return res.status(400).json({ 
+        success: false, 
+        message: `Cash amount (₹${cashAmount}) must exactly match package price (₹${authoritativePrice}).` 
+      });
     }
 
-    // Update Member State
+    // 1. Update Member State
     member.status = 'ACTIVE';
     member.activePackageId = pkg._id;
     member.activationDate = new Date();
     await member.save({ session });
 
-    // Create PackagePurchase audit record
-    const purchaseRecord = await PackagePurchase.create([{
+    // 2. Create PackagePurchase record matching exact schema requirements
+    const uniqueTxId = receiptNumber && receiptNumber.trim() !== '' 
+      ? receiptNumber.trim() 
+      : `CASH-TX-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+    await PackagePurchase.create([{
+      user: member._id,
       memberId: member.memberId,
-      memberMongoId: member._id,
       memberName: member.fullName,
-      sponsorId: member.sponsorId ? member.sponsorId.toString() : '',
-      packageId: pkg._id,
+      packageId: pkg._id.toString(),
       packageName: pkg.name,
       packagePrice: authoritativePrice,
-      kbp: authoritativeKbp,
+      kbpPoints: authoritativeKbp,
+      dailyBinaryCap: pkg.dailyCap || 0,
       paymentMethod: 'CASH',
-      paymentStatus: 'PAID',
-      activationStatus: 'ACTIVE',
-      receiptNumber: receiptNumber || `CASH-RCPT-${Date.now()}`,
-      activatedByAdminId: adminUser._id,
-      activatedByAdminName: adminUser.fullName || 'Admin',
-      notes: notes || 'Cash payment activated by admin'
+      transactionId: uniqueTxId,
+      paymentStatus: 'COMPLETED',
+      activationDate: new Date()
     }], { session });
 
-    // Create corresponding Order record for Sales Report visibility
+    // 3. Create corresponding Order record using schema-compliant enum values ('ONLINE_GATEWAY' / 'COMPLETED')
     const orderNumber = `INV-CASH-${Date.now().toString().slice(-8)}`;
     const newOrder = await Order.create([{
       userId: member._id,
       orderNumber,
       orderType: 'PACKAGE',
+      packageType: 'PACKAGE',
       packageId: pkg._id,
       packageName: pkg.name,
       customerName: member.fullName,
       customerEmail: member.email,
       customerPhone: member.phoneNumber,
       totalAmount: authoritativePrice,
+      subtotal: authoritativePrice,
       totalKBP: authoritativeKbp,
       kbpGenerated: authoritativeKbp,
       paymentMethod: 'CASH',
-      paymentType: 'CASH',
-      paymentStatus: 'PAID',
+      paymentType: 'ONLINE_GATEWAY',
+      paymentStatus: 'COMPLETED',
       orderStatus: 'DELIVERED',
       status: 'COMPLETED',
       products: [{
@@ -323,16 +330,16 @@ const activateCashPackage = async (req, res, next) => {
         price: authoritativePrice,
         kbp: authoritativeKbp
       }],
-      statusHistory: [{ status: 'PAID', timestamp: new Date(), note: `Cash payment verified by Admin ${adminUser.fullName || ''}` }]
+      statusHistory: [{ status: 'COMPLETED', timestamp: new Date(), note: `Cash payment verified by Admin. Notes: ${notes || 'None'}` }]
     }], { session });
 
-    // Trigger authoritative KBP Income Distribution (Direct 10% & Matching 10%)
+    // 4. Trigger authoritative KBP Income Distribution (Direct 10% & Matching 10%)
     await IncomeService.processOrderIncome(newOrder[0]);
 
     await session.commitTransaction();
     session.endSession();
 
-    res.json({
+    return res.json({
       success: true,
       message: `Package ${pkg.name} activated successfully for ${member.memberId}! Income distributed.`,
       data: {
@@ -345,7 +352,13 @@ const activateCashPackage = async (req, res, next) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    next(error);
+    console.error('❌ Cash Package Activation Error:', error);
+
+    const errMsg = error.code === 11000 
+      ? 'Duplicate transaction or receipt number detected. Please use a unique reference number.' 
+      : (error.message || 'Package activation failed.');
+
+    return res.status(400).json({ success: false, message: errMsg });
   }
 };
 
@@ -416,6 +429,7 @@ const createOrder = async (req, res, next) => {
       userId,
       orderNumber,
       orderType: orderType || 'REPURCHASE',
+      packageType: orderType || 'REPURCHASE',
       packageId,
       packageName,
       selectedProduct,
@@ -425,17 +439,16 @@ const createOrder = async (req, res, next) => {
       items: items || [],
       products: products || items || [],
       totalAmount: totalAmount || 0,
+      subtotal: totalAmount || 0,
       totalKBP: totalKBP || 0,
       kbpGenerated: totalKBP || 0,
-      shippingAddress: shippingAddress || deliveryAddress || {},
-      deliveryAddress: deliveryAddress || shippingAddress || {},
       paymentMethod: paymentMethod || 'ONLINE_GATEWAY',
-      paymentType: paymentMethod || 'ONLINE_GATEWAY',
-      paymentStatus: 'PAID',
+      paymentType: 'ONLINE_GATEWAY',
+      paymentStatus: 'COMPLETED',
       orderStatus: 'PROCESSING',
       status: 'COMPLETED',
       statusHistory: [
-        { status: 'PAID', timestamp: new Date(), note: 'Order created and paid successfully' }
+        { status: 'COMPLETED', timestamp: new Date(), note: 'Order created and paid successfully' }
       ]
     });
 

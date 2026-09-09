@@ -45,7 +45,7 @@ const packagePurchaseSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      default: 'UPI_GATEWAY'
+      default: 'CASH'
     },
     transactionId: {
       type: String,

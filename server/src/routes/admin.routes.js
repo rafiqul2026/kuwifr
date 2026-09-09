@@ -22,6 +22,8 @@ if (adminAuth) router.use(adminAuth);
 router.get('/dashboard', adminController.getDashboardStats);
 router.get('/users', adminController.getAllUsers);
 router.get('/members', adminController.getAllUsers);
+router.get('/members/search', adminController.searchMembersForActivation);
+
 router.put('/users/:id/status', adminController.updateUserStatus);
 router.put('/members/:id/status', adminController.updateUserStatus);
 

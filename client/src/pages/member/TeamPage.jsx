@@ -21,8 +21,11 @@ const TeamPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [selectedMember, setSelectedMember] = useState(null);
-  const [modalLoading, setModalLoading] = useState(false);
+  
+  // Downline Branch Inspection Modal State
+  const [selectedMemberBranch, setSelectedMemberBranch] = useState(null);
+  const [branchTab, setBranchTab] = useState('LEFT');
+  const [branchLoading, setBranchLoading] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
 
   const fetchTeamData = useCallback(async () => {
@@ -58,17 +61,19 @@ const TeamPage = () => {
     fetchTeamData();
   }, [fetchTeamData]);
 
-  const handleViewMember = async (memberId) => {
+  // Fetch unlimited depth branch downline counts and lists for any member
+  const handleViewBranchDownline = async (memberMongoId) => {
     try {
-      setModalLoading(true);
-      const res = await api.get(`/api/users/${memberId}`);
-      if (res.data?.success && res.data?.data?.user) {
-        setSelectedMember(res.data.data.user);
+      setBranchLoading(true);
+      const res = await api.get(`/api/team/overview?userId=${memberMongoId}`);
+      if (res.data?.success && res.data?.data) {
+        setSelectedMemberBranch(res.data.data);
+        setBranchTab('LEFT');
       }
     } catch {
-      showNotification('Failed to fetch member details', 'error');
+      showNotification('Failed to fetch downline branch details', 'error');
     } finally {
-      setModalLoading(false);
+      setBranchLoading(false);
     }
   };
 
@@ -91,6 +96,10 @@ const TeamPage = () => {
 
     return matchesSearch && matchesStatus;
   });
+
+  const currentBranchList = branchTab === 'LEFT' 
+    ? (selectedMemberBranch?.leftMembers || []) 
+    : (selectedMemberBranch?.rightMembers || []);
 
   return (
     <div className={styles.pageContainer}>
@@ -131,14 +140,6 @@ const TeamPage = () => {
       {/* KPI Stats Cards */}
       <div className={styles.metricsGrid}>
         <div className={`${styles.kpiCard} ${styles.kpiBlue}`}>
-          <div className={styles.kpiIconWrapper}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-              <circle cx="9" cy="7" r="4"></circle>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-            </svg>
-          </div>
           <div className={styles.kpiContent}>
             <span className={styles.kpiTitle}>Direct Referrals</span>
             <div className={styles.kpiValueWrapper}>
@@ -149,12 +150,6 @@ const TeamPage = () => {
         </div>
 
         <div className={`${styles.kpiCard} ${styles.kpiGreen}`}>
-          <div className={styles.kpiIconWrapper}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <polyline points="22 4 12 14.01 9 11.01"></polyline>
-            </svg>
-          </div>
           <div className={styles.kpiContent}>
             <span className={styles.kpiTitle}>Active Accounts</span>
             <div className={styles.kpiValueWrapper}>
@@ -165,12 +160,6 @@ const TeamPage = () => {
         </div>
 
         <div className={`${styles.kpiCard} ${styles.kpiPurple}`}>
-          <div className={styles.kpiIconWrapper}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
-            </svg>
-          </div>
           <div className={styles.kpiContent}>
             <span className={styles.kpiTitle}>Total Downline</span>
             <div className={styles.kpiValueWrapper}>
@@ -181,13 +170,6 @@ const TeamPage = () => {
         </div>
 
         <div className={`${styles.kpiCard} ${styles.kpiAmber}`}>
-          <div className={styles.kpiIconWrapper}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="20" x2="18" y2="10"></line>
-              <line x1="12" y1="20" x2="12" y2="4"></line>
-              <line x1="6" y1="20" x2="6" y2="14"></line>
-            </svg>
-          </div>
           <div className={styles.kpiContent}>
             <span className={styles.kpiTitle}>Network Depth</span>
             <div className={styles.kpiValueWrapper}>
@@ -200,13 +182,8 @@ const TeamPage = () => {
 
       {/* Main Glass Table Container */}
       <div className={styles.mainCard}>
-        {/* Controls Toolbar */}
         <div className={styles.toolbar}>
           <div className={styles.searchBox}>
-            <svg className={styles.searchIcon} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
             <input
               type="text"
               placeholder="Search member name or Member ID..."
@@ -217,35 +194,26 @@ const TeamPage = () => {
           </div>
 
           <div className={styles.filterGroup}>
-            <div className={styles.selectWrapper}>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className={styles.statusSelect}
-              >
-                <option value="ALL">All Statuses</option>
-                <option value="ACTIVE">Active Members</option>
-                <option value="INACTIVE">Inactive Members</option>
-              </select>
-            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className={styles.statusSelect}
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="ACTIVE">Active Members</option>
+              <option value="INACTIVE">Inactive Members</option>
+            </select>
 
             <button
               type="button"
               className={styles.refreshBtn}
               onClick={fetchTeamData}
-              title="Refresh Team List"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={loading ? styles.rotating : ''}>
-                <polyline points="23 4 23 10 17 10"></polyline>
-                <polyline points="1 20 1 14 7 14"></polyline>
-                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-              </svg>
               <span>Refresh</span>
             </button>
           </div>
         </div>
 
-        {/* Content Table */}
         {loading ? (
           <div className={styles.centerBox}>
             <div className={styles.glowSpinner}></div>
@@ -253,12 +221,6 @@ const TeamPage = () => {
           </div>
         ) : filteredMembers.length === 0 ? (
           <div className={styles.centerBox}>
-            <div className={styles.emptyIconWrap}>
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="8" y1="12" x2="16" y2="12"></line>
-              </svg>
-            </div>
             <h4 className={styles.emptyTitle}>No Members Found</h4>
             <p className={styles.emptyDesc}>Try adjusting your search filter or add new direct referrals.</p>
           </div>
@@ -270,7 +232,7 @@ const TeamPage = () => {
                   <th className={styles.thSl}>SL</th>
                   <th className={styles.thMember}>MEMBER</th>
                   <th className={styles.thStatus}>STATUS</th>
-                  <th className={styles.thAction}>ACTION</th>
+                  <th className={styles.thAction}>BRANCH DOWNLINE</th>
                 </tr>
               </thead>
               <tbody>
@@ -293,6 +255,7 @@ const TeamPage = () => {
                           </div>
                           <div className={styles.nameBlock}>
                             <span className={styles.memberNameText}>{member.fullName}</span>
+                            <span className={styles.memberIdSubText}>{member.memberId}</span>
                           </div>
                         </div>
                       </td>
@@ -308,10 +271,10 @@ const TeamPage = () => {
                         <button
                           type="button"
                           className={styles.actionViewBtn}
-                          onClick={() => handleViewMember(member._id)}
-                          disabled={modalLoading}
+                          onClick={() => handleViewBranchDownline(member._id)}
+                          disabled={branchLoading}
                         >
-                          <span>View</span>
+                          <span>Inspect Branch</span>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="9 18 15 12 9 6"></polyline>
                           </svg>
@@ -326,106 +289,108 @@ const TeamPage = () => {
         )}
       </div>
 
-      {/* Member Details Modal */}
-      {selectedMember && (
-        <div className={styles.modalBackdrop} onClick={() => setSelectedMember(null)}>
-          <div className={styles.modalWindow} onClick={(e) => e.stopPropagation()}>
+      {/* Unlimited Depth Branch Inspection Modal (Growth Generation Style) */}
+      {selectedMemberBranch && (
+        <div className={styles.modalBackdrop} onClick={() => setSelectedMemberBranch(null)}>
+          <div className={styles.modalWindow} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px', width: '95%' }}>
             <div className={styles.modalTopBanner}>
               <div className={styles.modalTitleBlock}>
-                <span className={styles.modalCategoryTag}>MEMBER PROFILE</span>
-                <h3>Downline Details</h3>
+                <span className={styles.modalCategoryTag}>BINARY DOWNLINE ANALYSIS</span>
+                <h3>{selectedMemberBranch.user?.fullName} ({selectedMemberBranch.user?.memberId})</h3>
               </div>
               <button
                 type="button"
                 className={styles.modalCloseIconBtn}
-                onClick={() => setSelectedMember(null)}
-                aria-label="Close modal"
+                onClick={() => setSelectedMemberBranch(null)}
               >
                 ✕
               </button>
             </div>
 
             <div className={styles.modalInnerBody}>
-              <div className={styles.profileHero}>
-                <div className={`${styles.largeAvatar} ${selectedMember.status === 'ACTIVE' ? styles.avatarActive : styles.avatarInactive}`}>
-                  {selectedMember.fullName?.charAt(0) || 'M'}
+              {/* Left / Right Summary Cards matching Growth Generation */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
+                <div 
+                  onClick={() => setBranchTab('LEFT')}
+                  style={{ background: branchTab === 'LEFT' ? '#eff6ff' : '#f8fafc', border: branchTab === 'LEFT' ? '2px solid #2563eb' : '1px solid #e2e8f0', padding: '15px', borderRadius: '10px', textAlign: 'center', cursor: 'pointer' }}
+                >
+                  <h4 style={{ margin: '0 0 5px 0', color: '#64748b', fontSize: '13px' }}>Member Left (Unlimited Depth)</h4>
+                  <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#1e293b' }}>{selectedMemberBranch.leftCount}</span>
                 </div>
-                <h3 className={styles.heroName}>{selectedMember.fullName}</h3>
-                <span className={selectedMember.status === 'ACTIVE' ? styles.badgeActiveHero : styles.badgeInactiveHero}>
-                  ● {selectedMember.status}
-                </span>
-              </div>
-
-              <div className={styles.coreCredentialsCard}>
-                <div className={styles.credentialRow}>
-                  <div className={styles.credentialLabelBlock}>
-                    <span className={styles.credIcon}>👤</span>
-                    <span className={styles.credLabel}>Full Name</span>
-                  </div>
-                  <strong className={styles.credValuePrimary}>{selectedMember.fullName}</strong>
-                </div>
-
-                <div className={styles.credentialRow}>
-                  <div className={styles.credentialLabelBlock}>
-                    <span className={styles.credIcon}>✉️</span>
-                    <span className={styles.credLabel}>Email Address</span>
-                  </div>
-                  <span className={styles.credValueEmail}>{selectedMember.email}</span>
-                </div>
-
-                <div className={styles.credentialRow}>
-                  <div className={styles.credentialLabelBlock}>
-                    <span className={styles.credIcon}>🆔</span>
-                    <span className={styles.credLabel}>Member User ID</span>
-                  </div>
-                  <div
-                    className={styles.memberIdChip}
-                    onClick={() => copyToClipboard(selectedMember.memberId)}
-                    title="Click to copy Member ID"
-                  >
-                    <code>{selectedMember.memberId || 'KFR------'}</code>
-                    <span className={styles.copyNotice}>{copiedId ? 'Copied!' : 'Copy'}</span>
-                  </div>
+                <div 
+                  onClick={() => setBranchTab('RIGHT')}
+                  style={{ background: branchTab === 'RIGHT' ? '#eff6ff' : '#f8fafc', border: branchTab === 'RIGHT' ? '2px solid #2563eb' : '1px solid #e2e8f0', padding: '15px', borderRadius: '10px', textAlign: 'center', cursor: 'pointer' }}
+                >
+                  <h4 style={{ margin: '0 0 5px 0', color: '#64748b', fontSize: '13px' }}>Member Right (Unlimited Depth)</h4>
+                  <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#1e293b' }}>{selectedMemberBranch.rightCount}</span>
                 </div>
               </div>
 
-              <div className={styles.secondaryGrid}>
-                <div className={styles.secondaryTile}>
-                  <small>Phone Number</small>
-                  <strong>{selectedMember.phoneNumber || 'N/A'}</strong>
-                </div>
-
-                <div className={styles.secondaryTile}>
-                  <small>Binary Leg</small>
-                  <strong className={styles.sideHighlight}>
-                    {selectedMember.binarySide ? selectedMember.binarySide.toUpperCase() : 'LEFT'}
-                  </strong>
-                </div>
-
-                <div className={styles.secondaryTile}>
-                  <small>Active Package</small>
-                  <strong>{selectedMember.activePackageId?.name || 'Starter Package'}</strong>
-                </div>
-
-                <div className={styles.secondaryTile}>
-                  <small>Joined Date</small>
-                  <strong>
-                    {new Date(selectedMember.createdAt || selectedMember.joinedDate).toLocaleDateString(undefined, {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric'
-                    })}
-                  </strong>
-                </div>
+              {/* Branch Switcher Tabs */}
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                <button
+                  type="button"
+                  onClick={() => setBranchTab('LEFT')}
+                  style={{ flex: 1, padding: '10px', fontWeight: 'bold', background: branchTab === 'LEFT' ? '#2563eb' : '#e2e8f0', color: branchTab === 'LEFT' ? '#fff' : '#333', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                >
+                  Left Branch List ({selectedMemberBranch.leftCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBranchTab('RIGHT')}
+                  style={{ flex: 1, padding: '10px', fontWeight: 'bold', background: branchTab === 'RIGHT' ? '#2563eb' : '#e2e8f0', color: branchTab === 'RIGHT' ? '#fff' : '#333', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                >
+                  Right Branch List ({selectedMemberBranch.rightCount})
+                </button>
               </div>
 
-              <div className={styles.modalFooter}>
+              {/* Downline Members Table */}
+              <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+                  <thead>
+                    <tr style={{ background: '#f1f5f9', position: 'sticky', top: 0 }}>
+                      <th style={{ padding: '10px' }}>#</th>
+                      <th style={{ padding: '10px' }}>Member Name</th>
+                      <th style={{ padding: '10px' }}>Member ID</th>
+                      <th style={{ padding: '10px' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentBranchList.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>
+                          No members registered on this side downline.
+                        </td>
+                      </tr>
+                    ) : (
+                      currentBranchList.map((m, idx) => (
+                        <tr key={m._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '10px' }}>#{idx + 1}</td>
+                          <td style={{ padding: '10px' }}><strong>{m.fullName}</strong></td>
+                          <td style={{ padding: '10px' }}>
+                            <code style={{ background: '#f8fafc', padding: '2px 6px', borderRadius: '4px' }} onClick={() => copyToClipboard(m.memberId)} title="Click to copy">
+                              {m.memberId}
+                            </code>
+                          </td>
+                          <td style={{ padding: '10px' }}>
+                            <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', background: m.status === 'ACTIVE' ? '#dcfce7' : '#fee2e2', color: m.status === 'ACTIVE' ? '#166534' : '#991b1b' }}>
+                              {m.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className={styles.modalFooter} style={{ marginTop: '20px' }}>
                 <button
                   type="button"
                   className={styles.modalDoneBtn}
-                  onClick={() => setSelectedMember(null)}
+                  onClick={() => setSelectedMemberBranch(null)}
                 >
-                  Close Details
+                  Close Inspection
                 </button>
               </div>
             </div>
