@@ -12,7 +12,7 @@ if (protect) {
   router.use(protect);
 }
 
-// Route to fetch unlimited depth left and right downline members
+// Route to fetch unlimited depth left and right downline members: /api/team/overview
 router.get('/overview', teamController.getTeamOverview);
 
 module.exports = router;

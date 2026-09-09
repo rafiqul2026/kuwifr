@@ -39,6 +39,7 @@ const adminRoutes = require('./routes/admin.routes');
 const settingRoutes = require('./routes/setting.routes');
 const auditLogRoutes = require('./routes/auditLog.routes');
 const packagePurchaseRoutes = require('./routes/packagePurchase.routes');
+const teamRoutes = require('./routes/team.routes'); // 🌟 Ensure teamRoutes is imported
 
 // Validate environment variables
 validateEnv();
@@ -73,10 +74,8 @@ const allowedOrigins = Array.from(new Set([...defaultAllowedOrigins, ...envAllow
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (e.g. mobile apps, curl, Postman, server-to-server)
     if (!origin) return callback(null, true);
 
-    // Check if origin matches allowed domains or any Vercel preview deployment
     const isAllowed =
       allowedOrigins.includes(origin) ||
       origin.endsWith('.vercel.app') ||
@@ -87,7 +86,6 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    // Do not throw an error (prevents Express crashes on preflights)
     console.warn(`[CORS Blocked] Origin: ${origin}`);
     return callback(null, false);
   },
@@ -103,12 +101,10 @@ const corsOptions = {
   exposedHeaders: ['Set-Cookie']
 };
 
-// Apply CORS before any route or middleware
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Handle all HTTP preflight requests globally
+app.options('*', cors(corsOptions));
 
 // ==================== SECURITY & PARSING ====================
-// Configure Helmet without blocking cross-origin API assets
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' }
@@ -128,19 +124,12 @@ const limiter = rateLimit({
 });
 app.use('/api', limiter);
 
-// Body parsers (support base64 images and large JSON payloads)
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Cookie parser
 app.use(cookieParser());
-
-// Request logger
 app.use(requestLogger);
 
 // ==================== SYSTEM ROUTES ====================
-
-// 🌐 ROOT STATUS ROUTE
 app.get('/', (req, res) => {
   res.json({
     success: true,
@@ -156,7 +145,6 @@ app.get('/', (req, res) => {
   });
 });
 
-// 🔍 HEALTH CHECK
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
@@ -170,7 +158,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// 🧪 TEST ROUTE
 app.get('/api/test', (req, res) => {
   res.json({
     success: true,
@@ -182,88 +169,46 @@ app.get('/api/test', (req, res) => {
 // ============================================================
 // ✅ MOUNTED API ROUTERS
 // ============================================================
-
-// Authentication
 app.use('/api/auth', authRoutes);
-
-// Users & Binary Tree
 app.use('/api/users', userRoutes);
-
 app.use('/api/packages', require('./routes/package.routes'));
 app.use('/api/package-purchases', packagePurchaseRoutes);
-
-// Ranks & Kuwi Stars Progression
 app.use('/api/ranks', rankRoutes);
 app.use('/api/admin/ranks', rankRoutes);
-
-// Products
 app.use('/api/products', productRoutes);
 app.use('/api/admin/products', productRoutes);
-
-// Membership Packages
 app.use('/api/packages', packageRoutes);
 app.use('/api/admin/packages', packageRoutes);
-
-// Payment Gateway Integration
 app.use('/api/payment', paymentRoutes);
-
-// Orders
 app.use('/api/orders', orderRoutes);
 app.use('/api/admin/orders', orderRoutes);
-
-// Wallets (Income, Repurchase, and Salary 1% TTO)
 app.use('/api/wallet', walletRoutes);
-
-// Income & Overrides
 app.use('/api/income', incomeRoutes);
-
-// Bonanza Offers
 app.use('/api/bonanza', bonanzaRoutes);
-
-// Repurchase Store & Matrix
 app.use('/api/repurchase', repurchaseRoutes);
-
-// Life Tension Free Funds
 app.use('/api/funds', fundRoutes);
 app.use('/api/admin/funds', fundRoutes);
-
-// Withdrawals
 app.use('/api/withdrawals', withdrawalRoutes);
 app.use('/api/admin/withdrawals', withdrawalRoutes);
-
-// Notifications
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin/notifications', notificationRoutes);
-
-// Reports & Statistics
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin/reports', reportRoutes);
-
-// Contact & Support
 app.use('/api/contact', contactRoutes);
 app.use('/api/support', supportRoutes);
-
-// Admin Control Panel
 app.use('/api/admin', adminRoutes);
-
-// Campaigns
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/admin/campaigns', campaignRoutes);
-
-// Settings
 app.use('/api/settings', settingRoutes);
 app.use('/api/admin/settings', settingRoutes);
-
-// Audit Logs
 app.use('/api/audit', auditLogRoutes);
 app.use('/api/admin/audit', auditLogRoutes);
 
+// 🌟 Team Overview (Binary Tree & Unlimited Depth Downline Branch Inspection)
+app.use('/api/team', teamRoutes);
+
 // ==================== ERROR HANDLING ====================
-
-// 404 handler for unknown endpoints
 app.use(notFoundHandler);
-
-// Global error handler
 app.use(errorHandler);
 
 module.exports = app;
