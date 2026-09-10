@@ -120,7 +120,18 @@ const getAdminIncomeReport = async (req, res, next) => {
     const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
     const query = { status: 'CREDITED', ...getDateFilter(startDate, endDate) };
 
-    const [transactions, total, summaryAgg] = await Promise.all([
+    // FAILED transactions (income.service.js#creditIncome /
+    // binary.service.js#calculateMatching) — a real matching/referral/
+    // leadership event happened but paid ₹0, either because crediting threw
+    // an error or the member's daily/weekly/monthly package cap was already
+    // exhausted. These used to be silently dropped (console.error only, no
+    // DB record at all), so a member's team volume could grow for real while
+    // their income stayed ₹0 with no way for an admin to see why. Surfaced
+    // here so "income shows ₹0 despite real business activity" is now
+    // diagnosable instead of a mystery.
+    const failedQuery = { status: 'FAILED', ...getDateFilter(startDate, endDate) };
+
+    const [transactions, total, summaryAgg, failedCount, failedRecent, failedGrossAgg] = await Promise.all([
       IncomeTransaction.find(query)
         .populate('userId', 'fullName email memberId')
         .sort({ createdAt: -1 })
@@ -132,6 +143,17 @@ const getAdminIncomeReport = async (req, res, next) => {
       IncomeTransaction.aggregate([
         { $match: query },
         { $group: { _id: '$type', total: { $sum: '$creditedAmount' }, count: { $sum: 1 } } }
+      ]).catch(() => []),
+      IncomeTransaction.countDocuments(failedQuery).catch(() => 0),
+      IncomeTransaction.find(failedQuery)
+        .populate('userId', 'fullName email memberId')
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .lean()
+        .catch(() => []),
+      IncomeTransaction.aggregate([
+        { $match: failedQuery },
+        { $group: { _id: null, totalGrossAmount: { $sum: '$grossAmount' } } }
       ]).catch(() => [])
     ]);
 
@@ -142,17 +164,31 @@ const getAdminIncomeReport = async (req, res, next) => {
 
     const totalIncome = summaryAgg.reduce((sum, item) => sum + item.total, 0);
 
+    // NOTE: this used to fall back to fabricated demo numbers (₹145,000 /
+    // 24 transactions / a fake BINARY_MATCHING+DIRECT_SPONSOR+ROYALTY_SALARY
+    // breakdown) whenever the real aggregation came back empty or zero —
+    // which is indistinguishable, in the admin UI, from "the company
+    // genuinely earned ₹145,000 today." An admin financial report must never
+    // show invented figures; a quiet period is reported as zero/empty, not
+    // papered over with plausible-looking fake activity.
     res.status(200).json({
       success: true,
       data: {
-        total: totalIncome || 145000,
-        count: total || transactions.length || 24,
-        byType: Object.keys(byType).length > 0 ? byType : {
-          BINARY_MATCHING: { total: 85000, count: 12 },
-          DIRECT_SPONSOR: { total: 40000, count: 8 },
-          ROYALTY_SALARY: { total: 20000, count: 4 }
-        },
-        transactions: transactions || []
+        total: totalIncome,
+        count: total,
+        byType,
+        transactions: transactions || [],
+        failedSummary: {
+          count: failedCount,
+          totalGrossAmount: failedGrossAgg[0]?.totalGrossAmount || 0,
+          recent: (failedRecent || []).map((tx) => ({
+            userId: tx.userId,
+            type: tx.type,
+            grossAmount: tx.grossAmount,
+            reason: tx.metadata?.failureReason || tx.metadata?.get?.('failureReason') || 'Unknown',
+            createdAt: tx.createdAt
+          }))
+        }
       }
     });
   } catch (error) {
@@ -233,20 +269,16 @@ const getSalesReport = async (req, res, next) => {
 
     const dailyTrend = Object.values(dayMap).sort((a, b) => a._id.localeCompare(b._id));
 
+    // Same principle as getAdminIncomeReport above: no invented package
+    // names or sales figures when the selected date range genuinely has no
+    // orders — an empty report is the correct, honest result.
     res.status(200).json({
       success: true,
       data: {
-        totalRevenue: totalRevenue || 385000,
-        totalOrders: orders.length || 18,
-        byPackage: byPackage.length > 0 ? byPackage : [
-          { _id: 'Starter Package (₹1,500)', total: 45000, count: 30 },
-          { _id: 'Growth Package (₹5,000)', total: 90000, count: 18 },
-          { _id: 'Life Safe Package (₹10,000)', total: 120000, count: 12 },
-          { _id: 'Titanium Package (₹1,10,000)', total: 130000, count: 2 }
-        ],
-        dailyTrend: dailyTrend.length > 0 ? dailyTrend : [
-          { _id: 'Recent Inflow', total: totalRevenue || 385000, count: orders.length || 18 }
-        ]
+        totalRevenue,
+        totalOrders: orders.length,
+        byPackage,
+        dailyTrend
       }
     });
   } catch (error) {
@@ -277,18 +309,18 @@ const getFinancialReport = async (req, res, next) => {
       .filter((w) => ['PAID', 'PROCESSED'].includes((w.status || '').toUpperCase()))
       .reduce((sum, w) => sum + Number(w.grossAmount || w.amount || 0), 0);
 
+    // No fabricated Package Activations / Repurchase Reorders split, and no
+    // invented ₹450,000 / ₹125,000 totals — same fix as the other reports:
+    // real zero is a real answer, not a placeholder to be dressed up.
     res.status(200).json({
       success: true,
       data: {
         income: {
-          total: totalIncome || 450000,
-          byType: incomeAgg.length > 0 ? incomeAgg : [
-            { _id: 'Package Activations', total: Math.round((totalIncome || 450000) * 0.7) },
-            { _id: 'Repurchase Reorders', total: Math.round((totalIncome || 450000) * 0.3) }
-          ]
+          total: totalIncome,
+          byType: incomeAgg
         },
         withdrawals: {
-          total: totalWithdrawals || 125000
+          total: totalWithdrawals
         }
       }
     });
@@ -318,8 +350,8 @@ const getTaxReport = async (req, res, next) => {
     res.status(200).json({
       success: true,
       data: {
-        totalTDS: totalTDS || 6250,
-        totalAdminCharge: totalAdminCharge || 12500,
+        totalTDS,
+        totalAdminCharge,
         withdrawals: withdrawals || []
       }
     });

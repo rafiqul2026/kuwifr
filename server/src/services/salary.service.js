@@ -249,6 +249,11 @@ const getLiveSalaryProgress = async (userId) => {
   return {
     isGoldStarAchieved: evaluation.meetsStarThreshold,
     currentTotalStar: evaluation.totalStarAtEvaluation,
+    // Left/right star split, so dashboard cards can show live "X Left : Y Right"
+    // instead of always rendering the zero defaults (previously dropped here
+    // even though evaluateStarQualification already computes them).
+    currentLeftStar: evaluation.currentLeftStar,
+    currentRightStar: evaluation.currentRightStar,
     requiredMinStar: GOLD_STAR_THRESHOLD,
     startingTotalStar: evaluation.startingLeftStar + evaluation.startingRightStar,
     requiredTotalGrowth: REQUIRED_GROWTH_PERCENT,

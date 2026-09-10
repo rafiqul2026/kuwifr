@@ -276,7 +276,7 @@ const AdminRanksPage = () => {
           <span className={styles.statHelp}>Emperor Royal Crest Prize</span>
         </div>
         <div className={styles.statCard}>
-          <span className={styles.statLabel}>Cumulative 1% TTO Salary Pool</span>
+          <span className={styles.statLabel}>Cumulative 1% TTO Remuneration Pool</span>
           <strong className={styles.statValue}>
             {kpis.cumulativePool.toFixed(2)}%
           </strong>
@@ -514,7 +514,7 @@ const AdminRanksPage = () => {
 
                 {/* Salary Percentage */}
                 <div className={styles.formGroup}>
-                  <label>Turnover Royalty Salary (% TTO)</label>
+                  <label>Turnover Royalty Remuneration (% TTO)</label>
                   <div className={styles.inputWithAddon}>
                     <input
                       type="number"

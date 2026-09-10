@@ -1,50 +1,85 @@
 // client/src/pages/member/IncomePage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './IncomePage.module.css';
 
+// Income Stream dropdown options — must match the category keys the backend
+// understands (server/src/controllers/income.controller.js#INCOME_STREAM_CATEGORIES).
+const INCOME_STREAM_OPTIONS = [
+  { key: 'ALL', label: 'All Income Streams' },
+  { key: 'DIRECT', label: 'Direct Income' },
+  { key: 'MATCHING', label: 'Matching (Income)' },
+  { key: 'LEADERSHIP', label: 'Leadership (Income)' },
+  { key: 'REMUNERATION', label: 'Remuneration (Income)' },
+  { key: 'REPURCHASE_SELF', label: 'Re-purchase (Self) Income' },
+  { key: 'REPURCHASE_DOWNLINE', label: 'Downline Re-purchase Income' },
+  { key: 'LIFE_TENSION_FREE', label: 'Life Tension Free Income' },
+  { key: 'PENSION', label: 'Pension Income' }
+];
+
+const formatINR = (val) =>
+  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(val) || 0);
+
 const IncomePage = () => {
   const { showNotification } = useNotification();
   const navigate = useNavigate();
+
   const [loading, setLoading] = useState(true);
-  const [incomeData, setIncomeData] = useState({
-    totalIncome: 0,
-    directIncome: 0,
-    matchingIncome: 0,
-    rankBonus: 0,
-    todayIncome: 0,
-    history: []
-  });
+  const [streams, setStreams] = useState([]); // live per-category totals from /api/income/streams
+  const [grandTotal, setGrandTotal] = useState(0);
 
-  useEffect(() => {
-    fetchIncomeStats();
-  }, []);
+  const [selectedStream, setSelectedStream] = useState('ALL');
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyData, setHistoryData] = useState(null); // { total, totalCount, transactions } for selectedStream
 
-  const fetchIncomeStats = async () => {
+  const fetchStreamBreakdown = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get('/api/users/sponsor-stats');
-      if (res.data?.success) {
-        const d = res.data.data;
-        const direct = d.directReferrals ? d.directReferrals * 500 : 0;
-        const matching = d.binary?.matchingVolume ? d.binary.matchingVolume * 0.1 : 0;
-        setIncomeData({
-          totalIncome: direct + matching + (d.rankBonus || 0),
-          directIncome: direct,
-          matchingIncome: matching,
-          rankBonus: d.rankBonus || 0,
-          todayIncome: d.todayIncome || 0,
-          history: d.transactions || []
-        });
+      const res = await api.get('/api/income/streams');
+      if (res.data?.success && res.data?.data) {
+        setStreams(res.data.data.streams || []);
+        setGrandTotal(res.data.data.grandTotal || 0);
       }
     } catch {
-      showNotification('Failed to load income details', 'error');
+      showNotification('Failed to load income stream breakdown', 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [showNotification]);
+
+  const fetchStreamHistory = useCallback(async (categoryKey) => {
+    if (categoryKey === 'ALL') {
+      setHistoryData(null);
+      return;
+    }
+    try {
+      setHistoryLoading(true);
+      const res = await api.get(`/api/income/streams/${categoryKey}?limit=25`);
+      if (res.data?.success && res.data?.data) {
+        setHistoryData(res.data.data);
+      }
+    } catch {
+      showNotification('Failed to load transaction history for this income stream', 'error');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [showNotification]);
+
+  useEffect(() => {
+    fetchStreamBreakdown();
+  }, [fetchStreamBreakdown]);
+
+  useEffect(() => {
+    fetchStreamHistory(selectedStream);
+  }, [selectedStream, fetchStreamHistory]);
+
+  const getStream = (key) => streams.find((s) => s.key === key) || { total: 0, today: 0, count: 0 };
+
+  const todayTotal = streams.reduce((sum, s) => sum + (Number(s.today) || 0), 0);
+  const directTotal = getStream('DIRECT').total;
+  const matchingTotal = getStream('MATCHING').total;
 
   if (loading) {
     return (
@@ -68,9 +103,8 @@ const IncomePage = () => {
         </div>
       </header>
 
-      {/* Income Streams Grid */}
+      {/* Income Streams Grid — Total / Direct / Matching (live, from IncomeTransaction) */}
       <section className={styles.incomeGrid}>
-        {/* Total Network Income */}
         <div className={`${styles.incomeCard} ${styles.totalCard}`}>
           <div className={styles.cardTop}>
             <span className={styles.cardIcon}>💰</span>
@@ -78,15 +112,14 @@ const IncomePage = () => {
           </div>
           <div className={styles.cardAmount}>
             <small>₹</small>
-            {incomeData.totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div className={styles.cardFooter}>
             <span>Total Network Income</span>
-            <strong>Direct + Binary Matching</strong>
+            <strong>Today: {formatINR(todayTotal)}</strong>
           </div>
         </div>
 
-        {/* Direct Referral Income */}
         <div className={`${styles.incomeCard} ${styles.directCard}`}>
           <div className={styles.cardTop}>
             <span className={styles.cardIcon}>🎯</span>
@@ -94,7 +127,7 @@ const IncomePage = () => {
           </div>
           <div className={styles.cardAmount}>
             <small>₹</small>
-            {incomeData.directIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {directTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div className={styles.cardFooter}>
             <span>Direct Referral Income</span>
@@ -102,15 +135,14 @@ const IncomePage = () => {
           </div>
         </div>
 
-        {/* Binary Matching Income */}
         <div className={`${styles.incomeCard} ${styles.matchingCard}`}>
           <div className={styles.cardTop}>
             <span className={styles.cardIcon}>🌳</span>
-            <span className={styles.cardChip}>10% Match</span>
+            <span className={styles.cardChip}>Binary Match</span>
           </div>
           <div className={styles.cardAmount}>
             <small>₹</small>
-            {incomeData.matchingIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {matchingTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div className={styles.cardFooter}>
             <span>Binary Matching Income</span>
@@ -119,8 +151,97 @@ const IncomePage = () => {
         </div>
       </section>
 
+      {/* ================= INCOME STREAM DROPDOWN ================= */}
+      <section className={styles.streamSection}>
+        <div className={styles.streamSectionHeader}>
+          <div>
+            <h2>Income Stream Breakdown</h2>
+            <p>Every income category, live from your transaction ledger — pick one for its full history.</p>
+          </div>
+          <div className={styles.streamSelectWrap}>
+            <label htmlFor="incomeStreamSelect">Income:</label>
+            <select
+              id="incomeStreamSelect"
+              className={styles.streamSelect}
+              value={selectedStream}
+              onChange={(e) => setSelectedStream(e.target.value)}
+            >
+              {INCOME_STREAM_OPTIONS.map((opt) => (
+                <option key={opt.key} value={opt.key}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {selectedStream === 'ALL' ? (
+          // Overview: every stream's live today/total side by side
+          <div className={styles.streamOverviewGrid}>
+            {INCOME_STREAM_OPTIONS.filter((opt) => opt.key !== 'ALL').map((opt) => {
+              const s = getStream(opt.key);
+              return (
+                <button
+                  type="button"
+                  key={opt.key}
+                  className={styles.streamOverviewCard}
+                  onClick={() => setSelectedStream(opt.key)}
+                >
+                  <span className={styles.streamOverviewLabel}>{opt.label}</span>
+                  <strong className={styles.streamOverviewValue}>{formatINR(s.total)}</strong>
+                  <span className={styles.streamOverviewSub}>Today: {formatINR(s.today)} · {s.count} txn{s.count === 1 ? '' : 's'}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          // Detail: the selected stream's live total + transaction history
+          <div className={styles.streamDetailBox}>
+            <div className={styles.streamDetailHeader}>
+              <div>
+                <span className={styles.streamDetailLabel}>
+                  {INCOME_STREAM_OPTIONS.find((o) => o.key === selectedStream)?.label}
+                </span>
+                <strong className={styles.streamDetailTotal}>
+                  {formatINR(historyData?.total ?? getStream(selectedStream).total)}
+                </strong>
+              </div>
+              <span className={styles.streamDetailCount}>
+                {historyData?.totalCount ?? getStream(selectedStream).count} transaction
+                {(historyData?.totalCount ?? getStream(selectedStream).count) === 1 ? '' : 's'}
+              </span>
+            </div>
+
+            {historyLoading ? (
+              <div className={styles.streamHistoryLoading}>
+                <div className={styles.modernSpinner}></div>
+              </div>
+            ) : !historyData?.transactions?.length ? (
+              <div className={styles.streamEmptyState}>
+                <span>💳</span>
+                <p>No transactions yet for this income stream</p>
+              </div>
+            ) : (
+              <div className={styles.streamTransactionList}>
+                {historyData.transactions.map((tx) => (
+                  <div key={tx._id || tx.transactionId} className={styles.streamTransactionItem}>
+                    <div className={styles.streamTxLeft}>
+                      <span className={styles.streamTxType}>{tx.type?.replace(/_/g, ' ')}</span>
+                      <span className={styles.streamTxDate}>
+                        {new Date(tx.createdAt).toLocaleDateString('en-IN', {
+                          month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                        })}
+                      </span>
+                    </div>
+                    <strong className={styles.streamTxAmount}>+{formatINR(tx.creditedAmount)}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
       {/* Repurchase Notice Banner */}
-      <div 
+      <div
         className={styles.repurchaseNoticeBox}
         onClick={() => navigate('/member/repurchase')}
         role="button"
@@ -130,7 +251,7 @@ const IncomePage = () => {
         <div className={styles.noticeContent}>
           <h4>Looking for Repurchase Earnings & Wallets?</h4>
           <p>
-            Self Repurchase (25%) and 10-Level Downline Repurchase Incomes are tracked and credited directly inside the <strong>Repurchase</strong> dashboard.
+            Self Repurchase and 10-Level Downline Repurchase Incomes are tracked and credited directly inside the <strong>Repurchase</strong> dashboard.
           </p>
         </div>
         <div className={styles.noticeAction}>

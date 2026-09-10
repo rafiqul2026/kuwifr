@@ -11,7 +11,9 @@ const {
   getRepurchaseSummary,
   getRankSalaryStatus,        // ← ADD THIS
   processRankSalary,           // ← ADD THIS
-  processAllRankSalaries      // ← ADD THIS
+  processAllRankSalaries,      // ← ADD THIS
+  getIncomeStreamBreakdown,
+  getIncomeStreamHistory
 } = require('../controllers/income.controller');
 const { auth, adminAuth } = require('../middleware/auth');
 
@@ -36,6 +38,14 @@ router.get('/type/:type', getIncomeByType);
 
 // Get today's income
 router.get('/today', getTodayIncome);
+
+// ============ INCOME STREAM DROPDOWN (Problem 6) ============
+
+// Live totals (today + lifetime) for every Income Stream dropdown category
+router.get('/streams', getIncomeStreamBreakdown);
+
+// Transaction history for one Income Stream dropdown category
+router.get('/streams/:category', getIncomeStreamHistory);
 
 // ============ CAPPING ============
 

@@ -301,34 +301,31 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          {/* Row 3: Daily Business Volumes (KBP) & Monthly Star */}
+          {/* Row 3: Carry Forward Business (single merged Left/Right card —
+              the separate "Businesses" card was removed per request: only
+              ONE card here, not two), Monthly Star */}
           <div className={`${styles.statCard} ${styles.cardKbp}`}>
             <div className={styles.cardHeader}>
-              <span className={styles.cardTitle}>TODAY LEFT BUSINESS</span>
-              <div className={styles.cardIconBox}>📈</div>
+              <span className={styles.cardTitle}>CARRY FORWARD BUSINESS</span>
+              <div className={styles.cardIconBox}>🔁</div>
             </div>
             <div className={styles.cardBody}>
               {loading && !stats ? (
-                <div className={styles.skeletonMetric}></div>
+                <div className={styles.skeletonSplit}></div>
               ) : (
-                <h2 className={styles.primaryMetric}>{formatKBP(stats?.todayLeftBusiness)}</h2>
+                <div className={styles.dualVolumeBox}>
+                  <div className={styles.volumeColumn}>
+                    <span className={styles.sideLabelLeft}>Left:</span>
+                    <strong className={styles.sideValueLeft}>{(stats?.carryForwardBusiness?.left || 0).toLocaleString()}</strong>
+                  </div>
+                  <div className={styles.volumeDivider}></div>
+                  <div className={styles.volumeColumn}>
+                    <span className={styles.sideLabelRight}>Right:</span>
+                    <strong className={styles.sideValueRight}>{(stats?.carryForwardBusiness?.right || 0).toLocaleString()}</strong>
+                  </div>
+                </div>
               )}
-              <span className={styles.metricSubtitle}>Left Leg Volume</span>
-            </div>
-          </div>
-
-          <div className={`${styles.statCard} ${styles.cardKbp}`}>
-            <div className={styles.cardHeader}>
-              <span className={styles.cardTitle}>TODAY RIGHT BUSINESS</span>
-              <div className={styles.cardIconBox}>📊</div>
-            </div>
-            <div className={styles.cardBody}>
-              {loading && !stats ? (
-                <div className={styles.skeletonMetric}></div>
-              ) : (
-                <h2 className={styles.primaryMetric}>{formatKBP(stats?.todayRightBusiness)}</h2>
-              )}
-              <span className={styles.metricSubtitle}>Right Leg Volume</span>
+              <span className={styles.metricSubtitle}>Unmatched Volume Carried Forward (KBP)</span>
             </div>
           </div>
 
@@ -504,10 +501,34 @@ const DashboardPage = () => {
               <span className={styles.metricSubtitle}>Life Tension Free Benefit</span>
             </div>
           </div>
+
+          {/* Leadership Income (Cheque Match Bonus) — 50%/30%/20% on the
+              matching income of your 1st/2nd/3rd level Leaders. Rates,
+              qualifying rank and level count are admin-configurable
+              (Admin Settings → Commission & Level Income); full per-level
+              history is in the Admin Income Report. */}
+          <div className={`${styles.statCard} ${styles.cardFinancial}`}>
+            <div className={styles.cardHeader}>
+              <span className={styles.cardTitle}>LEADERSHIP INCOME</span>
+              <div className={styles.cardIconBox}>👑</div>
+            </div>
+            <div className={styles.cardBody}>
+              {loading && !stats ? (
+                <div className={styles.skeletonMetric}></div>
+              ) : (
+                <h2 className={styles.primaryMetric}>{formatINR(stats?.leadershipIncome?.total)}</h2>
+              )}
+              <span className={styles.metricSubtitle}>Today: {formatINR(stats?.leadershipIncome?.today)}</span>
+            </div>
+          </div>
         </div>
 
-        {/* Salary Live Progress */}
-        <SalaryProgressCard />
+        {/* Remuneration (Rank Salary) Live Progress — `data` was previously
+            never passed here, so this card always rendered its zero
+            defaults regardless of the member's real stats (matching the
+            reported "not showing live data" — the card genuinely never
+            received live data at all). */}
+        <SalaryProgressCard data={stats} />
 
         {/* Streamlined Direct Referral Links */}
         <section className={styles.referralShareSection}>

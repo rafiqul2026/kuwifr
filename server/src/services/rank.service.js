@@ -477,29 +477,55 @@ class RankService {
   }
 
   /**
-   * Get current rank for a user
+   * Get current rank for a user — LIVE evaluation from the real Left/Right
+   * downline Kuwi-Star count, the same metric SalaryService already uses
+   * for the Remuneration (Gold Star) progress card, e.g. "12 Matched Stars
+   * (4 Left : 8 Right)".
+   *
+   * WHY THIS CHANGED: this used to trust `user.currentRankId`, which is
+   * only ever set by checkAndAwardRanks() — and that method is only
+   * invoked when the member THEMSELVES places an order
+   * (product.service.js), where it compares `user.kuwiStars` (a counter
+   * that increments by exactly 1 per the member's OWN package purchase)
+   * against each rank's starsRequired. That has nothing to do with "how
+   * many of your downline are themselves Kuwi-Star qualified, split
+   * Left/Right" — the metric the compensation plan's rank tiers
+   * (Bronze:6, Silver:20, Platinum:70, Gold Star:200, ...) actually
+   * describe, and the one already proven correct on the Remuneration
+   * card. A member with a large, genuinely qualifying downline (e.g. 56
+   * members, 12 matched stars) could show "Not Achieved" forever, because
+   * their own purchase counter never moved — this is the exact bug
+   * reported against the live dashboard. Fixing it here also fixes
+   * Leadership/Cheque Match Bonus (income.service.js#isLeadershipQualified
+   * and #processLeadershipBonusForMatch both gate on getCurrentRank), which
+   * was silently never qualifying anyone for the same reason.
    */
   async getCurrentRank(userId) {
-    const user = await User.findById(userId).populate("currentRankId");
+    const SalaryService = require("./salary.service");
 
-    if (!user || !user.currentRankId) {
-      const achievement = await RankAchievement.findOne({
-        userId: userId,
-        status: "ACHIEVED",
-      }).sort({
-        rankLevel: -1,
-      });
+    // Entry gate ("Rank and Reward starts from 1st Pair Matching only"): a
+    // member must themselves meet the Kuwi Star bar — 3+ active directs in
+    // a 2:1/1:2 split with >=3,000 KBP, no time limit — before any tier
+    // applies. This is the same self-qualification check already used to
+    // count a member as a "star" inside someone else's downline.
+    const isSelfQualified = await SalaryService.checkIsKuwiStar(userId);
+    if (!isSelfQualified) return null;
 
-      if (achievement) {
-        const rank = await Rank.findById(achievement.rankId);
+    const { leftStars, rightStars } =
+      await SalaryService.countVerifiedSubtreeStars(userId);
+    const totalStars = leftStars + rightStars;
 
-        return rank || null;
-      }
+    const allRanks = await Rank.find({ isActive: true })
+      .sort({ level: -1 })
+      .lean();
+    const qualifiedRank = allRanks.find(
+      (r) => totalStars >= (r.starsRequired || 0),
+    );
 
-      return null;
-    }
-
-    return user.currentRankId;
+    // Falls back to the lowest-level active rank (Kuwi Star, starsRequired
+    // 0) if no higher tier's threshold is met yet — never null once the
+    // entry gate above has been passed.
+    return qualifiedRank || allRanks[allRanks.length - 1] || null;
   }
 
   /**

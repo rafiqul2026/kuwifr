@@ -261,42 +261,42 @@ const RanksPage = () => {
       5: {
         requirement: "200 Kuwi Stars",
         timeLimit: "No Time Limit",
-        salary: "1% Salary on TTO monthly"
+        salary: "1% Remuneration on TTO monthly"
       },
       6: {
         requirement: "700 Kuwi Stars",
         timeLimit: "No Time Limit",
-        salary: "0.75% Salary on TTO monthly"
+        salary: "0.75% Remuneration on TTO monthly"
       },
       7: {
         requirement: "2,200 Kuwi Stars",
         timeLimit: "No Time Limit",
-        salary: "0.50% Salary on TTO monthly"
+        salary: "0.50% Remuneration on TTO monthly"
       },
       8: {
         requirement: "7,000 Kuwi Stars",
         timeLimit: "No Time Limit",
-        salary: "0.40% Salary on TTO monthly"
+        salary: "0.40% Remuneration on TTO monthly"
       },
       9: {
         requirement: "15,000 Kuwi Stars",
         timeLimit: "No Time Limit",
-        salary: "0.30% Salary on TTO monthly"
+        salary: "0.30% Remuneration on TTO monthly"
       },
       10: {
         requirement: "35,000 Kuwi Stars",
         timeLimit: "No Time Limit",
-        salary: "0.25% Salary on TTO monthly"
+        salary: "0.25% Remuneration on TTO monthly"
       },
       11: {
         requirement: "75,000 Kuwi Stars",
         timeLimit: "No Time Limit",
-        salary: "0.20% Salary on TTO monthly"
+        salary: "0.20% Remuneration on TTO monthly"
       },
       12: {
         requirement: "160,000 Kuwi Stars",
         timeLimit: "No Time Limit",
-        salary: "0.15% Salary on TTO monthly"
+        salary: "0.15% Remuneration on TTO monthly"
       }
     };
     return conditions[rank?.level] || { requirement: "Complete required Kuwi Stars", timeLimit: "No Time Limit", salary: null };

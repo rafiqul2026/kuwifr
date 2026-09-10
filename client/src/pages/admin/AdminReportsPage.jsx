@@ -189,6 +189,46 @@ const AdminReportsPage = () => {
           </div>
         )}
 
+        {/* Failed / Capped Income Events — real matching, referral, or
+            leadership events that generated ₹0 (a crediting error, or the
+            member's package cap was already exhausted). This used to be
+            completely invisible (console-only); now it's a real ledger so
+            "why does this member show ₹0 despite real team activity" is
+            diagnosable instead of a mystery. */}
+        {data.failedSummary && data.failedSummary.count > 0 && (
+          <div className={`${styles.breakdownCard} ${styles.failedIncomeCard}`}>
+            <h3>⚠️ Failed / Capped Income Events</h3>
+            <p className={styles.failedIncomeSubtitle}>
+              {data.failedSummary.count} event{data.failedSummary.count === 1 ? '' : 's'} generated real business
+              activity but credited ₹0 — totaling ₹{Number(data.failedSummary.totalGrossAmount || 0).toLocaleString('en-IN')} in unpaid gross amount.
+            </p>
+            <div className={styles.tableCard}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>MEMBER</th>
+                    <th>TYPE</th>
+                    <th>GROSS AMOUNT</th>
+                    <th>REASON</th>
+                    <th>DATE</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(data.failedSummary.recent || []).map((tx, idx) => (
+                    <tr key={idx}>
+                      <td><strong>{tx.userId?.fullName || tx.userId?.memberId || 'Member'}</strong></td>
+                      <td><span className={styles.tagBadge}>{tx.type}</span></td>
+                      <td>₹{Number(tx.grossAmount || 0).toLocaleString('en-IN')}</td>
+                      <td>{tx.reason}</td>
+                      <td>{tx.createdAt ? new Date(tx.createdAt).toLocaleDateString('en-IN') : 'Recent'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         <div className={styles.tableCard}>
           <table className={styles.table}>
             <thead>

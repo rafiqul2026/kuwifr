@@ -291,6 +291,40 @@ class BinaryService {
         if (creditResult && creditResult.success) {
           await IncomeService.processLeadershipBonusForMatch(user._id, cappedResult.allowedAmount, node._id);
         }
+      } else if (grossAmount > 0) {
+        // A REAL pair just matched (node.matchingVolume/pairCount above were
+        // already saved) but the member's daily/weekly/monthly package cap
+        // left zero room to actually pay it — previously this branch simply
+        // did nothing, so a member's "Total KBP Match" could grow for real
+        // while their income stayed ₹0 forever with NO record anywhere of
+        // why. Record it as a FAILED (₹0-credited) IncomeTransaction with
+        // the cap breakdown attached, so this is now auditable from the
+        // Admin Income Report instead of invisible.
+        try {
+          const IncomeTransaction = require('../models/IncomeTransaction');
+          const WalletService = require('./wallet.service');
+          const fallbackWallet = await WalletService.getOrCreateWallet(user._id);
+          await IncomeTransaction.create({
+            userId: user._id,
+            transactionId: `MATCH-CAPPED-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`.toUpperCase(),
+            type: 'MATCHING_INCOME',
+            sourceId: node._id,
+            sourceModel: 'BinaryNode',
+            kbp: matchedVolume,
+            rate: matchingCfg.rate,
+            grossAmount,
+            capAdjustment: grossAmount,
+            creditedAmount: 0,
+            walletType: 'INCOME',
+            walletId: fallbackWallet._id,
+            status: 'FAILED',
+            processedAt: new Date(),
+            capBreakdown: cappedResult.capBreakdown,
+            metadata: { pairCount: matchingUnits, unitValue: UNIT, failureReason: 'CAPPED_TO_ZERO — daily/weekly/monthly package cap already exhausted' }
+          });
+        } catch (logError) {
+          console.error('   Failed to record capped-to-zero matching income:', logError.message);
+        }
       }
 
       // Rank & Reward starts from 1st Pair Matching only — re-evaluate through
@@ -467,15 +501,30 @@ class BinaryService {
 
   /** Counts-only variant of getBranchMembers — skips the User lookup entirely. */
   async getBranchCounts(userId) {
+    const { leftIds, rightIds } = await this.getBranchUserIds(userId);
+    return { leftCount: leftIds.length, rightCount: rightIds.length };
+  }
+
+  /**
+   * Id-only variant of getBranchMembers — just the left/right subtree user
+   * ids (any depth), computed the same top-down way as getTree/getBranchCounts.
+   * Callers that need to attribute OTHER records (e.g. Order.kbpGenerated,
+   * for "today's business") to a member's left vs. right leg use this
+   * instead of User.binarySide, which only encodes a member's position under
+   * their OWN sponsor/parent — not their side relative to this root — and so
+   * cannot be used to classify arbitrary downline members as left/right of
+   * `userId`.
+   */
+  async getBranchUserIds(userId) {
     const rootNode = await BinaryNode.findOne({ userId }).select('leftChildId rightChildId').lean();
-    if (!rootNode) return { leftCount: 0, rightCount: 0 };
+    if (!rootNode) return { leftIds: [], rightIds: [] };
 
     const [leftIds, rightIds] = await Promise.all([
       this._walkSubtreeIds(rootNode.leftChildId),
       this._walkSubtreeIds(rootNode.rightChildId)
     ]);
 
-    return { leftCount: leftIds.length, rightCount: rightIds.length };
+    return { leftIds, rightIds };
   }
 
   /**

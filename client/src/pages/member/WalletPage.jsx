@@ -7,7 +7,7 @@ import styles from './WalletPage.module.css';
 
 /**
  * Member Wallet Page
- * Displays Income, Repurchase, and Salary Wallets with live 50:50 TTO progress and transactions
+ * Displays Income, Repurchase, and Remuneration Wallets with live 50:50 TTO progress and transactions
  */
 const WalletPage = () => {
   // State: Consolidated wallet balances
@@ -26,6 +26,12 @@ const WalletPage = () => {
   const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState('ALL'); // 'ALL' | 'INCOME' | 'REPURCHASE' | 'SALARY'
 
+  // State: live Remuneration (1% TTO) qualification progress, in the exact
+  // shape SalaryProgressCard expects (salaryBalance/totalSalaryEarned/
+  // salaryQualification) — sourced from the same dashboard-stats endpoint
+  // DashboardPage uses, so the two cards never disagree.
+  const [remunerationStats, setRemunerationStats] = useState(null);
+
   // State: Transfer to repurchase wallet
   const [transferAmount, setTransferAmount] = useState('');
   const [transferring, setTransferring] = useState(false);
@@ -38,9 +44,10 @@ const WalletPage = () => {
   const fetchWalletData = useCallback(async () => {
     try {
       setLoading(true);
-      const [balanceRes, txRes] = await Promise.all([
+      const [balanceRes, txRes, dashboardRes] = await Promise.all([
         api.get('/api/wallet/balance'),
-        api.get('/api/wallet/transactions?limit=30')
+        api.get('/api/wallet/transactions?limit=30'),
+        api.get('/api/users/dashboard-stats').catch(() => null)
       ]);
 
       if (balanceRes.data?.success && balanceRes.data?.data?.balance) {
@@ -49,6 +56,10 @@ const WalletPage = () => {
 
       if (txRes.data?.success) {
         setTransactions(txRes.data.data.transactions || []);
+      }
+
+      if (dashboardRes?.data?.success && dashboardRes.data?.data) {
+        setRemunerationStats(dashboardRes.data.data);
       }
     } catch (error) {
       console.error('Failed to load wallet data:', error);
@@ -142,7 +153,7 @@ const WalletPage = () => {
     },
     {
       id: 'salary',
-      label: 'Salary Wallet',
+      label: 'Remuneration Wallet',
       value: wallet.salaryBalance || 0,
       sublabel: '1% Monthly TTO Payouts',
       icon: '💼',
@@ -191,7 +202,7 @@ const WalletPage = () => {
         <div className={styles.totalBalanceCard}>
           <span className={styles.totalLabel}>TOTAL LIQUID BALANCE</span>
           <span className={styles.totalValue}>{formatINR(netCalculatedTotal)}</span>
-          <small className={styles.totalSubNote}>Income + Repurchase + Salary</small>
+          <small className={styles.totalSubNote}>Income + Repurchase + Remuneration</small>
         </div>
       </header>
 
@@ -209,9 +220,9 @@ const WalletPage = () => {
         ))}
       </section>
 
-      {/* ================= LIVE SALARY QUALIFICATION (50:50 / 1% TTO) ================= */}
+      {/* ================= LIVE REMUNERATION QUALIFICATION (50:50 / 1% TTO) ================= */}
       <section className={styles.salarySectionWrapper}>
-        <SalaryProgressCard />
+        <SalaryProgressCard data={remunerationStats} />
       </section>
 
       {/* ================= TRANSFER SECTION ================= */}
@@ -268,7 +279,9 @@ const WalletPage = () => {
             </span>
           </div>
 
-          {/* Type Filter Pills */}
+          {/* Type Filter Pills — 'SALARY' stays the underlying walletType value
+              (matches the backend enum on each transaction record); only the
+              label shown to the member is renamed to Remuneration. */}
           <div className={styles.filterPills}>
             {['ALL', 'INCOME', 'REPURCHASE', 'SALARY'].map((type) => (
               <button
@@ -277,7 +290,7 @@ const WalletPage = () => {
                 className={`${styles.filterPill} ${selectedType === type ? styles.filterPillActive : ''}`}
                 onClick={() => setSelectedType(type)}
               >
-                {type}
+                {type === 'SALARY' ? 'REMUNERATION' : type}
               </button>
             ))}
           </div>
@@ -314,7 +327,9 @@ const WalletPage = () => {
                   </div>
 
                   <div className={styles.txRight}>
-                    <span className={styles.txSourceBadge}>{tx.walletType}</span>
+                    <span className={styles.txSourceBadge}>
+                      {tx.walletType === 'SALARY' ? 'REMUNERATION' : tx.walletType}
+                    </span>
                     <span className={`${styles.txAmount} ${isCredit ? styles.creditText : styles.debitText}`}>
                       {isCredit ? '+' : '-'}{formatINR(tx.amount)}
                     </span>

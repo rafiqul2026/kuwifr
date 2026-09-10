@@ -4,6 +4,36 @@ const User = require('../models/User');
 const BinaryNode = require('../models/BinaryNode');
 const IncomeTransaction = require('../models/IncomeTransaction');
 
+// ============ INCOME STREAM DROPDOWN (Problem 6) ============
+// Maps the member-facing "Income Stream" categories (see the dropdown on
+// IncomePage.jsx) onto the underlying IncomeTransaction.type values. Several
+// display categories are a UNION of multiple stored types (Leadership spans
+// 3 per-level types), and two — Life Tension Free vs. Pension — share the
+// SAME stored type (FUND_SALARY/FUND_INCOME) and are distinguished only by
+// which Fund tier the payout metadata records (fund.service.js stores
+// metadata.fundCode; 'PENSION' is the last of the 6 Life Tension Free Fund
+// tiers, the other 5 — School/Family/Travelling/Lifestyle/Foreign Trip —
+// all roll up into "Life Tension Free Income").
+const INCOME_STREAM_CATEGORIES = {
+  DIRECT: { label: 'Direct Income', types: ['REFERRAL_INCOME'] },
+  MATCHING: { label: 'Matching Income', types: ['MATCHING_INCOME'] },
+  LEADERSHIP: { label: 'Leadership Income', types: ['LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3'] },
+  REMUNERATION: { label: 'Remuneration Income', types: ['RANK_SALARY'] },
+  REPURCHASE_SELF: { label: 'Re-purchase (Self) Income', types: ['REPURCHASE_SELF'] },
+  REPURCHASE_DOWNLINE: { label: 'Downline Re-purchase Income', types: ['REPURCHASE_DOWNLINE'] },
+  LIFE_TENSION_FREE: { label: 'Life Tension Free Income', types: ['FUND_SALARY', 'FUND_INCOME'], excludeFundCode: 'PENSION' },
+  PENSION: { label: 'Pension Income', types: ['FUND_SALARY', 'FUND_INCOME'], onlyFundCode: 'PENSION' }
+};
+
+const buildIncomeStreamMatch = (userId, categoryKey) => {
+  const cfg = INCOME_STREAM_CATEGORIES[categoryKey];
+  if (!cfg) return null;
+  const match = { userId, type: { $in: cfg.types }, status: 'CREDITED' };
+  if (cfg.onlyFundCode) match['metadata.fundCode'] = cfg.onlyFundCode;
+  if (cfg.excludeFundCode) match['metadata.fundCode'] = { $ne: cfg.excludeFundCode };
+  return match;
+};
+
 /**
  * Process income for an order (Called after payment)
  * POST /api/income/process-order/:orderId
@@ -249,6 +279,89 @@ const processAllRankSalaries = async (req, res, next) => {
   }
 };
 
+/**
+ * Live totals (today + lifetime) for every Income Stream dropdown category.
+ * GET /api/income/streams
+ */
+const getIncomeStreamBreakdown = async (req, res, next) => {
+  try {
+    const userId = req.userId;
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const categoryKeys = Object.keys(INCOME_STREAM_CATEGORIES);
+    const streams = await Promise.all(categoryKeys.map(async (key) => {
+      const match = buildIncomeStreamMatch(userId, key);
+      const [totalAgg, todayAgg] = await Promise.all([
+        IncomeTransaction.aggregate([
+          { $match: match },
+          { $group: { _id: null, total: { $sum: '$creditedAmount' }, count: { $sum: 1 } } }
+        ]),
+        IncomeTransaction.aggregate([
+          { $match: { ...match, createdAt: { $gte: todayStart } } },
+          { $group: { _id: null, total: { $sum: '$creditedAmount' }, count: { $sum: 1 } } }
+        ])
+      ]);
+
+      return {
+        key,
+        label: INCOME_STREAM_CATEGORIES[key].label,
+        total: totalAgg[0]?.total || 0,
+        count: totalAgg[0]?.count || 0,
+        today: todayAgg[0]?.total || 0
+      };
+    }));
+
+    const grandTotal = streams.reduce((sum, s) => sum + s.total, 0);
+
+    res.json({ success: true, data: { streams, grandTotal } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Transaction history for ONE Income Stream dropdown category.
+ * GET /api/income/streams/:category
+ */
+const getIncomeStreamHistory = async (req, res, next) => {
+  try {
+    const userId = req.userId;
+    const categoryKey = String(req.params.category || '').toUpperCase();
+    const { limit = 50, page = 1 } = req.query;
+    const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+
+    const match = buildIncomeStreamMatch(userId, categoryKey);
+    if (!match) {
+      return res.status(400).json({ success: false, message: `Unknown income stream category: ${req.params.category}` });
+    }
+
+    const [transactions, totalCount, totalAgg] = await Promise.all([
+      IncomeTransaction.find(match).sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit, 10)).lean(),
+      IncomeTransaction.countDocuments(match),
+      IncomeTransaction.aggregate([
+        { $match: match },
+        { $group: { _id: null, total: { $sum: '$creditedAmount' } } }
+      ])
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        category: categoryKey,
+        label: INCOME_STREAM_CATEGORIES[categoryKey].label,
+        total: totalAgg[0]?.total || 0,
+        totalCount,
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10),
+        transactions
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   processOrderIncome,
   getIncomeSummary,
@@ -260,5 +373,7 @@ module.exports = {
   getRepurchaseSummary,
   getRankSalaryStatus,
   processRankSalary,
-  processAllRankSalaries
+  processAllRankSalaries,
+  getIncomeStreamBreakdown,
+  getIncomeStreamHistory
 };

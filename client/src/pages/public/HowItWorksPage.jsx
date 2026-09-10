@@ -42,7 +42,7 @@ const HowItWorksPage = () => {
             <li><strong>Matching Income:</strong> 10% of KBP from binary pairs</li>
             <li><strong>Leadership Income:</strong> 50/30/20% from downline leaders</li>
             <li><strong>Repurchase Income:</strong> 30% self, 20% to 1% downline</li>
-            <li><strong>Rank Salary:</strong> 1% to 0.15% on TTO</li>
+            <li><strong>Rank Remuneration:</strong> 1% to 0.15% on TTO</li>
           </ul>
         </section>
 

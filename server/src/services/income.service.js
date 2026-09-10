@@ -424,6 +424,44 @@ class IncomeService {
       return { success: true, transaction: incomeTransaction, walletTransaction: creditResult.transaction };
     } catch (error) {
       console.error(`   ❌ Failed to credit income: ${error.message}`);
+
+      // NOTE: this used to just console.error and return null — a real
+      // matching/referral/leadership event could fail to pay out with
+      // ABSOLUTELY NO trace anywhere (BinaryNode volume/pairCount had
+      // already been saved by the caller, so the dashboard could show real
+      // team activity while the member's income silently stayed ₹0
+      // forever, and no admin report could ever explain why). Persist a
+      // FAILED IncomeTransaction (the schema already declares this status,
+      // it was simply never written) so this is now auditable instead of
+      // invisible. Best-effort: if even this write fails, we still return
+      // null rather than throwing, since a logging failure must never take
+      // down the compensation pipeline that called us.
+      try {
+        // walletId is a required field on IncomeTransaction — fetch/create
+        // the wallet (idempotent, does not touch its balance) purely to
+        // get a valid id to attach this FAILED record to.
+        const fallbackWallet = await WalletService.getOrCreateWallet(userId);
+        await IncomeTransaction.create({
+          userId,
+          transactionId: this.generateTransactionId(),
+          type,
+          sourceId,
+          sourceModel,
+          kbp,
+          rate,
+          grossAmount: amount,
+          capAdjustment: amount,
+          creditedAmount: 0,
+          walletType,
+          walletId: fallbackWallet._id,
+          status: 'FAILED',
+          processedAt: new Date(),
+          metadata: { ...metadata, failureReason: error.message }
+        });
+      } catch (logError) {
+        console.error(`   ❌ Additionally failed to record the FAILED income transaction: ${logError.message}`);
+      }
+
       return null;
     }
   }

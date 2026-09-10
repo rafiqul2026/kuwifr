@@ -6,6 +6,8 @@ const BinaryNode = require('../models/BinaryNode');
 const Fund = require('../models/Fund');
 const Wallet = require('../models/Wallet');
 const Package = require('../models/Package');
+const Order = require('../models/Order');
+const IncomeTransaction = require('../models/IncomeTransaction');
 const BinaryService = require('../services/binary.service');
 const SalaryService = require('../services/salary.service');
 const DownlineService = require('../services/downline.service');
@@ -137,27 +139,89 @@ const getDashboardStats = async (req, res, next) => {
     const totalKbpRight = Number(binaryNode?.rightVolume || 0);
     const totalKbpMatch = Number(binaryNode?.matchingVolume || Math.min(totalKbpLeft, totalKbpRight));
 
-    const directs = await User.find({ sponsorId: userId }).populate('activePackageId').lean();
-    const leftDirects = directs.filter((d) => String(d.binarySide || '').toLowerCase() === 'left');
-    const rightDirects = directs.filter((d) => String(d.binarySide || '').toLowerCase() === 'right');
-
-    const sumKbpSince = (members, startDate) => {
-      return members
-        .filter((m) => new Date(m.createdAt) >= startDate && m.status === 'ACTIVE')
-        .reduce((sum, m) => sum + resolveUserKbp(m), 0);
+    // Carry Forward Business: the running UNMATCHED balance on each leg.
+    // BinaryService.calculateMatching() deducts matched units from these on
+    // every match and never resets them otherwise, which IS the "today's
+    // excess carries forward" rule from the business plan — surfaced here
+    // (Problem 2) rather than reimplemented.
+    const carryForwardBusiness = {
+      left: Number(binaryNode?.availableLeftVolume || 0),
+      right: Number(binaryNode?.availableRightVolume || 0)
     };
 
-    const todayLeftBusiness = sumKbpSince(leftDirects, todayStart);
-    const todayRightBusiness = sumKbpSince(rightDirects, todayStart);
+    // "Today"/"Weekly" Business must reflect KBP generated anywhere in the
+    // full left/right binary SUBTREE (any depth), not just this member's
+    // DIRECT sponsees — the previous implementation only summed
+    // leftDirects/rightDirects one level deep, so a member with active
+    // sub-legs several levels down always showed an undercounted (often
+    // zero) business figure even while real orders were being placed under
+    // them. Orders are the authoritative source for "KBP generated on a
+    // given day" (BinaryNode.leftVolume/rightVolume are lifetime cumulative
+    // totals with no per-day breakdown); orderStatus 'COMPLETED' is the
+    // same gate IncomeService.processOrderIncome() checks before crediting
+    // KBP into the tree at all, so this only counts business that actually
+    // landed.
+    const { leftIds: leftSubtreeIds, rightIds: rightSubtreeIds } = await BinaryService.getBranchUserIds(userId);
 
-    const weeklyLeftKbp = sumKbpSince(leftDirects, weekStart);
-    const weeklyRightKbp = sumKbpSince(rightDirects, weekStart);
+    const sumKbpForSubtree = async (subtreeIds, startDate) => {
+      if (!subtreeIds || subtreeIds.length === 0) return 0;
+      const match = { userId: { $in: subtreeIds }, orderStatus: 'COMPLETED' };
+      if (startDate) match.createdAt = { $gte: startDate };
+      const agg = await Order.aggregate([
+        { $match: match },
+        { $group: { _id: null, total: { $sum: '$kbpGenerated' } } }
+      ]);
+      return agg[0]?.total || 0;
+    };
+
+    const [todayLeftBusiness, todayRightBusiness, weeklyLeftKbp, weeklyRightKbp] = await Promise.all([
+      sumKbpForSubtree(leftSubtreeIds, todayStart),
+      sumKbpForSubtree(rightSubtreeIds, todayStart),
+      sumKbpForSubtree(leftSubtreeIds, weekStart),
+      sumKbpForSubtree(rightSubtreeIds, weekStart)
+    ]);
     const weeklyTotalKbp = weeklyLeftKbp + weeklyRightKbp;
     const weeklyKbpMatch = Math.min(weeklyLeftKbp, weeklyRightKbp);
 
+    // Leadership / Cheque Match Bonus — live totals for the dashboard card
+    // (Problem 1). The engine itself (per-level rates, qualifying rank, and
+    // number of levels) is already fully admin-configurable via
+    // Setting.compensation.leadership (settings.service.js /
+    // AdminSettingsPage's "Commission & Level Income" tab) and already pays
+    // out automatically inside BinaryService.calculateMatching() via
+    // income.service.js#processLeadershipBonusForMatch — this only surfaces
+    // the real totals already recorded in IncomeTransaction.
+    const leadershipTypes = ['LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3'];
+    const leadershipUserId = new mongoose.Types.ObjectId(userId);
+    const [leadershipTodayAgg, leadershipTotalAgg] = await Promise.all([
+      IncomeTransaction.aggregate([
+        { $match: { userId: leadershipUserId, type: { $in: leadershipTypes }, createdAt: { $gte: todayStart } } },
+        { $group: { _id: null, total: { $sum: '$creditedAmount' } } }
+      ]),
+      IncomeTransaction.aggregate([
+        { $match: { userId: leadershipUserId, type: { $in: leadershipTypes } } },
+        { $group: { _id: null, total: { $sum: '$creditedAmount' } } }
+      ])
+    ]);
+    const leadershipIncome = {
+      today: leadershipTodayAgg[0]?.total || 0,
+      total: leadershipTotalAgg[0]?.total || 0
+    };
+
     const todayStars = await countSubtreeKuwiStars(downlineIds, todayStart);
     const monthlyStars = await countSubtreeKuwiStars(downlineIds, monthStart);
-    const lifetimeStars = await countSubtreeKuwiStars(downlineIds, null);
+
+    // Lifetime "Total Star" must match the LIVE Left/Right count already
+    // shown on the Remuneration (Gold Star progress) card — both need to be
+    // the same real number. The RankAchievement-based countSubtreeKuwiStars
+    // above depends on 'Kuwi Star' achievement records that only get
+    // written when a downline member's OWN order-completion happens to
+    // trigger RankService.checkAndAwardRanks(), which is unreliable (a
+    // member can be genuinely qualified today and still have no such
+    // record), which is exactly why this card was showing 0/0 while the
+    // Remuneration card — driven by the same live check used below —
+    // correctly showed 12 (4 Left : 8 Right) for the same member.
+    const lifetimeStars = await SalaryService.countVerifiedSubtreeStars(userId);
 
     const evaluatedRank = await evaluateMemberRank(user);
 
@@ -177,6 +241,9 @@ const getDashboardStats = async (req, res, next) => {
 
         todayLeftBusiness,
         todayRightBusiness,
+        // Carry Forward Business (Problem 2) — the unmatched leg balance
+        // still sitting there to be matched against future volume.
+        carryForwardBusiness,
         weeklyKbp: {
           total: weeklyTotalKbp,
           left: weeklyLeftKbp,
@@ -184,6 +251,12 @@ const getDashboardStats = async (req, res, next) => {
         },
         weeklyKbpMatch,
         totalKbpMatch,
+
+        // Leadership / Cheque Match Bonus (Problem 1) — live today/total
+        // totals for the member dashboard card; full admin-configurable
+        // rates and per-level history are in AdminSettingsPage / the Admin
+        // Income Report respectively.
+        leadershipIncome,
 
         todayStar: {
           left: todayStars.leftStars,
