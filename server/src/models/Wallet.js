@@ -100,7 +100,67 @@ WalletSchema.virtual('totalBalance').get(function () {
 // ============ METHODS ============
 
 /**
- * Update wallet balance and record transaction safely
+ * Atomically adjust a wallet balance and record the transaction.
+ * Uses findOneAndUpdate with $inc so concurrent credits/debits can never
+ * silently overwrite each other (the classic read-modify-write race).
+ * For debits (negative delta), the balance-guard condition is baked into the
+ * filter itself so the update simply fails to match if funds are insufficient
+ * — no separate check-then-act window exists.
+ *
+ * extraIncrements: additional top-level numeric fields to $inc in the SAME
+ * atomic operation (e.g. { totalIncome: amount } or { totalWithdrawn: amount }),
+ * so those running totals can never drift out of sync with the balance either.
+ */
+WalletSchema.statics.atomicAdjustBalance = async function (userId, {
+  balanceField,
+  delta,
+  extraIncrements = {},
+  transactionData = {}
+}) {
+  const WalletTransaction = require('./WalletTransaction');
+
+  const filter = { userId };
+  if (delta < 0) {
+    // Guard must be part of the atomic filter, not a prior read.
+    filter[balanceField] = { $gte: -delta };
+  }
+
+  const incFields = { [balanceField]: delta, totalTransactions: 1, ...extraIncrements };
+
+  const wallet = await this.findOneAndUpdate(
+    filter,
+    { $inc: incFields, $set: { lastTransactionAt: new Date() } },
+    { new: true }
+  );
+
+  if (!wallet) {
+    const label = balanceField.replace(/Balance$/, '').toLowerCase();
+    throw new Error(`Insufficient ${label} balance`);
+  }
+
+  const transaction = await WalletTransaction.create({
+    walletId: wallet._id,
+    userId: wallet.userId,
+    walletType: transactionData.walletType,
+    transactionId: transactionData.transactionId || wallet.generateTransactionId(),
+    type: transactionData.type || (delta >= 0 ? 'CREDIT' : 'DEBIT'),
+    amount: Math.abs(delta),
+    balance: wallet[balanceField],
+    description: transactionData.description || 'Wallet balance adjustment',
+    source: transactionData.source || 'SYSTEM',
+    reference: transactionData.reference || null,
+    status: 'COMPLETED',
+    metadata: transactionData.metadata || {},
+    ipAddress: transactionData.ipAddress || null,
+    userAgent: transactionData.userAgent || null
+  });
+
+  return { wallet, transaction };
+};
+
+/**
+ * @deprecated Non-atomic read-modify-write. Kept only in case other code still
+ * references the instance method. Use the `atomicAdjustBalance` static instead.
  */
 WalletSchema.methods.updateBalance = async function (amount, type, transactionData = {}) {
   const WalletTransaction = require('./WalletTransaction');

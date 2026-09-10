@@ -51,8 +51,9 @@ class WalletService {
       throw new Error('Amount must be greater than 0');
     }
 
-    const wallet = await this.getOrCreateWallet(userId);
-    
+    // Ensure a wallet document exists (idempotent) before the atomic op.
+    await this.getOrCreateWallet(userId);
+
     // Determine wallet type based on source
     let walletType;
     if (['REFERRAL_INCOME', 'MATCHING_INCOME', 'LEADERSHIP_INCOME'].includes(source)) {
@@ -65,25 +66,25 @@ class WalletService {
       walletType = 'INCOME'; // Default
     }
 
-    // Update balance
-    const transactionData = {
-      transactionId: wallet.generateTransactionId(),
-      type: 'CREDIT',
-      description: this.getTransactionDescription(source, reference),
-      source: source,
-      reference: reference,
-      metadata: metadata,
-      ipAddress: metadata.ipAddress || null,
-      userAgent: metadata.userAgent || null
-    };
+    const balanceField = walletType === 'INCOME' ? 'incomeBalance' : 'repurchaseBalance';
+    const extraIncrements = walletType === 'INCOME' ? { totalIncome: amount } : {};
 
-    const transaction = await wallet.updateBalance(amount, walletType, transactionData);
-
-    // Update total income if source is income
-    if (walletType === 'INCOME') {
-      wallet.totalIncome += amount;
-      await wallet.save();
-    }
+    const { wallet, transaction } = await Wallet.atomicAdjustBalance(userId, {
+      balanceField,
+      delta: amount,
+      extraIncrements,
+      transactionData: {
+        walletType,
+        type: 'CREDIT',
+        transactionId: undefined,
+        description: this.getTransactionDescription(source, reference),
+        source,
+        reference,
+        metadata,
+        ipAddress: metadata.ipAddress || null,
+        userAgent: metadata.userAgent || null
+      }
+    });
 
     // Update user's lifetime income
     if (['REFERRAL_INCOME', 'MATCHING_INCOME', 'LEADERSHIP_INCOME'].includes(source)) {
@@ -103,6 +104,39 @@ class WalletService {
   }
 
   /**
+   * Credit amount to the monthly Salary wallet (separate balance from Income/Repurchase).
+   */
+  async creditSalary(userId, amount, reference, metadata = {}) {
+    if (amount <= 0) {
+      throw new Error('Amount must be greater than 0');
+    }
+
+    await this.getOrCreateWallet(userId);
+
+    const { wallet, transaction } = await Wallet.atomicAdjustBalance(userId, {
+      balanceField: 'salaryBalance',
+      delta: amount,
+      extraIncrements: { totalSalaryEarned: amount },
+      transactionData: {
+        walletType: 'SALARY',
+        type: 'CREDIT',
+        description: this.getTransactionDescription('SALARY', reference),
+        source: 'SALARY',
+        reference,
+        metadata,
+        ipAddress: metadata.ipAddress || null,
+        userAgent: metadata.userAgent || null
+      }
+    });
+
+    return {
+      success: true,
+      transaction,
+      newBalance: { salary: wallet.salaryBalance }
+    };
+  }
+
+  /**
    * Debit amount from wallet
    */
   async debit(userId, amount, source, reference, metadata = {}) {
@@ -110,8 +144,8 @@ class WalletService {
       throw new Error('Amount must be greater than 0');
     }
 
-    const wallet = await this.getOrCreateWallet(userId);
-    
+    await this.getOrCreateWallet(userId);
+
     // Determine wallet type
     let walletType;
     if (source === 'WITHDRAWAL') {
@@ -122,27 +156,33 @@ class WalletService {
       walletType = 'INCOME';
     }
 
-    // Update balance (negative amount for debit)
-    const transactionData = {
-      transactionId: wallet.generateTransactionId(),
-      type: 'DEBIT',
-      description: this.getTransactionDescription(source, reference),
-      source: source,
-      reference: reference,
-      metadata: metadata,
-      ipAddress: metadata.ipAddress || null,
-      userAgent: metadata.userAgent || null
-    };
+    const balanceField = walletType === 'INCOME' ? 'incomeBalance' : 'repurchaseBalance';
+    const extraIncrements = {};
+    if (source === 'WITHDRAWAL') extraIncrements.totalWithdrawn = amount;
+    else if (source === 'PURCHASE') extraIncrements.totalRepurchased = amount;
 
-    const transaction = await wallet.updateBalance(-amount, walletType, transactionData);
-
-    // Update totals
-    if (source === 'WITHDRAWAL') {
-      wallet.totalWithdrawn += amount;
-      await wallet.save();
-    } else if (source === 'PURCHASE') {
-      wallet.totalRepurchased += amount;
-      await wallet.save();
+    let wallet;
+    let transaction;
+    try {
+      ({ wallet, transaction } = await Wallet.atomicAdjustBalance(userId, {
+        balanceField,
+        delta: -amount,
+        extraIncrements,
+        transactionData: {
+          walletType,
+          type: 'DEBIT',
+          description: this.getTransactionDescription(source, reference),
+          source,
+          reference,
+          metadata,
+          ipAddress: metadata.ipAddress || null,
+          userAgent: metadata.userAgent || null
+        }
+      }));
+    } catch (err) {
+      // Surface the atomic guard's failure as the same "insufficient balance"
+      // style error the rest of the app already expects.
+      throw new Error(err.message || 'Failed to debit wallet');
     }
 
     return {
@@ -366,17 +406,21 @@ class WalletService {
     wallet.verificationRemarks = remarks;
     await wallet.save();
 
-    // Create audit transaction
-    await this.credit(
-      userId,
-      0,
-      'SYSTEM',
-      null,
-      {
-        description: `Wallet ${verified ? 'verified' : 'unverified'} - ${remarks}`,
-        type: 'ADMIN_ACTION'
-      }
-    );
+    // Log a zero-amount audit entry directly (credit()/debit() reject amount <= 0,
+    // so this bypasses that guard purely for the audit trail — no balance change).
+    const WalletTransaction = require('../models/WalletTransaction');
+    await WalletTransaction.create({
+      walletId: wallet._id,
+      userId: wallet.userId,
+      walletType: 'INCOME',
+      transactionId: wallet.generateTransactionId(),
+      type: 'CREDIT',
+      amount: 0,
+      balance: wallet.incomeBalance,
+      description: `Wallet ${verified ? 'verified' : 'unverified'} - ${remarks}`,
+      source: 'SYSTEM',
+      status: 'COMPLETED'
+    });
 
     return wallet;
   }

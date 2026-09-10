@@ -364,40 +364,45 @@ class BinaryService {
    * Recursively fetch all downline members under a specific branch (LEFT or RIGHT) up to unlimited depth.
    */
   async getBranchMembers(userId, position) {
-    const directChildNode = await BinaryNode.findOne({ 
-      parentId: userId, 
-      position: position.toUpperCase() 
-    }).populate('userId');
+    const normalizedPosition = String(position || '').toLowerCase();
+    const directChildNode = await BinaryNode.findOne({
+      parentId: userId,
+      position: normalizedPosition
+    }).lean();
 
     if (!directChildNode || !directChildNode.userId) {
       return { count: 0, members: [] };
     }
 
-    let membersList = [];
-    let queue = [directChildNode.userId._id];
-    let visited = new Set([userId.toString()]);
+    // Load the entire subtree's BinaryNode docs in level-order batches
+    // instead of one findOne/find per member (avoids N+1 queries on large downlines).
+    const visited = new Set([String(userId)]);
+    const subtreeUserIds = [];
+    let frontier = [directChildNode.userId];
+    visited.add(String(directChildNode.userId));
+    subtreeUserIds.push(directChildNode.userId);
 
-    while (queue.length > 0) {
-      const currentUserId = queue.shift();
-      if (visited.has(currentUserId.toString())) continue;
-      visited.add(currentUserId.toString());
-
-      const userDoc = await User.findById(currentUserId)
-        .select('memberId fullName email phoneNumber status activePackageId createdAt binarySide')
-        .populate('activePackageId', 'name')
+    while (frontier.length > 0) {
+      const childNodes = await BinaryNode.find({ parentId: { $in: frontier } })
+        .select('userId parentId')
         .lean();
 
-      if (userDoc) {
-        membersList.push(userDoc);
-      }
-
-      const childNodes = await BinaryNode.find({ parentId: currentUserId }).lean();
+      const nextFrontier = [];
       for (const child of childNodes) {
-        if (child.userId && !visited.has(child.userId.toString())) {
-          queue.push(child.userId);
+        const childId = String(child.userId);
+        if (child.userId && !visited.has(childId)) {
+          visited.add(childId);
+          subtreeUserIds.push(child.userId);
+          nextFrontier.push(child.userId);
         }
       }
+      frontier = nextFrontier;
     }
+
+    const membersList = await User.find({ _id: { $in: subtreeUserIds } })
+      .select('memberId fullName email phoneNumber status activePackageId createdAt binarySide')
+      .populate('activePackageId', 'name')
+      .lean();
 
     return {
       count: membersList.length,

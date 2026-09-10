@@ -8,11 +8,12 @@ const TeamPage = () => {
   const { showNotification } = useNotification();
 
   const [teamMembers, setTeamMembers] = useState([]);
-  const [stats, setStats] = useState({
-    directReferrals: 0,
-    activeMembers: 0,
-    totalTeam: 0,
-    levels: 0
+  const [stats, setStats] = useState({ 
+    directReferrals: 0, 
+    activeMembers: 0, 
+    totalTeam: 0, 
+    leftCount: 0, 
+    rightCount: 0 
   });
   const [sponsorInfo, setSponsorInfo] = useState({
     fullName: 'Direct Company Root',
@@ -31,18 +32,32 @@ const TeamPage = () => {
   const fetchTeamData = useCallback(async () => {
     try {
       setLoading(true);
-      const [teamRes, statsRes, profileRes] = await Promise.all([
+      const [teamRes, statsRes, profileRes, overviewRes] = await Promise.all([
         api.get('/api/users/team'),
         api.get('/api/users/team-stats'),
-        api.get('/api/users/profile')
+        api.get('/api/users/profile'),
+        api.get('/api/team/overview')
       ]);
 
       if (teamRes.data?.success && teamRes.data?.data) {
         setTeamMembers(teamRes.data.data.team || []);
       }
-      if (statsRes.data?.success && statsRes.data?.data) {
-        setStats(statsRes.data.data);
+      
+      let leftC = 0;
+      let rightC = 0;
+      if (overviewRes.data?.success && overviewRes.data?.data) {
+        leftC = overviewRes.data.data.leftCount || 0;
+        rightC = overviewRes.data.data.rightCount || 0;
       }
+
+      if (statsRes.data?.success && statsRes.data?.data) {
+        setStats({
+          ...statsRes.data.data,
+          leftCount: leftC,
+          rightCount: rightC
+        });
+      }
+
       if (profileRes.data?.success && profileRes.data?.data?.user?.sponsorId) {
         const sp = profileRes.data.data.user.sponsorId;
         setSponsorInfo({
@@ -61,11 +76,10 @@ const TeamPage = () => {
     fetchTeamData();
   }, [fetchTeamData]);
 
-  // Fetch unlimited depth branch downline counts and lists for any member
-  const handleViewBranchDownline = async (memberMongoId) => {
+  const handleViewBranchDownline = async (memberIdentifier) => {
     try {
       setBranchLoading(true);
-      const res = await api.get(`/api/team/overview?userId=${memberMongoId}`);
+      const res = await api.get(`/api/team/overview?userId=${memberIdentifier}`);
       if (res.data?.success && res.data?.data) {
         setSelectedMemberBranch(res.data.data);
         setBranchTab('LEFT');
@@ -138,7 +152,7 @@ const TeamPage = () => {
       </div>
 
       {/* KPI Stats Cards */}
-      <div className={styles.metricsGrid}>
+      <div className={styles.metricsGrid} style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
         <div className={`${styles.kpiCard} ${styles.kpiBlue}`}>
           <div className={styles.kpiContent}>
             <span className={styles.kpiTitle}>Direct Referrals</span>
@@ -161,20 +175,20 @@ const TeamPage = () => {
 
         <div className={`${styles.kpiCard} ${styles.kpiPurple}`}>
           <div className={styles.kpiContent}>
-            <span className={styles.kpiTitle}>Total Downline</span>
+            <span className={styles.kpiTitle}>Total Downline Left</span>
             <div className={styles.kpiValueWrapper}>
-              <h3 className={styles.kpiNumber}>{stats.totalTeam || teamMembers.length}</h3>
-              <span className={styles.kpiSub}>10 Generations</span>
+              <h3 className={styles.kpiNumber}>{stats.leftCount || 0}</h3>
+              <span className={styles.kpiSub}>Unlimited Depth</span>
             </div>
           </div>
         </div>
 
         <div className={`${styles.kpiCard} ${styles.kpiAmber}`}>
           <div className={styles.kpiContent}>
-            <span className={styles.kpiTitle}>Network Depth</span>
+            <span className={styles.kpiTitle}>Total Downline Right</span>
             <div className={styles.kpiValueWrapper}>
-              <h3 className={styles.kpiNumber}>{stats.levels || (teamMembers.length > 0 ? 1 : 0)}</h3>
-              <span className={styles.kpiSub}>Active Levels</span>
+              <h3 className={styles.kpiNumber}>{stats.rightCount || 0}</h3>
+              <span className={styles.kpiSub}>Unlimited Depth</span>
             </div>
           </div>
         </div>
@@ -289,10 +303,10 @@ const TeamPage = () => {
         )}
       </div>
 
-      {/* Unlimited Depth Branch Inspection Modal (Growth Generation Style) */}
+      {/* Unlimited Depth Branch Inspection Modal with Sponsor ID Display */}
       {selectedMemberBranch && (
         <div className={styles.modalBackdrop} onClick={() => setSelectedMemberBranch(null)}>
-          <div className={styles.modalWindow} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px', width: '95%' }}>
+          <div className={styles.modalWindow} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '750px', width: '95%' }}>
             <div className={styles.modalTopBanner}>
               <div className={styles.modalTitleBlock}>
                 <span className={styles.modalCategoryTag}>BINARY DOWNLINE ANALYSIS</span>
@@ -308,7 +322,6 @@ const TeamPage = () => {
             </div>
 
             <div className={styles.modalInnerBody}>
-              {/* Left / Right Summary Cards matching Growth Generation */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
                 <div 
                   onClick={() => setBranchTab('LEFT')}
@@ -326,7 +339,6 @@ const TeamPage = () => {
                 </div>
               </div>
 
-              {/* Branch Switcher Tabs */}
               <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
                 <button
                   type="button"
@@ -344,14 +356,13 @@ const TeamPage = () => {
                 </button>
               </div>
 
-              {/* Downline Members Table */}
-              <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+              <div style={{ maxHeight: '320px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
                   <thead>
                     <tr style={{ background: '#f1f5f9', position: 'sticky', top: 0 }}>
                       <th style={{ padding: '10px' }}>#</th>
-                      <th style={{ padding: '10px' }}>Member Name</th>
-                      <th style={{ padding: '10px' }}>Member ID</th>
+                      <th style={{ padding: '10px' }}>Member Name & ID</th>
+                      <th style={{ padding: '10px' }}>Sponsor ID</th>
                       <th style={{ padding: '10px' }}>Status</th>
                     </tr>
                   </thead>
@@ -366,10 +377,13 @@ const TeamPage = () => {
                       currentBranchList.map((m, idx) => (
                         <tr key={m._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                           <td style={{ padding: '10px' }}>#{idx + 1}</td>
-                          <td style={{ padding: '10px' }}><strong>{m.fullName}</strong></td>
                           <td style={{ padding: '10px' }}>
-                            <code style={{ background: '#f8fafc', padding: '2px 6px', borderRadius: '4px' }} onClick={() => copyToClipboard(m.memberId)} title="Click to copy">
-                              {m.memberId}
+                            <strong>{m.fullName}</strong><br/>
+                            <span style={{ color: '#64748b', fontSize: '11px' }}>{m.memberId}</span>
+                          </td>
+                          <td style={{ padding: '10px' }}>
+                            <code style={{ background: '#f8fafc', padding: '2px 6px', borderRadius: '4px', color: '#2563eb', fontWeight: 'bold' }}>
+                              {m.sponsorMemberId}
                             </code>
                           </td>
                           <td style={{ padding: '10px' }}>

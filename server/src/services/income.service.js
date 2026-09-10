@@ -27,6 +27,7 @@ class IncomeService {
   async processOrderIncome(order) {
     const userId = order.userId;
     const orderId = order._id;
+    const kbp = order.kbpGenerated || 1000;
 
     console.log(`📊 Processing income for order ${order.orderNumber}`);
     console.log(`   User: ${userId}`);
@@ -38,11 +39,25 @@ class IncomeService {
     if (referralResult) results.push(referralResult);
 
     // 2. Process Matching Income
-    const matchingResult = await this.processMatchingIncome(userId, order.kbpGenerated || 1000, orderId);
+    // NOTE: Matching is now handled exclusively by BinaryService, which walks the
+    // actual binary tree (BinaryNode.parentId), applies the real 2:1 / 1:2 first-pair
+    // rule, then 1:1 for subsequent pairs, and deducts matched volume so it can't be
+    // reused. This replaces the old processMatchingIncome() below, which incorrectly
+    // walked the sponsor chain (User.sponsorId) instead of the binary tree, never
+    // added this order's own KBP into leftVolume/rightVolume before matching against
+    // it, and applied no 2:1/1:2 rule at all — producing incorrect payouts. Do not
+    // reintroduce processMatchingIncome() into this flow.
+    let matchingResult = null;
+    try {
+      await BinaryService.updateVolumes(userId, kbp);
+      matchingResult = { type: 'MATCHING_INCOME', engine: 'BinaryService.updateVolumes', kbp };
+    } catch (matchErr) {
+      console.error('   Binary matching volume propagation failed:', matchErr.message);
+    }
     if (matchingResult) results.push(matchingResult);
 
     // 3. Process Leadership Income (if qualified)
-    const leadershipResult = await this.processLeadershipIncome(userId, order.kbpGenerated || 1000, orderId);
+    const leadershipResult = await this.processLeadershipIncome(userId, kbp, orderId);
     if (leadershipResult) results.push(leadershipResult);
 
     console.log(`✅ Income processing complete. ${results.length} transaction batches created`);
@@ -150,92 +165,17 @@ class IncomeService {
   // ============ MATCHING INCOME ============
 
   /**
-   * Process Matching Income (10% of matched KBP volume)
+   * @deprecated DO NOT CALL. Superseded by BinaryService.updateVolumes() +
+   * BinaryService.calculateMatching(), which is now the single source of truth
+   * for binary matching income (see processOrderIncome above for why). This
+   * function is kept only for historical/audit reference and is intentionally
+   * disconnected from processOrderIncome. It incorrectly walked the sponsor
+   * chain instead of the binary tree and had no 2:1/1:2 first-pair rule.
    */
   async processMatchingIncome(userId, kbp, orderId) {
-    const node = await BinaryNode.findOne({ userId });
-    if (!node) {
-      console.log('   No binary node found');
-      return null;
-    }
-
-    const upline = await this.getUpline(userId);
-    if (upline.length === 0) {
-      console.log('   No upline found');
-      return null;
-    }
-
-    const results = [];
-
-    for (const ancestor of upline) {
-      const ancestorNode = await BinaryNode.findOne({ userId: ancestor._id });
-      if (!ancestorNode) continue;
-
-      const availableVolume = Math.min(
-        ancestorNode.availableLeftVolume,
-        ancestorNode.availableRightVolume
-      );
-
-      if (availableVolume <= 0) continue;
-
-      const rate = 0.10; // 10%
-      const matchAmount = Math.min(availableVolume, kbp);
-      const grossAmount = matchAmount * rate;
-
-      if (grossAmount <= 0) continue;
-
-      // Idempotency check for matching on this order
-      const existingMatch = await IncomeTransaction.findOne({
-        userId: ancestor._id,
-        sourceId: orderId,
-        type: 'MATCHING_INCOME'
-      });
-      if (existingMatch) continue;
-
-      console.log(`   Matching Income: ₹${grossAmount} for ${ancestor.email} (${matchAmount} KBP matched)`);
-
-      const cappedResult = await this.applyCaps(ancestor._id, grossAmount);
-
-      const creditResult = await this.creditIncome(
-        ancestor._id,
-        cappedResult.allowedAmount,
-        'MATCHING_INCOME',
-        orderId,
-        'Order',
-        matchAmount,
-        rate,
-        {
-          sourceUserId: userId,
-          sourceEmail: await this.getUserEmail(userId),
-          orderId: orderId
-        }
-      );
-
-      if (creditResult && creditResult.transaction) {
-        await IncomeTransaction.findByIdAndUpdate(
-          creditResult.transaction._id,
-          { 
-            capBreakdown: cappedResult.capBreakdown,
-            grossAmount: grossAmount,
-            capAdjustment: grossAmount - cappedResult.allowedAmount
-          }
-        );
-      }
-
-      if (cappedResult.allowedAmount > 0) {
-        await this.updateMatchingVolume(ancestor._id, matchAmount);
-      }
-
-      results.push({
-        type: 'MATCHING_INCOME',
-        userId: ancestor._id,
-        grossAmount,
-        allowedAmount: cappedResult.allowedAmount,
-        matchedKBP: matchAmount
-      });
-    }
-
-    return results.length > 0 ? results : null;
+    console.warn('[DEPRECATED] IncomeService.processMatchingIncome() was called directly. ' +
+      'Matching income must go through BinaryService.updateVolumes() instead. Ignoring call.');
+    return null;
   }
 
   // ============ LEADERSHIP INCOME ============
