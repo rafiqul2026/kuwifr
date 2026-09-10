@@ -4,6 +4,12 @@ const Wallet = require('../models/Wallet');
 const User = require('../models/User');
 
 const seedWithdrawalsIfEmpty = async () => {
+  // Never fabricate a placeholder withdrawal (fake member "Rahul Sharma", fake
+  // bank details) on a real deployment — this was previously unconditional,
+  // so the very first admin who opened Withdrawals on a fresh production
+  // database would see a payout that never happened. Demo data stays
+  // opt-in to non-production environments only.
+  if (process.env.NODE_ENV === 'production') return;
   try {
     const count = await Withdrawal.countDocuments();
     if (count === 0) {

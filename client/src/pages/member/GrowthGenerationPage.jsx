@@ -56,27 +56,49 @@ const TreeBranchConnector = () => {
  * 🌲 Unlimited Depth Member Node Component
  * Recursively renders indefinitely whenever a left or right child node exists.
  */
-const GrowthGenerationNode = ({ node, onNodeClick, onMouseEnter, onMouseLeave }) => {
+const GrowthGenerationNode = ({ node, onNodeClick, onMouseEnter, onMouseLeave, parentNode }) => {
   const isVacant = !node || node.isVacant;
+  // A "more" slot: the real child exists in the database but this response's
+  // depth limit stopped short of fetching it (see hasMoreLeft/hasMoreRight
+  // from the API) — distinct from a genuinely open/vacant position.
+  const isMore = !!node?.isMore;
 
-  // Render children if this is an active node that has children OR if it's the root/early tier
-  const hasChildren = !isVacant && (Boolean(node.left) || Boolean(node.right));
+  // Every active member's two positions are always shown — including
+  // genuinely open ones — so the tree reads as a complete binary structure
+  // rather than stopping wherever a child happens to already exist.
+  const showChildRow = !isVacant && !isMore;
+
+  const handleClick = (e) => {
+    e.stopPropagation();
+    if (isMore) {
+      // We don't know this child's identity yet (it's beyond the fetched
+      // depth) — re-root on the parent, whose own fetch will include it.
+      onNodeClick(parentNode);
+      return;
+    }
+    if (!isVacant) onNodeClick(node);
+  };
 
   return (
     <div className={styles.treeBranchContainer}>
       {/* Node Identity Card */}
       <div
-        className={`${styles.nodeBox} ${isVacant ? styles.nodeVacant : styles.nodeActive}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (!isVacant) onNodeClick(node);
-        }}
-        onMouseEnter={(e) => !isVacant && onMouseEnter(e, node)}
+        className={`${styles.nodeBox} ${isVacant ? styles.nodeVacant : ''} ${isMore ? styles.nodeMore : ''} ${!isVacant && !isMore ? styles.nodeActive : ''}`}
+        onClick={handleClick}
+        onMouseEnter={(e) => !isVacant && !isMore && onMouseEnter(e, node)}
         onMouseLeave={onMouseLeave}
-        title={isVacant ? 'Vacant Position' : `Click to view ${node.fullName}'s growth generation`}
+        title={
+          isMore
+            ? 'This position already has a member — click to expand and view them'
+            : isVacant
+              ? 'Open Position — available for new placement'
+              : `Click to view ${node.fullName}'s growth generation`
+        }
       >
         <div className={styles.avatarPill}>
-          {isVacant ? (
+          {isMore ? (
+            <span className={styles.morePlus}>⋯</span>
+          ) : isVacant ? (
             <span className={styles.vacantPlus}>+</span>
           ) : (
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" className={styles.memberSvg}>
@@ -87,16 +109,17 @@ const GrowthGenerationNode = ({ node, onNodeClick, onMouseEnter, onMouseLeave })
 
         <div className={styles.nodeLabels}>
           <span className={styles.nodeName}>
-            {isVacant ? 'Vacant' : node.fullName}
+            {isMore ? 'View More' : isVacant ? 'Open Spot' : node.fullName}
           </span>
           <strong className={styles.nodeId}>
-            {isVacant ? 'Open Spot' : node.memberId}
+            {isMore ? 'Expand ↓' : isVacant ? '' : node.memberId}
           </strong>
         </div>
       </div>
 
-      {/* 🚀 INFINITE RECURSIVE SUB-BRANCHES (No Generation Limits) */}
-      {!isVacant && (hasChildren || node.showOpenSpots) && (
+      {/* Every active node's two positions render — vacant slots included —
+          so the tree always shows a complete two-leg structure at each tier. */}
+      {showChildRow && (
         <div className={styles.treeChildrenCluster}>
           <TreeBranchConnector />
 
@@ -107,7 +130,8 @@ const GrowthGenerationNode = ({ node, onNodeClick, onMouseEnter, onMouseLeave })
                 <span className={styles.legBadgeLeft}>L</span>
               </div>
               <GrowthGenerationNode
-                node={node.left || { isVacant: true }}
+                node={node.left || (node.hasMoreLeft ? { isMore: true } : { isVacant: true })}
+                parentNode={node}
                 onNodeClick={onNodeClick}
                 onMouseEnter={onMouseEnter}
                 onMouseLeave={onMouseLeave}
@@ -120,7 +144,8 @@ const GrowthGenerationNode = ({ node, onNodeClick, onMouseEnter, onMouseLeave })
                 <span className={styles.legBadgeRight}>R</span>
               </div>
               <GrowthGenerationNode
-                node={node.right || { isVacant: true }}
+                node={node.right || (node.hasMoreRight ? { isMore: true } : { isVacant: true })}
+                parentNode={node}
                 onNodeClick={onNodeClick}
                 onMouseEnter={onMouseEnter}
                 onMouseLeave={onMouseLeave}
@@ -134,7 +159,14 @@ const GrowthGenerationNode = ({ node, onNodeClick, onMouseEnter, onMouseLeave })
 };
 
 /**
- * Recursively counts registered members in a branch without depth constraints
+ * Fallback-only: recursively counts registered members within whatever
+ * portion of the tree was actually fetched. This UNDER-counts on its own —
+ * the tree response is capped at a handful of generations per request for
+ * payload size, so a member with a deeper downline than that cap would show
+ * fewer members here than really exist. The real, unlimited-depth total
+ * comes from the backend's `summary.leftCount`/`summary.rightCount`
+ * (BinaryService.getBranchCounts, an unlimited-depth walk); this recursive
+ * count is only used if an older API response doesn't include that summary.
  */
 const countRegisteredMembers = (branchRoot) => {
   if (!branchRoot || branchRoot.isVacant || !branchRoot.memberId) return 0;
@@ -152,6 +184,28 @@ const GrowthGenerationPage = () => {
   const [loading, setLoading] = useState(true);
   const [hoveredNode, setHoveredNode] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  // True, unlimited-depth Left/Right totals from the backend — see the
+  // comment on countRegisteredMembers above for why these can't be derived
+  // from the (depth-capped) fetched tree alone.
+  const [branchCounts, setBranchCounts] = useState(null);
+
+  // Zoom scale for the tree canvas. "The Growth Generation Map is showing
+  // very big" was reported as hard to use, especially on mobile — a deep
+  // tree can be several thousand pixels wide. Rather than shrink node sizes
+  // to the point of being unreadable, the canvas now starts smaller on
+  // narrow screens and offers Zoom In/Out/Reset so a member can fit more of
+  // their tree on screen at once and zoom in only where they need detail.
+  const getDefaultZoom = () => {
+    if (typeof window === 'undefined') return 1;
+    if (window.innerWidth <= 480) return 0.55;
+    if (window.innerWidth <= 768) return 0.75;
+    return 1;
+  };
+  const [zoom, setZoom] = useState(getDefaultZoom);
+
+  const handleZoomIn = () => setZoom((z) => Math.min(1.25, Math.round((z + 0.15) * 100) / 100));
+  const handleZoomOut = () => setZoom((z) => Math.max(0.35, Math.round((z - 0.15) * 100) / 100));
+  const handleZoomReset = () => setZoom(getDefaultZoom());
 
   const fetchGrowthGeneration = useCallback(async (targetId = '') => {
     try {
@@ -163,6 +217,12 @@ const GrowthGenerationPage = () => {
         const tree = res.data.data.tree || res.data.data.root;
         setRootNode(tree);
         setCurrentRootId(tree.memberId);
+        const summary = res.data.data.summary;
+        if (summary && (summary.leftCount !== undefined || summary.rightCount !== undefined)) {
+          setBranchCounts({ left: summary.leftCount || 0, right: summary.rightCount || 0 });
+        } else {
+          setBranchCounts(null);
+        }
       } else {
         showNotification('Member ID not found in your downline network', 'error');
       }
@@ -226,12 +286,16 @@ const GrowthGenerationPage = () => {
   const formatKBP = (val) => `${(Number(val) || 0).toLocaleString('en-IN')} KBP`;
 
   const memberCounts = useMemo(() => {
+    // Prefer the backend's true, unlimited-depth totals. Only fall back to
+    // counting the fetched (depth-capped) tree if an older API response
+    // didn't include them — that fallback can under-report a deep downline.
+    if (branchCounts) return branchCounts;
     if (!rootNode) return { left: 0, right: 0 };
     return {
       left: countRegisteredMembers(rootNode.left),
       right: countRegisteredMembers(rootNode.right)
     };
-  }, [rootNode]);
+  }, [rootNode, branchCounts]);
 
   return (
     <div className={styles.pageScene}>
@@ -301,6 +365,36 @@ const GrowthGenerationPage = () => {
             <strong>Member Right : </strong>
             <span>{memberCounts.right}</span>
           </div>
+
+          <div className={styles.legendLeft}>
+            <strong>KBP Left : </strong>
+            <span>{formatKBP(rootNode?.leftKbp || 0)}</span>
+          </div>
+
+          <div className={styles.legendRight}>
+            <strong>KBP Right : </strong>
+            <span>{formatKBP(rootNode?.rightKbp || 0)}</span>
+          </div>
+
+          <div className={styles.legendLeft}>
+            <strong>Matched Pairs : </strong>
+            <span>{rootNode?.pairCount || 0}</span>
+          </div>
+        </div>
+
+        {/* Zoom Controls — fit a big/deep tree into view instead of forcing
+            long horizontal scrolling, especially on mobile. */}
+        <div className={styles.zoomControls}>
+          <button type="button" className={styles.zoomBtn} onClick={handleZoomOut} aria-label="Zoom out" title="Zoom out">
+            −
+          </button>
+          <span className={styles.zoomLevel}>{Math.round(zoom * 100)}%</span>
+          <button type="button" className={styles.zoomBtn} onClick={handleZoomIn} aria-label="Zoom in" title="Zoom in">
+            +
+          </button>
+          <button type="button" className={styles.zoomBtn} onClick={handleZoomReset} aria-label="Reset zoom" title="Reset zoom">
+            ⟲
+          </button>
         </div>
 
         {/* Tree Stage Viewport with Smooth Infinite Canvas */}
@@ -311,7 +405,7 @@ const GrowthGenerationPage = () => {
               <p>Rendering Growth Generation...</p>
             </div>
           ) : rootNode ? (
-            <div className={styles.treeWrapper}>
+            <div className={styles.treeWrapper} style={{ transform: `scale(${zoom})` }}>
               <GrowthGenerationNode
                 node={rootNode}
                 onNodeClick={handleNodeClick}

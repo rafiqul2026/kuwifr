@@ -253,7 +253,14 @@ class RankService {
   }
 
   /**
-   * Check if user qualifies for Kuwi Star (special case)
+   * Check if user qualifies for Kuwi Star (special case).
+   *
+   * Business rule (KUWIFR compensation plan): "Rank and Reward starts from
+   * 1st Pair Matching only" + "2:1 or 1:2 Pair Matching, but Member has to
+   * be Required 3 Direct Sponsor under the Left and Right side" within a
+   * time limit (default 15 days) from joining. Thresholds are read live from
+   * the KUWI_STAR Rank document (kuwiStarRequirements) so an admin can change
+   * them from the admin panel without a code change — they are NOT hardcoded.
    */
   async checkKuwiStarQualification(userId) {
     const user = await User.findById(userId);
@@ -273,46 +280,45 @@ class RankService {
       return true;
     }
 
-    // Check direct sponsors
-    const directSponsors = await User.countDocuments({
-      sponsorId: userId,
-    });
+    // Pull dynamic requirements from the KUWI_STAR rank document (admin-editable).
+    const starRank = await Rank.findOne({ code: "KUWI_STAR" });
+    const requiredDirects = starRank?.kuwiStarRequirements?.directSponsors ?? 3;
+    const timeLimitDays = starRank?.kuwiStarRequirements?.timeLimit ?? 15;
 
-    if (directSponsors < 3) {
+    // Rank & Reward starts from 1st Pair Matching only — a first pair must
+    // have actually formed in the real binary tree (2:1 or 1:2), not merely
+    // "enough KBP purchased".
+    const node = await BinaryNode.findOne({ userId });
+    if (!node || (node.pairCount || 0) < 1) {
       return false;
     }
 
-    // Check KBP
-    const totalKBP = await Order.aggregate([
-      {
-        $match: {
-          userId: userId,
-          orderStatus: "COMPLETED",
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          total: {
-            $sum: "$kbpGenerated",
-          },
-        },
-      },
+    // Direct sponsors must be split across both legs (2:1 or 1:2) and total
+    // at least the configured requirement (default 3).
+    const [leftDirects, rightDirects] = await Promise.all([
+      User.countDocuments({ sponsorId: userId, binarySide: "left" }),
+      User.countDocuments({ sponsorId: userId, binarySide: "right" }),
     ]);
+    const totalDirects = leftDirects + rightDirects;
 
-    const kbp = totalKBP.length > 0 ? totalKBP[0].total : 0;
-
-    if (kbp < 3000) {
+    if (totalDirects < requiredDirects) {
+      return false;
+    }
+    const hasSplitRatio =
+      (leftDirects >= 2 && rightDirects >= 1) ||
+      (leftDirects >= 1 && rightDirects >= 2);
+    if (!hasSplitRatio) {
       return false;
     }
 
-    // Check time limit (15 days from joining)
-    const daysSinceJoin = Math.floor(
-      (Date.now() - user.joinedDate) / (1000 * 60 * 60 * 24),
-    );
-
-    if (daysSinceJoin > 15) {
-      return false;
+    // Check time limit from joining (0 / falsy disables the time limit).
+    if (timeLimitDays) {
+      const daysSinceJoin = Math.floor(
+        (Date.now() - new Date(user.joinedDate || user.createdAt)) / (1000 * 60 * 60 * 24),
+      );
+      if (daysSinceJoin > timeLimitDays) {
+        return false;
+      }
     }
 
     return true;
@@ -628,13 +634,14 @@ class RankService {
         };
       }
 
-      // Credit salary to wallet
+      // Credit salary to the dedicated Salary wallet (NOT the income wallet —
+      // rank salary is a % on Team Turn Over, distinct from referral/matching/
+      // leadership income and from repurchase income).
       const WalletService = require("./wallet.service");
 
-      const creditResult = await WalletService.credit(
+      const creditResult = await WalletService.creditSalary(
         userId,
         salaryAmount,
-        "RANK_SALARY",
         null,
         {
           description: `${rank.name} Salary - ${
@@ -647,6 +654,7 @@ class RankService {
           rankLevel: rank.level,
           period: period || new Date().toISOString().slice(0, 7),
         },
+        "RANK_SALARY",
       );
 
       // Create income transaction
@@ -665,7 +673,7 @@ class RankService {
         grossAmount: salaryAmount,
         capAdjustment: 0,
         creditedAmount: salaryAmount,
-        walletType: "INCOME",
+        walletType: "SALARY",
         walletId:
           creditResult && creditResult.transaction
             ? creditResult.transaction.walletId

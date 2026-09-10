@@ -33,6 +33,7 @@ const IncomeTransactionSchema = new mongoose.Schema({
       'REPURCHASE_SELF',
       'REPURCHASE_DOWNLINE',
       'RANK_SALARY',
+      'FUND_SALARY',
       'FUND_INCOME'
     ],
     required: true,
@@ -87,7 +88,7 @@ const IncomeTransactionSchema = new mongoose.Schema({
   // Wallet Information
   walletType: {
     type: String,
-    enum: ['INCOME', 'REPURCHASE'],
+    enum: ['INCOME', 'REPURCHASE', 'SALARY'],
     required: true
   },
   walletId: {

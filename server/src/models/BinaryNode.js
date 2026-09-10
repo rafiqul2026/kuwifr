@@ -71,6 +71,19 @@ const BinaryNodeSchema = new mongoose.Schema({
     default: 0
   },
 
+  // Cumulative REPURCHASE-only KBP pushed up from this leg (separate from the
+  // package-purchase leftVolume/rightVolume above). Used exclusively by
+  // fund.service.js to evaluate the "Life Tension Free" Fund targets, which the
+  // business plan defines in terms of repurchase KBP matching, not package volume.
+  leftRepurchaseKBP: {
+    type: Number,
+    default: 0
+  },
+  rightRepurchaseKBP: {
+    type: Number,
+    default: 0
+  },
+
   // Total pairs formed at this node
   pairCount: {
     type: Number,

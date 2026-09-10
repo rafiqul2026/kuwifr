@@ -170,6 +170,22 @@ const activateMemberWithPackage = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Member not found.' });
     }
 
+    // Was previously missing entirely — nothing stopped this endpoint from
+    // being called twice (a double-click, retried request, or an admin
+    // activating the same member here after they were already activated
+    // through the member's own package-purchase flow) for a member who is
+    // already ACTIVE. Each call created a brand-new Order and re-ran the
+    // full income engine (processOrderIncome), so a member could end up
+    // with their sponsor's referral/matching income credited two, three,
+    // or more times for what was really one activation. Refuse a second
+    // activation outright instead of silently re-crediting.
+    if (member.status === 'ACTIVE' && member.activePackageId) {
+      return res.status(400).json({
+        success: false,
+        message: `${member.memberId} is already ACTIVE with a package. Re-activating would double-credit referral and matching income — this has been blocked.`
+      });
+    }
+
     const pkg = await Package.findById(packageId);
     if (!pkg) {
       return res.status(404).json({ success: false, message: 'Selected package not found in master catalog.' });
@@ -187,13 +203,22 @@ const activateMemberWithPackage = async (req, res, next) => {
     const newOrder = await Order.create({
       orderNumber,
       userId: member._id,
+      orderType: 'PACKAGE',
+      packageType: 'PACKAGE',
       packageId: pkg._id,
       packageName: pkg.name,
       packagePrice: packagePrice,
+      totalAmount: packagePrice,
+      subtotal: packagePrice,
+      totalKBP: kbpAmount,
       kbpGenerated: kbpAmount,
+      products: [{ name: pkg.name, quantity: 1, price: packagePrice, kbp: kbpAmount }],
       paymentMethod: 'ADMIN_MANUAL',
+      paymentType: 'ONLINE_GATEWAY',
       paymentStatus: 'SUCCESS',
-      orderStatus: 'COMPLETED'
+      orderStatus: 'COMPLETED',
+      status: 'COMPLETED',
+      statusHistory: [{ status: 'COMPLETED', timestamp: new Date(), note: 'Activated directly by Admin' }]
     });
 
     const incomeResult = await IncomeService.processOrderIncome(newOrder);

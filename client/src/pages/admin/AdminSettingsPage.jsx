@@ -7,10 +7,46 @@ import styles from './AdminSettingsPage.module.css';
 const TABS = [
   { id: 'company', label: 'Company Profile', icon: '🏢', tag: 'Identity' },
   { id: 'payment', label: 'Payment Gateway', icon: '💳', tag: 'Banking' },
+  { id: 'compensation', label: 'Commission & Level Income', icon: '💰', tag: 'Compensation Plan' },
   { id: 'security', label: 'Security & Auth', icon: '🔒', tag: 'Protection' },
   { id: 'email', label: 'Email & SMTP', icon: '✉️', tag: 'Mailer' },
   { id: 'system', label: 'Engine & TTO', icon: '⚙️', tag: 'Operations' }
 ];
+
+// Mirrors server/src/models/Setting.js's `compensation` sub-schema defaults
+// exactly, so a fresh install (before any admin save) shows the same rates
+// the business plan / backend already runs with.
+const COMPENSATION_DEFAULTS = {
+  referral: {
+    rate: 0.10
+  },
+  matching: {
+    rate: 0.10,
+    unitValue: 1000,
+    firstPairSmallUnits: 1,
+    firstPairLargeUnits: 2,
+    firstPairMinDirects: 2
+  },
+  leadership: {
+    levelRates: [0.50, 0.30, 0.20],
+    minRankCode: 'KUWI_STAR'
+  },
+  repurchase: {
+    selfRate: 0.25,
+    levelRates: [0.17, 0.13, 0.09, 0.05, 0.03, 0.02, 0.01, 0.01, 0.01, 0.01],
+    unlockLevelsByDirects: [2, 4, 6, 8, 10]
+  },
+  withdrawal: {
+    minAmount: 100,
+    adminChargeRate: 0.05,
+    serviceChargeRate: 0.05,
+    tdsRate: 0.05
+  },
+  franchise: {
+    kspRate: 0.10,
+    kbpLifetimeRate: 0.01
+  }
+};
 
 const INITIAL_STATE = {
   company: {
@@ -56,7 +92,8 @@ const INITIAL_STATE = {
     autoCalculateTTO: true,
     currencySymbol: '₹',
     currencyCode: 'INR'
-  }
+  },
+  compensation: COMPENSATION_DEFAULTS
 };
 
 const AdminSettingsPage = () => {
@@ -88,12 +125,21 @@ const AdminSettingsPage = () => {
       }
 
       if (res.data?.success && res.data?.data) {
+        const remoteComp = res.data.data.compensation || {};
         const merged = {
           company: { ...INITIAL_STATE.company, ...res.data.data.company },
           payment: { ...INITIAL_STATE.payment, ...res.data.data.payment },
           security: { ...INITIAL_STATE.security, ...res.data.data.security },
           email: { ...INITIAL_STATE.email, ...res.data.data.email },
-          system: { ...INITIAL_STATE.system, ...res.data.data.system }
+          system: { ...INITIAL_STATE.system, ...res.data.data.system },
+          compensation: {
+            referral: { ...COMPENSATION_DEFAULTS.referral, ...remoteComp.referral },
+            matching: { ...COMPENSATION_DEFAULTS.matching, ...remoteComp.matching },
+            leadership: { ...COMPENSATION_DEFAULTS.leadership, ...remoteComp.leadership },
+            repurchase: { ...COMPENSATION_DEFAULTS.repurchase, ...remoteComp.repurchase },
+            withdrawal: { ...COMPENSATION_DEFAULTS.withdrawal, ...remoteComp.withdrawal },
+            franchise: { ...COMPENSATION_DEFAULTS.franchise, ...remoteComp.franchise }
+          }
         };
         setSettings(merged);
         setSavedBaseline(merged);
@@ -124,6 +170,53 @@ const AdminSettingsPage = () => {
         [field]: value
       }
     }));
+  };
+
+  // Compensation is one level deeper (settings.compensation.<block>.<field>)
+  // than every other tab, so it gets its own helper.
+  const handleCompChange = (block, field, value) => {
+    setSettings((prev) => ({
+      ...prev,
+      compensation: {
+        ...prev.compensation,
+        [block]: {
+          ...prev.compensation[block],
+          [field]: value
+        }
+      }
+    }));
+  };
+
+  // For the level-rate arrays (leadership.levelRates, repurchase.levelRates,
+  // repurchase.unlockLevelsByDirects) — updates one index in place.
+  const handleCompArrayChange = (block, field, index, value) => {
+    setSettings((prev) => {
+      const arr = [...(prev.compensation[block][field] || [])];
+      arr[index] = value;
+      return {
+        ...prev,
+        compensation: {
+          ...prev.compensation,
+          [block]: {
+            ...prev.compensation[block],
+            [field]: arr
+          }
+        }
+      };
+    });
+  };
+
+  // Every rate in the compensation plan is stored server-side as a decimal
+  // fraction (0.10 = 10%) but always displayed/typed here as a whole
+  // percent number, matching the fix already applied to the Ranks/Funds
+  // pages — never let the write path guess based on the value's size.
+  const pctToDisplay = (frac) => {
+    const n = Number(frac);
+    return Number.isFinite(n) ? String(Math.round(n * 10000) / 100) : '0';
+  };
+  const displayToPct = (display) => {
+    const n = parseFloat(display);
+    return Number.isFinite(n) ? n / 100 : 0;
   };
 
   // Save Settings
@@ -487,6 +580,255 @@ const AdminSettingsPage = () => {
                       />
                       <span>Enable Online Payment Gateway at Storefront Checkout</span>
                     </label>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: Commission & Level Income (Compensation Plan) */}
+            {activeTab === 'compensation' && (
+              <div className={styles.sectionBlock}>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <h3>Direct Referral & Binary Matching Income</h3>
+                    <p>Core payout rates applied to every package purchase. All percentages are entered as whole numbers (e.g. 10 = 10%).</p>
+                  </div>
+                </div>
+
+                <div className={styles.formGrid}>
+                  <div className={styles.formGroup}>
+                    <label>Direct Referral Income (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={pctToDisplay(settings.compensation.referral.rate)}
+                      onChange={(e) => handleCompChange('referral', 'rate', displayToPct(e.target.value))}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Binary Matching Income (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={pctToDisplay(settings.compensation.matching.rate)}
+                      onChange={(e) => handleCompChange('matching', 'rate', displayToPct(e.target.value))}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Matching Unit Value (KBP per unit)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={settings.compensation.matching.unitValue}
+                      onChange={(e) => handleCompChange('matching', 'unitValue', parseInt(e.target.value, 10) || 0)}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>First Pair Ratio — Smaller Leg (units)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={settings.compensation.matching.firstPairSmallUnits}
+                      onChange={(e) => handleCompChange('matching', 'firstPairSmallUnits', parseInt(e.target.value, 10) || 0)}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>First Pair Ratio — Larger Leg (units)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={settings.compensation.matching.firstPairLargeUnits}
+                      onChange={(e) => handleCompChange('matching', 'firstPairLargeUnits', parseInt(e.target.value, 10) || 0)}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>First Pair — Min. Direct Referrals Required</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={settings.compensation.matching.firstPairMinDirects}
+                      onChange={(e) => handleCompChange('matching', 'firstPairMinDirects', parseInt(e.target.value, 10) || 0)}
+                    />
+                  </div>
+                </div>
+
+                <div className={styles.sectionHeader} style={{ marginTop: '28px' }}>
+                  <div>
+                    <h3>Leadership / Cheque Match Bonus</h3>
+                    <p>Paid to a qualified leader's level-1/2/3 sponsor-tree upline as a % of the leader's own matching-income payout.</p>
+                  </div>
+                </div>
+                <div className={styles.formGrid}>
+                  {[0, 1, 2].map((idx) => (
+                    <div className={styles.formGroup} key={`leadership-${idx}`}>
+                      <label>Level {idx + 1} Leadership Bonus (%)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={pctToDisplay(settings.compensation.leadership.levelRates[idx])}
+                        onChange={(e) => handleCompArrayChange('leadership', 'levelRates', idx, displayToPct(e.target.value))}
+                      />
+                    </div>
+                  ))}
+                  <div className={styles.formGroup}>
+                    <label>Minimum Qualifying Rank</label>
+                    <input
+                      type="text"
+                      value={settings.compensation.leadership.minRankCode}
+                      onChange={(e) => handleCompChange('leadership', 'minRankCode', e.target.value.toUpperCase())}
+                      placeholder="e.g. KUWI_STAR"
+                    />
+                  </div>
+                </div>
+
+                <div className={styles.sectionHeader} style={{ marginTop: '28px' }}>
+                  <div>
+                    <h3>Repurchase Plan — 10-Level Downline Income</h3>
+                    <p>25% self cashback plus a 10-level downline matrix. Level unlock count is based on active direct referrals.</p>
+                  </div>
+                </div>
+                <div className={styles.formGrid}>
+                  <div className={styles.formGroup}>
+                    <label>Self Repurchase Cashback (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={pctToDisplay(settings.compensation.repurchase.selfRate)}
+                      onChange={(e) => handleCompChange('repurchase', 'selfRate', displayToPct(e.target.value))}
+                    />
+                  </div>
+                </div>
+                <div className={styles.formGrid}>
+                  {settings.compensation.repurchase.levelRates.map((rate, idx) => (
+                    <div className={styles.formGroup} key={`repurchase-level-${idx}`}>
+                      <label>Level {idx + 1} Downline Income (%)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={pctToDisplay(rate)}
+                        onChange={(e) => handleCompArrayChange('repurchase', 'levelRates', idx, displayToPct(e.target.value))}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className={styles.formGrid}>
+                  {settings.compensation.repurchase.unlockLevelsByDirects.map((levels, idx) => (
+                    <div className={styles.formGroup} key={`repurchase-unlock-${idx}`}>
+                      <label>{idx + 1}{idx === settings.compensation.repurchase.unlockLevelsByDirects.length - 1 ? '+' : ''} Direct{idx === 0 ? '' : 's'} Unlocks Levels Up To</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="10"
+                        value={levels}
+                        onChange={(e) => handleCompArrayChange('repurchase', 'unlockLevelsByDirects', idx, parseInt(e.target.value, 10) || 0)}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className={styles.sectionHeader} style={{ marginTop: '28px' }}>
+                  <div>
+                    <h3>Withdrawal Deductions</h3>
+                    <p>Applied to the gross amount requested on every payout.</p>
+                  </div>
+                </div>
+                <div className={styles.formGrid}>
+                  <div className={styles.formGroup}>
+                    <label>Minimum Withdrawal Amount (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={settings.compensation.withdrawal.minAmount}
+                      onChange={(e) => handleCompChange('withdrawal', 'minAmount', parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label>Admin Charge (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={pctToDisplay(settings.compensation.withdrawal.adminChargeRate)}
+                      onChange={(e) => handleCompChange('withdrawal', 'adminChargeRate', displayToPct(e.target.value))}
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label>Service Charge (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={pctToDisplay(settings.compensation.withdrawal.serviceChargeRate)}
+                      onChange={(e) => handleCompChange('withdrawal', 'serviceChargeRate', displayToPct(e.target.value))}
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label>TDS (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={pctToDisplay(settings.compensation.withdrawal.tdsRate)}
+                      onChange={(e) => handleCompChange('withdrawal', 'tdsRate', displayToPct(e.target.value))}
+                    />
+                  </div>
+                  <div className={`${styles.formGroup} ${styles.colSpan2}`}>
+                    <span className={styles.statHelp}>
+                      Total deduction on withdrawal: {(
+                        (Number(settings.compensation.withdrawal.adminChargeRate) || 0) +
+                        (Number(settings.compensation.withdrawal.serviceChargeRate) || 0) +
+                        (Number(settings.compensation.withdrawal.tdsRate) || 0)
+                      ) * 100}% of the gross amount requested.
+                    </span>
+                  </div>
+                </div>
+
+                <div className={styles.sectionHeader} style={{ marginTop: '28px' }}>
+                  <div>
+                    <h3>Franchise Commissions</h3>
+                    <p>Commission rates for franchise partners.</p>
+                  </div>
+                </div>
+                <div className={styles.formGrid}>
+                  <div className={styles.formGroup}>
+                    <label>Franchise KSP Commission (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={pctToDisplay(settings.compensation.franchise.kspRate)}
+                      onChange={(e) => handleCompChange('franchise', 'kspRate', displayToPct(e.target.value))}
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label>Franchise Lifetime KBP Commission (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={pctToDisplay(settings.compensation.franchise.kbpLifetimeRate)}
+                      onChange={(e) => handleCompChange('franchise', 'kbpLifetimeRate', displayToPct(e.target.value))}
+                    />
                   </div>
                 </div>
               </div>

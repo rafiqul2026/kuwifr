@@ -17,6 +17,16 @@ import AdminRanksPage from '../pages/admin/AdminRanksPage';
 import AdminFundsPage from '../pages/admin/AdminFundsPage';
 import AdminSettingsPage from '../pages/admin/AdminSettingsPage';
 
+// These pages exist on disk and are linked from the sidebar, but were never
+// registered as routes — clicking them in the sidebar fell through to the
+// dashboard catch-all. Wiring them up here.
+import AdminPackageSalesReport from '../pages/admin/AdminPackageSalesReport';
+import AdminRulesPage from '../pages/admin/AdminRulesPage';
+import AdminReportsPage from '../pages/admin/AdminReportsPage';
+import AdminCampaignsPage from '../pages/admin/AdminCampaignsPage';
+import AdminNotificationsPage from '../pages/admin/AdminNotificationsPage';
+import AdminAuditLogsPage from '../pages/admin/AdminAuditLogsPage';
+
 const AdminRoutes = () => {
   return (
     <Routes>
@@ -37,6 +47,14 @@ const AdminRoutes = () => {
         <Route path="ranks" element={<AdminRanksPage />} />
         <Route path="funds" element={<AdminFundsPage />} />
         <Route path="settings" element={<AdminSettingsPage />} />
+
+        {/* Previously orphaned sidebar links (page existed, no route) */}
+        <Route path="package-sales-report" element={<AdminPackageSalesReport />} />
+        <Route path="rules" element={<AdminRulesPage />} />
+        <Route path="reports" element={<AdminReportsPage />} />
+        <Route path="campaigns" element={<AdminCampaignsPage />} />
+        <Route path="notifications" element={<AdminNotificationsPage />} />
+        <Route path="audit" element={<AdminAuditLogsPage />} />
 
         {/* Catch-all fallback */}
         <Route path="*" element={<Navigate to="dashboard" replace />} />

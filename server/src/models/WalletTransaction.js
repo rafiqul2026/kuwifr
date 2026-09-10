@@ -30,7 +30,7 @@ const WalletTransactionSchema = new mongoose.Schema({
   // Transaction Details
   walletType: {
     type: String,
-    enum: ['INCOME', 'REPURCHASE'],
+    enum: ['INCOME', 'REPURCHASE', 'SALARY'],
     required: true
   },
   type: {
@@ -61,8 +61,16 @@ const WalletTransactionSchema = new mongoose.Schema({
       'REFERRAL_INCOME',
       'MATCHING_INCOME',
       'LEADERSHIP_INCOME',
+      'LEADERSHIP_INCOME_L1',
+      'LEADERSHIP_INCOME_L2',
+      'LEADERSHIP_INCOME_L3',
       'REPURCHASE_SELF',
       'REPURCHASE_DOWNLINE',
+      'RANK_SALARY',
+      'FUND_SALARY',
+      'FUND_INCOME',
+      'SALARY',
+      'TDS_REFUND',
       'WITHDRAWAL',
       'PURCHASE',
       'RANK_REWARD',
@@ -153,7 +161,8 @@ WalletTransactionSchema.methods.reverse = async function(reason) {
   const reverseType = this.type === 'CREDIT' ? 'DEBIT' : 'CREDIT';
 
   // Update wallet balance
-  const updateField = this.walletType === 'INCOME' ? 'incomeBalance' : 'repurchaseBalance';
+  const walletFieldMap = { INCOME: 'incomeBalance', REPURCHASE: 'repurchaseBalance', SALARY: 'salaryBalance' };
+  const updateField = walletFieldMap[this.walletType] || 'incomeBalance';
   const newBalance = wallet[updateField] + reverseAmount;
   
   if (newBalance < 0) {

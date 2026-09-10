@@ -1,6 +1,6 @@
 // server/src/services/salary.service.js
 const User = require('../models/User');
-const Referral = require('../models/Referral');
+const DownlineService = require('./downline.service');
 const Wallet = require('../models/Wallet');
 const SalaryLog = require('../models/SalaryLog');
 const TTORecord = require('../models/TTORecord');
@@ -60,18 +60,28 @@ const checkIsKuwiStar = async (userId) => {
 
 /**
  * 🔢 Counts actual verified Kuwi Star qualified downlines in Left and Right branches
+ *
+ * Real-money-relevant: this feeds Gold Star (and above) monthly salary
+ * qualification below. It used to walk the `Referral` collection, which is
+ * a best-effort mirror of User.sponsorId written once at registration
+ * inside a try/catch that can silently fail (see referral.service.js) — so
+ * a member with a genuinely large downline could be under-counted here and
+ * wrongly denied (or short-paid) their monthly rank salary. Now computed
+ * from the live, always-correct User.sponsorId graph via DownlineService
+ * (a single $graphLookup query), so there is no separate, driftable
+ * collection this financial calculation depends on.
  */
 const countVerifiedSubtreeStars = async (userId) => {
-  const downlineMembers = await Referral.find({ sponsorId: userId }).select('userId').lean();
+  const downlineMembers = await DownlineService.getFullDownlineIds(userId);
   let leftStars = 0;
   let rightStars = 0;
 
-  for (const ref of downlineMembers) {
-    const isStar = await checkIsKuwiStar(ref.userId);
+  for (const member of downlineMembers) {
+    const isStar = await checkIsKuwiStar(member._id);
     if (isStar) {
-      const u = await User.findById(ref.userId).select('binarySide').lean();
-      if (String(u?.binarySide).toLowerCase() === 'left') leftStars++;
-      else if (String(u?.binarySide).toLowerCase() === 'right') rightStars++;
+      const side = String(member.binarySide || '').toLowerCase();
+      if (side === 'left') leftStars++;
+      else if (side === 'right') rightStars++;
     }
   }
 

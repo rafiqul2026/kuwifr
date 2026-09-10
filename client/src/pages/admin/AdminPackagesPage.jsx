@@ -1,9 +1,13 @@
 // client/src/pages/admin/AdminPackagesPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
+import { useNotification } from '../../hooks/useNotification';
 import styles from './AdminPackagesPage.module.css';
 
 const AdminPackagesPage = () => {
+  const { showNotification } = useNotification ? useNotification() : {
+    showNotification: (msg, type) => console.log(`[${type}] ${msg}`)
+  };
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -41,9 +45,9 @@ const AdminPackagesPage = () => {
         }
       }
 
-      const resData = response.data?.data || response.data;
+      const resData = response.data?.data || response.data || {};
       const list = resData.packages || (Array.isArray(resData) ? resData : []);
-      setPackages(list);
+      setPackages(Array.isArray(list) ? list : []);
     } catch (err) {
       console.error('Failed to load packages:', err);
       setError('Unable to fetch packages. Please check API connectivity.');
@@ -106,7 +110,7 @@ const AdminPackagesPage = () => {
         );
       }
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to toggle package status');
+      showNotification(err.response?.data?.message || 'Failed to toggle package status', 'error');
     }
   };
 
@@ -124,7 +128,7 @@ const AdminPackagesPage = () => {
         setPackages((prev) => prev.filter((p) => p._id !== pkgId));
       }
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete package');
+      showNotification(err.response?.data?.message || 'Failed to delete package', 'error');
     }
   };
 
@@ -155,8 +159,9 @@ const AdminPackagesPage = () => {
           setModalOpen(false);
         }
       }
+      showNotification(editingPkg ? 'Package updated successfully' : 'Package created successfully', 'success');
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to save package settings');
+      showNotification(err.response?.data?.message || 'Failed to save package settings', 'error');
     } finally {
       setSubmitting(false);
     }

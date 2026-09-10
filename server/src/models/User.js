@@ -104,6 +104,15 @@ const UserSchema = new mongoose.Schema(
       ref: 'Package',
       default: null
     },
+    // Denormalized display/fallback fields written by the package purchase
+    // and cash-activation flows. Several places (salary.service.js,
+    // user.controller.js) read `currentPackage` as a fallback when
+    // activePackageId isn't populated — these were previously undeclared,
+    // so Mongoose's default strict mode silently dropped every write to
+    // them and the fallback always read back empty.
+    currentPackage: { type: String, default: null },
+    packagePrice: { type: Number, default: 0 },
+    dailyBinaryCap: { type: Number, default: 0 },
     currentRankId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Rank',
@@ -165,6 +174,49 @@ UserSchema.pre('save', async function (next) {
   } catch (error) {
     next(error);
   }
+});
+
+// Business rule (stated explicitly by the product owner): a member's ID is
+// ACTIVE only if they have actually purchased a package; with no verified
+// package on file, they must show INACTIVE. This has been violated in
+// practice — package.controller.js#purchasePackage used to be able to flip
+// status to ACTIVE via a hardcoded-package fallback that never resolved to
+// a real Package document, leaving a member ACTIVE with no activePackageId
+// at all ("No Active Package" shown right next to an ACTIVE badge).
+//
+// Every activation code path has now been fixed to always set
+// activePackageId in the same write as status, but rather than trust every
+// current AND future call site to keep doing that correctly, enforce it
+// here as a hard guarantee: no save can WRITE a MEMBER into that impossible
+// state, from any code path, ever again. (Scoped to role MEMBER only —
+// ADMIN/SUPER_ADMIN accounts are legitimately ACTIVE with no package.)
+//
+// IMPORTANT — this must only block the save that actually CREATES the bad
+// combination, not every future save on a record that already has it. A
+// member who was already left in this state by the old bug (before this
+// guard existed) still needs to be able to log in, have lastLogin touched,
+// edit their profile, submit KYC, etc. — none of those saves modify status
+// or activePackageId. Checking only this.status/this.activePackageId
+// unconditionally would re-reject EVERY save on that record forever,
+// including login itself (auth.controller.js sets user.lastLogin and
+// calls user.save() on every successful login) — which is exactly what
+// happened: an already-orphaned member became unable to log in at all once
+// this guard shipped. isModified() scopes the check to saves that are
+// actually touching one of these two fields (or creating a brand-new
+// document), so an existing bad record stays reachable and fixable via
+// POST /api/admin/members/fix-orphaned-active-status (or the standalone
+// scripts/fix-orphaned-active-status.js) instead of being locked out.
+UserSchema.pre('save', function (next) {
+  const invalid = this.role === 'MEMBER' && this.status === 'ACTIVE' && !this.activePackageId;
+  const touchedRelevantFields = this.isNew || this.isModified('status') || this.isModified('activePackageId');
+
+  if (invalid && touchedRelevantFields) {
+    return next(new Error(
+      'Business rule violation: a member cannot be set to ACTIVE status without a valid activePackageId ' +
+      '(a real, purchased package). Resolve the package first, then set status and activePackageId together.'
+    ));
+  }
+  next();
 });
 
 UserSchema.methods.comparePassword = async function (candidatePassword) {

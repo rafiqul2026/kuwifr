@@ -61,10 +61,18 @@ const ProtectedRoute = ({ children, requiredRole }) => {
     const hasRequiredRole = currentRole === targetRole;
 
     if (!hasRequiredRole && !isSuperAdmin) {
-      // If a non-admin tries to access admin routes, redirect to their member panel or login
+      // If a non-admin tries to access admin routes, send them to their member panel.
       if (targetRole === 'ADMIN') {
         return <Navigate to="/member/dashboard" replace />;
       }
+      // If an admin tries to access member-only routes, send them back to
+      // their own dashboard instead of /login — they ARE authenticated, so
+      // bouncing them to the login page is a dead-end/confusing redirect.
+      if (targetRole === 'MEMBER' && (currentRole === 'ADMIN' || currentRole === 'SUPER_ADMIN')) {
+        return <Navigate to="/admin/dashboard" replace />;
+      }
+      // Any other authenticated-but-wrong-role case: no page to safely
+      // send them to, so fall back to login.
       return <Navigate to="/login" replace />;
     }
   }

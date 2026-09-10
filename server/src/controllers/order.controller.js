@@ -7,6 +7,10 @@ const PackagePurchase = require('../models/PackagePurchase');
 const IncomeService = require('../services/income.service');
 
 const seedOrdersIfEmpty = async () => {
+  // Never fabricate a placeholder order (fake customer "Rahul Sharma", fake
+  // tracking number/courier) on a real deployment — demo data stays opt-in
+  // to non-production environments only.
+  if (process.env.NODE_ENV === 'production') return;
   try {
     const count = await Order.countDocuments();
     if (count === 0) {
@@ -260,6 +264,20 @@ const activateCashPackage = async (req, res, next) => {
 
     if (!member) {
       return res.status(404).json({ success: false, message: 'Member not found matching the provided identifier.' });
+    }
+
+    // Same missing guard as admin.controller.js's activateMemberWithPackage:
+    // without this, calling this endpoint twice for an already-ACTIVE
+    // member creates a second Order and re-runs processOrderIncome, so the
+    // sponsor's referral/matching income gets credited a second time for
+    // one real-world activation.
+    if (member.status === 'ACTIVE' && member.activePackageId) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: `${member.memberId} is already ACTIVE with a package. Re-activating would double-credit referral and matching income — this has been blocked.`
+      });
     }
 
     const pkg = await Package.findById(packageId).session(session);

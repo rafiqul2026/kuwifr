@@ -40,6 +40,7 @@ const settingRoutes = require('./routes/setting.routes');
 const auditLogRoutes = require('./routes/auditLog.routes');
 const packagePurchaseRoutes = require('./routes/packagePurchase.routes');
 const teamRoutes = require('./routes/team.routes'); // 🌟 Ensure teamRoutes is imported
+const ruleRoutes = require('./routes/rule.routes');
 
 // Validate environment variables
 validateEnv();
@@ -124,6 +125,25 @@ const limiter = rateLimit({
 });
 app.use('/api', limiter);
 
+// Auth endpoints get a much tighter limit than the general API — the global
+// 1000/15min limiter is far too loose to stop credential-stuffing/brute-force
+// login attempts or OTP-request spam against a single account.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: {
+    success: false,
+    message: 'Too many attempts from this device. Please try again in a few minutes.'
+  }
+});
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/forgot-password', authLimiter);
+app.use('/api/auth/reset-password', authLimiter);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
@@ -200,7 +220,12 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/admin/campaigns', campaignRoutes);
 app.use('/api/settings', settingRoutes);
-app.use('/api/admin/settings', settingRoutes);
+// Dedicated admin-only router: every route (including its root GET) is
+// gated behind auth+adminAuth and always returns the FULL settings document.
+// This must NOT be the same router instance mounted at /api/settings above —
+// that one intentionally serves a public-safe subset from its root path.
+app.use('/api/admin/settings', settingRoutes.adminRouter);
+app.use('/api/admin/rules', ruleRoutes);
 app.use('/api/audit', auditLogRoutes);
 app.use('/api/admin/audit', auditLogRoutes);
 

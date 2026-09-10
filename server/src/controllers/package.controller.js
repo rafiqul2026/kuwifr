@@ -1,9 +1,11 @@
 // server/src/controllers/package.controller.js
+const mongoose = require('mongoose');
 const Package = require('../models/Package');
 const User = require('../models/User');
-const Wallet = require('../models/Wallet');
 const Referral = require('../models/Referral');
+const Order = require('../models/Order');
 const BinaryService = require('../services/binary.service');
+const IncomeService = require('../services/income.service');
 
 const DEFAULT_PACKAGES = [
   {
@@ -359,77 +361,133 @@ const deletePackage = async (req, res, next) => {
 };
 
 /**
- * Package Purchase & Activation Engine
- * POST /api/packages/purchase
+ * Admin Quick-Activation Engine
+ * POST /api/packages/purchase — ADMIN ONLY (see package.routes.js)
+ *
+ * This used to be reachable by any authenticated MEMBER with zero payment
+ * verification — no transaction ID, no payment proof, no admin approval —
+ * a direct bypass of the real, gated member flow
+ * (PackagesPage.jsx -> completePackagePurchase submits payment proof ->
+ * an admin reviews and calls approvePackagePurchase). The only page that
+ * ever called this route, BuyPackagePage.jsx, was never wired into
+ * MemberRoutes.jsx, so it was already unreachable from the live app's
+ * navigation — but the API endpoint itself was still live and callable
+ * directly, so it has been moved behind admin auth in package.routes.js
+ * rather than left as an exploitable self-activation loophole.
+ *
+ * It also used to be able to leave a member ACTIVE with NO real package
+ * reference: when `packageId` didn't resolve via Package.findById, it fell
+ * back to a hardcoded DEFAULT_PACKAGES entry whose `_id` is not a real
+ * Mongo ObjectId, so `user.activePackageId` was silently left unset —
+ * producing exactly the "status ACTIVE, Package: No Active Package" state
+ * that violates the stated business rule (a member is only ACTIVE once
+ * they've actually bought a real package). That fallback is gone: this now
+ * always resolves against the real master catalog and refuses to activate
+ * if it can't, and the User model's pre-save hook (models/User.js) now
+ * refuses to save a MEMBER as ACTIVE without activePackageId regardless,
+ * as a second line of defense against this exact bug recurring.
+ *
+ * Brought up to the same standard as the other three activation paths
+ * (admin.controller.js#activateMemberWithPackage,
+ * order.controller.js#activateCashPackage,
+ * packagePurchase.controller.js#approvePackagePurchase): a duplicate-
+ * activation guard, and the real income engine (a proper Order record +
+ * IncomeService.processOrderIncome) instead of the previous hand-rolled,
+ * ledger-less direct-bonus wallet credit that bypassed IncomeTransaction
+ * entirely — which also meant it never showed up on the Income Overview
+ * page or in diagnose-income.js.
  */
 const purchasePackage = async (req, res, next) => {
   try {
-    const userId = req.userId || req.user?.id || req.user?._id;
-    const { packageId, price, kbp, productName } = req.body;
+    const userId = req.body.userId || req.userId || req.user?.id || req.user?._id;
+    const { packageId } = req.body;
+
+    if (!packageId) {
+      return res.status(400).json({ success: false, message: 'Please select a valid package to activate.' });
+    }
 
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Same guard as every other activation path: never double-activate an
+    // already-ACTIVE member — that would re-credit referral/matching
+    // income for what is really one activation.
+    if (user.status === 'ACTIVE' && user.activePackageId) {
+      return res.status(400).json({
         success: false,
-        message: 'User not found'
+        message: `${user.memberId} is already ACTIVE with a package. Re-activating would double-credit referral and matching income — this has been blocked.`
       });
     }
 
-    let selectedPackage = null;
-    if (packageId) {
-      selectedPackage = await Package.findById(packageId).lean().catch(() => null);
+    if (!mongoose.Types.ObjectId.isValid(packageId)) {
+      return res.status(400).json({ success: false, message: 'Invalid package selected.' });
     }
+    const selectedPackage = await Package.findById(packageId);
     if (!selectedPackage) {
-      selectedPackage =
-        DEFAULT_PACKAGES.find(
-          (p) => String(p._id) === String(packageId) || p.price === Number(price)
-        ) || DEFAULT_PACKAGES[0];
+      return res.status(404).json({ success: false, message: 'Selected package not found in master catalog.' });
     }
 
-    const packageKBP = Number(kbp) || selectedPackage.kbp || 1000;
-    
-    // 🌟 STRICT BUSINESS RULE: Direct Referral Income = 10% of Package KBP Value
-    const directBonus = packageKBP * 0.10;
+    const packageKBP = selectedPackage.kbp || selectedPackage.kbpValue || 1000;
+    const packagePrice = selectedPackage.price || selectedPackage.packagePrice || 0;
 
+    // status, activePackageId, currentPackage, packagePrice and
+    // dailyBinaryCap are always written together in the same save — this
+    // is exactly the invariant the schema now enforces.
     user.status = 'ACTIVE';
     user.activationDate = new Date();
-    if (selectedPackage._id && String(selectedPackage._id).length === 24) {
-      user.activePackageId = selectedPackage._id;
-    }
+    user.activePackageId = selectedPackage._id;
+    user.currentPackage = selectedPackage.name;
+    user.packagePrice = packagePrice;
+    user.dailyBinaryCap = selectedPackage.dailyCap || selectedPackage.dailyBinaryCap || 0;
     user.totalKBP = (user.totalKBP || 0) + packageKBP;
     await user.save();
 
     await Referral.updateMany({ userId: user._id }, { $set: { isActive: true } });
 
-    if (user.sponsorId && directBonus > 0) {
-      const sponsorWallet = await Wallet.findOne({ userId: user.sponsorId });
-      if (sponsorWallet) {
-        sponsorWallet.directIncome = (sponsorWallet.directIncome || 0) + directBonus;
-        sponsorWallet.incomeBalance = (sponsorWallet.incomeBalance || 0) + directBonus;
-        sponsorWallet.totalIncome = (sponsorWallet.totalIncome || 0) + directBonus;
-        await sponsorWallet.save();
-      }
-    }
+    const orderNumber = `ORD-QA-${Date.now().toString(36).toUpperCase()}`;
+    const newOrder = await Order.create({
+      userId: user._id,
+      orderNumber,
+      orderType: 'PACKAGE',
+      packageType: 'PACKAGE',
+      packageId: selectedPackage._id,
+      packageName: selectedPackage.name,
+      packagePrice,
+      totalAmount: packagePrice,
+      subtotal: packagePrice,
+      totalKBP: packageKBP,
+      kbpGenerated: packageKBP,
+      products: [{ name: selectedPackage.name, quantity: 1, price: packagePrice, kbp: packageKBP }],
+      paymentMethod: 'ADMIN_MANUAL',
+      paymentType: 'ONLINE_GATEWAY',
+      paymentStatus: 'SUCCESS',
+      orderStatus: 'COMPLETED',
+      status: 'COMPLETED',
+      statusHistory: [{ status: 'COMPLETED', timestamp: new Date(), note: 'Quick-activated by Admin' }]
+    });
 
-    try {
-      if (BinaryService && typeof BinaryService.updateVolumes === 'function') {
-        await BinaryService.updateVolumes(user._id, packageKBP);
-      }
-    } catch (volErr) {
-      console.error('Volume propagation notice:', volErr.message);
-    }
+    // processOrderIncome already propagates this order's KBP into the
+    // member's binary leg volumes (via BinaryService.updateVolumes) as
+    // part of matching income — do NOT also call updateVolumes separately
+    // here, that would double-count this activation's KBP into the tree.
+    const incomeResult = await IncomeService.processOrderIncome(newOrder).catch((incomeErr) => {
+      console.error(`Income processing failed for quick-activation of ${user.memberId}:`, incomeErr.message);
+      return null;
+    });
 
     const updatedUser = user.toObject();
     delete updatedUser.password;
 
     res.json({
       success: true,
-      message: `🎉 Account activated successfully with ${
-        selectedPackage.name || productName || 'Package'
-      }! Your Member ID is now ACTIVE.`,
+      message: `🎉 Member ${user.memberId} activated with ${selectedPackage.name}! Member ID is now ACTIVE.`,
       data: {
         user: updatedUser,
-        package: selectedPackage
+        package: selectedPackage,
+        order: newOrder,
+        incomeResult
       }
     });
   } catch (error) {

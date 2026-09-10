@@ -18,9 +18,18 @@ const adminAuth =
 router.get('/', packageController.getAllPackages);
 router.get('/all', packageController.getAllPackages);
 router.get('/:id', packageController.getPackageById);
-router.post('/purchase', auth, packageController.purchasePackage);
 
 // ============ ADMIN MANAGEMENT ROUTES ============
+// Moved from a member-reachable route to admin-only: it activates a
+// member's ID with ZERO payment verification (no transaction ID, no proof,
+// no approval step), which is fine for an admin doing a manual/offline
+// activation but is a real self-activation bypass if any authenticated
+// member can call it directly. See the long comment on
+// package.controller.js#purchasePackage for the full story — members
+// activate through PackagesPage.jsx's payment-proof submission
+// (POST /api/package-purchases/activate) instead, which an admin then
+// approves.
+router.post('/purchase', auth, adminAuth, packageController.purchasePackage);
 router.get('/admin/all', auth, adminAuth, packageController.adminGetAllPackages);
 router.post('/', auth, adminAuth, packageController.createPackage);
 router.put('/:id', auth, adminAuth, packageController.updatePackage);

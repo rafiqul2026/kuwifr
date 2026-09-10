@@ -5,6 +5,10 @@ const User = require('../models/User');
 
 // Helper: Seed default announcements to registered users if collection is empty
 const seedNotificationsIfEmpty = async () => {
+  // Never broadcast placeholder marketing copy (e.g. fake bonanza/event
+  // announcements) to real active users on a real deployment — demo data
+  // stays opt-in to non-production environments only.
+  if (process.env.NODE_ENV === 'production') return;
   try {
     const count = await Notification.countDocuments();
     if (count === 0) {

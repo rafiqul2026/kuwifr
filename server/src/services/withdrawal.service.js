@@ -1,6 +1,7 @@
 const Withdrawal = require('../models/Withdrawal');
 const User = require('../models/User');
 const WalletService = require('./wallet.service');
+const SettingsService = require('./settings.service');
 
 /**
  * Withdrawal Service - Handles all withdrawal operations
@@ -8,14 +9,15 @@ const WalletService = require('./wallet.service');
  */
 class WithdrawalService {
   /**
-   * Calculate withdrawal amounts
-   * Rule: 5% Admin Charge + 5% TDS = 10% Total
-   * No Service Charge
+   * Calculate withdrawal amounts, using the admin-configured rates.
+   * Business plan default: "10% deduction on every withdrawal (5% Admin
+   * Charge and 5% deduction for Services Charge)" + "5% deduction for TDS
+   * (Refundable on PAN)" = 15% total by default. All three rates (and the
+   * minimum withdrawal amount) are editable from the admin panel's
+   * Withdrawal & Franchise settings — see Setting.compensation.withdrawal.
    */
-  calculateWithdrawal(grossAmount) {
-    const adminChargeRate = 0.05; // 5%
-    const tdsRate = 0.05; // 5%
-    const serviceChargeRate = 0; // 0% (cancelled)
+  async calculateWithdrawal(grossAmount) {
+    const { adminChargeRate, serviceChargeRate, tdsRate } = await SettingsService.getWithdrawal();
 
     const adminCharge = grossAmount * adminChargeRate;
     const tdsAmount = grossAmount * tdsRate;
@@ -40,9 +42,11 @@ class WithdrawalService {
    * Create withdrawal request
    */
   async createWithdrawal(userId, amount, bankDetails, ipAddress = null, userAgent = null) {
+    const { minAmount } = await SettingsService.getWithdrawal();
+
     // Check minimum amount
-    if (amount < 100) {
-      throw new Error('Minimum withdrawal amount is ₹100');
+    if (amount < minAmount) {
+      throw new Error(`Minimum withdrawal amount is ₹${minAmount}`);
     }
 
     // Check wallet balance
@@ -52,7 +56,7 @@ class WithdrawalService {
     }
 
     // Calculate deductions
-    const calculation = this.calculateWithdrawal(amount);
+    const calculation = await this.calculateWithdrawal(amount);
 
     // Get user's PAN
     const user = await User.findById(userId);

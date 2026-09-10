@@ -1,8 +1,6 @@
 // server/src/services/binary.service.js
 const BinaryNode = require('../models/BinaryNode');
 const User = require('../models/User');
-const Wallet = require('../models/Wallet');
-const Rank = require('../models/Rank');
 const Referral = require('../models/Referral');
 
 class BinaryService {
@@ -195,6 +193,9 @@ class BinaryService {
     const user = await User.findById(node.userId).populate('activePackageId');
     if (!user) return node;
 
+    const SettingsService = require('./settings.service');
+    const matchingCfg = await SettingsService.getMatching();
+
     const leftAvail = node.availableLeftVolume || 0;
     const rightAvail = node.availableRightVolume || 0;
 
@@ -202,40 +203,34 @@ class BinaryService {
     const directRightCount = await User.countDocuments({ sponsorId: user._id, binarySide: 'right', status: 'ACTIVE' });
     const totalDirectCount = directLeftCount + directRightCount;
 
-    const UNIT = 1000;
+    const UNIT = matchingCfg.unitValue;
+    const SMALL = matchingCfg.firstPairSmallUnits;
+    const LARGE = matchingCfg.firstPairLargeUnits;
     const pairCount = node.pairCount || 0;
 
-    let matchingUnits = 0;
+    let matchingUnits = 0; // counted in UNIT-sized pairs (1 pair = 1 matched UNIT of volume on the smaller leg)
     let leftDeduct = 0;
     let rightDeduct = 0;
 
-    // 1. FIRST PAIR MATCHING (2:1 or 1:2)
+    // 1. FIRST PAIR MATCHING (2:1 or 1:2 by default, both configurable)
     if (pairCount === 0) {
-      const hasFirstPairDirects = directLeftCount >= 1 && directRightCount >= 1 && totalDirectCount >= 2;
-      const canMatch2to1 = leftAvail >= 2 * UNIT && rightAvail >= 1 * UNIT;
-      const canMatch1to2 = leftAvail >= 1 * UNIT && rightAvail >= 2 * UNIT;
+      const hasFirstPairDirects = directLeftCount >= 1 && directRightCount >= 1 && totalDirectCount >= matchingCfg.firstPairMinDirects;
+      const canMatchLeftHeavy = leftAvail >= LARGE * UNIT && rightAvail >= SMALL * UNIT;
+      const canMatchRightHeavy = leftAvail >= SMALL * UNIT && rightAvail >= LARGE * UNIT;
 
-      if (hasFirstPairDirects && (canMatch2to1 || canMatch1to2)) {
-        if (canMatch2to1) {
-          leftDeduct = 2 * UNIT;
-          rightDeduct = 1 * UNIT;
+      if (hasFirstPairDirects && (canMatchLeftHeavy || canMatchRightHeavy)) {
+        if (canMatchLeftHeavy) {
+          leftDeduct = LARGE * UNIT;
+          rightDeduct = SMALL * UNIT;
         } else {
-          leftDeduct = 1 * UNIT;
-          rightDeduct = 2 * UNIT;
+          leftDeduct = SMALL * UNIT;
+          rightDeduct = LARGE * UNIT;
         }
 
-        matchingUnits = 1;
+        matchingUnits = SMALL; // the smaller leg's units are what "matched" — the income unit
         node.pairCount = 1;
-
-        if (totalDirectCount >= 3) {
-          const starRank = await Rank.findOne({ code: 'KUWI_STAR' });
-          if (starRank && !user.currentRankId) {
-            user.currentRankId = starRank._id;
-            await user.save();
-          }
-        }
       }
-    } 
+    }
     // 2. NEXT PAIRS (1:1 TO UNLIMITED DEPTH)
     else {
       const possiblePairs = Math.min(Math.floor(leftAvail / UNIT), Math.floor(rightAvail / UNIT));
@@ -254,17 +249,58 @@ class BinaryService {
       node.matchingVolume = (node.matchingVolume || 0) + matchingUnits * UNIT;
       await node.save();
 
-      const earnedAmount = matchingUnits * UNIT;
-      const dailyCap = user.activePackageId?.dailyCap || 1500;
-      const actualPayout = Math.min(earnedAmount, dailyCap);
+      // Matching Income = matchingCfg.rate (business plan default 10%) of the
+      // matched KBP volume — NOT the full matched volume itself. Paying 100%
+      // of matched volume here previously blew straight through the daily cap
+      // on a single pair and paid ~10x what the plan specifies.
+      const matchedVolume = matchingUnits * UNIT;
+      const grossAmount = matchedVolume * matchingCfg.rate;
 
-      const wallet = await Wallet.findOne({ userId: user._id });
-      if (wallet) {
-        wallet.binaryIncome = (wallet.binaryIncome || 0) + actualPayout;
-        wallet.incomeBalance = (wallet.incomeBalance || 0) + actualPayout;
-        wallet.totalIncome = (wallet.totalIncome || 0) + actualPayout;
-        await wallet.save();
+      // Route through the shared income engine so this respects the SAME
+      // daily/weekly/monthly package caps as referral/leadership income (not
+      // just a bare dailyCap check against this one payout), and so it is
+      // recorded as an IncomeTransaction (income history/reports/admin
+      // reports previously never saw binary matching income at all, since it
+      // was credited by mutating wallet fields directly).
+      const IncomeService = require('./income.service');
+      const cappedResult = await IncomeService.applyCaps(user._id, grossAmount);
+
+      if (cappedResult.allowedAmount > 0) {
+        const creditResult = await IncomeService.creditIncome(
+          user._id,
+          cappedResult.allowedAmount,
+          'MATCHING_INCOME',
+          node._id,
+          'BinaryNode',
+          matchedVolume,
+          matchingCfg.rate,
+          { pairCount: matchingUnits, unitValue: UNIT }
+        );
+
+        if (creditResult && creditResult.transaction) {
+          const IncomeTransaction = require('../models/IncomeTransaction');
+          await IncomeTransaction.findByIdAndUpdate(creditResult.transaction._id, {
+            capBreakdown: cappedResult.capBreakdown,
+            grossAmount,
+            capAdjustment: grossAmount - cappedResult.allowedAmount
+          });
+        }
+
+        // Leadership / Cheque Match Bonus: paid to qualified upline leaders as
+        // a % of the matching income this member (a "leader") actually earned.
+        if (creditResult && creditResult.success) {
+          await IncomeService.processLeadershipBonusForMatch(user._id, cappedResult.allowedAmount, node._id);
+        }
       }
+
+      // Rank & Reward starts from 1st Pair Matching only — re-evaluate through
+      // the single official rank engine (dynamic requirements, persisted
+      // RankAchievement, rank-salary eligibility) rather than setting
+      // currentRankId directly here.
+      const RankService = require('./rank.service');
+      await RankService.checkAndAwardRanks(user._id).catch((err) => {
+        console.error('   Rank check after matching failed:', err.message);
+      });
     }
 
     return node;
@@ -286,9 +322,13 @@ class BinaryService {
 
     const user = await User.findById(userId)
       .select('fullName email memberId referralCode sponsorId binarySide status activePackageId')
-      .populate('activePackageId', 'name type')
+      .populate('activePackageId', 'name type kbp')
       .populate('sponsorId', 'fullName memberId referralCode')
       .lean();
+
+    const personalKbp = user && (user.status || '').toUpperCase() === 'ACTIVE'
+      ? Number(user.activePackageId?.kbp) || 0
+      : 0;
 
     let referralLevel = 1;
     if (String(userId) === String(actualRootId)) {
@@ -310,8 +350,10 @@ class BinaryService {
       fullName: user ? user.fullName : 'Member',
       email: user ? user.email : 'N/A',
       sponsorId: sponsorCode,
+      sponsorName: user?.sponsorId?.fullName || '',
       referralLevel,
       packageName: user?.activePackageId?.name || 'Starter Package',
+      personalKbp,
       status: user?.status || 'ACTIVE',
       side: user ? user.binarySide || 'root' : 'root',
       binaryLevel: rootNode.level || 1,
@@ -322,6 +364,12 @@ class BinaryService {
       matchingVolume: rootNode.matchingVolume || 0,
       pairCount: rootNode.pairCount || 0,
       totalKBP: rootNode.totalKBP || 0,
+      // True only when a real child exists in the DB but this response's
+      // depth limit stopped short of fetching it — lets callers distinguish
+      // "genuinely open position" from "has downline, just not in this
+      // response" instead of guessing from an empty children array.
+      hasMoreLeft: false,
+      hasMoreRight: false,
       children: []
     };
 
@@ -339,6 +387,11 @@ class BinaryService {
           tree.children.push({ position: 'right', ...rightSubTree });
         }
       }
+    } else {
+      // Depth exhausted — a real child may still exist below; flag it so
+      // the UI shows "view more" instead of an incorrect vacant slot.
+      if (rootNode.leftChildId) tree.hasMoreLeft = true;
+      if (rootNode.rightChildId) tree.hasMoreRight = true;
     }
 
     return tree;
@@ -361,43 +414,83 @@ class BinaryService {
   }
 
   /**
-   * Recursively fetch all downline members under a specific branch (LEFT or RIGHT) up to unlimited depth.
+   * BFS an entire subtree, unlimited depth, following the SAME pointers
+   * getTree() uses to actually render the visible Growth Generation tree —
+   * a parent's own leftChildId/rightChildId — rather than each child's own
+   * parentId+position fields.
+   *
+   * WHY THIS MATTERS: BinaryNode stores the tree twice — top-down on the
+   * parent (leftChildId/rightChildId) and bottom-up on the child
+   * (parentId/position). placeMember() writes both together, but they are
+   * two separate .save() calls (not one atomic write), and a member's
+   * position can also be repaired/re-derived independently of a full
+   * placeMember() re-run. In practice the two representations were found to
+   * drift out of sync: getTree()'s top-down walk showed a real, deep,
+   * correctly-populated tree, while a bottom-up query for
+   * "BinaryNode.findOne({ parentId, position })" — the OLD implementation
+   * of getBranchMembers below — returned 0 members for the exact same
+   * subtree, because the child-side parentId/position fields didn't
+   * reliably agree with the parent-side leftChildId/rightChildId that the
+   * tree itself trusts. Walking top-down here, the same way getTree does,
+   * makes "Total Downline Left/Right" (My Team Overview) and the Growth
+   * Generation Map's own Member Left/Right totals structurally incapable of
+   * disagreeing with what the tree visibly shows, because they're now
+   * reading the exact same pointers.
    */
-  async getBranchMembers(userId, position) {
-    const normalizedPosition = String(position || '').toLowerCase();
-    const directChildNode = await BinaryNode.findOne({
-      parentId: userId,
-      position: normalizedPosition
-    }).lean();
-
-    if (!directChildNode || !directChildNode.userId) {
-      return { count: 0, members: [] };
-    }
-
-    // Load the entire subtree's BinaryNode docs in level-order batches
-    // instead of one findOne/find per member (avoids N+1 queries on large downlines).
-    const visited = new Set([String(userId)]);
-    const subtreeUserIds = [];
-    let frontier = [directChildNode.userId];
-    visited.add(String(directChildNode.userId));
-    subtreeUserIds.push(directChildNode.userId);
+  async _walkSubtreeIds(startUserId) {
+    if (!startUserId) return [];
+    const visited = new Set([String(startUserId)]);
+    const collected = [startUserId];
+    let frontier = [startUserId];
 
     while (frontier.length > 0) {
-      const childNodes = await BinaryNode.find({ parentId: { $in: frontier } })
-        .select('userId parentId')
+      const nodes = await BinaryNode.find({ userId: { $in: frontier } })
+        .select('userId leftChildId rightChildId')
         .lean();
 
       const nextFrontier = [];
-      for (const child of childNodes) {
-        const childId = String(child.userId);
-        if (child.userId && !visited.has(childId)) {
-          visited.add(childId);
-          subtreeUserIds.push(child.userId);
-          nextFrontier.push(child.userId);
+      for (const node of nodes) {
+        for (const childId of [node.leftChildId, node.rightChildId]) {
+          if (!childId) continue;
+          const childKey = String(childId);
+          if (visited.has(childKey)) continue;
+          visited.add(childKey);
+          collected.push(childId);
+          nextFrontier.push(childId);
         }
       }
       frontier = nextFrontier;
     }
+
+    return collected;
+  }
+
+  /** Counts-only variant of getBranchMembers — skips the User lookup entirely. */
+  async getBranchCounts(userId) {
+    const rootNode = await BinaryNode.findOne({ userId }).select('leftChildId rightChildId').lean();
+    if (!rootNode) return { leftCount: 0, rightCount: 0 };
+
+    const [leftIds, rightIds] = await Promise.all([
+      this._walkSubtreeIds(rootNode.leftChildId),
+      this._walkSubtreeIds(rootNode.rightChildId)
+    ]);
+
+    return { leftCount: leftIds.length, rightCount: rightIds.length };
+  }
+
+  /**
+   * Fetch all downline members under a specific branch (LEFT or RIGHT) up to unlimited depth.
+   */
+  async getBranchMembers(userId, position) {
+    const normalizedPosition = String(position || '').toLowerCase();
+    const rootNode = await BinaryNode.findOne({ userId }).select('leftChildId rightChildId').lean();
+    const startId = normalizedPosition === 'right' ? rootNode?.rightChildId : rootNode?.leftChildId;
+
+    if (!rootNode || !startId) {
+      return { count: 0, members: [] };
+    }
+
+    const subtreeUserIds = await this._walkSubtreeIds(startId);
 
     const membersList = await User.find({ _id: { $in: subtreeUserIds } })
       .select('memberId fullName email phoneNumber status activePackageId createdAt binarySide')
@@ -428,6 +521,91 @@ class BinaryService {
       leftMembers: leftBranch.members,
       rightMembers: rightBranch.members
     };
+  }
+
+  /**
+   * Non-destructive repair pass: for every user in the system (processed in
+   * registration order so sponsors are always handled before the people
+   * they referred), checks whether they are correctly linked into the
+   * binary tree — a BinaryNode exists AND their sponsor's node actually
+   * points back at them via leftChildId/rightChildId — and if not, places
+   * them via placeMember(). It NEVER deletes anything and never touches a
+   * link that is already correct, so it's safe to run repeatedly.
+   *
+   * This exists because User/Referral (sponsor) records and BinaryNode
+   * (tree position) records are maintained separately: a member can end up
+   * with a perfectly correct sponsor relationship (so "My Team" shows them
+   * fine) while their actual tree placement never happened or was lost —
+   * for example this codebase used to ship a public, unauthenticated
+   * `/api/users/reindex-binary` endpoint that wiped the entire BinaryNode
+   * collection (removed — see user.routes.js). Run this afterward to
+   * restore every member's placement from the sponsor data that's still
+   * intact.
+   *
+   * Returns a summary of what was fixed so the caller can report it.
+   */
+  async repairAllPlacements() {
+    const users = await User.find({}).select('_id sponsorId binarySide memberId fullName').sort({ createdAt: 1 }).lean();
+
+    const summary = {
+      totalUsers: users.length,
+      rootsEnsured: 0,
+      placementsFixed: [],
+      alreadyCorrect: 0,
+      errors: []
+    };
+
+    for (const user of users) {
+      try {
+        if (!user.sponsorId) {
+          // Root / no-sponsor account — ensure it at least has a BinaryNode.
+          const existing = await BinaryNode.findOne({ userId: user._id });
+          if (!existing) {
+            await BinaryNode.create({
+              userId: user._id,
+              parentId: null,
+              position: 'root',
+              level: 1,
+              leftChildId: null,
+              rightChildId: null,
+              leftVolume: 0,
+              rightVolume: 0,
+              availableLeftVolume: 0,
+              availableRightVolume: 0,
+              matchingVolume: 0,
+              pairCount: 0,
+              totalKBP: 0
+            });
+            summary.rootsEnsured += 1;
+          }
+          continue;
+        }
+
+        const ownNode = await BinaryNode.findOne({ userId: user._id });
+        let correctlyLinked = false;
+
+        if (ownNode && ownNode.parentId) {
+          const parentNode = await BinaryNode.findOne({ userId: ownNode.parentId });
+          if (parentNode) {
+            correctlyLinked =
+              String(parentNode.leftChildId) === String(user._id) ||
+              String(parentNode.rightChildId) === String(user._id);
+          }
+        }
+
+        if (correctlyLinked) {
+          summary.alreadyCorrect += 1;
+          continue;
+        }
+
+        await this.placeMember(user._id, user.sponsorId, user.binarySide || 'left');
+        summary.placementsFixed.push({ userId: user._id, memberId: user.memberId, fullName: user.fullName });
+      } catch (err) {
+        summary.errors.push({ userId: user._id, memberId: user.memberId, message: err.message });
+      }
+    }
+
+    return summary;
   }
 }
 

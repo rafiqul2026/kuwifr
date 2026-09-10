@@ -87,10 +87,26 @@ const OrderSchema = new mongoose.Schema({
   },
 
   // Payment Information
+  // 'ONLINE_GATEWAY' added — every controller that creates an Order
+  // (order.controller.js's createOrder/activateCashPackage,
+  // packagePurchase.controller.js's approvePackagePurchase) writes this
+  // value, not the original 'ONLINE'/'OFFLINE', so Order.create() was
+  // throwing a required-enum ValidationError on every order in the app.
   paymentType: {
     type: String,
-    enum: ['ONLINE', 'OFFLINE'],
+    enum: ['ONLINE', 'OFFLINE', 'ONLINE_GATEWAY'],
     required: true
+  },
+  // Was previously undeclared, so every controller's `paymentMethod: 'CASH'
+  // / 'UPI_GATEWAY' / 'ADMIN_MANUAL'` write was silently dropped by
+  // Mongoose strict mode — the order saved fine but the payment method was
+  // never actually recorded.
+  paymentMethod: {
+    type: String,
+    default: 'ONLINE_GATEWAY'
+  },
+  courierPartner: {
+    type: String
   },
 
   // Online Payment (Razorpay)
@@ -119,6 +135,13 @@ const OrderSchema = new mongoose.Schema({
   },
 
   // Payment Status
+  // NOTE: 'COMPLETED' and 'SUCCESS' are included alongside the original
+  // PAYMENT_COMPLETED/VERIFIED vocabulary because every order-creation code
+  // path in this codebase (order.controller.js createOrder/activateCashPackage,
+  // admin.controller.js activateMemberWithPackage) writes 'COMPLETED' or
+  // 'SUCCESS' directly. Without these, Order.create()/order.save() throws a
+  // Mongoose ValidationError on every single order — i.e. every package
+  // purchase and cash activation in the app was failing at the DB layer.
   paymentStatus: {
     type: String,
     enum: [
@@ -130,7 +153,9 @@ const OrderSchema = new mongoose.Schema({
       'VERIFICATION_PENDING',
       'VERIFIED',
       'REJECTED',
-      'REFUNDED'
+      'REFUNDED',
+      'COMPLETED',
+      'SUCCESS'
     ],
     default: 'PENDING'
   },
@@ -151,6 +176,9 @@ const OrderSchema = new mongoose.Schema({
   },
 
   // Order Status
+  // 'COMPLETED' added alongside 'DELIVERED' for the same reason as
+  // paymentStatus above — admin.controller.js and product.service.js write
+  // orderStatus: 'COMPLETED' directly and would otherwise fail validation.
   orderStatus: {
     type: String,
     enum: [
@@ -161,7 +189,8 @@ const OrderSchema = new mongoose.Schema({
       'DELIVERED',
       'CANCELLED',
       'REFUNDED',
-      'PROCESSING_FAILED'
+      'PROCESSING_FAILED',
+      'COMPLETED'
     ],
     default: 'PENDING'
   },

@@ -10,9 +10,9 @@ class WalletService {
   /**
    * Get or create wallet for user
    */
-  async getOrCreateWallet(userId) {
-    let wallet = await Wallet.findOne({ userId });
-    
+  async getOrCreateWallet(userId, session = null) {
+    let wallet = await Wallet.findOne({ userId }).session(session || null);
+
     if (!wallet) {
       wallet = new Wallet({
         userId,
@@ -22,9 +22,9 @@ class WalletService {
         totalWithdrawn: 0,
         totalRepurchased: 0
       });
-      await wallet.save();
+      await wallet.save({ session: session || undefined });
     }
-    
+
     return wallet;
   }
 
@@ -44,35 +44,52 @@ class WalletService {
   }
 
   /**
-   * Credit amount to wallet
+   * Credit amount to wallet.
+   * @param {import('mongoose').ClientSession} [session] - optional Mongo
+   *   session so this credit participates in a caller's multi-document
+   *   transaction (e.g. RepurchaseService crediting self + up to 10 upline
+   *   levels atomically).
    */
-  async credit(userId, amount, source, reference, metadata = {}) {
+  async credit(userId, amount, source, reference, metadata = {}, session = null) {
     if (amount <= 0) {
       throw new Error('Amount must be greater than 0');
     }
 
     // Ensure a wallet document exists (idempotent) before the atomic op.
-    await this.getOrCreateWallet(userId);
+    await this.getOrCreateWallet(userId, session);
 
-    // Determine wallet type based on source
+    // Determine wallet type based on source. LEADERSHIP_INCOME_L1/L2/L3 are the
+    // per-level leadership bonus source values used by IncomeTransaction/income.service;
+    // they must map to the same INCOME wallet as the generic LEADERSHIP_INCOME label.
+    const INCOME_SOURCES = ['REFERRAL_INCOME', 'MATCHING_INCOME', 'LEADERSHIP_INCOME', 'LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3'];
+    const REPURCHASE_SOURCES = ['REPURCHASE_SELF', 'REPURCHASE_DOWNLINE'];
+
     let walletType;
-    if (['REFERRAL_INCOME', 'MATCHING_INCOME', 'LEADERSHIP_INCOME'].includes(source)) {
+    if (INCOME_SOURCES.includes(source)) {
       walletType = 'INCOME';
-    } else if (['REPURCHASE_SELF', 'REPURCHASE_DOWNLINE'].includes(source)) {
+    } else if (REPURCHASE_SOURCES.includes(source)) {
       walletType = 'REPURCHASE';
-    } else if (['RANK_REWARD', 'FUND_REWARD'].includes(source)) {
+    } else if (['RANK_REWARD', 'FUND_REWARD', 'TDS_REFUND'].includes(source)) {
       walletType = 'INCOME';
     } else {
       walletType = 'INCOME'; // Default
     }
 
     const balanceField = walletType === 'INCOME' ? 'incomeBalance' : 'repurchaseBalance';
-    const extraIncrements = walletType === 'INCOME' ? { totalIncome: amount } : {};
+    const extraIncrements = walletType === 'INCOME' ? { totalIncome: amount } : { totalIncome: amount };
+
+    // Maintain per-type lifetime breakdown counters (reporting only — see Wallet.js).
+    if (source === 'REFERRAL_INCOME') extraIncrements.referralIncome = amount;
+    else if (source === 'MATCHING_INCOME') extraIncrements.binaryIncome = amount;
+    else if (['LEADERSHIP_INCOME', 'LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3'].includes(source)) extraIncrements.leadershipIncome = amount;
+    else if (source === 'REPURCHASE_SELF') extraIncrements.selfRepurchaseIncome = amount;
+    else if (source === 'REPURCHASE_DOWNLINE') extraIncrements.downlineRepurchaseIncome = amount;
 
     const { wallet, transaction } = await Wallet.atomicAdjustBalance(userId, {
       balanceField,
       delta: amount,
       extraIncrements,
+      session,
       transactionData: {
         walletType,
         type: 'CREDIT',
@@ -87,10 +104,12 @@ class WalletService {
     });
 
     // Update user's lifetime income
-    if (['REFERRAL_INCOME', 'MATCHING_INCOME', 'LEADERSHIP_INCOME'].includes(source)) {
-      await User.findByIdAndUpdate(userId, {
-        $inc: { lifetimeIncome: amount }
-      });
+    if (INCOME_SOURCES.includes(source) || REPURCHASE_SOURCES.includes(source)) {
+      await User.findByIdAndUpdate(
+        userId,
+        { $inc: { lifetimeIncome: amount } },
+        { session: session || undefined }
+      );
     }
 
     return {
@@ -105,29 +124,36 @@ class WalletService {
 
   /**
    * Credit amount to the monthly Salary wallet (separate balance from Income/Repurchase).
+   * @param {string} source - 'RANK_SALARY' (Kuwi Star rank ladder % on TTO) or
+   *   'FUND_SALARY' (Life Tension Free Fund % on TTO). Falls back to generic 'SALARY'.
    */
-  async creditSalary(userId, amount, reference, metadata = {}) {
+  async creditSalary(userId, amount, reference, metadata = {}, source = 'SALARY') {
     if (amount <= 0) {
       throw new Error('Amount must be greater than 0');
     }
 
     await this.getOrCreateWallet(userId);
 
+    const extraIncrements = { totalSalaryEarned: amount, totalIncome: amount };
+    if (source === 'FUND_SALARY') extraIncrements.fundIncome = amount;
+
     const { wallet, transaction } = await Wallet.atomicAdjustBalance(userId, {
       balanceField: 'salaryBalance',
       delta: amount,
-      extraIncrements: { totalSalaryEarned: amount },
+      extraIncrements,
       transactionData: {
         walletType: 'SALARY',
         type: 'CREDIT',
-        description: this.getTransactionDescription('SALARY', reference),
-        source: 'SALARY',
+        description: this.getTransactionDescription(source, reference),
+        source,
         reference,
         metadata,
         ipAddress: metadata.ipAddress || null,
         userAgent: metadata.userAgent || null
       }
     });
+
+    await User.findByIdAndUpdate(userId, { $inc: { lifetimeIncome: amount } });
 
     return {
       success: true,
@@ -255,6 +281,10 @@ class WalletService {
       'LEADERSHIP_INCOME': 'Leadership income from downline',
       'REPURCHASE_SELF': 'Self repurchase income',
       'REPURCHASE_DOWNLINE': 'Downline repurchase income',
+      'RANK_SALARY': 'Rank salary (% on Team Turn Over)',
+      'FUND_SALARY': 'Life Tension Free Fund salary (% on Team Turn Over)',
+      'SALARY': 'Monthly salary',
+      'TDS_REFUND': 'TDS refund (PAN verified)',
       'WITHDRAWAL': 'Withdrawal request',
       'PURCHASE': 'Product purchase',
       'RANK_REWARD': 'Rank achievement reward',

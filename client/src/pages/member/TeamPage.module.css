@@ -577,9 +577,11 @@
 
 .modalWindow {
   background: #ffffff;
-  border-radius: 22px;
+  border-radius: 18px;
   width: 100%;
-  max-width: 440px;
+  /* Compact by default — this is a quick-glance basic-details popup, not a
+     full profile page, so it should never feel like a big, heavy card. */
+  max-width: 340px;
   overflow: hidden;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
@@ -594,22 +596,22 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 18px 24px;
+  padding: 13px 18px;
   background: #0f172a;
   color: #ffffff;
 }
 
 .modalCategoryTag {
-  font-size: 9.5px;
+  font-size: 9px;
   font-weight: 800;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.7px;
   color: #60a5fa;
   display: block;
 }
 
 .modalTopBanner h3 {
   margin: 2px 0 0 0;
-  font-size: 16px;
+  font-size: 14.5px;
   font-weight: 900;
 }
 
@@ -617,14 +619,15 @@
   background: rgba(255, 255, 255, 0.1);
   border: none;
   color: #ffffff;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
+  flex-shrink: 0;
   transition: background 0.15s ease;
 }
 
@@ -633,7 +636,7 @@
 }
 
 .modalInnerBody {
-  padding: 24px;
+  padding: 16px 18px 18px 18px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -643,34 +646,35 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .largeAvatar {
-  width: 56px;
-  height: 56px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   color: #ffffff;
-  font-size: 22px;
+  font-size: 17px;
   font-weight: 900;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
-  margin-bottom: 10px;
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.25);
+  margin-bottom: 7px;
 }
 
 .heroName {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 900;
   color: #0f172a;
-  margin: 0 0 6px 0;
+  margin: 0 0 5px 0;
+  text-align: center;
 }
 
 .badgeActiveHero, .badgeInactiveHero {
-  font-size: 10.5px;
+  font-size: 9.5px;
   font-weight: 800;
-  padding: 3px 10px;
+  padding: 2px 9px;
   border-radius: 999px;
 }
 
@@ -691,18 +695,18 @@
   width: 100%;
   background: #f8fafc;
   border: 1.5px solid #e2e8f0;
-  border-radius: 14px;
+  border-radius: 12px;
   overflow: hidden;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 
 .credentialRow {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  padding: 8px 12px;
   border-bottom: 1px solid #e2e8f0;
-  gap: 12px;
+  gap: 10px;
 }
 
 .credentialRow:last-child {
@@ -712,40 +716,44 @@
 .credentialLabelBlock {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .credIcon {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .credLabel {
-  font-size: 12px;
+  font-size: 10.5px;
   font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
+  letter-spacing: 0.2px;
 }
 
 .credValuePrimary {
-  font-size: 13.5px;
+  font-size: 12px;
   font-weight: 800;
   color: #0f172a;
+  text-align: right;
 }
 
 .credValueEmail {
-  font-size: 13px;
+  font-size: 11.5px;
   font-weight: 600;
   color: #334155;
   word-break: break-all;
+  text-align: right;
 }
 
 .memberIdChip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   background: #eff6ff;
   border: 1px solid #bfdbfe;
-  padding: 3px 8px;
+  padding: 2px 7px;
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s ease;
@@ -757,13 +765,13 @@
 
 .memberIdChip code {
   font-family: ui-monospace, monospace;
-  font-size: 12.5px;
+  font-size: 11px;
   font-weight: 800;
   color: #1d4ed8;
 }
 
 .copyNotice {
-  font-size: 9.5px;
+  font-size: 8.5px;
   font-weight: 800;
   color: #2563eb;
   text-transform: uppercase;
@@ -774,21 +782,21 @@
   width: 100%;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  margin-bottom: 20px;
+  gap: 6px;
+  margin-bottom: 12px;
 }
 
 .secondaryTile {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 10px 12px;
+  border-radius: 9px;
+  padding: 7px 9px;
   text-align: center;
 }
 
 .secondaryTile small {
   display: block;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
@@ -796,7 +804,7 @@
 }
 
 .secondaryTile strong {
-  font-size: 12.5px;
+  font-size: 11.5px;
   font-weight: 800;
   color: #0f172a;
 }
@@ -811,7 +819,8 @@
 
 .modalDoneBtn {
   width: 100%;
-  padding: 11px;
+  padding: 10px;
+  font-size: 13px;
   background: #0f172a;
   color: #ffffff;
   border: none;
@@ -824,6 +833,155 @@
 
 .modalDoneBtn:hover {
   background: #1e293b;
+}
+
+/* Small gaps that pre-existed in the original markup (classes referenced by
+   the JSX but never defined, so they silently rendered unstyled) */
+.memberIdSubText {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.modalTitleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sponsorAvatar {
+  display: flex;
+  align-items: center;
+}
+
+/* ============================================================
+   Generation / Level boxes (Direct Referral, First Level Member, ...)
+   ============================================================ */
+.levelSection {
+  border-top: 1px solid #f1f5f9;
+}
+
+.levelSection:first-of-type {
+  border-top: none;
+}
+
+.levelSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 24px;
+  cursor: pointer;
+  background: #ffffff;
+  transition: background 0.15s ease;
+  user-select: none;
+}
+
+.levelSectionHeader:hover {
+  background: #fbfcfe;
+}
+
+.levelHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.levelBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 30px;
+  border-radius: 9px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+  padding: 0 8px;
+  flex-shrink: 0;
+}
+
+.levelDirectBadge {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+}
+
+.levelTitleText {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.levelCountPill {
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 4px 11px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.levelCountPillActive {
+  color: #15803d;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.levelChevron {
+  color: #94a3b8;
+  transition: transform 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.levelChevronOpen {
+  transform: rotate(180deg);
+  color: #2563eb;
+}
+
+.levelSectionBody {
+  padding-bottom: 4px;
+}
+
+.levelEmptyState {
+  padding: 20px 24px 26px 24px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: #fbfcfe;
+}
+
+/* Position (L/R) column */
+.thPosition { width: 110px; text-align: center; }
+.tdPosition { text-align: center; }
+
+.positionPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 900;
+  letter-spacing: 0.3px;
+}
+
+.positionLeft {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.positionRight {
+  background: #fdf4ff;
+  color: #a21caf;
+  border: 1px solid #f5d0fe;
 }
 
 /* Responsiveness */
@@ -947,5 +1105,51 @@
   .actionViewBtn {
     padding: 5px 10px;
     font-size: 11.5px;
+  }
+
+  .levelSectionHeader {
+    padding: 12px 14px;
+  }
+
+  .levelHeaderLeft {
+    gap: 7px;
+  }
+
+  .levelBadge {
+    min-width: 27px;
+    height: 26px;
+    font-size: 10.5px;
+    padding: 0 6px;
+  }
+
+  .levelTitleText {
+    font-size: 12.5px;
+  }
+
+  .levelCountPill {
+    font-size: 9.5px;
+    padding: 3px 8px;
+  }
+
+  .thPosition, .tdPosition {
+    width: 64px;
+  }
+
+  .positionPill {
+    padding: 3px 8px;
+    font-size: 10.5px;
+  }
+
+  /* The 340px cap set on .modalWindow already keeps this a small, quick
+     popup rather than a full-width card — deliberately NOT stretched to
+     100% here, so it stays compact on phones too. .modalBackdrop's padding
+     below only trims the side gutters on very narrow screens. */
+  .modalBackdrop {
+    padding: 14px;
+  }
+
+  .secondaryGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
   }
 }

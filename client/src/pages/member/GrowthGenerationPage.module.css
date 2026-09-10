@@ -213,6 +213,52 @@
   display: inline-flex;
   justify-content: center;
   margin: 0 auto;
+  transform-origin: top center;
+  transition: transform 0.15s ease;
+}
+
+/* ============================================================
+   ZOOM CONTROLS — keep a big/deep tree comfortable to view,
+   especially on mobile, instead of relying on horizontal scroll alone.
+   ============================================================ */
+.zoomControls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 8px 16px 0 16px;
+}
+
+.zoomBtn {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.zoomBtn:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+  background: #f8fafc;
+}
+
+.zoomLevel {
+  font-size: 11px;
+  font-weight: 750;
+  color: #64748b;
+  min-width: 38px;
+  text-align: center;
 }
 
 /* ============================================================
@@ -293,6 +339,28 @@
 .vacantPlus {
   font-size: 15px;
   font-weight: 800;
+}
+
+/* "View More" slot — a real member exists here but wasn't fetched at the
+   current depth; distinct from a vacant/open position so the tree never
+   implies an empty spot where a member actually is. Clickable, like an
+   active node, to drill in and reveal it. */
+.nodeMore {
+  cursor: pointer;
+  border-style: dashed;
+}
+
+.nodeMore .avatarPill {
+  background: #fff7ed;
+  border: 1px dashed #fb923c;
+  color: #ea580c;
+  box-shadow: none;
+}
+
+.morePlus {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 1px;
 }
 
 .memberSvg {
@@ -498,5 +566,54 @@
 
   .childrenRow {
     gap: 8px;
+  }
+
+  .stageViewport {
+    padding: 16px 10px;
+    min-height: 360px;
+  }
+
+  .svgConnectorWrapper,
+  .branchSvg {
+    height: 16px;
+  }
+
+  .zoomControls {
+    padding: 8px 10px 0 10px;
+    justify-content: center;
+  }
+
+  /* Larger touch targets on mobile (44px is the standard minimum tap size). */
+  .zoomBtn {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    font-size: 17px;
+  }
+}
+
+@media (max-width: 420px) {
+  .nodeBox {
+    width: 66px;
+    padding: 3px 4px;
+  }
+
+  .nodeName {
+    font-size: 8.5px;
+    max-width: 58px;
+  }
+
+  .nodeId {
+    font-size: 7.5px;
+  }
+
+  .avatarPill {
+    width: 20px;
+    height: 20px;
+  }
+
+  .legendSummaryRow {
+    flex-wrap: wrap;
+    gap: 6px 14px;
   }
 }

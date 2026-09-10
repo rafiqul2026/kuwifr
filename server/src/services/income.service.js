@@ -56,9 +56,15 @@ class IncomeService {
     }
     if (matchingResult) results.push(matchingResult);
 
-    // 3. Process Leadership Income (if qualified)
-    const leadershipResult = await this.processLeadershipIncome(userId, kbp, orderId);
-    if (leadershipResult) results.push(leadershipResult);
+    // 3. Leadership / Cheque Match Bonus is NOT computed here. Per the
+    // business plan it is "50%/30%/20% on matching income of 1st/2nd/3rd
+    // level's Leaders" — i.e. a % of the ACTUAL matching-income payout a
+    // leader earns, not a % of raw order KBP. It is triggered from
+    // BinaryService.calculateMatching() (via
+    // IncomeService.processLeadershipBonusForMatch) at the moment matching
+    // income is actually credited, using the real capped amount. See that
+    // function for the current implementation; do not reintroduce a
+    // per-order leadership calculation here.
 
     console.log(`✅ Income processing complete. ${results.length} transaction batches created`);
 
@@ -94,18 +100,24 @@ class IncomeService {
       return null;
     }
 
-    // Authoritative KBP Resolution from Package Master Data
+    // Authoritative KBP Resolution from Package Master Data.
+    // NOTE: Package.js's schema field is `kbp`, not `kbpValue` — the previous
+    // `pkg.kbpValue` check always read `undefined` and silently fell through
+    // to the order.kbpGenerated fallback below (which happened to still be
+    // correct for normal package orders, but meant this "authoritative"
+    // resolution path never actually ran).
     let effectiveKbp = 1000; // Default Starter KBP fallback
     if (order.packageId) {
       const pkg = await Package.findById(order.packageId);
-      if (pkg && typeof pkg.kbpValue === 'number') {
-        effectiveKbp = pkg.kbpValue;
+      if (pkg && typeof pkg.kbp === 'number') {
+        effectiveKbp = pkg.kbp;
       }
     } else if (order.kbpGenerated) {
       effectiveKbp = Number(order.kbpGenerated);
     }
 
-    const rate = 0.10; // Exactly 10%
+    const SettingsService = require('./settings.service');
+    const rate = await SettingsService.getReferralRate(); // admin-configurable, default 10%
     const grossAmount = effectiveKbp * rate; // e.g., ₹1,000 KBP * 0.10 = ₹100
 
     console.log(`   Referral Income: ₹${grossAmount} for sponsor ${sponsor.email} (Based on KBP: ₹${effectiveKbp})`);
@@ -119,6 +131,26 @@ class IncomeService {
 
     if (existingTx) {
       console.log('   Referral income already credited for this order. Skipping duplicate.');
+      return null;
+    }
+
+    // Second, broader guard: there are multiple admin/member code paths that
+    // can each create their own Order document for what is really the same
+    // real-world activation of this downline member (member self-submit +
+    // approve, admin cash activation, direct admin activation). The check
+    // above only catches a repeat of the exact same order._id — it would
+    // not catch a SECOND order created for the same member by a different
+    // path. Referral income is a one-time reward for a member's activation,
+    // not a per-order-document reward, so also refuse if this sponsor has
+    // ANY prior referral credit tied to this specific downline member.
+    const existingForMember = await IncomeTransaction.findOne({
+      userId: sponsor._id,
+      type: 'REFERRAL_INCOME',
+      'metadata.sponsoredUserId': userId
+    });
+
+    if (existingForMember) {
+      console.log('   Referral income already credited for this member (via a different order). Skipping duplicate.');
       return null;
     }
 
@@ -178,112 +210,126 @@ class IncomeService {
     return null;
   }
 
-  // ============ LEADERSHIP INCOME ============
+  // ============ LEADERSHIP / CHEQUE MATCH BONUS ============
 
-  async processLeadershipIncome(userId, kbp, orderId) {
-    const isQualified = await this.isLeadershipQualified(userId);
-    if (!isQualified) return null;
+  /**
+   * Leadership / Cheque Match Bonus (business plan section 3): "100% within
+   * 3rd levels — 1st Level = 50% on matching income of 1st level's Leaders,
+   * 2nd Level = 30%, 3rd Level = 20%". Called by BinaryService right after it
+   * actually credits a MATCHING_INCOME payout to `leaderUserId`, with the
+   * exact (already capped) amount that was credited.
+   *
+   * Walks the SPONSOR tree (not the binary tree — "level" here means sponsor
+   * levels, the classic leadership-override structure) starting from the
+   * leader who just earned the match, up to 3 levels. Both the earner and
+   * each recipient must hold at least the configured minimum rank (business
+   * plan condition h: "associate will must qualify into KUWI STAR Rank" to
+   * receive Leadership Bonus).
+   *
+   * Replaces the old processLeadershipIncome()/getDownlineLeaders(), which
+   * were triggered off the PURCHASER's own downline on every order (backwards
+   * — it should flow to the earner's UPLINE), paid a % of raw order KBP
+   * instead of actual matching income, and never implemented level 3 at all
+   * despite IncomeTransaction.type already reserving LEADERSHIP_INCOME_L3.
+   */
+  async processLeadershipBonusForMatch(leaderUserId, matchingAmount, sourceNodeId) {
+    if (!matchingAmount || matchingAmount <= 0) return null;
 
-    const leaders = await this.getDownlineLeaders(userId, 3);
-    if (!leaders || Object.keys(leaders).length === 0) return null;
+    const SettingsService = require('./settings.service');
+    const Rank = require('../models/Rank');
+    const RankService = require('./rank.service');
 
-    const rates = { 1: 0.50, 2: 0.30, 3: 0.20 };
+    const leadershipCfg = await SettingsService.getLeadership();
+    const levelRates = Array.isArray(leadershipCfg.levelRates) && leadershipCfg.levelRates.length
+      ? leadershipCfg.levelRates
+      : [0.50, 0.30, 0.20];
+
+    const minRank = await Rank.findOne({ code: leadershipCfg.minRankCode || 'KUWI_STAR' });
+    if (!minRank) return null;
+
+    const leaderRank = await RankService.getCurrentRank(leaderUserId);
+    if (!leaderRank || leaderRank.level < minRank.level) return null;
+
     const results = [];
+    let currentUserId = leaderUserId;
 
-    for (const level in leaders) {
-      const levelLeaders = leaders[level];
-      const rate = rates[level];
+    for (let level = 1; level <= levelRates.length; level++) {
+      const currentUser = await User.findById(currentUserId).select('sponsorId');
+      if (!currentUser || !currentUser.sponsorId) break;
 
-      for (const leader of levelLeaders) {
-        const grossAmount = kbp * rate;
-        const cappedResult = await this.applyCaps(leader._id, grossAmount);
+      const sponsor = await User.findById(currentUser.sponsorId);
+      if (!sponsor) break;
 
-        const creditResult = await this.creditIncome(
-          leader._id,
-          cappedResult.allowedAmount,
-          `LEADERSHIP_INCOME_L${level}`,
-          orderId,
-          'Order',
-          kbp,
-          rate,
-          { sourceUserId: userId, level: parseInt(level), orderId }
-        );
+      const rate = levelRates[level - 1] || 0;
+      if (rate > 0 && sponsor.status === 'ACTIVE') {
+        const sponsorRank = await RankService.getCurrentRank(sponsor._id);
+        if (sponsorRank && sponsorRank.level >= minRank.level) {
+          const grossAmount = matchingAmount * rate;
+          const cappedResult = await this.applyCaps(sponsor._id, grossAmount);
 
-        if (creditResult && creditResult.transaction) {
-          await IncomeTransaction.findByIdAndUpdate(
-            creditResult.transaction._id,
-            { capBreakdown: cappedResult.capBreakdown, grossAmount, capAdjustment: grossAmount - cappedResult.allowedAmount }
-          );
-        }
+          if (cappedResult.allowedAmount > 0) {
+            const creditResult = await this.creditIncome(
+              sponsor._id,
+              cappedResult.allowedAmount,
+              `LEADERSHIP_INCOME_L${level}`,
+              sourceNodeId,
+              'BinaryNode',
+              matchingAmount,
+              rate,
+              { sourceUserId: leaderUserId, level }
+            );
 
-        results.push({ type: `LEADERSHIP_INCOME_L${level}`, userId: leader._id, grossAmount, allowedAmount: cappedResult.allowedAmount });
-      }
-    }
-    return results.length > 0 ? results : null;
-  }
+            if (creditResult && creditResult.transaction) {
+              await IncomeTransaction.findByIdAndUpdate(
+                creditResult.transaction._id,
+                { capBreakdown: cappedResult.capBreakdown, grossAmount, capAdjustment: grossAmount - cappedResult.allowedAmount }
+              );
+            }
 
-  async getDownlineLeaders(userId, maxLevel = 3) {
-    const leaders = {};
-    const level1Downline = await User.find({ sponsorId: userId, status: 'ACTIVE' });
-    
-    for (const member of level1Downline) {
-      const isValid = await this.isLeadershipQualified(member._id);
-      if (isValid) {
-        if (!leaders[1]) leaders[1] = [];
-        leaders[1].push(member);
-      }
-      if (maxLevel >= 2) {
-        const level2Downline = await User.find({ sponsorId: member._id, status: 'ACTIVE' });
-        for (const member2 of level2Downline) {
-          if (await this.isLeadershipQualified(member2._id)) {
-            if (!leaders[2]) leaders[2] = [];
-            leaders[2].push(member2);
+            results.push({ type: `LEADERSHIP_INCOME_L${level}`, userId: sponsor._id, level, grossAmount, allowedAmount: cappedResult.allowedAmount });
           }
         }
       }
+
+      currentUserId = sponsor._id;
     }
-    return leaders;
+
+    return results.length > 0 ? results : null;
   }
 
   // ============ REPURCHASE INCOME ============
 
+  /**
+   * Thin delegation to RepurchaseService — the single source of truth for
+   * repurchase commission math (self cashback %, 10-level downline rates,
+   * and the "N direct referrals unlocks levels" gating rule). This used to
+   * duplicate that logic here with DIFFERENT (wrong) rates — 30% self
+   * instead of 25%, 20/15/10/5/3/2/1×4 instead of 17/13/9/5/3/2/1×4 — and
+   * with no direct-referral level-unlock gating at all, while crediting
+   * straight into incomeBalance instead of the dedicated repurchaseBalance.
+   * Kept under the same name/signature so existing callers (product.service.js)
+   * don't need to change, and also propagates the repurchase KBP into the
+   * Life Tension Free Funds, matching what the dedicated repurchase-store
+   * checkout flow already does (repurchase.controller.js).
+   */
   async processRepurchaseIncome(userId, kbp, orderId) {
-    const selfResult = await this.processSelfRepurchase(userId, kbp, orderId);
-    const downlineResult = await this.processDownlineRepurchase(userId, kbp, orderId);
-    return [selfResult, ...downlineResult].filter(Boolean);
-  }
+    const RepurchaseService = require('./repurchase.service');
+    const FundService = require('./fund.service');
 
-  async processSelfRepurchase(userId, kbp, orderId) {
-    const rate = 0.30;
-    const grossAmount = kbp * rate;
-    const cappedResult = await this.applyCaps(userId, grossAmount);
-    
-    const creditResult = await this.creditIncome(userId, cappedResult.allowedAmount, 'REPURCHASE_SELF', orderId, 'Order', kbp, rate, { orderId });
-    if (creditResult?.transaction) {
-      await IncomeTransaction.findByIdAndUpdate(creditResult.transaction._id, { grossAmount, capAdjustment: grossAmount - cappedResult.allowedAmount });
-    }
-    return { type: 'REPURCHASE_SELF', userId, grossAmount, allowedAmount: cappedResult.allowedAmount };
-  }
+    const distribution = await RepurchaseService.processRepurchaseDistribution(userId, kbp, String(orderId));
 
-  async processDownlineRepurchase(userId, kbp, orderId) {
-    const upline = await this.getUpline(userId, 10);
-    const rates = { 1: 0.20, 2: 0.15, 3: 0.10, 4: 0.05, 5: 0.03, 6: 0.02, 7: 0.01, 8: 0.01, 9: 0.01, 10: 0.01 };
+    await FundService.processRepurchaseKBPForFunds(userId, kbp).catch((err) => {
+      console.error('   Fund KBP propagation failed:', err.message);
+    });
+
     const results = [];
-
-    for (let i = 0; i < upline.length && i < 10; i++) {
-      const ancestor = upline[i];
-      const level = i + 1;
-      const rate = rates[level] || 0;
-      if (rate === 0) continue;
-
-      const grossAmount = kbp * rate;
-      const cappedResult = await this.applyCaps(ancestor._id, grossAmount);
-      const creditResult = await this.creditIncome(ancestor._id, cappedResult.allowedAmount, 'REPURCHASE_DOWNLINE', orderId, 'Order', kbp, rate, { sourceUserId: userId, level, orderId });
-      
-      if (creditResult?.transaction) {
-        await IncomeTransaction.findByIdAndUpdate(creditResult.transaction._id, { grossAmount, capAdjustment: grossAmount - cappedResult.allowedAmount });
+    if (distribution.selfIncomeAmount > 0) {
+      results.push({ type: 'REPURCHASE_SELF', userId, allowedAmount: distribution.selfIncomeAmount });
+    }
+    for (const entry of distribution.distributedDownline || []) {
+      if (entry.status === 'CREDITED') {
+        results.push({ type: 'REPURCHASE_DOWNLINE', userId: entry.uplineId, level: entry.level, allowedAmount: entry.commission });
       }
-      results.push({ type: 'REPURCHASE_DOWNLINE', userId: ancestor._id, level, grossAmount, allowedAmount: cappedResult.allowedAmount });
     }
     return results;
   }
@@ -404,26 +450,26 @@ class IncomeService {
     return upline;
   }
 
+  /**
+   * Whether `userId` currently qualifies to EARN Leadership/Cheque Match
+   * Bonus — business plan condition h: "associate will must qualify into
+   * KUWI STAR Rank" (or whatever rank the admin configures as the minimum).
+   * Delegates to the single official rank engine instead of re-deriving
+   * qualification from raw direct-sponsor counts and binary volume ratios.
+   */
   async isLeadershipQualified(userId) {
-    const directSponsors = await User.countDocuments({ sponsorId: userId, status: 'ACTIVE' });
-    if (directSponsors < 3) return false;
-    const node = await BinaryNode.findOne({ userId });
-    if (!node) return false;
-    const left = node.leftVolume || 0;
-    const right = node.rightVolume || 0;
-    return (left >= right * 2 || right >= left * 2);
+    const SettingsService = require('./settings.service');
+    const Rank = require('../models/Rank');
+    const RankService = require('./rank.service');
+
+    const leadershipCfg = await SettingsService.getLeadership();
+    const minRank = await Rank.findOne({ code: leadershipCfg.minRankCode || 'KUWI_STAR' });
+    if (!minRank) return false;
+
+    const currentRank = await RankService.getCurrentRank(userId);
+    return !!currentRank && currentRank.level >= minRank.level;
   }
 
-  async updateMatchingVolume(userId, amount) {
-    const node = await BinaryNode.findOne({ userId });
-    if (!node) return;
-    const matchedLeft = Math.min(node.availableLeftVolume, amount);
-    const matchedRight = Math.min(node.availableRightVolume, amount);
-    node.availableLeftVolume -= matchedLeft;
-    node.availableRightVolume -= matchedRight;
-    node.matchingVolume += Math.min(matchedLeft, matchedRight);
-    await node.save();
-  }
 
   async getIncomeSummary(userId) {
     const totalResult = await IncomeTransaction.aggregate([

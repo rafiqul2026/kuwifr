@@ -62,6 +62,18 @@ const WalletSchema = new mongoose.Schema(
       comment: 'Lifetime total repurchased'
     },
 
+    // ============ INCOME BREAKDOWN (lifetime stat counters, reporting only) ============
+    // These never hold spendable balance on their own — incomeBalance/repurchaseBalance/
+    // salaryBalance above are the only real money buckets. These are maintained alongside
+    // via the same atomic $inc so the admin/member dashboards can show a breakdown by
+    // income type without an aggregation query on every page load.
+    referralIncome: { type: Number, default: 0, comment: 'Lifetime direct referral income' },
+    binaryIncome: { type: Number, default: 0, comment: 'Lifetime binary matching income' },
+    leadershipIncome: { type: Number, default: 0, comment: 'Lifetime leadership/cheque match bonus' },
+    selfRepurchaseIncome: { type: Number, default: 0, comment: 'Lifetime self repurchase cashback' },
+    downlineRepurchaseIncome: { type: Number, default: 0, comment: 'Lifetime downline repurchase income' },
+    fundIncome: { type: Number, default: 0, comment: 'Lifetime Life Tension Free Fund TTO royalty' },
+
     // ============ TRANSACTION COUNTS ============
     totalTransactions: {
       type: Number,
@@ -115,7 +127,8 @@ WalletSchema.statics.atomicAdjustBalance = async function (userId, {
   balanceField,
   delta,
   extraIncrements = {},
-  transactionData = {}
+  transactionData = {},
+  session = null
 }) {
   const WalletTransaction = require('./WalletTransaction');
 
@@ -130,7 +143,7 @@ WalletSchema.statics.atomicAdjustBalance = async function (userId, {
   const wallet = await this.findOneAndUpdate(
     filter,
     { $inc: incFields, $set: { lastTransactionAt: new Date() } },
-    { new: true }
+    { new: true, session: session || undefined }
   );
 
   if (!wallet) {
@@ -138,7 +151,7 @@ WalletSchema.statics.atomicAdjustBalance = async function (userId, {
     throw new Error(`Insufficient ${label} balance`);
   }
 
-  const transaction = await WalletTransaction.create({
+  const [transaction] = await WalletTransaction.create([{
     walletId: wallet._id,
     userId: wallet.userId,
     walletType: transactionData.walletType,
@@ -153,7 +166,7 @@ WalletSchema.statics.atomicAdjustBalance = async function (userId, {
     metadata: transactionData.metadata || {},
     ipAddress: transactionData.ipAddress || null,
     userAgent: transactionData.userAgent || null
-  });
+  }], { session: session || undefined });
 
   return { wallet, transaction };
 };
@@ -260,7 +273,15 @@ WalletSchema.methods.getBalanceSummary = function () {
     totalBalance: this.totalBalance,
     totalIncome: this.totalIncome,
     totalWithdrawn: this.totalWithdrawn,
-    totalRepurchased: this.totalRepurchased
+    totalRepurchased: this.totalRepurchased,
+    breakdown: {
+      referralIncome: this.referralIncome || 0,
+      binaryIncome: this.binaryIncome || 0,
+      leadershipIncome: this.leadershipIncome || 0,
+      selfRepurchaseIncome: this.selfRepurchaseIncome || 0,
+      downlineRepurchaseIncome: this.downlineRepurchaseIncome || 0,
+      fundIncome: this.fundIncome || 0
+    }
   };
 };
 

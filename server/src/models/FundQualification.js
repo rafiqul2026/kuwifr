@@ -32,6 +32,25 @@ const fundQualificationSchema = new mongoose.Schema({
   },
   lastPayoutPeriod: {
     type: String // Format: "YYYY-MM"
+  },
+  // ============ MONTHLY MAINTENANCE TRACKING ============
+  // Business plan: each Fund requires a smaller "New Business Matching" amount
+  // on both legs EVERY month to keep receiving that fund's salary (e.g. School
+  // Fund: 25K:25K to qualify, then 2.5K:2.5K new business every month to keep
+  // getting paid). These counters accumulate NEW repurchase KBP seen during
+  // `maintenancePeriod` (format "YYYY-MM") and are implicitly reset whenever a
+  // new period is observed (see fund.service.js).
+  maintenancePeriod: {
+    type: String,
+    default: null
+  },
+  maintenancePeriodLeftKBP: {
+    type: Number,
+    default: 0
+  },
+  maintenancePeriodRightKBP: {
+    type: Number,
+    default: 0
   }
 }, { timestamps: true });
 

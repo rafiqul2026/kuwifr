@@ -147,11 +147,26 @@ const register = async (req, res, next) => {
           $inc: { directReferrals: 1 },
         });
 
+        // Registration itself must still succeed even if binary placement
+        // hits an unexpected error (we don't want a tree glitch to block
+        // account creation) — but a silent console.error here is easy to
+        // miss, and a member left unplaced shows up later as a confusing
+        // "why is my Growth Generation tree empty" support question with
+        // no obvious cause. Log it loudly and unmistakably so it's actually
+        // noticed, and remember the failure can be corrected afterward via
+        // POST /api/admin/binary/repair (BinaryService.repairAllPlacements)
+        // without needing to touch this user's account again.
         await BinaryService.placeMember(
           user._id,
           user.sponsorId,
           user.binarySide
-        ).catch((err) => console.error("Binary placement notice:", err.message));
+        ).catch((err) => {
+          console.error(
+            `\n🚨 BINARY PLACEMENT FAILED for new member ${user.memberId} (${user._id}): ${err.message}\n` +
+            `   This member's account was created successfully, but they are NOT linked into the binary tree.\n` +
+            `   Fix with: POST /api/admin/binary/repair (safe, non-destructive, can be run any time).\n`
+          );
+        });
       } catch (genealogyErr) {
         console.error("Genealogy linking notice:", genealogyErr.message);
       }

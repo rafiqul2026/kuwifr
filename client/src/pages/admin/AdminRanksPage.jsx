@@ -149,9 +149,15 @@ const AdminRanksPage = () => {
 
     setIsSubmitting(true);
     try {
-      // Parse salary percentage: 1.0% -> 0.01, 0.75% -> 0.0075
+      // Parse salary percentage: this field always displays/accepts a
+      // percent-as-whole-number value (see handleEdit's displayPercent,
+      // which always multiplies the stored decimal by 100), so the stored
+      // decimal is always numPercent / 100 — e.g. "1" -> 0.01, "0.75" ->
+      // 0.0075. The previous `<= 0.05` heuristic guessed small values were
+      // already fractions and left them un-divided, which silently turned
+      // an intended 0.03% into a stored 3% (100x too large).
       const numPercent = parseFloat(formData.salaryPercentage) || 0;
-      const parsedSalaryDecimal = numPercent > 1 ? numPercent / 100 : numPercent <= 0.05 && numPercent > 0 ? numPercent : numPercent / 100;
+      const parsedSalaryDecimal = numPercent / 100;
 
       const payload = {
         ...formData,

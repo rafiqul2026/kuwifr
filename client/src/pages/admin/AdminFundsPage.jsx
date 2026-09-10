@@ -159,8 +159,14 @@ const AdminFundsPage = () => {
 
     try {
       const id = editingFund._id || editingFund.id;
+      // This field always displays/accepts a percent-as-whole-number value
+      // (see the edit handler above, which always multiplies the stored
+      // decimal by 100 for display when 0 < p < 1), so the stored decimal
+      // is always numPercent / 100. The previous `> 1 ? /100 : asIs`
+      // heuristic left anything <= 1 un-divided, so typing "0.5" (meaning
+      // 0.5%) was stored as 0.5 (50%) — 100x too large.
       const numPercent = parseFloat(formData.benefitPercentage) || 0;
-      const parsedPercentage = numPercent > 1 ? numPercent / 100 : numPercent;
+      const parsedPercentage = numPercent / 100;
 
       const payload = {
         name: formData.name.trim(),

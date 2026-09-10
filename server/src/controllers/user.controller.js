@@ -5,8 +5,10 @@ const Referral = require('../models/Referral');
 const BinaryNode = require('../models/BinaryNode');
 const Fund = require('../models/Fund');
 const Wallet = require('../models/Wallet');
+const Package = require('../models/Package');
 const BinaryService = require('../services/binary.service');
 const SalaryService = require('../services/salary.service');
+const DownlineService = require('../services/downline.service');
 const cloudinary = require('../config/cloudinary');
 
 // ============================================================
@@ -30,81 +32,58 @@ const resolveUserKbp = (userDoc) => {
   return 1000;
 };
 
-const checkIsKuwiStar = async (userId) => {
-  const directActives = await User.find({
-    sponsorId: userId,
-    status: 'ACTIVE'
-  }).populate('activePackageId').lean();
+// NOTE: Rank/Kuwi-Star qualification used to be reimplemented here from scratch
+// (checkIsKuwiStar/evaluateMemberRank), completely independently of RankService
+// (which owns RankAchievement persistence, dynamic Rank.kuwiStarRequirements,
+// and rank-salary crediting). The two could disagree — the dashboard could show
+// a different rank than the one actually on file — which is a real correctness
+// bug for a compensation platform. RankService is now the single source of
+// truth; this file only decorates its output for display (left/right counts).
+const RankService = require('../services/rank.service');
+const RankAchievement = require('../models/RankAchievement');
 
-  if (!directActives || directActives.length < 3) return false;
+/**
+ * Count how many downline members (any depth, computed authoritatively via
+ * DownlineService — see that file for why this used to read the incomplete
+ * `Referral` collection instead) hold the Kuwi Star rank achievement, split
+ * by which leg (left/right) they sit under, optionally restricted to
+ * achievements recorded on/after `sinceDate`. Uses the persisted
+ * RankAchievement.createdAt (when the rank was actually achieved) rather
+ * than the member's join date — counting by join date would misreport
+ * "today's/this month's" Kuwi Star achievers.
+ *
+ * Takes the already-fetched full-downline id list (rather than re-running
+ * the $graphLookup aggregation on every call) since getDashboardStats calls
+ * this three times (today/month/lifetime) for the same member.
+ */
+const countSubtreeKuwiStars = async (downlineIds, sinceDate = null) => {
+  if (!downlineIds || downlineIds.length === 0) return { leftStars: 0, rightStars: 0, totalStars: 0 };
 
-  let leftDirects = 0;
-  let rightDirects = 0;
-  let totalDirectKbp = 0;
+  const achievementQuery = { userId: { $in: downlineIds }, rankName: 'Kuwi Star', status: 'ACHIEVED' };
+  if (sinceDate) achievementQuery.createdAt = { $gte: sinceDate };
 
-  for (const direct of directActives) {
-    const kbp = resolveUserKbp(direct);
-    if (kbp > 0) {
-      totalDirectKbp += kbp;
-      const side = String(direct.binarySide || '').toLowerCase();
-      if (side === 'left') leftDirects++;
-      else if (side === 'right') rightDirects++;
-    }
-  }
+  const achievements = await RankAchievement.find(achievementQuery).select('userId').lean();
+  if (achievements.length === 0) return { leftStars: 0, rightStars: 0, totalStars: 0 };
 
-  const isRatioMet = (leftDirects >= 2 && rightDirects >= 1) || (leftDirects >= 1 && rightDirects >= 2);
-  const isVolumeMet = totalDirectKbp >= 3000;
+  const achieverIds = achievements.map((a) => a.userId);
+  const achievers = await User.find({ _id: { $in: achieverIds } }).select('binarySide').lean();
 
-  return isRatioMet && isVolumeMet;
-};
-
-const countSubtreeKuwiStars = async (userId, sinceDate = null) => {
-  const downlineMembers = await Referral.find({ sponsorId: userId }).select('userId').lean();
   let leftStars = 0;
   let rightStars = 0;
-
-  for (const ref of downlineMembers) {
-    const isStar = await checkIsKuwiStar(ref.userId);
-    if (isStar) {
-      const u = await User.findById(ref.userId).select('binarySide createdAt').lean();
-      if (sinceDate && u && new Date(u.createdAt) < sinceDate) continue;
-      if (String(u?.binarySide).toLowerCase() === 'left') leftStars++;
-      else if (String(u?.binarySide).toLowerCase() === 'right') rightStars++;
-    }
+  for (const u of achievers) {
+    const side = String(u.binarySide || '').toLowerCase();
+    if (side === 'left') leftStars++;
+    else if (side === 'right') rightStars++;
   }
 
   return { leftStars, rightStars, totalStars: leftStars + rightStars };
 };
 
+/** Delegates to RankService — the persisted, official rank for this user. */
 const evaluateMemberRank = async (user) => {
-  if (user.currentRankId?.name) {
-    return {
-      name: user.currentRankId.name,
-      code: user.currentRankId.code || 'RANK',
-      level: user.currentRankId.level || 1
-    };
-  }
-
-  const isKuwiStarAchieved = await checkIsKuwiStar(user._id);
-  if (!isKuwiStarAchieved) {
-    return { name: 'Not Achieved', code: 'NONE', level: 0 };
-  }
-
-  const { totalStars: downlineKuwiStars } = await countSubtreeKuwiStars(user._id);
-
-  if (downlineKuwiStars >= 160000) return { name: 'Crown', code: 'CROWN', level: 12 };
-  if (downlineKuwiStars >= 75000) return { name: 'Ambassador', code: 'AMBASSADOR', level: 11 };
-  if (downlineKuwiStars >= 35000) return { name: 'Sales Director', code: 'SALES_DIRECTOR', level: 10 };
-  if (downlineKuwiStars >= 15000) return { name: 'Diamond Star', code: 'DIAMOND_STAR', level: 9 };
-  if (downlineKuwiStars >= 7000) return { name: 'Ruby Star', code: 'RUBY_STAR', level: 8 };
-  if (downlineKuwiStars >= 2200) return { name: 'Emerald Star', code: 'EMERALD_STAR', level: 7 };
-  if (downlineKuwiStars >= 700) return { name: 'Sapphire Star', code: 'SAPPHIRE_STAR', level: 6 };
-  if (downlineKuwiStars >= 200) return { name: 'Gold Star', code: 'GOLD_STAR', level: 5 };
-  if (downlineKuwiStars >= 70) return { name: 'Platinum Star', code: 'PLATINUM_STAR', level: 4 };
-  if (downlineKuwiStars >= 20) return { name: 'Silver Star', code: 'SILVER_STAR', level: 3 };
-  if (downlineKuwiStars >= 6) return { name: 'Bronze Star', code: 'BRONZE_STAR', level: 2 };
-
-  return { name: 'Kuwi Star', code: 'KUWI_STAR', level: 1 };
+  const rank = await RankService.getCurrentRank(user._id);
+  if (!rank) return { name: 'Not Achieved', code: 'NONE', level: 0 };
+  return { name: rank.name, code: rank.code || 'RANK', level: rank.level || 1 };
 };
 
 const getDashboardStats = async (req, res, next) => {
@@ -137,13 +116,22 @@ const getDashboardStats = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Member profile not found' });
     }
 
-    const [todayAddMembers, todayActiveMembers, totalDirects] = await Promise.all([
+    const [todayAddMembers, todayActiveMembers, totalDirects, fullDownline] = await Promise.all([
       User.countDocuments({ sponsorId: userId, createdAt: { $gte: todayStart } }),
       User.countDocuments({ sponsorId: userId, status: 'ACTIVE', createdAt: { $gte: todayStart } }),
-      User.countDocuments({ sponsorId: userId })
+      User.countDocuments({ sponsorId: userId }),
+      // Full downline (any depth), computed authoritatively from User.sponsorId
+      // via DownlineService instead of the incomplete Referral collection —
+      // see downline.service.js. This one fetch backs totalMembers,
+      // totalActiveMembers ("Full Downline Network" / "Network Wide Active"),
+      // and all three Star cards below, so a member with a large real
+      // downline no longer shows a handful of direct-only numbers.
+      DownlineService.getFullDownline(userId)
     ]);
 
-    const totalTeamCount = await Referral.countDocuments({ sponsorId: userId });
+    const totalTeamCount = Math.max(fullDownline.length, totalDirects);
+    const totalActiveTeamCount = fullDownline.filter((m) => String(m.status).toUpperCase() === 'ACTIVE').length;
+    const downlineIds = fullDownline.map((m) => m._id);
 
     const totalKbpLeft = Number(binaryNode?.leftVolume || 0);
     const totalKbpRight = Number(binaryNode?.rightVolume || 0);
@@ -167,9 +155,9 @@ const getDashboardStats = async (req, res, next) => {
     const weeklyTotalKbp = weeklyLeftKbp + weeklyRightKbp;
     const weeklyKbpMatch = Math.min(weeklyLeftKbp, weeklyRightKbp);
 
-    const todayStars = await countSubtreeKuwiStars(userId, todayStart);
-    const monthlyStars = await countSubtreeKuwiStars(userId, monthStart);
-    const lifetimeStars = await countSubtreeKuwiStars(userId, null);
+    const todayStars = await countSubtreeKuwiStars(downlineIds, todayStart);
+    const monthlyStars = await countSubtreeKuwiStars(downlineIds, monthStart);
+    const lifetimeStars = await countSubtreeKuwiStars(downlineIds, null);
 
     const evaluatedRank = await evaluateMemberRank(user);
 
@@ -184,8 +172,8 @@ const getDashboardStats = async (req, res, next) => {
         totalWithdrawal: wallet?.totalWithdrawn || 0,
         todayAddMembers,
         todayActiveMembers,
-        totalMembers: totalTeamCount > 0 ? totalTeamCount : totalDirects,
-        totalActiveMembers: await User.countDocuments({ sponsorId: userId, status: 'ACTIVE' }),
+        totalMembers: totalTeamCount,
+        totalActiveMembers: totalActiveTeamCount,
 
         todayLeftBusiness,
         todayRightBusiness,
@@ -239,105 +227,53 @@ const getDashboardStats = async (req, res, next) => {
   }
 };
 
-const formatNode = async (userDoc) => {
-  if (!userDoc) return null;
+// NOTE: This endpoint used to rebuild the whole tree from scratch on every
+// request by walking User.sponsorId + binarySide with its own ad-hoc
+// "spillover" algorithm (formatNode/buildSpilloverBranch, removed), which is
+// NOT how members are actually placed at registration (see
+// binary.service.js placeMember, which uses BinaryNode.parentId /
+// leftChildId / rightChildId — the extreme-leg spillover placement engine
+// that matching income is actually calculated against). Worse, it then
+// WROTE its own recomputed leftChildId/rightChildId/leftVolume/rightVolume
+// back onto the ROOT's BinaryNode document — so simply opening the Growth
+// Generation page could silently corrupt the tree structure that income
+// calculations depend on. The Growth Generation tree must show the SAME
+// tree BinaryService uses for matching income, and a read-only "view my
+// tree" request must never mutate placement data. This now delegates to
+// BinaryService.getTree (the authoritative source) and only *formats* the
+// result for display.
+const toDisplayNode = (node, isRoot = false) => {
+  if (!node) return null;
 
-  let packageName = 'Starter Package';
-  if (userDoc.activePackageId) {
-    if (typeof userDoc.activePackageId === 'object' && userDoc.activePackageId.name) {
-      packageName = userDoc.activePackageId.name;
-    } else {
-      try {
-        const pkg = await require('../models/Package').findById(userDoc.activePackageId).lean();
-        if (pkg) packageName = pkg.name || pkg.packageName || packageName;
-      } catch (_) {}
-    }
-  } else if (userDoc.currentPackage) {
-    packageName = userDoc.currentPackage;
-  }
-
-  const personalKbp = resolveUserKbp(userDoc);
-
-  let sponsorCode = 'ROOT';
-  let sponsorFullName = 'Company Direct';
-  if (userDoc.sponsorId) {
-    if (typeof userDoc.sponsorId === 'object' && userDoc.sponsorId.memberId) {
-      sponsorCode = userDoc.sponsorId.memberId;
-      sponsorFullName = userDoc.sponsorId.fullName || '';
-    } else {
-      const sp = await User.findById(userDoc.sponsorId).select('memberId fullName').lean();
-      if (sp) {
-        sponsorCode = sp.memberId;
-        sponsorFullName = sp.fullName || '';
-      }
-    }
-  }
+  const leftChild = (node.children || []).find((c) => c.position === 'left') || null;
+  const rightChild = (node.children || []).find((c) => c.position === 'right') || null;
 
   return {
-    _id: userDoc._id,
-    memberId: userDoc.memberId || userDoc.referralCode || 'KFR_MEMBER',
-    fullName: userDoc.fullName || userDoc.name || 'Member',
-    status: (userDoc.status || 'ACTIVE').toUpperCase(),
-    currentPackage: packageName,
-    personalKbp,
-    sponsorId: sponsorCode,
-    sponsorName: sponsorFullName,
-    email: userDoc.email || '',
-    phoneNumber: userDoc.phoneNumber || '',
-    joinedDate: userDoc.createdAt || userDoc.joinedDate || new Date(),
-    leftKbp: 0,
-    rightKbp: 0,
-    left: null,
-    right: null
+    _id: node.userId,
+    userId: node.userId,
+    memberId: node.memberId,
+    fullName: node.fullName,
+    email: node.email,
+    status: node.status,
+    currentPackage: node.packageName,
+    personalKbp: node.personalKbp || 0,
+    sponsorId: node.sponsorId,
+    sponsorName: node.sponsorName || '',
+    side: node.side,
+    binaryLevel: node.binaryLevel,
+    leftKbp: node.leftVolume || 0,
+    rightKbp: node.rightVolume || 0,
+    matchingVolume: node.matchingVolume || 0,
+    pairCount: node.pairCount || 0,
+    totalKBP: node.totalKBP || 0,
+    isMyNode: isRoot,
+    // A real child exists below but wasn't fetched at this response's depth
+    // limit — the UI should offer "view more" here, not draw an empty slot.
+    hasMoreLeft: !leftChild && Boolean(node.hasMoreLeft),
+    hasMoreRight: !rightChild && Boolean(node.hasMoreRight),
+    left: toDisplayNode(leftChild),
+    right: toDisplayNode(rightChild)
   };
-};
-
-const buildSpilloverBranch = async (membersList, side, visited) => {
-  if (!membersList || membersList.length === 0) return null;
-
-  const currentMember = membersList[0];
-  const memberIdStr = String(currentMember._id);
-
-  if (visited.has(memberIdStr)) return null;
-  visited.add(memberIdStr);
-
-  const node = await formatNode(currentMember);
-  const remainingInChain = membersList.slice(1);
-
-  const ownDirects = await User.find({ sponsorId: currentMember._id })
-    .populate('activePackageId')
-    .populate('sponsorId', 'memberId fullName')
-    .sort({ createdAt: 1 })
-    .lean();
-
-  let ownLeft = ownDirects.filter((m) => String(m.binarySide || '').toLowerCase() === 'left');
-  let ownRight = ownDirects.filter((m) => String(m.binarySide || '').toLowerCase() === 'right');
-
-  const unassigned = ownDirects.filter(
-    (m) => !['left', 'right'].includes(String(m.binarySide || '').toLowerCase())
-  );
-  unassigned.forEach((m) => {
-    if (ownLeft.length <= ownRight.length) ownLeft.push(m);
-    else ownRight.push(m);
-  });
-
-  if (side === 'LEFT') {
-    const nextLeftList = [...remainingInChain, ...ownLeft];
-    node.left = await buildSpilloverBranch(nextLeftList, 'LEFT', visited);
-    node.right = await buildSpilloverBranch(ownRight, 'RIGHT', visited);
-  } else {
-    const nextRightList = [...remainingInChain, ...ownRight];
-    node.right = await buildSpilloverBranch(nextRightList, 'RIGHT', visited);
-    node.left = await buildSpilloverBranch(ownLeft, 'LEFT', visited);
-  }
-
-  const leftVol = node.left ? (node.left.personalKbp || 0) + (node.left.leftKbp || 0) + (node.left.rightKbp || 0) : 0;
-  const rightVol = node.right ? (node.right.personalKbp || 0) + (node.right.leftKbp || 0) + (node.right.rightKbp || 0) : 0;
-
-  node.leftKbp = leftVol;
-  node.rightKbp = rightVol;
-
-  return node;
 };
 
 const getBinaryTree = async (req, res, next) => {
@@ -351,81 +287,59 @@ const getBinaryTree = async (req, res, next) => {
           { memberId: memberId.trim().toUpperCase() },
           { referralCode: memberId.trim().toUpperCase() }
         ]
-      }).populate('activePackageId').populate('sponsorId', 'memberId fullName');
+      });
     }
 
     if (!rootUser && userId && mongoose.isValidObjectId(userId)) {
-      rootUser = await User.findById(userId).populate('activePackageId').populate('sponsorId', 'memberId fullName');
+      rootUser = await User.findById(userId);
     }
 
     if (!rootUser && req.userId && mongoose.isValidObjectId(req.userId)) {
-      rootUser = await User.findById(req.userId).populate('activePackageId').populate('sponsorId', 'memberId fullName');
+      rootUser = await User.findById(req.userId);
     }
 
     if (!rootUser) {
       return res.status(404).json({ success: false, message: 'Member not found in growth generation tree.' });
     }
 
-    const visited = new Set();
-    visited.add(String(rootUser._id));
+    // Cap the requested depth: the frontend re-roots on node click to walk
+    // deeper (unlimited overall depth via that navigation), so one response
+    // only needs a handful of generations to stay fast and lightweight.
+    const requestedDepth = parseInt(req.query.depth, 10);
+    const depth = Number.isFinite(requestedDepth) ? Math.min(Math.max(requestedDepth, 2), 10) : 6;
 
-    const tree = await formatNode(rootUser.toObject());
-    tree.isMyNode = true;
+    const rawTree = await BinaryService.getTree(rootUser._id, depth);
+    if (!rawTree) {
+      return res.status(404).json({ success: false, message: 'This member has no binary tree placement yet.' });
+    }
 
-    const directReferrals = await User.find({ sponsorId: rootUser._id })
-      .populate('activePackageId')
-      .populate('sponsorId', 'memberId fullName')
-      .sort({ createdAt: 1 })
-      .lean();
+    const tree = toDisplayNode(rawTree, true);
 
-    const leftMembers = directReferrals.filter((m) => String(m.binarySide || '').toLowerCase() === 'left');
-    const rightMembers = directReferrals.filter((m) => String(m.binarySide || '').toLowerCase() === 'right');
-
-    const unassignedMembers = directReferrals.filter(
-      (m) => !['left', 'right'].includes(String(m.binarySide || '').toLowerCase())
-    );
-    unassignedMembers.forEach((m) => {
-      if (leftMembers.length <= rightMembers.length) leftMembers.push(m);
-      else rightMembers.push(m);
-    });
-
-    tree.left = await buildSpilloverBranch(leftMembers, 'LEFT', visited);
-    tree.right = await buildSpilloverBranch(rightMembers, 'RIGHT', visited);
-
-    const leftVol = tree.left ? (tree.left.personalKbp || 0) + (tree.left.leftKbp || 0) + (tree.left.rightKbp || 0) : 0;
-    const rightVol = tree.right ? (tree.right.personalKbp || 0) + (tree.right.leftKbp || 0) + (tree.right.rightKbp || 0) : 0;
-    const totalVol = leftVol + rightVol;
-    const matchingVol = Math.min(leftVol, rightVol);
-
-    tree.leftKbp = leftVol;
-    tree.rightKbp = rightVol;
-
-    await BinaryNode.findOneAndUpdate(
-      { userId: rootUser._id },
-      {
-        $set: {
-          leftChildId: leftMembers[0]?._id || null,
-          rightChildId: rightMembers[0]?._id || null,
-          leftVolume: leftVol,
-          rightVolume: rightVol,
-          matchingVolume: matchingVol,
-          totalKBP: totalVol
-        }
-      },
-      { upsert: true }
-    );
+    // Member Left / Member Right in the legend row must be the REAL,
+    // unlimited-depth subtree size — not a count of whatever happened to be
+    // fetched at this response's depth limit (the tree itself is capped at
+    // `depth` generations for payload size, so counting only what's in
+    // `tree.left`/`tree.right` would under-report a member with a deeper
+    // downline than that cap, exactly like the reported "showing 19/17 but
+    // the real total is bigger" issue). getBranchCounts walks the full,
+    // unlimited-depth subtree via the same leftChildId/rightChildId
+    // pointers this tree is built from, so this number is always the true
+    // total regardless of how deep the visible tree was fetched.
+    const branchCounts = await BinaryService.getBranchCounts(rootUser._id);
 
     return res.json({
       success: true,
       data: {
         root: tree,
-        tree: tree,
+        tree,
         myNodeId: tree.memberId,
         summary: {
-          totalKbp: totalVol,
-          leftKbp: leftVol,
-          rightKbp: rightVol,
-          matchingVolume: matchingVol
+          totalKbp: tree.totalKBP,
+          leftKbp: tree.leftKbp,
+          rightKbp: tree.rightKbp,
+          matchingVolume: tree.matchingVolume,
+          leftCount: branchCounts.leftCount,
+          rightCount: branchCounts.rightCount
         }
       }
     });
@@ -718,7 +632,11 @@ const getTeamStats = async (req, res, next) => {
     const userId = req.userId;
     const directCount = await User.countDocuments({ sponsorId: userId });
     const activeDirectCount = await User.countDocuments({ sponsorId: userId, status: 'ACTIVE' });
-    const totalTeamCount = await Referral.countDocuments({ sponsorId: userId });
+    // Authoritative full-downline count (any depth) via DownlineService —
+    // see downline.service.js for why this replaced Referral.countDocuments,
+    // which was a best-effort derived mirror that could silently under-count.
+    const fullDownline = await DownlineService.getFullDownline(userId);
+    const totalTeamCount = Math.max(fullDownline.length, directCount);
     const binaryNode = await BinaryNode.findOne({ userId });
 
     res.json({
@@ -726,7 +644,7 @@ const getTeamStats = async (req, res, next) => {
       data: {
         directReferrals: directCount,
         activeMembers: activeDirectCount,
-        totalTeam: totalTeamCount > 0 ? totalTeamCount : directCount,
+        totalTeam: totalTeamCount,
         levels: directCount > 0 ? 1 : 0,
         totalKBP: binaryNode?.totalKBP || 0,
         leftVolume: binaryNode?.leftVolume || 0,
@@ -818,17 +736,168 @@ const getTeamByLevel = async (req, res, next) => {
   }
 };
 
+// Human-readable label for each unilevel generation, matching the naming the
+// member-facing "My Team" page uses. Business rule (stated explicitly by the
+// product owner): "Direct Referral" and "First Level" are the same thing —
+// a member's own direct sponsees ARE their first level, so that generation
+// is now labeled "First Level Member", and every deeper generation shifts
+// its ordinal accordingly (their referrals' referrals = "Second Level
+// Member", and so on). This spans the full 10-generation cap this platform
+// tracks (matches the 10-level repurchase compensation plan already
+// configurable in Admin Settings), so "Tenth Level Member" is genuinely the
+// deepest generation shown.
+const GENERATION_ORDINALS = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth'];
+const generationLabel = (level) => {
+  const word = GENERATION_ORDINALS[level - 1] || `${level}th`;
+  return `${word} Level Member`;
+};
+
+// Full unilevel (sponsor-chain) genealogy for the requesting member, grouped
+// generation by generation (First Level Member, Second Level Member, ... up
+// to the 10-level cap), each member carrying enough detail for the "My
+// Team" page to render a clean card row AND a "View" basic-details popup
+// without a second round-trip per member.
+//
+// NOTE: this is the sponsor/unilevel genealogy (who referred whom), which is
+// a separate data source from the binary placement tree used by the Growth
+// Generation page (BinaryNode: parentId/leftChildId/rightChildId) — see the
+// long comment in binary.service.js#repairAllPlacements for why those two
+// can, in rare corrupted-data cases, disagree. "Position" below is each
+// member's own binarySide (which leg of their immediate parent they were
+// placed on), not a statement about the binary tree's overall shape.
+//
+// EVERY generation here — not just level 1 — is now computed authoritatively
+// from the live User.sponsorId graph via DownlineService (a single
+// $graphLookup query), instead of the derived `Referral` collection.
+// Referral is a best-effort mirror written once at registration inside a
+// try/catch that can silently fail (see referral.service.js), and that gap
+// was observed doing real damage in practice: for a member with a genuinely
+// large, deep downline (confirmed populated in the Growth Generation binary
+// tree), every generation below Direct Referral showed "0 Members" here.
+// $graphLookup reads straight from User.sponsorId, which is always correct
+// (Mongoose requires it to save a user at all), so there is no separate,
+// driftable collection left in this path and no repair step is needed for
+// this page ever again.
+const memberToRow = (member, level) => ({
+  _id: member._id,
+  fullName: member.fullName,
+  email: member.email,
+  phoneNumber: member.phoneNumber,
+  memberId: member.memberId || member.referralCode,
+  status: member.status,
+  position: member.binarySide === 'right' ? 'R' : 'L',
+  positionLabel: member.binarySide === 'right' ? 'Right' : 'Left',
+  packageName: member.activePackageId?.name || member.currentPackage || 'No Active Package',
+  packagePrice: member.activePackageId?.price || 0,
+  kbp: member.activePackageId?.kbp || 0,
+  activationDate: member.activationDate || null,
+  joinedDate: member.createdAt,
+  sponsorMemberId: member.sponsorId?.memberId || member.sponsorId?.referralCode || '-',
+  sponsorName: member.sponsorId?.fullName || '-',
+  level
+});
+
+// Resolves each raw $graphLookup downline entry's activePackageId (an
+// ObjectId, since $graphLookup can't populate refs) and sponsorId (also a
+// bare ObjectId — either the root themselves, or another member already
+// inside this same downline set) into the small display objects
+// memberToRow expects, using in-memory maps built from a couple of cheap
+// follow-up queries instead of one populate per member.
+const buildGenerationGroups = async (userId) => {
+  const rawDownline = await DownlineService.getFullDownline(userId);
+
+  const MAX_LEVEL = DownlineService.MAX_LEVEL;
+  if (rawDownline.length === 0) {
+    const levels = [];
+    for (let lvl = 1; lvl <= MAX_LEVEL; lvl++) {
+      levels.push({ level: lvl, label: generationLabel(lvl), count: 0, members: [] });
+    }
+    return { levels, totalTeam: 0, directCount: 0 };
+  }
+
+  const packageIds = [...new Set(rawDownline.filter((m) => m.activePackageId).map((m) => String(m.activePackageId)))];
+  const packages = packageIds.length
+    ? await Package.find({ _id: { $in: packageIds } }).select('name type price kbp').lean()
+    : [];
+  const packageMap = new Map(packages.map((p) => [String(p._id), p]));
+
+  const rootUser = await User.findById(userId).select('fullName memberId referralCode').lean();
+  const memberMap = new Map(rawDownline.map((m) => [String(m._id), m]));
+
+  const resolveSponsor = (sponsorId) => {
+    if (!sponsorId) return null;
+    const key = String(sponsorId);
+    if (rootUser && key === String(rootUser._id || userId)) return rootUser;
+    const m = memberMap.get(key);
+    return m ? { fullName: m.fullName, memberId: m.memberId, referralCode: m.referralCode } : null;
+  };
+
+  const grouped = {};
+  for (const member of rawDownline) {
+    const level = (member.depth || 0) + 1;
+    const pkg = member.activePackageId ? packageMap.get(String(member.activePackageId)) : null;
+    const row = memberToRow(
+      { ...member, activePackageId: pkg || null, sponsorId: resolveSponsor(member.sponsorId) },
+      level
+    );
+    if (!grouped[level]) grouped[level] = [];
+    grouped[level].push(row);
+  }
+
+  for (const lvl of Object.keys(grouped)) {
+    grouped[lvl].sort((a, b) => new Date(a.joinedDate) - new Date(b.joinedDate));
+  }
+
+  const levels = [];
+  for (let lvl = 1; lvl <= MAX_LEVEL; lvl++) {
+    levels.push({
+      level: lvl,
+      label: generationLabel(lvl),
+      count: (grouped[lvl] || []).length,
+      members: grouped[lvl] || []
+    });
+  }
+
+  const totalTeam = levels.reduce((sum, lvl) => sum + lvl.count, 0);
+  const directCount = (grouped[1] || []).length;
+
+  return { levels, totalTeam, directCount };
+};
+
+const getTeamByGeneration = async (req, res, next) => {
+  try {
+    const userId = req.userId;
+    const { levels, totalTeam, directCount } = await buildGenerationGroups(userId);
+
+    return res.json({
+      success: true,
+      data: { levels, totalTeam, directCount }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getSponsorStats = async (req, res, next) => {
   try {
     const userId = req.userId;
-    const levelStats = await Referral.aggregate([
-      { $match: { sponsorId: userId } },
-      { $group: { _id: '$level', count: { $sum: 1 } } },
-      { $sort: { _id: 1 } }
-    ]);
-    const totalTeam = await Referral.countDocuments({ sponsorId: userId });
-    const activeTeam = await Referral.countDocuments({ sponsorId: userId, isActive: true });
+    // Authoritative full-downline (any depth), via DownlineService instead
+    // of the Referral collection — see downline.service.js. Used by the
+    // Income page's team-size/level breakdown, which had the same
+    // under-counting exposure as "My Team" and the dashboard.
+    const fullDownline = await DownlineService.getFullDownline(userId);
+    const levelCounts = new Map();
+    for (const m of fullDownline) {
+      const level = (m.depth || 0) + 1;
+      levelCounts.set(level, (levelCounts.get(level) || 0) + 1);
+    }
+    const levelStats = Array.from(levelCounts.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([_id, count]) => ({ _id, count }));
+
     const directReferrals = await User.countDocuments({ sponsorId: userId });
+    const totalTeam = Math.max(fullDownline.length, directReferrals);
+    const activeTeam = fullDownline.filter((m) => String(m.status).toUpperCase() === 'ACTIVE').length;
     const binaryNode = await BinaryNode.findOne({ userId });
 
     res.json({
@@ -942,6 +1011,7 @@ module.exports = {
   getTeamStats,
   getTeam,
   getTeamByLevel,
+  getTeamByGeneration,
   getSponsorStats,
   getReferralLinks,
   verifySponsor

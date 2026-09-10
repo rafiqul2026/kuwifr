@@ -128,9 +128,14 @@ const get10LevelRepurchase = async (req, res, next) => {
       RepurchaseService.get10LevelStats(userId)
     ]);
 
+    const SettingsService = require('../services/settings.service');
+    const repurchaseCfg = await SettingsService.getRepurchase();
+
+    // Lifetime breakdown counters (see Wallet.js) vs. the current spendable
+    // repurchase wallet balance — both are useful on this screen.
     const selfRepurchaseIncome = wallet?.selfRepurchaseIncome || 0;
     const downlineRepurchaseIncome = wallet?.downlineRepurchaseIncome || 0;
-    const totalRepurchaseWallet = wallet?.totalRepurchaseWallet || (selfRepurchaseIncome + downlineRepurchaseIncome);
+    const totalRepurchaseWallet = wallet?.repurchaseBalance || 0;
 
     res.json({
       success: true,
@@ -144,7 +149,7 @@ const get10LevelRepurchase = async (req, res, next) => {
           selfRepurchaseIncome,
           downlineRepurchaseIncome
         },
-        selfPercentage: 25
+        selfPercentage: Math.round((repurchaseCfg.selfRate || 0.25) * 100)
       }
     });
   } catch (error) {

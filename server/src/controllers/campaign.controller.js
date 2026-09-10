@@ -134,6 +134,10 @@ const DEFAULT_KUWIFR_CAMPAIGNS = [
 
 // Helper: Seed default campaigns if database is empty
 const seedCampaignsIfEmpty = async () => {
+  // Never seed template marketing campaigns tied to a random admin/first
+  // user on a real deployment — demo data stays opt-in to non-production
+  // environments only.
+  if (process.env.NODE_ENV === 'production') return;
   try {
     const count = await Campaign.countDocuments();
     if (count === 0) {

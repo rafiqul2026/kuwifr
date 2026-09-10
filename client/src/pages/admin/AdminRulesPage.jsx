@@ -187,7 +187,8 @@ const AdminRulesPage = () => {
                 <div className={styles.formGroup}>
                   <label>Value *</label>
                   <input
-                    type={formData.type === 'BOOLEAN' ? 'text' : 'text'}
+                    type={(formData.type === 'NUMBER' || formData.type === 'PERCENTAGE') ? 'number' : 'text'}
+                    step={formData.type === 'PERCENTAGE' ? '0.01' : 'any'}
                     value={formData.value}
                     onChange={(e) => setFormData({...formData, value: e.target.value})}
                     required
