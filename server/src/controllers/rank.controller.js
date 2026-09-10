@@ -3,179 +3,28 @@
 const Rank = require('../models/Rank');
 const RankAchievement = require('../models/RankAchievement');
 const User = require('../models/User');
+const RankService = require('../services/rank.service');
 
-// Standard 12-Tier Official KUWIFR Career Progression System
-const DEFAULT_RANKS = [
-  {
-    level: 1,
-    name: 'Star Executive',
-    code: 'STAR',
-    starsRequired: 0,
-    salaryPercentage: 0,
-    reward: 'Recognition Badge',
-    rewardValue: 500,
-    color: '#3b82f6',
-    icon: '⭐',
-    benefits: ['First milestone of binary pair matching', 'Direct referral privileges'],
-    isActive: true
-  },
-  {
-    level: 2,
-    name: 'Bronze Leader',
-    code: 'BRONZE',
-    starsRequired: 6,
-    salaryPercentage: 0,
-    reward: 'Bronze Pin + ₹2,000 Cash Reward',
-    rewardValue: 2000,
-    color: '#cd7f32',
-    icon: '🥉',
-    benefits: ['Leadership Recognition', 'Team Overrides'],
-    isActive: true
-  },
-  {
-    level: 3,
-    name: 'Silver Director',
-    code: 'SILVER',
-    starsRequired: 20,
-    salaryPercentage: 0,
-    reward: 'Silver Trophy + ₹5,000 Cash Reward',
-    rewardValue: 5000,
-    color: '#94a3b8',
-    icon: '🥈',
-    benefits: ['Director Level Perks', 'Special Leadership Trainings'],
-    isActive: true
-  },
-  {
-    level: 4,
-    name: 'Gold Director',
-    code: 'GOLD',
-    starsRequired: 70,
-    salaryPercentage: 0,
-    reward: 'Gold Trophy + ₹10,000 Cash Reward',
-    rewardValue: 10000,
-    color: '#f59e0b',
-    icon: '🥇',
-    benefits: ['Executive Access', 'Quarterly Growth Meets'],
-    isActive: true
-  },
-  {
-    level: 5,
-    name: 'Ruby Ambassador',
-    code: 'RUBY',
-    starsRequired: 200,
-    salaryPercentage: 0.01, // 1.0% TTO Royalty
-    reward: 'Ruby Ring + ₹25,000 Cash Reward',
-    rewardValue: 25000,
-    color: '#ef4444',
-    icon: '💎',
-    benefits: ['1% Monthly TTO Royalty', 'National Convention VIP Access'],
-    isActive: true
-  },
-  {
-    level: 6,
-    name: 'Emerald Ambassador',
-    code: 'EMERALD',
-    starsRequired: 700,
-    salaryPercentage: 0.0075, // 0.75% TTO Royalty
-    reward: 'Emerald Shield + ₹60,000 Cash Reward',
-    rewardValue: 60000,
-    color: '#10b981',
-    icon: '🟢',
-    benefits: ['0.75% Monthly TTO Royalty', 'Luxury Travel Allowance'],
-    isActive: true
-  },
-  {
-    level: 7,
-    name: 'Diamond King',
-    code: 'DIAMOND',
-    starsRequired: 2200,
-    salaryPercentage: 0.005, // 0.5% TTO Royalty
-    reward: 'Diamond Trophy + International Trip',
-    rewardValue: 200000,
-    color: '#06b6d4',
-    icon: '💠',
-    benefits: ['0.50% Monthly TTO Royalty', 'International Tours'],
-    isActive: true
-  },
-  {
-    level: 8,
-    name: 'Crown Ambassador',
-    code: 'CROWN',
-    starsRequired: 7000,
-    salaryPercentage: 0.004, // 0.4% TTO Royalty
-    reward: 'Gold Crown + Luxury Car Fund',
-    rewardValue: 600000,
-    color: '#8b5cf6',
-    icon: '👑',
-    benefits: ['0.40% Monthly TTO Royalty', 'Car Fund Eligibility'],
-    isActive: true
-  },
-  {
-    level: 9,
-    name: 'Royal Crown',
-    code: 'ROYAL_CROWN',
-    starsRequired: 15000,
-    salaryPercentage: 0.003, // 0.3% TTO Royalty
-    reward: 'Royal Trophy + Luxury Villa Fund',
-    rewardValue: 1500000,
-    color: '#ec4899',
-    icon: '🏰',
-    benefits: ['0.30% Monthly TTO Royalty', 'House Fund Eligibility'],
-    isActive: true
-  },
-  {
-    level: 10,
-    name: 'Universal King',
-    code: 'UNIVERSAL_KING',
-    starsRequired: 35000,
-    salaryPercentage: 0.0025, // 0.25% TTO Royalty
-    reward: 'Global Honor Ring + ₹10,00,000',
-    rewardValue: 1000000,
-    color: '#6366f1',
-    icon: '🌌',
-    benefits: ['0.25% Monthly TTO Royalty', 'Global Board Member'],
-    isActive: true
-  },
-  {
-    level: 11,
-    name: 'Global Legend',
-    code: 'GLOBAL_LEGEND',
-    starsRequired: 75000,
-    salaryPercentage: 0.002, // 0.2% TTO Royalty
-    reward: 'Legend Award + ₹25,00,000',
-    rewardValue: 2500000,
-    color: '#d946ef',
-    icon: '⚜️',
-    benefits: ['0.20% Monthly TTO Royalty', 'Lifetime Council Access'],
-    isActive: true
-  },
-  {
-    level: 12,
-    name: 'Kuwi Emperor',
-    code: 'KUWI_EMPEROR',
-    starsRequired: 160000,
-    salaryPercentage: 0.0015, // 0.15% TTO Royalty
-    reward: 'Emperor Royal Crest + ₹50,00,000',
-    rewardValue: 5000000,
-    color: '#eab308',
-    icon: '🦁',
-    benefits: ['0.15% Monthly TTO Royalty', 'Company Lifetime Dividend'],
-    isActive: true
-  }
-];
-
-// Helper: Auto-seed standard ranks on first boot
+// Helper: Auto-seed standard ranks on first boot.
+//
+// This used to carry its OWN duplicate 12-tier rank list (names like "Star
+// Executive"/"Bronze Leader" with codes like STAR/BRONZE) which do not
+// exist in the Rank model's `code` enum (server/src/models/Rank.js only
+// allows KUWI_STAR/BRONZE_STAR/SILVER_STAR/...) — every upsert attempt from
+// that list would fail Mongoose schema validation, so on an empty
+// collection this silently seeded NOTHING, and getAllRanks() fell back to
+// returning that same schema-invalid array directly in the API response
+// (never persisted, never matching what RankAchievement records could
+// actually reference). RankService.initializeRanks() (used everywhere else
+// rank data is computed — getCurrentRank, checkAndAwardRanks) already has
+// the correct, schema-valid 12-tier list ("Kuwi Star"/"Bronze Star"/...),
+// so seeding now delegates to that single source of truth instead of
+// duplicating it here.
 const seedRanksIfEmpty = async () => {
   try {
     const count = await Rank.countDocuments();
     if (count === 0) {
-      for (const r of DEFAULT_RANKS) {
-        await Rank.findOneAndUpdate(
-          { code: r.code },
-          { ...r, isActive: true },
-          { upsert: true, new: true }
-        );
-      }
+      await RankService.initializeRanks();
     }
   } catch (err) {
     console.error('Error auto-seeding ranks:', err.message);
@@ -189,55 +38,37 @@ const seedRanksIfEmpty = async () => {
 const getAllRanks = async (req, res, next) => {
   try {
     await seedRanksIfEmpty();
-    let ranks = await Rank.find().sort({ level: 1 }).lean();
-    if (!ranks || ranks.length === 0) {
-      ranks = DEFAULT_RANKS;
-    }
+    const ranks = await Rank.find().sort({ level: 1 }).lean();
     return res.status(200).json({
       success: true,
-      data: { ranks },
-      ranks
+      data: { ranks: ranks || [] },
+      ranks: ranks || []
     });
   } catch (error) {
     return res.status(200).json({
       success: true,
-      data: { ranks: DEFAULT_RANKS },
-      ranks: DEFAULT_RANKS
+      data: { ranks: [] },
+      ranks: []
     });
   }
 };
 
 /**
- * Member: Get user's current rank and earned milestones
- * GET /api/ranks/user
+ * Member: Get the caller's live rank progress — current stars, current
+ * rank, and achieved-ranks history — for the "Ranks & Progression" page.
+ * GET /api/ranks/my-ranks
+ *
+ * Backed by RankService.getUserRanks(), which self-syncs (persists any
+ * newly-qualified RankAchievement records) before reading, so this always
+ * reflects the true live downline star count rather than a stale counter.
  */
-const getUserRanks = async (req, res, next) => {
+const getMyRanks = async (req, res, next) => {
   try {
     const userId = req.userId || req.user?.id || req.user?._id;
-    await seedRanksIfEmpty();
-
-    let achievements = [];
-    try {
-      achievements = await RankAchievement.find({ userId, status: 'ACHIEVED' })
-        .populate('rankId')
-        .lean();
-    } catch {
-      achievements = [];
-    }
-
-    const user = await User.findById(userId).lean();
-    const currentRank = achievements.length > 0 ? achievements[achievements.length - 1].rankId : null;
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        current: currentRank,
-        currentStars: user?.kuwiStars || 0,
-        totalRanks: achievements.length,
-        achievements: achievements || []
-      }
-    });
+    const result = await RankService.getUserRanks(userId);
+    return res.status(200).json({ success: true, data: result });
   } catch (error) {
+    console.error('getMyRanks failed:', error.message);
     return res.status(200).json({
       success: true,
       data: {
@@ -251,16 +82,25 @@ const getUserRanks = async (req, res, next) => {
 };
 
 /**
+ * Member: Get user's current rank and earned milestones
+ * GET /api/ranks/user
+ * Kept as an alias of the live my-ranks computation for any older callers.
+ */
+const getUserRanks = async (req, res, next) => {
+  return getMyRanks(req, res, next);
+};
+
+/**
  * Member: Get user's current rank badge
  * GET /api/ranks/current
  */
 const getCurrentRank = async (req, res, next) => {
   try {
     const userId = req.userId || req.user?.id || req.user?._id;
-    const user = await User.findById(userId).populate('currentRankId').lean();
+    const rank = await RankService.getCurrentRank(userId);
     return res.status(200).json({
       success: true,
-      data: { rank: user?.currentRankId || null }
+      data: { rank: rank || null }
     });
   } catch (error) {
     next(error);
@@ -406,7 +246,9 @@ const deleteRank = async (req, res, next) => {
 
 const getRankProgression = async (req, res, next) => {
   try {
-    return res.status(200).json({ success: true, data: { progression: [] } });
+    const userId = req.userId || req.user?.id || req.user?._id;
+    const progression = await RankService.getRankProgression(userId);
+    return res.status(200).json({ success: true, data: { progression } });
   } catch (error) {
     next(error);
   }
@@ -415,11 +257,14 @@ const getRankProgression = async (req, res, next) => {
 const getKuwiStars = async (req, res, next) => {
   try {
     const userId = req.userId || req.user?.id || req.user?._id;
-    const user = await User.findById(userId).lean();
+    const SalaryService = require('../services/salary.service');
+    const { leftStars, rightStars } = await SalaryService.countVerifiedSubtreeStars(userId);
     return res.status(200).json({
       success: true,
       data: {
-        total: user?.kuwiStars || 0,
+        total: leftStars + rightStars,
+        leftStars,
+        rightStars,
         history: [],
         pagination: { total: 0, limit: 50, page: 1, pages: 0 }
       }
@@ -446,8 +291,77 @@ const initializeRanks = async (req, res, next) => {
   }
 };
 
+/**
+ * Admin: Live, paginated history of which member achieved which rank on
+ * which date — every real RankAchievement record, newest first.
+ * GET /api/ranks/admin/achievements
+ * Query: page, limit, search (member name/ID/email), rankLevel
+ */
+const getRankAchievementsAdmin = async (req, res, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
+    const { search, rankLevel } = req.query;
+
+    const match = { status: 'ACHIEVED' };
+    if (rankLevel) match.rankLevel = Number(rankLevel);
+
+    let userIdFilter = null;
+    if (search && search.trim()) {
+      const re = new RegExp(search.trim(), 'i');
+      const matchingUsers = await User.find({
+        $or: [{ fullName: re }, { memberId: re }, { email: re }]
+      }).select('_id').lean();
+      userIdFilter = matchingUsers.map((u) => u._id);
+      match.userId = { $in: userIdFilter };
+    }
+
+    const [total, achievements] = await Promise.all([
+      RankAchievement.countDocuments(match),
+      RankAchievement.find(match)
+        .populate('userId', 'fullName memberId email status')
+        .populate('rankId', 'name level icon color')
+        .sort({ achievedAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean()
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        achievements,
+        pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Admin: Force a live recalculation of rank achievements for every active
+ * member — backfills real RankAchievement history for members who
+ * qualified before this tracking existed / before this member last
+ * triggered a match or order event.
+ * POST /api/ranks/admin/recalculate
+ */
+const recalculateAllRankAchievements = async (req, res, next) => {
+  try {
+    const result = await RankService.processAllRanks();
+    return res.status(200).json({
+      success: true,
+      message: `Recalculated ranks for ${result.processed} members — ${result.achievements} newly achieved a rank.`,
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getCurrentRank,
+  getMyRanks,
   getUserRanks,
   getRankProgression,
   getKuwiStars,
@@ -456,5 +370,7 @@ module.exports = {
   initializeRanks,
   createRank,
   updateRank,
-  deleteRank
+  deleteRank,
+  getRankAchievementsAdmin,
+  recalculateAllRankAchievements
 };

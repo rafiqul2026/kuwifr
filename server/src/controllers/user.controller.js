@@ -157,15 +157,34 @@ const getDashboardStats = async (req, res, next) => {
     // zero) business figure even while real orders were being placed under
     // them. Orders are the authoritative source for "KBP generated on a
     // given day" (BinaryNode.leftVolume/rightVolume are lifetime cumulative
-    // totals with no per-day breakdown); orderStatus 'COMPLETED' is the
-    // same gate IncomeService.processOrderIncome() checks before crediting
-    // KBP into the tree at all, so this only counts business that actually
-    // landed.
+    // totals with no per-day breakdown).
+    //
+    // "Real, completed" order status: this codebase writes TWO different
+    // completion signals depending on which checkout path created the
+    // order — order.controller.js's cash-activation flow and
+    // packagePurchase.controller.js's admin-approved online-gateway flow
+    // (together the two most common real paths a member actually gets
+    // activated through) both write orderStatus:'DELIVERED' +
+    // status:'COMPLETED', NOT orderStatus:'COMPLETED'. A filter on
+    // orderStatus:'COMPLETED' alone (the previous version of this query)
+    // misses essentially every order created through those two paths —
+    // which is exactly why Weekly/Today Business could show ₹0 for a
+    // member with dozens of real, active downline members and a real,
+    // non-zero lifetime matching total. Matches the same condition
+    // fund.service.js's TTO aggregation already uses for "this order
+    // counts as real business".
+    const REAL_ORDER_MATCH = {
+      $or: [
+        { orderStatus: { $in: ['COMPLETED', 'DELIVERED'] } },
+        { status: 'COMPLETED' }
+      ]
+    };
+
     const { leftIds: leftSubtreeIds, rightIds: rightSubtreeIds } = await BinaryService.getBranchUserIds(userId);
 
     const sumKbpForSubtree = async (subtreeIds, startDate) => {
       if (!subtreeIds || subtreeIds.length === 0) return 0;
-      const match = { userId: { $in: subtreeIds }, orderStatus: 'COMPLETED' };
+      const match = { userId: { $in: subtreeIds }, ...REAL_ORDER_MATCH };
       if (startDate) match.createdAt = { $gte: startDate };
       const agg = await Order.aggregate([
         { $match: match },

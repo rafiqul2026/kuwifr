@@ -37,6 +37,8 @@ const INITIAL_FORM = {
 };
 
 const AdminRanksPage = () => {
+  const [activeTab, setActiveTab] = useState('TIERS'); // 'TIERS' | 'ACHIEVEMENTS'
+
   const [ranks, setRanks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -44,6 +46,14 @@ const AdminRanksPage = () => {
   const [formData, setFormData] = useState(INITIAL_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Member Rank Achievements (live history — Admin Panel dynamic requirement)
+  const [achievements, setAchievements] = useState([]);
+  const [achievementsLoading, setAchievementsLoading] = useState(false);
+  const [achievementsSearch, setAchievementsSearch] = useState('');
+  const [achievementsPage, setAchievementsPage] = useState(1);
+  const [achievementsPagination, setAchievementsPagination] = useState({ total: 0, page: 1, limit: 50, pages: 1 });
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   const { showNotification } = useNotification ? useNotification() : {
     showNotification: (msg, type) => console.log(`[${type}] ${msg}`)
@@ -79,6 +89,55 @@ const AdminRanksPage = () => {
   useEffect(() => {
     fetchRanks();
   }, [fetchRanks]);
+
+  // Live "which member achieved which rank, on which date" — GET
+  // /api/ranks/admin/achievements, backed by real, persisted
+  // RankAchievement records (self-synced whenever a member's Ranks page
+  // loads, or via the "Recalculate All" backfill below).
+  const fetchAchievements = useCallback(async (page = 1, search = '') => {
+    try {
+      setAchievementsLoading(true);
+      const res = await api.get('/api/ranks/admin/achievements', {
+        params: { page, limit: 50, search: search || undefined }
+      });
+      if (res.data?.success && res.data.data) {
+        setAchievements(Array.isArray(res.data.data.achievements) ? res.data.data.achievements : []);
+        setAchievementsPagination(res.data.data.pagination || { total: 0, page: 1, limit: 50, pages: 1 });
+      }
+    } catch (error) {
+      console.error('Failed to load rank achievements:', error);
+      showNotification('Unable to fetch member rank achievements.', 'warning');
+    } finally {
+      setAchievementsLoading(false);
+    }
+  }, [showNotification]);
+
+  useEffect(() => {
+    if (activeTab === 'ACHIEVEMENTS') {
+      fetchAchievements(achievementsPage, achievementsSearch);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, achievementsPage]);
+
+  const handleAchievementsSearchSubmit = (e) => {
+    e.preventDefault();
+    setAchievementsPage(1);
+    fetchAchievements(1, achievementsSearch);
+  };
+
+  const handleRecalculateAll = async () => {
+    setIsRecalculating(true);
+    try {
+      const res = await api.post('/api/ranks/admin/recalculate');
+      showNotification(res.data?.message || 'Rank achievements recalculated for all members.', 'success');
+      fetchAchievements(1, achievementsSearch);
+      setAchievementsPage(1);
+    } catch (error) {
+      showNotification('Failed to recalculate rank achievements.', 'error');
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
 
   // Real-time catalog search
   const filteredRanks = useMemo(() => {
@@ -254,6 +313,26 @@ const AdminRanksPage = () => {
         </div>
       </div>
 
+      {/* Tabs: Rank Tiers (configuration) vs Member Achievements (live history) */}
+      <div className={styles.pageTabs}>
+        <button
+          type="button"
+          className={`${styles.pageTabBtn} ${activeTab === 'TIERS' ? styles.pageTabBtnActive : ''}`}
+          onClick={() => setActiveTab('TIERS')}
+        >
+          🏆 Rank Tiers
+        </button>
+        <button
+          type="button"
+          className={`${styles.pageTabBtn} ${activeTab === 'ACHIEVEMENTS' ? styles.pageTabBtnActive : ''}`}
+          onClick={() => setActiveTab('ACHIEVEMENTS')}
+        >
+          📜 Member Achievements
+        </button>
+      </div>
+
+      {activeTab === 'TIERS' && (
+      <>
       {/* 2. KPI Metrics Grid */}
       <div className={styles.statsGrid}>
         <div className={styles.statCard}>
@@ -415,6 +494,140 @@ const AdminRanksPage = () => {
           </table>
         )}
       </div>
+      </>
+      )}
+
+      {activeTab === 'ACHIEVEMENTS' && (
+      <>
+      {/* Member Rank Achievements — live, persisted history: who achieved
+          which rank, and on which date. Backed by real RankAchievement
+          records, self-synced whenever a member's own Ranks page loads;
+          "Recalculate All" force-backfills every active member right now. */}
+      <div className={styles.filterStrip}>
+        <form onSubmit={handleAchievementsSearchSubmit} className={styles.searchWrap} style={{ flex: 1 }}>
+          <span className={styles.searchIcon}>🔍</span>
+          <input
+            type="text"
+            placeholder="Search by member name, ID, or email..."
+            value={achievementsSearch}
+            onChange={(e) => setAchievementsSearch(e.target.value)}
+            className={styles.searchInput}
+          />
+          {achievementsSearch && (
+            <button
+              type="button"
+              onClick={() => { setAchievementsSearch(''); setAchievementsPage(1); fetchAchievements(1, ''); }}
+              className={styles.clearSearch}
+            >
+              ✕
+            </button>
+          )}
+        </form>
+        <button
+          type="button"
+          onClick={handleRecalculateAll}
+          disabled={isRecalculating}
+          className={styles.recalcBtn}
+          title="Live-recompute every active member's rank achievements right now"
+        >
+          {isRecalculating ? 'Recalculating...' : '⚡ Recalculate All'}
+        </button>
+      </div>
+
+      <div className={styles.tableWrapper}>
+        {achievementsLoading ? (
+          <div className={styles.loadingArea}>
+            <div className={styles.spinner}></div>
+            <p>Loading member rank achievements...</p>
+          </div>
+        ) : achievements.length === 0 ? (
+          <div className={styles.emptyArea}>
+            <span className={styles.emptyIcon}>📜</span>
+            <h3>No rank achievements recorded yet</h3>
+            <p>Click "Recalculate All" to backfill achievements for every currently-qualified member.</p>
+          </div>
+        ) : (
+          <>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>MEMBER</th>
+                <th>RANK ACHIEVED</th>
+                <th>LEVEL</th>
+                <th>STARS AT ACHIEVEMENT</th>
+                <th>DATE ACHIEVED</th>
+                <th>REWARD STATUS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {achievements.map((a) => {
+                const member = a.userId || {};
+                const rank = a.rankId || {};
+                const achievedDate = a.achievedAt ? new Date(a.achievedAt) : null;
+                return (
+                  <tr key={a._id}>
+                    <td>
+                      <div className={styles.memberCell}>
+                        <span className={styles.memberName}>{member.fullName || 'Unknown Member'}</span>
+                        <span className={styles.memberMeta}>{member.memberId || member.email || ''}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={styles.rankBadgeCell} style={{ color: rank.color || '#0f172a' }}>
+                        <span>{rank.icon || '🏆'}</span>
+                        <span>{a.rankName || rank.name || '—'}</span>
+                      </span>
+                    </td>
+                    <td>
+                      <span className={styles.levelPill}>Level {a.rankLevel ?? rank.level ?? '—'}</span>
+                    </td>
+                    <td>
+                      <strong className={styles.starsText}>⭐ {Number(a.starsAtAchievement || 0).toLocaleString('en-IN')}</strong>
+                    </td>
+                    <td>
+                      <span className={styles.dateText}>
+                        {achievedDate ? achievedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`${styles.salaryPill} ${a.rewardStatus === 'DELIVERED' ? styles.salaryActive : styles.salaryNone}`}>
+                        {a.rewardStatus || 'PENDING'}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <div className={styles.paginationRow}>
+            <span>
+              Showing {achievements.length} of {achievementsPagination.total} achievement{achievementsPagination.total === 1 ? '' : 's'}
+            </span>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                className={styles.pageBtn}
+                disabled={achievementsPage <= 1}
+                onClick={() => setAchievementsPage((p) => Math.max(1, p - 1))}
+              >
+                ← Prev
+              </button>
+              <span>Page {achievementsPagination.page} of {achievementsPagination.pages}</span>
+              <button
+                type="button"
+                className={styles.pageBtn}
+                disabled={achievementsPage >= achievementsPagination.pages}
+                onClick={() => setAchievementsPage((p) => p + 1)}
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+          </>
+        )}
+      </div>
+      </>
+      )}
 
       {/* 5. Production-Ready High-Z-Index Modal Card */}
       {showModal && (

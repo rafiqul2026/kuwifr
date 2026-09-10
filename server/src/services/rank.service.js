@@ -325,16 +325,49 @@ class RankService {
   }
 
   /**
-   * Check all rank achievements for a user
+   * Check all rank achievements for a user — and PERSIST them (permanent
+   * RankAchievement records with a real achieved-on date), so the Admin
+   * panel has real history to show.
+   *
+   * WHY THIS CHANGED: this used to gate everything on `user.kuwiStars` (a
+   * counter incremented +1 only by the member's OWN package purchase,
+   * via addKuwiStars()) and a separate `checkKuwiStarQualification()`
+   * definition of "Kuwi Star". Neither has anything to do with what the
+   * rank tiers (Bronze:6, Silver:20, ... Gold Star:200) actually measure —
+   * the member's live, verified LEFT/RIGHT downline star count — which is
+   * exactly why a member with a real, large, genuinely-qualifying downline
+   * (e.g. 56 members, 12 matched stars) could sit at "Member (No Rank Yet)"
+   * forever even after their own purchase counter had long since caught up
+   * with a low tier's threshold, while a member who bought several
+   * packages themselves (but built no real team) could rack up
+   * `kuwiStars` and wrongly "achieve" high tiers.
+   *
+   * Now uses the exact same live entry-gate + subtree-star computation as
+   * getCurrentRank() below (SalaryService.checkIsKuwiStar +
+   * countVerifiedSubtreeStars) — the source of truth already proven
+   * correct for the Dashboard/Remuneration cards — so the persisted
+   * achievement history and the live "current rank" display can never
+   * disagree with each other again.
    */
   async checkAndAwardRanks(userId) {
+    const SalaryService = require("./salary.service");
     const user = await User.findById(userId);
 
     if (!user) {
-      return;
+      return false;
     }
 
-    const currentStars = user.kuwiStars || 0;
+    // Entry gate ("Rank and Reward starts from 1st Pair Matching only"): no
+    // rank — not even the entry-level Kuwi Star tier (starsRequired: 0) —
+    // is awarded until the member themselves meets the live Kuwi Star bar.
+    const isSelfQualified = await SalaryService.checkIsKuwiStar(userId);
+    if (!isSelfQualified) {
+      return false;
+    }
+
+    const { leftStars, rightStars } =
+      await SalaryService.countVerifiedSubtreeStars(userId);
+    const currentStars = leftStars + rightStars;
 
     // Get all ranks sorted by level
     const allRanks = await Rank.find({
@@ -343,7 +376,9 @@ class RankService {
       level: 1,
     });
 
-    // Get already achieved ranks
+    // Get already achieved ranks — achievements are permanent once
+    // recorded, so a rank never "un-achieves" even if the live star count
+    // were to later dip.
     const achievedRanks = await RankAchievement.find({
       userId: userId,
       status: "ACHIEVED",
@@ -361,21 +396,8 @@ class RankService {
         continue;
       }
 
-      // Special check for Kuwi Star
-      if (rank.code === "KUWI_STAR") {
-        const qualifies = await this.checkKuwiStarQualification(userId);
-
-        if (qualifies) {
-          await this.achieveRank(userId, rank);
-          newRankAchieved = true;
-        }
-
-        continue;
-      }
-
-      // For all other ranks, check stars required
-      if (currentStars >= rank.starsRequired) {
-        await this.achieveRank(userId, rank);
+      if (currentStars >= (rank.starsRequired || 0)) {
+        await this.achieveRank(userId, rank, currentStars);
         newRankAchieved = true;
       }
     }
@@ -397,7 +419,7 @@ class RankService {
 
       if (rank && (!currentRank || rank.level > currentRank.level)) {
         user.currentRankId = rank._id;
-        user.rankAchievedAt = new Date();
+        user.rankAchievedAt = user.rankAchievedAt || new Date();
 
         await user.save();
       }
@@ -415,9 +437,14 @@ class RankService {
   }
 
   /**
-   * Achieve a rank for a user
+   * Achieve a rank for a user.
+   *
+   * `starsAtAchievement` should be the caller's already-computed LIVE star
+   * count (SalaryService.countVerifiedSubtreeStars left+right) — passed in
+   * explicitly rather than re-read here via the old `user.kuwiStars`
+   * counter, which is disconnected from what actually qualifies a rank.
    */
-  async achieveRank(userId, rank) {
+  async achieveRank(userId, rank, starsAtAchievement = null) {
     // Check if already achieved
     const existing = await RankAchievement.findOne({
       userId: userId,
@@ -425,8 +452,13 @@ class RankService {
     });
 
     if (existing) {
-      return;
+      return existing;
     }
+
+    const resolvedStars =
+      typeof starsAtAchievement === "number"
+        ? starsAtAchievement
+        : await this.getTotalKuwiStars(userId);
 
     // Create achievement
     const achievement = new RankAchievement({
@@ -434,7 +466,7 @@ class RankService {
       rankId: rank._id,
       rankName: rank.name,
       rankLevel: rank.level,
-      starsAtAchievement: await this.getTotalKuwiStars(userId),
+      starsAtAchievement: resolvedStars,
       reward: rank.reward || "",
       rewardStatus: rank.reward ? "PENDING" : "NOT_APPLICABLE",
       status: "ACHIEVED",
@@ -457,18 +489,6 @@ class RankService {
 
         await user.save();
       }
-    }
-
-    // Add bonus stars if applicable
-    if (rank.level === 2) {
-      await this.addKuwiStars(
-        userId,
-        1,
-        "RANK_BONUS",
-        achievement._id,
-        "RankAchievement",
-        "Bronze Star achievement bonus",
-      );
     }
 
     console.log(`🌟 User ${userId} achieved rank: ${rank.name}`);
@@ -529,22 +549,36 @@ class RankService {
   }
 
   /**
-   * Get all rank achievements for a user
+   * Get all rank achievements for a user — for the Member "Ranks &
+   * Progression" page and the Admin per-member lookup.
+   *
+   * Self-heals before reading: re-runs checkAndAwardRanks() so a member
+   * whose downline grew since their last match/order event (or who has
+   * simply never triggered one) still sees fully live, correct data the
+   * moment they open the page — the achievement history doesn't depend on
+   * a background job having already run for them.
    */
   async getUserRanks(userId) {
-    const achievements = await RankAchievement.find({
-      userId: userId,
-      status: "ACHIEVED",
-    })
-      .populate("rankId")
-      .sort({
-        rankLevel: -1,
-      });
+    const SalaryService = require("./salary.service");
 
-    const currentRank = await this.getCurrentRank(userId);
+    await this.checkAndAwardRanks(userId).catch((err) => {
+      console.error(`Rank sync failed for user ${userId}:`, err.message);
+    });
+
+    const [achievements, currentRank, { leftStars, rightStars }] =
+      await Promise.all([
+        RankAchievement.find({ userId: userId, status: "ACHIEVED" })
+          .populate("rankId")
+          .sort({ rankLevel: -1 }),
+        this.getCurrentRank(userId),
+        SalaryService.countVerifiedSubtreeStars(userId),
+      ]);
 
     return {
       current: currentRank,
+      currentStars: leftStars + rightStars,
+      currentLeftStars: leftStars,
+      currentRightStars: rightStars,
       achievements: achievements,
       totalRanks: achievements.length,
     };
@@ -554,7 +588,10 @@ class RankService {
    * Get rank progression for a user
    */
   async getRankProgression(userId) {
-    const currentStars = await this.getTotalKuwiStars(userId);
+    const SalaryService = require("./salary.service");
+    const { leftStars, rightStars } =
+      await SalaryService.countVerifiedSubtreeStars(userId);
+    const currentStars = leftStars + rightStars;
 
     const allRanks = await Rank.find({
       isActive: true,

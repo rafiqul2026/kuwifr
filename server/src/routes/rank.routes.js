@@ -17,6 +17,7 @@ const adminAuth =
 // ============ PUBLIC & MEMBER ROUTES ============
 router.get('/', rankController.getAllRanks);
 router.get('/all', rankController.getAllRanks);
+router.get('/my-ranks', auth, rankController.getMyRanks);
 router.get('/current', auth, rankController.getCurrentRank);
 router.get('/user', auth, rankController.getUserRanks);
 router.get('/stars', auth, rankController.getKuwiStars);
@@ -26,6 +27,8 @@ router.post('/initialize', auth, adminAuth, rankController.initializeRanks);
 // ============ ADMIN MANAGEMENT ROUTES ============
 // Handles /api/admin/ranks and /api/ranks/admin/*
 router.get('/admin/all', auth, adminAuth, rankController.getAllRanks);
+router.get('/admin/achievements', auth, adminAuth, rankController.getRankAchievementsAdmin);
+router.post('/admin/recalculate', auth, adminAuth, rankController.recalculateAllRankAchievements);
 router.post('/', auth, adminAuth, rankController.createRank);
 router.put('/:id', auth, adminAuth, rankController.updateRank);
 router.delete('/:id', auth, adminAuth, rankController.deleteRank);

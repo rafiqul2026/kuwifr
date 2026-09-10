@@ -23,6 +23,20 @@ const getDateFilter = (startDate, endDate, field = 'createdAt') => {
   return filter;
 };
 
+// Every revenue/sales report below used to filter Order by
+// `paymentStatus: 'PAID'` — a value that ISN'T EVEN IN the Order schema's
+// paymentStatus enum (server/src/models/Order.js) and is never written by
+// any real order-creation path. The actual codepaths that create real
+// orders (order.controller.js's cash-activation flow,
+// packagePurchase.controller.js's admin-approved online-gateway flow,
+// admin.controller.js / package.controller.js's admin quick-activation)
+// write paymentStatus 'COMPLETED' or 'SUCCESS'. A filter on 'PAID' alone
+// therefore NEVER matched a single real order — every revenue figure
+// derived from it (Admin Dashboard gross revenue, Sales Report, Financial
+// Report, the Sales CSV export) was silently ₹0/empty regardless of how
+// much real business happened.
+const PAID_ORDER_MATCH = { paymentStatus: { $in: ['COMPLETED', 'SUCCESS'] } };
+
 // ============ ADMIN REPORTS ============
 
 /**
@@ -34,7 +48,7 @@ const getAdminDashboard = async (req, res, next) => {
     const [totalUsers, activeUsers, orders, withdrawals, wallets] = await Promise.all([
       User.countDocuments().catch(() => 0),
       User.countDocuments({ status: 'ACTIVE' }).catch(() => 0),
-      Order.find({ paymentStatus: 'PAID' }).lean().catch(() => []),
+      Order.find(PAID_ORDER_MATCH).lean().catch(() => []),
       Withdrawal.find().lean().catch(() => []),
       Wallet.find().lean().catch(() => [])
     ]);
@@ -241,7 +255,7 @@ const getAdminWithdrawalReport = async (req, res, next) => {
 const getSalesReport = async (req, res, next) => {
   try {
     const { startDate, endDate } = req.query;
-    const query = { paymentStatus: 'PAID', ...getDateFilter(startDate, endDate) };
+    const query = { ...PAID_ORDER_MATCH, ...getDateFilter(startDate, endDate) };
 
     const orders = await Order.find(query).sort({ createdAt: -1 }).lean().catch(() => []);
 
@@ -296,7 +310,7 @@ const getFinancialReport = async (req, res, next) => {
     const dateFilter = getDateFilter(startDate, endDate);
 
     const [orders, withdrawals, incomeAgg] = await Promise.all([
-      Order.find({ paymentStatus: 'PAID', ...dateFilter }).lean().catch(() => []),
+      Order.find({ ...PAID_ORDER_MATCH, ...dateFilter }).lean().catch(() => []),
       Withdrawal.find(dateFilter).lean().catch(() => []),
       IncomeTransaction.aggregate([
         { $match: { status: 'CREDITED', ...dateFilter } },
@@ -388,7 +402,7 @@ const exportReportCSV = async (req, res, next) => {
         csv += `"${w.withdrawalNumber || w.transactionId || ''}","${w.userId?.fullName || 'N/A'}",${w.grossAmount || w.amount || 0},${w.tdsAmount || 0},${w.adminCharge || w.adminFee || 0},${w.netAmount || 0},"${w.status || ''}","${w.createdAt ? new Date(w.createdAt).toISOString().split('T')[0] : ''}"\n`;
       });
     } else if (type === 'sales') {
-      const orders = await Order.find({ paymentStatus: 'PAID', ...getDateFilter(startDate, endDate) }).lean();
+      const orders = await Order.find({ ...PAID_ORDER_MATCH, ...getDateFilter(startDate, endDate) }).lean();
       csv = 'Order ID,Customer Name,Plan/Items,Total Amount,Payment Method,Date\n';
       orders.forEach((o) => {
         csv += `"${o.orderNumber || ''}","${o.customerName || 'Member'}",${o.totalAmount || 0},"${o.paymentMethod || 'UPI'}","${o.createdAt ? new Date(o.createdAt).toISOString().split('T')[0] : ''}"\n`;
