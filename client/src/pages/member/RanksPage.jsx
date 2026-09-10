@@ -168,6 +168,8 @@ const RanksPage = () => {
   const [myRanks, setMyRanks] = useState({
     current: null,
     currentStars: 0,
+    currentLeftStars: 0,
+    currentRightStars: 0,
     totalRanks: 0,
     achievements: []
   });
@@ -201,6 +203,8 @@ const RanksPage = () => {
         setMyRanks({
           current: d.current || null,
           currentStars: typeof d.currentStars === 'number' ? d.currentStars : 0,
+          currentLeftStars: typeof d.currentLeftStars === 'number' ? d.currentLeftStars : 0,
+          currentRightStars: typeof d.currentRightStars === 'number' ? d.currentRightStars : 0,
           totalRanks: d.totalRanks || (Array.isArray(d.achievements) ? d.achievements.length : 0),
           achievements: Array.isArray(d.achievements) ? d.achievements : []
         });
@@ -208,6 +212,8 @@ const RanksPage = () => {
         setMyRanks({
           current: null,
           currentStars: 0,
+          currentLeftStars: 0,
+          currentRightStars: 0,
           totalRanks: 0,
           achievements: []
         });
@@ -239,67 +245,67 @@ const RanksPage = () => {
   const getRankConditions = (rank) => {
     const conditions = {
       1: {
-        requirement: "2:1 or 1:2 Direct 3 joining with Minimum 3000 KBP",
+        requirement: "2:1 or 1:2 — that means 3 Direct Joining, Minimum 3,000 KBP",
         timeLimit: "Time Limit: 15 days from the date of joining",
         salary: null
       },
       2: {
-        requirement: "6 Kuwi Stars",
+        requirement: "6 Kuwi Stars — Left 3 Star : Right 3 Star",
         timeLimit: "No Time Limit",
         salary: null
       },
       3: {
-        requirement: "20 Kuwi Stars",
+        requirement: "20 Kuwi Stars — Left 10 Star : Right 10 Star",
         timeLimit: "No Time Limit",
         salary: null
       },
       4: {
-        requirement: "70 Kuwi Stars",
+        requirement: "70 Kuwi Stars — Left 35 Star : Right 35 Star",
         timeLimit: "No Time Limit",
         salary: null
       },
       5: {
-        requirement: "200 Kuwi Stars",
+        requirement: "200 Kuwi Stars — Left 100 Star : Right 100 Star",
         timeLimit: "No Time Limit",
-        salary: "1% Remuneration on TTO monthly"
+        salary: "1% Remuneration on Monthly TTO"
       },
       6: {
-        requirement: "700 Kuwi Stars",
+        requirement: "700 Kuwi Stars — Left 350 Star : Right 350 Star",
         timeLimit: "No Time Limit",
-        salary: "0.75% Remuneration on TTO monthly"
+        salary: "0.75% Remuneration on Monthly TTO"
       },
       7: {
-        requirement: "2,200 Kuwi Stars",
+        requirement: "2,200 Kuwi Stars — Left 1,100 Star : Right 1,100 Star",
         timeLimit: "No Time Limit",
-        salary: "0.50% Remuneration on TTO monthly"
+        salary: "0.50% Remuneration on Monthly TTO"
       },
       8: {
-        requirement: "7,000 Kuwi Stars",
+        requirement: "7,000 Kuwi Stars — Left 3,500 Star : Right 3,500 Star",
         timeLimit: "No Time Limit",
-        salary: "0.40% Remuneration on TTO monthly"
+        salary: "0.40% Remuneration on Monthly TTO"
       },
       9: {
-        requirement: "15,000 Kuwi Stars",
+        requirement: "15,000 Kuwi Stars — Left 7,500 Star : Right 7,500 Star",
         timeLimit: "No Time Limit",
-        salary: "0.30% Remuneration on TTO monthly"
+        salary: "0.30% Remuneration on Monthly TTO"
       },
       10: {
-        requirement: "35,000 Kuwi Stars",
+        requirement: "35,000 Kuwi Stars — Left 17,500 Star : Right 17,500 Star",
         timeLimit: "No Time Limit",
-        salary: "0.25% Remuneration on TTO monthly"
+        salary: "0.25% Remuneration on Monthly TTO"
       },
       11: {
-        requirement: "75,000 Kuwi Stars",
+        requirement: "75,000 Kuwi Stars — Left 37,500 Star : Right 37,500 Star",
         timeLimit: "No Time Limit",
-        salary: "0.20% Remuneration on TTO monthly"
+        salary: "0.20% Remuneration on Monthly TTO"
       },
       12: {
-        requirement: "160,000 Kuwi Stars",
+        requirement: "160,000 Kuwi Stars — Left 80,000 Star : Right 80,000 Star",
         timeLimit: "No Time Limit",
-        salary: "0.15% Remuneration on TTO monthly"
+        salary: "0.15% Remuneration on Monthly TTO"
       }
     };
-    return conditions[rank?.level] || { requirement: "Complete required Kuwi Stars", timeLimit: "No Time Limit", salary: null };
+    return conditions[rank?.level] || { requirement: "Complete required Kuwi Stars, balanced Left : Right", timeLimit: "No Time Limit", salary: null };
   };
 
   const isRankAchieved = (rank) => {
@@ -328,10 +334,10 @@ const RanksPage = () => {
       {/* ============ HEADER ============ */}
       <header className={styles.pageHeader}>
         <div className={styles.headerTitleWrap}>
-          <span className={styles.headerTag}>🏆 Career & Royalty Ladder</span>
-          <h1 className={styles.pageTitle}>Ranks & Progression</h1>
+          <span className={styles.headerTag}>🏆 Uncommon Ranks and Rewards</span>
+          <h1 className={styles.pageTitle}>Rank and Rewards</h1>
           <p className={styles.pageSubtitle}>
-            Rank and Reward starts from 1st Pair Matching only. Build Kuwi Stars to unlock leadership ranks and monthly TTO royalties.
+            Rank and Reward starts from 1st Pair Matching only. Every tier requires an equally balanced Left : Right Kuwi Star count — build your team evenly on both legs to unlock rewards and monthly TTO royalties.
           </p>
         </div>
         <div className={styles.starsCount}>
@@ -413,8 +419,15 @@ const RanksPage = () => {
         ) : (
           filteredRanks.map((rank, index) => {
             const isAchieved = isRankAchieved(rank);
-            const progress = rank.starsRequired > 0
-              ? Math.min(100, Math.round((myRanks.currentStars / rank.starsRequired) * 100))
+            // Uncommon Ranks and Rewards: every tier needs the SAME star
+            // count on BOTH legs (e.g. Bronze = 6 total, but only counts
+            // once you have 3 Left AND 3 Right), so progress tracks the
+            // limiting (smaller) leg against half the requirement — not the
+            // combined total, which could read 100% from one lopsided leg.
+            const requiredPerLeg = rank.starsRequired > 0 ? Math.ceil(rank.starsRequired / 2) : 0;
+            const limitingLegStars = Math.min(myRanks.currentLeftStars || 0, myRanks.currentRightStars || 0);
+            const progress = requiredPerLeg > 0
+              ? Math.min(100, Math.round((limitingLegStars / requiredPerLeg) * 100))
               : rank.level === 1 ? (isAchieved ? 100 : 0) : 0;
 
             const rankColor = getRankColor(rank);
@@ -492,7 +505,10 @@ const RanksPage = () => {
                         />
                       </div>
                       <div className={styles.progressTextRow}>
-                        <span>{myRanks.currentStars} / {rank.starsRequired.toLocaleString()} Stars</span>
+                        <span>
+                          L: {(myRanks.currentLeftStars || 0).toLocaleString()} / R: {(myRanks.currentRightStars || 0).toLocaleString()}
+                          {' '}(need {requiredPerLeg.toLocaleString()} on each leg)
+                        </span>
                         <strong>{progress}% Complete</strong>
                       </div>
                     </div>
@@ -524,7 +540,11 @@ const RanksPage = () => {
                   {/* Next Rank Info */}
                   {isNext && (
                     <div className={styles.nextInfo}>
-                      <span>Need <strong>{(rank.starsRequired - myRanks.currentStars).toLocaleString()}</strong> more stars to unlock {rank.name}</span>
+                      <span>
+                        Need <strong>{Math.max(0, requiredPerLeg - (myRanks.currentLeftStars || 0)).toLocaleString()}</strong> more on Left
+                        {' '}and <strong>{Math.max(0, requiredPerLeg - (myRanks.currentRightStars || 0)).toLocaleString()}</strong> more on Right
+                        {' '}to unlock {rank.name}
+                      </span>
                     </div>
                   )}
                 </div>

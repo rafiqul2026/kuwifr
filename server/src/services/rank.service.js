@@ -325,6 +325,20 @@ class RankService {
   }
 
   /**
+   * "Uncommon Ranks and Rewards" — every tier requires the SAME verified
+   * star count on BOTH legs, not just a combined total (e.g. Bronze Star =
+   * "6 Kuwi Star, Left 3 Star : Right 3 Star" — a lopsided 6-Left/0-Right
+   * downline does NOT qualify). starsRequired is always published as an
+   * even split in the comp plan (6, 20, 70, 200, 700, 2200, 7000, 15000,
+   * 35000, 75000, 160000 -> exactly half on each leg); Math.ceil guards
+   * against a future odd/misconfigured value by never under-requiring.
+   */
+  isBalancedRankQualified(leftStars, rightStars, rank) {
+    const requiredPerLeg = Math.ceil((rank.starsRequired || 0) / 2);
+    return leftStars >= requiredPerLeg && rightStars >= requiredPerLeg;
+  }
+
+  /**
    * Check all rank achievements for a user — and PERSIST them (permanent
    * RankAchievement records with a real achieved-on date), so the Admin
    * panel has real history to show.
@@ -357,10 +371,14 @@ class RankService {
       return false;
     }
 
-    // Entry gate ("Rank and Reward starts from 1st Pair Matching only"): no
-    // rank — not even the entry-level Kuwi Star tier (starsRequired: 0) —
-    // is awarded until the member themselves meets the live Kuwi Star bar.
-    const isSelfQualified = await SalaryService.checkIsKuwiStar(userId);
+    // Entry gate ("Rank and Reward starts from 1st Pair Matching only" +
+    // the 15-day Kuwi Star window): applies ONLY to the member being
+    // evaluated for their OWN rank here — NOT to how their downline members
+    // are counted as stars (SalaryService.checkIsKuwiStar alone handles
+    // that, deliberately without this stricter gate; see its docstring).
+    const isSelfQualified =
+      (await SalaryService.checkIsKuwiStar(userId)) &&
+      (await SalaryService.checkKuwiStarSelfEntryGate(userId));
     if (!isSelfQualified) {
       return false;
     }
@@ -396,7 +414,7 @@ class RankService {
         continue;
       }
 
-      if (currentStars >= (rank.starsRequired || 0)) {
+      if (this.isBalancedRankQualified(leftStars, rightStars, rank)) {
         await this.achieveRank(userId, rank, currentStars);
         newRankAchieved = true;
       }
@@ -497,55 +515,50 @@ class RankService {
   }
 
   /**
-   * Get current rank for a user — LIVE evaluation from the real Left/Right
-   * downline Kuwi-Star count, the same metric SalaryService already uses
-   * for the Remuneration (Gold Star) progress card, e.g. "12 Matched Stars
-   * (4 Left : 8 Right)".
+   * Get current rank for a user — the highest rank on their PERMANENT
+   * achievement record, after self-healing (picking up any newly-qualified
+   * rank first).
    *
-   * WHY THIS CHANGED: this used to trust `user.currentRankId`, which is
-   * only ever set by checkAndAwardRanks() — and that method is only
-   * invoked when the member THEMSELVES places an order
-   * (product.service.js), where it compares `user.kuwiStars` (a counter
-   * that increments by exactly 1 per the member's OWN package purchase)
-   * against each rank's starsRequired. That has nothing to do with "how
-   * many of your downline are themselves Kuwi-Star qualified, split
-   * Left/Right" — the metric the compensation plan's rank tiers
-   * (Bronze:6, Silver:20, Platinum:70, Gold Star:200, ...) actually
-   * describe, and the one already proven correct on the Remuneration
-   * card. A member with a large, genuinely qualifying downline (e.g. 56
-   * members, 12 matched stars) could show "Not Achieved" forever, because
-   * their own purchase counter never moved — this is the exact bug
-   * reported against the live dashboard. Fixing it here also fixes
-   * Leadership/Cheque Match Bonus (income.service.js#isLeadershipQualified
-   * and #processLeadershipBonusForMatch both gate on getCurrentRank), which
-   * was silently never qualifying anyone for the same reason.
+   * WHY THIS CHANGED (again): the previous version re-derived "current
+   * rank" from scratch on every call — re-running the full live entry gate
+   * (self 3-direct/2:1-1:2/KBP check, 1st-pair-match, 15-day window) and
+   * the Left/Right star balance check every single time. But
+   * RankAchievement is explicitly modeled as permanent ("once achieved,
+   * ranks are permanent" — see the schema comment), and checkAndAwardRanks
+   * already persists a record the moment a tier is earned. A live
+   * re-derivation can only ever AGREE with that record or regress below
+   * it — it can never show something MORE achieved than what's on file —
+   * so re-deriving live bought nothing except a real failure mode: any
+   * momentary dip in the member's OWN live qualification (e.g. one direct
+   * referral briefly going inactive) made an already-earned, permanently
+   * recorded rank vanish from the Dashboard, even while the Rank & Rewards
+   * page — reading the same permanent achievement list — kept correctly
+   * showing it as Achieved. That exact split (2 ranks Achieved on the Rank
+   * page, "Not Achieved" on the Dashboard) is the bug this fixes.
+   *
+   * Now both surfaces read the same source of truth: self-heal via
+   * checkAndAwardRanks (idempotent — awards anything newly qualified,
+   * never revokes anything already recorded), then return the highest
+   * ACHIEVED record. This also fixes Leadership/Cheque Match Bonus
+   * (income.service.js#isLeadershipQualified and
+   * #processLeadershipBonusForMatch both gate on getCurrentRank) and the
+   * Gold-Star-and-above monthly TTO salary — both now correctly stay
+   * qualified once a rank is earned, instead of silently lapsing.
    */
   async getCurrentRank(userId) {
-    const SalaryService = require("./salary.service");
+    await this.checkAndAwardRanks(userId).catch((err) => {
+      console.error(`Rank sync failed for user ${userId}:`, err.message);
+    });
 
-    // Entry gate ("Rank and Reward starts from 1st Pair Matching only"): a
-    // member must themselves meet the Kuwi Star bar — 3+ active directs in
-    // a 2:1/1:2 split with >=3,000 KBP, no time limit — before any tier
-    // applies. This is the same self-qualification check already used to
-    // count a member as a "star" inside someone else's downline.
-    const isSelfQualified = await SalaryService.checkIsKuwiStar(userId);
-    if (!isSelfQualified) return null;
-
-    const { leftStars, rightStars } =
-      await SalaryService.countVerifiedSubtreeStars(userId);
-    const totalStars = leftStars + rightStars;
-
-    const allRanks = await Rank.find({ isActive: true })
-      .sort({ level: -1 })
+    const highestAchieved = await RankAchievement.findOne({
+      userId,
+      status: "ACHIEVED",
+    })
+      .sort({ rankLevel: -1 })
+      .populate("rankId")
       .lean();
-    const qualifiedRank = allRanks.find(
-      (r) => totalStars >= (r.starsRequired || 0),
-    );
 
-    // Falls back to the lowest-level active rank (Kuwi Star, starsRequired
-    // 0) if no higher tier's threshold is met yet — never null once the
-    // entry gate above has been passed.
-    return qualifiedRank || allRanks[allRanks.length - 1] || null;
+    return highestAchieved ? highestAchieved.rankId : null;
   }
 
   /**
@@ -779,31 +792,17 @@ class RankService {
   }
 
   /**
-   * Get user's TTO for a period
+   * Get user's TTO for a period — delegates to
+   * SalaryService.getTeamTurnoverForMonth(), which computes real Team Turn
+   * Over from Order records and persists it to TTORecord on first read
+   * (nothing else in this codebase ever wrote that collection, so a plain
+   * TTORecord.findOne() here always returned nothing and every rank-salary
+   * payout was silently ₹0 regardless of real team business).
    */
   async getUserTTO(userId, period = null) {
-    const TTORecord = require("../models/TTORecord");
-
-    let query = {
-      userId: userId,
-    };
-
-    if (period) {
-      query.period = period;
-    } else {
-      // Get current month
-      const now = new Date();
-
-      const currentPeriod = `${now.getFullYear()}-${String(
-        now.getMonth() + 1,
-      ).padStart(2, "0")}`;
-
-      query.period = currentPeriod;
-    }
-
-    const record = await TTORecord.findOne(query);
-
-    return record ? record.totalKBP || 0 : 0;
+    const SalaryService = require("./salary.service");
+    const monthString = period || SalaryService.getMonthString(new Date());
+    return SalaryService.getTeamTurnoverForMonth(userId, monthString);
   }
 
   /**

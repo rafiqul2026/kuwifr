@@ -5,6 +5,29 @@ const Wallet = require('../models/Wallet');
 const SalaryLog = require('../models/SalaryLog');
 const TTORecord = require('../models/TTORecord');
 const WalletService = require('./wallet.service');
+const BinaryNode = require('../models/BinaryNode');
+const Order = require('../models/Order');
+
+// "Real, completed order" — this codebase writes two different completion
+// signals depending on which checkout path created the order (see
+// user.controller.js / fund.service.js's identical condition); match both
+// so a real order is never missed.
+const REAL_ORDER_MATCH = {
+  $or: [
+    { orderStatus: { $in: ['COMPLETED', 'DELIVERED'] } },
+    { status: 'COMPLETED' }
+  ]
+};
+
+// "Uncommon Ranks and Rewards" — the Kuwi Star's 15-day qualification
+// window (3 directs, 2:1/1:2 split, >=3,000 KBP, all within 15 days of the
+// member's own join date) is enforced ONLY for members who join on or
+// after this date. Existing members who joined earlier are grandfathered —
+// their qualification, once met, has no deadline. This avoids retroactively
+// stripping already-earned Kuwi Star status (and everything built on it —
+// every higher rank depends on downline members counting as verified
+// stars) for a deadline the system never actually enforced before now.
+const KUWI_STAR_TIME_LIMIT_ENFORCED_FROM = new Date('2026-09-10T00:00:00.000Z');
 
 /**
  * 📦 5-Tier Official Package KBP Resolution
@@ -29,6 +52,23 @@ const resolveUserKbp = (userDoc) => {
 /**
  * 🏆 Strictly checks if a specific user qualifies as a Kuwi Star
  * Requirement: 3 active direct referrals, 2:1 or 1:2 ratio, minimum 3,000 KBP total
+ *
+ * This is the SHARED star definition — it is called both to evaluate a
+ * member's own status and, via countVerifiedSubtreeStars() below, once per
+ * DOWNLINE member to decide whether THEY count as one of someone else's
+ * Left/Right stars. It deliberately does NOT include the "1st Pair
+ * Matching" or "15-day window" conditions — those describe when a member
+ * becomes eligible for THEIR OWN rank (see
+ * RankService.checkSelfEntryGate below, which layers them on top of this
+ * check) and were briefly folded in here directly. That broke downline star
+ * counting network-wide: a downline member who genuinely meets the
+ * 3-direct/ratio/KBP bar but hasn't personally triggered their own binary
+ * pair match yet (most leaf-level members never do) stopped counting as a
+ * star for their upline, so real accounts with a real, previously-verified
+ * team (e.g. 12 matched stars, Bronze Star achieved) suddenly showed 0/0
+ * stars and "Not Achieved" again. Keeping this function to just the star
+ * definition, and applying the pair-match/time-limit gate only to the
+ * member being evaluated for their OWN rank, fixes that regression.
  */
 const checkIsKuwiStar = async (userId) => {
   const directActives = await User.find({
@@ -56,6 +96,32 @@ const checkIsKuwiStar = async (userId) => {
   const isVolumeMet = totalDirectKbp >= 3000;
 
   return isRatioMet && isVolumeMet;
+};
+
+/**
+ * Additional gate for a member's OWN Kuwi Star / rank eligibility only —
+ * NOT used when counting a downline member as someone else's star (see
+ * checkIsKuwiStar's comment above for why).
+ *
+ *   - "Rank and Reward starts from 1st Pair Matching only": the member must
+ *     already have at least one real binary pair match (BinaryNode.pairCount
+ *     >= 1).
+ *   - "Time Limit: 15 days from the date of joining": only enforced for
+ *     members who join on/after KUWI_STAR_TIME_LIMIT_ENFORCED_FROM above;
+ *     earlier members are grandfathered (no deadline).
+ */
+const checkKuwiStarSelfEntryGate = async (userId) => {
+  const node = await BinaryNode.findOne({ userId }).select('pairCount').lean();
+  if (!node || (node.pairCount || 0) < 1) return false;
+
+  const user = await User.findById(userId).select('joinedDate createdAt').lean();
+  const joinedDate = new Date(user?.joinedDate || user?.createdAt || 0);
+  if (joinedDate >= KUWI_STAR_TIME_LIMIT_ENFORCED_FROM) {
+    const daysSinceJoin = Math.floor((Date.now() - joinedDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysSinceJoin > 15) return false;
+  }
+
+  return true;
 };
 
 /**
@@ -143,10 +209,93 @@ function getPreviousMonthString(monthString) {
 }
 
 /**
- * Look up this member's Team Turn Over for a given month. See assumption #4 above.
+ * Sum real Order.kbpGenerated for a set of user IDs within a date range.
+ */
+async function aggregateTeamKbp(userIds, periodStart, periodEnd) {
+  if (!userIds || userIds.length === 0) return 0;
+  const agg = await Order.aggregate([
+    {
+      $match: {
+        userId: { $in: userIds },
+        createdAt: { $gte: periodStart, $lte: periodEnd },
+        ...REAL_ORDER_MATCH
+      }
+    },
+    { $group: { _id: null, total: { $sum: '$kbpGenerated' } } }
+  ]);
+  return agg[0]?.total || 0;
+}
+
+/**
+ * Compute this member's real Team (self + full downline) Turn Over in KBP
+ * for a "YYYY-MM" period from real Order records, and persist it to
+ * TTORecord.
+ *
+ * WHY THIS EXISTS: nothing in this codebase ever wrote a TTORecord — it was
+ * a schema with zero producers, only readers (this function's old body,
+ * rank.service.js#getUserTTO, and the Admin TTO history endpoint). Every
+ * "Team Turn Over" figure — this live dashboard/wallet card, and the actual
+ * monthly Gold-Star-and-above 1% salary settlement — was silently reading
+ * an always-empty collection and showing/paying ₹0 regardless of how much
+ * real business the team did. Order documents carry `createdAt` and
+ * `kbpGenerated`, so real turnover for any month (current or already
+ * closed) can be computed straight from them.
+ */
+async function computeAndPersistTTO(userId, monthString) {
+  const [year, month] = monthString.split('-').map(Number);
+  const periodStart = new Date(year, month - 1, 1, 0, 0, 0, 0);
+  const periodEnd = new Date(year, month, 0, 23, 59, 59, 999);
+
+  const BinaryService = require('./binary.service');
+  const { leftIds, rightIds } = await BinaryService.getBranchUserIds(userId);
+
+  const [leftTeamKBP, rightTeamKBP, selfKBP] = await Promise.all([
+    aggregateTeamKbp(leftIds, periodStart, periodEnd),
+    aggregateTeamKbp(rightIds, periodStart, periodEnd),
+    aggregateTeamKbp([userId], periodStart, periodEnd)
+  ]);
+
+  const totalKBP = leftTeamKBP + rightTeamKBP + selfKBP;
+  const teamIds = [userId, ...leftIds, ...rightIds];
+  const activeMembers = await User.countDocuments({ _id: { $in: teamIds }, status: 'ACTIVE' });
+
+  const record = await TTORecord.findOneAndUpdate(
+    { userId, period: monthString },
+    {
+      userId,
+      period: monthString,
+      periodStart,
+      periodEnd,
+      totalKBP,
+      leftTeamKBP,
+      rightTeamKBP,
+      activeMembers,
+      status: 'CALCULATED',
+      calculatedAt: new Date()
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  ).lean();
+
+  return record;
+}
+
+/**
+ * Look up this member's Team Turn Over for a given month — computing and
+ * persisting it first if there's no record yet, or if `monthString` is the
+ * CURRENT (still in-progress) month, so this always reflects real, live
+ * business rather than a stale or missing snapshot. An already-closed past
+ * month that has already been computed (and possibly already paid out via
+ * processMonthlySalaryPayout) is read as-is and never silently recalculated,
+ * so a historical payout figure can't shift under it.
  */
 async function getTeamTurnoverForMonth(userId, monthString) {
-  const record = await TTORecord.findOne({ userId, period: monthString }).lean();
+  const currentMonth = getMonthString(new Date());
+  let record = await TTORecord.findOne({ userId, period: monthString }).lean();
+
+  if (!record || monthString === currentMonth) {
+    record = await computeAndPersistTTO(userId, monthString);
+  }
+
   return record ? (record.totalKBP || 0) : 0;
 }
 
@@ -362,7 +511,10 @@ function getPreviousMonthMarker() {
 module.exports = {
   getLiveSalaryProgress,
   checkIsKuwiStar,
+  checkKuwiStarSelfEntryGate,
   countVerifiedSubtreeStars,
   getMonthString,
-  processMonthlySalaryPayout
+  processMonthlySalaryPayout,
+  getTeamTurnoverForMonth,
+  computeAndPersistTTO
 };
