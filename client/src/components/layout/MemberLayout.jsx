@@ -23,6 +23,7 @@ const navItems = [
   { id: "repurchase", label: "Repurchase Store", icon: "🛍️", path: "/member/repurchase" },
   { id: "income", label: "Income Stream", icon: "📈", path: "/member/income" },
   { id: "team", label: "My Team", icon: "👥", path: "/member/team" },
+  { id: "business", label: "My Business", icon: "📊", path: "/member/business" },
   { id: "growth_generation", label: "Growth Generation", icon: "🌳", path: "/member/growth-generation" },
   {
     id: "package_group",

@@ -46,6 +46,90 @@
   margin: 0;
 }
 
+/* ================= INCOME SNAPSHOT (moved here from the Member
+   Dashboard) — styled to PBW Foundation's tokens: teal #008080 primary,
+   orange #fd9911 secondary, #1c2a2a foreground, #e5e5e5 border, no
+   box-shadow at rest, matching the Dashboard/Team pages. ================= */
+.snapshotSection {
+  margin-bottom: 28px;
+}
+
+.snapshotHeading {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1c2a2a;
+  margin: 0 0 10px 0;
+  letter-spacing: -0.2px;
+}
+
+.snapshotGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.snapshotCard {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: none;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.snapshotCard:hover {
+  border-color: #d4d4d4;
+  box-shadow: 0 1px 3px rgba(28, 42, 42, 0.06);
+}
+
+.snapshotCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.snapshotCardTitle {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #737373;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.snapshotIconBox {
+  font-size: 13px;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.snapshotIconTeal { background: rgba(0, 128, 128, 0.12); color: #008080; }
+.snapshotIconOrange { background: rgba(253, 153, 17, 0.14); color: #c2660a; }
+
+.snapshotValue {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1c2a2a;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.snapshotSub {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: #a3a3a3;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ================= INCOME GRID CARDS ================= */
 .incomeGrid {
   display: grid;
@@ -487,6 +571,9 @@
   .streamOverviewGrid {
     grid-template-columns: repeat(2, 1fr);
   }
+  .snapshotGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
   .repurchaseNoticeBox {
     flex-direction: column;
     align-items: flex-start;
@@ -499,6 +586,9 @@
 
 @media (max-width: 560px) {
   .streamOverviewGrid {
+    grid-template-columns: 1fr;
+  }
+  .snapshotGrid {
     grid-template-columns: 1fr;
   }
   .streamSectionHeader {

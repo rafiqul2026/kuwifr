@@ -7,6 +7,7 @@ const rankController = require('../controllers/rank.controller');
 const fundController = require('../controllers/fund.controller');
 const orderController = require('../controllers/order.controller');
 const packageController = require('../controllers/package.controller');
+const adminAlertsController = require('../controllers/adminAlerts.controller');
 
 const authModule = require('../middleware/auth');
 const auth = typeof authModule === 'function' ? authModule : (authModule.auth || authModule.protect);
@@ -102,6 +103,14 @@ router.post('/members/fix-orphaned-active-status', async (req, res, next) => {
     next(error);
   }
 });
+
+// Personal admin alert inbox (distinct from the broadcast-composer
+// Notifications page) — real system events for the logged-in admin.
+// See services/adminAlerts.service.js for what it synthesizes.
+router.get('/alerts', adminAlertsController.getAlerts);
+router.post('/alerts/mark-all-read', adminAlertsController.markAllRead);
+router.post('/alerts/clear-all', adminAlertsController.clearAll);
+router.post('/alerts/:id/dismiss', adminAlertsController.dismissAlert);
 
 router.get('/kyc', adminController.getPendingKYC);
 router.post('/kyc/review', adminController.reviewKYC);

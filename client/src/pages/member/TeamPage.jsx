@@ -29,6 +29,17 @@ const TeamPage = () => {
     fullName: 'Direct Company Root',
     memberId: 'ROOT'
   });
+  // Today Add/Active Members + Total Members/Active Members — moved here
+  // from the Member Dashboard (docx: "In my team page add this card") so
+  // they live on the page they actually belong to. Fetched independently
+  // from the shared dashboard-stats endpoint; a failure here should never
+  // block the genealogy/sponsor data above, so it's isolated.
+  const [networkSnapshot, setNetworkSnapshot] = useState({
+    todayAddMembers: 0,
+    todayActiveMembers: 0,
+    totalMembers: 0,
+    totalActiveMembers: 0
+  });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -103,6 +114,31 @@ const TeamPage = () => {
   useEffect(() => {
     fetchTeamData();
   }, [fetchTeamData]);
+
+  // Isolated, non-critical fetch for the Today/Total member-count snapshot.
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get('/api/users/dashboard-stats')
+      .then((res) => {
+        if (cancelled) return;
+        if (res.data?.success && res.data?.data) {
+          const d = res.data.data;
+          setNetworkSnapshot({
+            todayAddMembers: d.todayAddMembers || 0,
+            todayActiveMembers: d.todayActiveMembers || 0,
+            totalMembers: d.totalMembers || 0,
+            totalActiveMembers: d.totalActiveMembers || 0
+          });
+        }
+      })
+      .catch(() => {
+        // Non-critical — the rest of the Team page still works fine.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const toggleLevel = (level) => {
     setExpandedLevels((prev) => ({ ...prev, [level]: !prev[level] }));
@@ -215,6 +251,47 @@ const TeamPage = () => {
             <div className={styles.kpiValueWrapper}>
               <h3 className={styles.kpiNumber}>{stats.rightCount || 0}</h3>
               <span className={styles.kpiSub}>Unlimited Depth</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Moved from the Member Dashboard's "My Team" card group */}
+        <div className={`${styles.kpiCard} ${styles.kpiBlue}`}>
+          <div className={styles.kpiContent}>
+            <span className={styles.kpiTitle}>Today Add Members</span>
+            <div className={styles.kpiValueWrapper}>
+              <h3 className={styles.kpiNumber}>{networkSnapshot.todayAddMembers}</h3>
+              <span className={styles.kpiSub}>Registrations Today</span>
+            </div>
+          </div>
+        </div>
+
+        <div className={`${styles.kpiCard} ${styles.kpiGreen}`}>
+          <div className={styles.kpiContent}>
+            <span className={styles.kpiTitle}>Today Active Members</span>
+            <div className={styles.kpiValueWrapper}>
+              <h3 className={styles.kpiNumber}>{networkSnapshot.todayActiveMembers}</h3>
+              <span className={styles.kpiSubGreen}>Activated Today</span>
+            </div>
+          </div>
+        </div>
+
+        <div className={`${styles.kpiCard} ${styles.kpiPurple}`}>
+          <div className={styles.kpiContent}>
+            <span className={styles.kpiTitle}>Total Members</span>
+            <div className={styles.kpiValueWrapper}>
+              <h3 className={styles.kpiNumber}>{networkSnapshot.totalMembers}</h3>
+              <span className={styles.kpiSub}>Full Downline Network</span>
+            </div>
+          </div>
+        </div>
+
+        <div className={`${styles.kpiCard} ${styles.kpiAmber}`}>
+          <div className={styles.kpiContent}>
+            <span className={styles.kpiTitle}>Total Active Members</span>
+            <div className={styles.kpiValueWrapper}>
+              <h3 className={styles.kpiNumber}>{networkSnapshot.totalActiveMembers}</h3>
+              <span className={styles.kpiSub}>Network Wide Active</span>
             </div>
           </div>
         </div>

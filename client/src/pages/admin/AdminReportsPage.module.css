@@ -6,7 +6,7 @@
   max-width: 1400px;
   margin: 0 auto;
   box-sizing: border-box;
-  color: #0f172a;
+  color: #1c2a2a;
 }
 
 /* 1. Header Toolbar */
@@ -42,14 +42,14 @@
 .title {
   font-size: 26px;
   font-weight: 850;
-  color: #0b1228;
+  color: #0d1f1f;
   margin: 0 0 4px 0;
   letter-spacing: -0.02em;
 }
 
 .subtitle {
   font-size: 13.5px;
-  color: #64748b;
+  color: #737373;
   margin: 0;
   max-width: 780px;
   line-height: 1.5;
@@ -58,11 +58,11 @@
 /* 2. Controls & Date Presets */
 .controlsCard {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   border-radius: 14px;
   padding: 18px 22px;
   margin-bottom: 24px;
-  box-shadow: 0 4px 16px -2px rgba(11, 18, 40, 0.03);
+  box-shadow: 0 4px 16px -2px rgba(13, 31, 31, 0.03);
 }
 
 .controlsRow {
@@ -83,7 +83,7 @@
 .controlGroup label {
   font-size: 12px;
   font-weight: 750;
-  color: #334155;
+  color: #404040;
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
@@ -91,10 +91,10 @@
 .select,
 .dateInput {
   padding: 10px 14px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #d4d4d4;
   border-radius: 8px;
   background: #ffffff;
-  color: #0f172a;
+  color: #1c2a2a;
   font-size: 13.5px;
   outline: none;
   font-family: inherit;
@@ -103,8 +103,8 @@
 
 .select:focus,
 .dateInput:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  border-color: #008080;
+  box-shadow: 0 0 0 3px rgba(0, 128, 128, 0.12);
 }
 
 .buttonGroup {
@@ -114,7 +114,7 @@
 }
 
 .generateBtn {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #008080 0%, #006666 100%);
   color: #ffffff;
   border: none;
   font-weight: 750;
@@ -122,20 +122,20 @@
   padding: 11px 22px;
   border-radius: 8px;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 4px 12px rgba(0, 128, 128, 0.25);
   transition: all 0.15s ease;
   white-space: nowrap;
 }
 
 .generateBtn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 6px 16px rgba(0, 128, 128, 0.35);
 }
 
 .exportBtn {
   background: #ffffff;
-  border: 1px solid #cbd5e1;
-  color: #0f172a;
+  border: 1px solid #d4d4d4;
+  color: #1c2a2a;
   font-weight: 700;
   font-size: 13px;
   padding: 10px 18px;
@@ -146,7 +146,7 @@
 }
 
 .exportBtn:hover {
-  background: #f8fafc;
+  background: #f3f3f3;
 }
 
 .presetsRow {
@@ -155,16 +155,16 @@
   gap: 8px;
   margin-top: 14px;
   padding-top: 12px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid #f3f3f3;
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
   flex-wrap: wrap;
 }
 
 .presetsRow button {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #334155;
+  background: #f3f3f3;
+  border: 1px solid #e5e5e5;
+  color: #404040;
   font-size: 11.5px;
   font-weight: 650;
   padding: 4px 10px;
@@ -174,9 +174,9 @@
 }
 
 .presetsRow button:hover {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-  color: #1d4ed8;
+  background: #e6f5f5;
+  border-color: #b3dcdc;
+  color: #006666;
 }
 
 /* 3. Summary KPI Cards */
@@ -189,10 +189,10 @@
 
 .summaryCard {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   border-radius: 12px;
   padding: 16px 20px;
-  box-shadow: 0 2px 6px rgba(11, 18, 40, 0.02);
+  box-shadow: 0 2px 6px rgba(13, 31, 31, 0.02);
   display: flex;
   flex-direction: column;
 }
@@ -200,7 +200,7 @@
 .statLabel {
   font-size: 11px;
   font-weight: 750;
-  color: #64748b;
+  color: #737373;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin-bottom: 4px;
@@ -209,13 +209,13 @@
 .statValue {
   font-size: 26px;
   font-weight: 850;
-  color: #0f172a;
+  color: #1c2a2a;
   letter-spacing: -0.02em;
 }
 
 .summaryCard small {
   font-size: 11px;
-  color: #94a3b8;
+  color: #a3a3a3;
   margin-top: 4px;
 }
 
@@ -224,7 +224,7 @@
 }
 
 .blueText {
-  color: #2563eb;
+  color: #008080;
 }
 
 .redText {
@@ -232,15 +232,15 @@
 }
 
 .amberText {
-  color: #d97706;
+  color: #c2660a;
 }
 
 /* 4. Tables */
 .tableCard {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   border-radius: 14px;
-  box-shadow: 0 4px 16px -2px rgba(11, 18, 40, 0.03);
+  box-shadow: 0 4px 16px -2px rgba(13, 31, 31, 0.03);
   overflow-x: auto;
 }
 
@@ -251,32 +251,32 @@
 }
 
 .table th {
-  background: #f8fafc;
-  color: #475569;
+  background: #f3f3f3;
+  color: #525252;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 12px 16px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e5e5e5;
   white-space: nowrap;
 }
 
 .table td {
   padding: 14px 16px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f3f3f3;
   font-size: 13px;
   vertical-align: middle;
 }
 
 .table tbody tr:hover {
-  background: #fafbfc;
+  background: #fafafa;
 }
 
 .emptyTableRow {
   text-align: center;
   padding: 40px;
-  color: #64748b;
+  color: #737373;
   font-style: italic;
 }
 
@@ -300,19 +300,19 @@
 }
 
 .statusBadge.pending {
-  background: #fef3c7;
-  color: #b45309;
+  background: #ffedd5;
+  color: #9a5b0a;
 }
 
 .statusBadge.approved,
 .statusBadge.processed {
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: #e6f5f5;
+  color: #006666;
 }
 
 .tagBadge {
-  background: #f1f5f9;
-  color: #334155;
+  background: #f3f3f3;
+  color: #404040;
   font-size: 11px;
   font-weight: 750;
   padding: 3px 8px;
@@ -322,33 +322,33 @@
 /* 5. Breakdown Cards */
 .breakdownCard {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   border-radius: 14px;
   padding: 20px;
   margin-bottom: 24px;
-  box-shadow: 0 4px 16px -2px rgba(11, 18, 40, 0.03);
+  box-shadow: 0 4px 16px -2px rgba(13, 31, 31, 0.03);
 }
 
 .breakdownCard h3 {
   font-size: 15px;
   font-weight: 850;
-  color: #0b1228;
+  color: #0d1f1f;
   margin: 0 0 14px 0;
 }
 
 /* Failed / Capped Income Events panel */
 .failedIncomeCard {
-  border-color: #fbbf24;
-  background: #fffbeb;
+  border-color: #ffb648;
+  background: #fff7ed;
 }
 
 .failedIncomeCard h3 {
-  color: #92400e;
+  color: #7c3f0a;
 }
 
 .failedIncomeSubtitle {
   font-size: 12.5px;
-  color: #92400e;
+  color: #7c3f0a;
   margin: 0 0 14px 0;
 }
 
@@ -363,33 +363,33 @@
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f3f3f3;
+  border: 1px solid #e5e5e5;
   border-radius: 8px;
   font-size: 13px;
 }
 
 .breakdownItem span {
-  color: #475569;
+  color: #525252;
   font-weight: 600;
 }
 
 .breakdownItem strong {
-  color: #0f172a;
+  color: #1c2a2a;
 }
 
 /* Loading */
 .loadingArea {
   text-align: center;
   padding: 60px 20px;
-  color: #64748b;
+  color: #737373;
 }
 
 .spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid #e2e8f0;
-  border-top-color: #2563eb;
+  border: 3px solid #e5e5e5;
+  border-top-color: #008080;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
   margin: 0 auto 12px auto;

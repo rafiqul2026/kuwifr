@@ -42,36 +42,181 @@ const PAID_ORDER_MATCH = { paymentStatus: { $in: ['COMPLETED', 'SUCCESS'] } };
 /**
  * Admin Executive Dashboard Overview
  * GET /api/reports/admin/dashboard or GET /api/reports/admin/overview
+ *
+ * FIXED — this endpoint used to return a completely different, flat shape
+ * ({ totalUsers, activeUsers, grossRevenue, ... }) while
+ * client/src/pages/admin/AdminDashboardPage.jsx destructures a nested shape
+ * (data.members.total, data.sales.total, data.income.total,
+ * data.withdrawals.pending, data.orders.total, data.wallets.*, plus
+ * data.recentOrders / recentRegistrations / topPerformers / chartTrends).
+ * None of those keys existed on the old response, so every stat card on the
+ * Admin Dashboard silently fell back to its 0/₹0 default — regardless of how
+ * much real member/order/income data was actually in the database. This was
+ * NOT a "no data yet" situation, it was a response-shape mismatch bug.
+ *
+ * There was also a second, unused draft of this endpoint
+ * (adminDashboardController.js#getDashboardTelemetry) that already had the
+ * right nested shape but was never wired to any route, and itself had three
+ * separate field-name bugs that would have kept it silently returning
+ * zeroes anyway: it summed Wallet.totalEarned (that field doesn't exist —
+ * see server/src/models/Wallet.js), it summed Withdrawal.amount (the real
+ * field is grossAmount/netAmount), and it filtered withdrawals by
+ * status:'COMPLETED' (not a valid value — see the status enum in
+ * server/src/models/Withdrawal.js, the real "paid out" value is
+ * 'PROCESSED'). It also counted 'sales' from orderStatus alone, which
+ * would double-count unpaid/PENDING orders as revenue. This rewrite keeps
+ * that draft's correct overall shape but fixes all of the above and reuses
+ * PAID_ORDER_MATCH (the same paymentStatus COMPLETED/SUCCESS filter already
+ * proven correct elsewhere in this file) for every revenue figure.
  */
 const getAdminDashboard = async (req, res, next) => {
   try {
-    const [totalUsers, activeUsers, orders, withdrawals, wallets] = await Promise.all([
-      User.countDocuments().catch(() => 0),
-      User.countDocuments({ status: 'ACTIVE' }).catch(() => 0),
-      Order.find(PAID_ORDER_MATCH).lean().catch(() => []),
-      Withdrawal.find().lean().catch(() => []),
-      Wallet.find().lean().catch(() => [])
+    const range = req.query.range || '30d';
+
+    const now = new Date();
+    const startDate = new Date();
+    if (range === 'today') {
+      startDate.setHours(0, 0, 0, 0);
+    } else if (range === '7d') {
+      startDate.setDate(now.getDate() - 7);
+    } else if (range === '1y') {
+      startDate.setFullYear(now.getFullYear() - 1);
+    } else {
+      startDate.setDate(now.getDate() - 30);
+    }
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // Real member roles per User.js: MEMBER / ADMIN / SUPER_ADMIN — exclude
+    // both admin roles from every "member" count, not just ADMIN.
+    const NON_MEMBER_ROLES = ['ADMIN', 'SUPER_ADMIN'];
+    const memberQuery = { role: { $nin: NON_MEMBER_ROLES } };
+
+    const [
+      totalMembers,
+      activeMembers,
+      newTodayMembers,
+      recentRegistrations,
+      salesAgg,
+      recentOrders,
+      trendsAgg,
+      pendingWithdrawalAgg,
+      processedWithdrawalCount,
+      walletAgg,
+      incomeAgg,
+      topPerformers
+    ] = await Promise.all([
+      User.countDocuments(memberQuery).catch(() => 0),
+      User.countDocuments({ ...memberQuery, status: 'ACTIVE' }).catch(() => 0),
+      User.countDocuments({ ...memberQuery, createdAt: { $gte: todayStart } }).catch(() => 0),
+      User.find(memberQuery)
+        .select('fullName email memberId status createdAt')
+        .sort({ createdAt: -1 })
+        .limit(6)
+        .lean()
+        .catch(() => []),
+      Order.aggregate([
+        {
+          $facet: {
+            allTime: [{ $match: PAID_ORDER_MATCH }, { $group: { _id: null, total: { $sum: '$totalAmount' }, count: { $sum: 1 } } }],
+            today: [{ $match: { ...PAID_ORDER_MATCH, createdAt: { $gte: todayStart } } }, { $group: { _id: null, total: { $sum: '$totalAmount' } } }],
+            thisMonth: [{ $match: { ...PAID_ORDER_MATCH, createdAt: { $gte: thisMonthStart } } }, { $group: { _id: null, total: { $sum: '$totalAmount' } } }],
+            pending: [{ $match: { orderStatus: 'PENDING' } }, { $count: 'count' }],
+            completed: [{ $match: { orderStatus: { $in: ['DELIVERED', 'COMPLETED'] } } }, { $count: 'count' }]
+          }
+        }
+      ]).catch(() => [{}]),
+      Order.find()
+        .populate('userId', 'fullName email memberId')
+        .sort({ createdAt: -1 })
+        .limit(6)
+        .lean()
+        .catch(() => []),
+      Order.aggregate([
+        { $match: { ...PAID_ORDER_MATCH, createdAt: { $gte: startDate } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+            revenue: { $sum: '$totalAmount' },
+            orders: { $sum: 1 }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ]).catch(() => []),
+      // Withdrawal.status enum: PENDING / APPROVED / REJECTED / PROCESSING /
+      // PROCESSED / FAILED / CANCELLED. Amount fields are grossAmount /
+      // netAmount (there is no plain "amount" field on this schema).
+      Withdrawal.aggregate([
+        { $match: { status: 'PENDING' } },
+        { $group: { _id: null, count: { $sum: 1 }, total: { $sum: '$grossAmount' } } }
+      ]).catch(() => []),
+      Withdrawal.countDocuments({ status: 'PROCESSED' }).catch(() => 0),
+      Wallet.aggregate([
+        { $group: { _id: null, incomeBal: { $sum: '$incomeBalance' }, repurchaseBal: { $sum: '$repurchaseBalance' } } }
+      ]).catch(() => []),
+      // "Commissions Paid" comes from IncomeTransaction (the real ledger for
+      // every credited income event — same source getAdminIncomeReport
+      // below uses), not from a Wallet field: Wallet has no totalEarned
+      // field, so summing it always produced ₹0 regardless of real payouts.
+      IncomeTransaction.aggregate([
+        { $match: { status: 'CREDITED' } },
+        { $group: { _id: null, total: { $sum: '$creditedAmount' } } }
+      ]).catch(() => []),
+      User.find({ ...memberQuery, lifetimeIncome: { $gt: 0 } })
+        .select('fullName memberId lifetimeIncome')
+        .sort({ lifetimeIncome: -1 })
+        .limit(5)
+        .lean()
+        .catch(() => [])
     ]);
 
-    const grossRevenue = orders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
-    const totalWithdrawn = withdrawals
-      .filter((w) => ['PAID', 'PROCESSED'].includes((w.status || '').toUpperCase()))
-      .reduce((sum, w) => sum + Number(w.grossAmount || w.amount || 0), 0);
-
-    const totalTDS = withdrawals.reduce((sum, w) => sum + Number(w.tdsAmount || 0), 0);
-    const totalAdminCharge = withdrawals.reduce((sum, w) => sum + Number(w.adminCharge || w.adminFee || 0), 0);
-    const totalWalletLiability = wallets.reduce((sum, w) => sum + Number(w.incomeBalance || 0), 0);
+    const salesMetrics = salesAgg[0] || {};
+    const totalSales = salesMetrics.allTime?.[0]?.total || 0;
+    const totalOrders = salesMetrics.allTime?.[0]?.count || 0;
+    const todaySales = salesMetrics.today?.[0]?.total || 0;
+    const thisMonthSales = salesMetrics.thisMonth?.[0]?.total || 0;
+    const pendingOrders = salesMetrics.pending?.[0]?.count || 0;
+    const completedOrders = salesMetrics.completed?.[0]?.count || 0;
 
     res.status(200).json({
       success: true,
       data: {
-        totalUsers,
-        activeUsers,
-        grossRevenue,
-        totalWithdrawn,
-        totalTDS,
-        totalAdminCharge,
-        totalWalletLiability
+        members: {
+          total: totalMembers,
+          active: activeMembers,
+          newToday: newTodayMembers
+        },
+        sales: {
+          total: totalSales,
+          today: todaySales,
+          thisMonth: thisMonthSales,
+          orders: {
+            total: totalOrders,
+            pending: pendingOrders,
+            completed: completedOrders
+          }
+        },
+        income: {
+          total: incomeAgg[0]?.total || 0
+        },
+        withdrawals: {
+          pending: pendingWithdrawalAgg[0]?.count || 0,
+          total: processedWithdrawalCount,
+          totalAmount: pendingWithdrawalAgg[0]?.total || 0
+        },
+        wallets: {
+          totalIncomeBalance: walletAgg[0]?.incomeBal || 0,
+          totalRepurchaseBalance: walletAgg[0]?.repurchaseBal || 0
+        },
+        recentOrders,
+        recentRegistrations,
+        topPerformers: topPerformers.map((u) => ({
+          user: { fullName: u.fullName, memberId: u.memberId },
+          total: u.lifetimeIncome
+        })),
+        chartTrends: trendsAgg
       }
     });
   } catch (error) {

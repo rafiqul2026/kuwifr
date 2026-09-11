@@ -34,6 +34,14 @@ const IncomePage = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyData, setHistoryData] = useState(null); // { total, totalCount, transactions } for selectedStream
 
+  // Today/Weekly/Total Income, Total Withdrawal, Leadership Income, Self &
+  // Downline Repurchase Income, Pension — moved here from the Member
+  // Dashboard (docx: "please add the below cards in the income page of the
+  // member sidebar, for that member dashboard will look like clean").
+  // Fetched from the same dashboard-stats endpoint the dashboard used, kept
+  // isolated so a failure here never blocks the stream breakdown above.
+  const [incomeSnapshot, setIncomeSnapshot] = useState(null);
+
   const fetchStreamBreakdown = useCallback(async () => {
     try {
       setLoading(true);
@@ -75,6 +83,24 @@ const IncomePage = () => {
     fetchStreamHistory(selectedStream);
   }, [selectedStream, fetchStreamHistory]);
 
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get('/api/users/dashboard-stats')
+      .then((res) => {
+        if (cancelled) return;
+        if (res.data?.success && res.data?.data) {
+          setIncomeSnapshot(res.data.data);
+        }
+      })
+      .catch(() => {
+        // Non-critical — the stream breakdown below still works fine.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const getStream = (key) => streams.find((s) => s.key === key) || { total: 0, today: 0, count: 0 };
 
   const todayTotal = streams.reduce((sum, s) => sum + (Number(s.today) || 0), 0);
@@ -102,6 +128,84 @@ const IncomePage = () => {
           </p>
         </div>
       </header>
+
+      {/* Snapshot cards moved here from the Member Dashboard */}
+      <section className={styles.snapshotSection}>
+        <h2 className={styles.snapshotHeading}>Income Snapshot</h2>
+        <div className={styles.snapshotGrid}>
+          <div className={styles.snapshotCard}>
+            <div className={styles.snapshotCardHeader}>
+              <span className={styles.snapshotCardTitle}>TODAY INCOME</span>
+              <div className={`${styles.snapshotIconBox} ${styles.snapshotIconTeal}`}>💵</div>
+            </div>
+            <h3 className={styles.snapshotValue}>{formatINR(incomeSnapshot?.todayIncome)}</h3>
+            <span className={styles.snapshotSub}>Daily Earnings</span>
+          </div>
+
+          <div className={styles.snapshotCard}>
+            <div className={styles.snapshotCardHeader}>
+              <span className={styles.snapshotCardTitle}>WEEKLY INCOME</span>
+              <div className={`${styles.snapshotIconBox} ${styles.snapshotIconTeal}`}>💷</div>
+            </div>
+            <h3 className={styles.snapshotValue}>{formatINR(incomeSnapshot?.weeklyIncome)}</h3>
+            <span className={styles.snapshotSub}>This Week's Earnings</span>
+          </div>
+
+          <div className={styles.snapshotCard}>
+            <div className={styles.snapshotCardHeader}>
+              <span className={styles.snapshotCardTitle}>TOTAL INCOME</span>
+              <div className={`${styles.snapshotIconBox} ${styles.snapshotIconTeal}`}>💰</div>
+            </div>
+            <h3 className={styles.snapshotValue}>{formatINR(incomeSnapshot?.totalIncome)}</h3>
+            <span className={styles.snapshotSub}>Lifetime Accumulated</span>
+          </div>
+
+          <div className={styles.snapshotCard}>
+            <div className={styles.snapshotCardHeader}>
+              <span className={styles.snapshotCardTitle}>TOTAL WITHDRAWAL</span>
+              <div className={`${styles.snapshotIconBox} ${styles.snapshotIconTeal}`}>🏦</div>
+            </div>
+            <h3 className={styles.snapshotValue}>{formatINR(incomeSnapshot?.totalWithdrawal)}</h3>
+            <span className={styles.snapshotSub}>Payouts Dispatched</span>
+          </div>
+
+          <div className={styles.snapshotCard}>
+            <div className={styles.snapshotCardHeader}>
+              <span className={styles.snapshotCardTitle}>LEADERSHIP INCOME</span>
+              <div className={`${styles.snapshotIconBox} ${styles.snapshotIconOrange}`}>👑</div>
+            </div>
+            <h3 className={styles.snapshotValue}>{formatINR(incomeSnapshot?.leadershipIncome?.total)}</h3>
+            <span className={styles.snapshotSub}>Today: {formatINR(incomeSnapshot?.leadershipIncome?.today)}</span>
+          </div>
+
+          <div className={styles.snapshotCard}>
+            <div className={styles.snapshotCardHeader}>
+              <span className={styles.snapshotCardTitle}>SELF REPURCHASE INCOME</span>
+              <div className={`${styles.snapshotIconBox} ${styles.snapshotIconOrange}`}>🔄</div>
+            </div>
+            <h3 className={styles.snapshotValue}>{formatINR(incomeSnapshot?.selfRepurchaseIncome)}</h3>
+            <span className={styles.snapshotSub}>Lifetime Self Repurchase Cashback</span>
+          </div>
+
+          <div className={styles.snapshotCard}>
+            <div className={styles.snapshotCardHeader}>
+              <span className={styles.snapshotCardTitle}>DOWNLINE REPURCHASE INCOME</span>
+              <div className={`${styles.snapshotIconBox} ${styles.snapshotIconOrange}`}>🔁</div>
+            </div>
+            <h3 className={styles.snapshotValue}>{formatINR(incomeSnapshot?.downlineRepurchaseIncome)}</h3>
+            <span className={styles.snapshotSub}>Lifetime Downline Repurchase Income</span>
+          </div>
+
+          <div className={styles.snapshotCard}>
+            <div className={styles.snapshotCardHeader}>
+              <span className={styles.snapshotCardTitle}>PENSION</span>
+              <div className={`${styles.snapshotIconBox} ${styles.snapshotIconOrange}`}>🏦</div>
+            </div>
+            <h3 className={styles.snapshotValue}>{incomeSnapshot?.pension?.active ? 'Active' : 'Not Active'}</h3>
+            <span className={styles.snapshotSub}>Lifetime Paid: {formatINR(incomeSnapshot?.pension?.totalEarned)}</span>
+          </div>
+        </div>
+      </section>
 
       {/* Income Streams Grid — Total / Direct / Matching (live, from IncomeTransaction) */}
       <section className={styles.incomeGrid}>

@@ -2,7 +2,11 @@
 import React, { useState, useEffect } from "react";
 import api from "../../services/api";
 import { useNotification } from "../../hooks/useNotification";
+import SalaryProgressCard from "../../components/member/SalaryProgressCard";
 import styles from "./RanksPage.module.css";
+
+const formatINR = (val) =>
+  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(val) || 0);
 
 const FALLBACK_RANKS = [
   {
@@ -176,10 +180,34 @@ const RanksPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeFilter, setActiveFilter] = useState('ALL');
+  // Current Fund Achieved, Reward Achieved, Current Remuneration, Monthly/
+  // Today/Total Star, Star For Next Rank — moved here from the Member
+  // Dashboard (docx: "in this page Add the below cards"). Fetched from the
+  // same dashboard-stats endpoint the dashboard used, isolated so a
+  // failure here never blocks the rank ladder above.
+  const [rankSnapshot, setRankSnapshot] = useState(null);
   const { showNotification } = useNotification();
 
   useEffect(() => {
     fetchRankData();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get('/api/users/dashboard-stats')
+      .then((res) => {
+        if (cancelled) return;
+        if (res.data?.success && res.data?.data) {
+          setRankSnapshot(res.data.data);
+        }
+      })
+      .catch(() => {
+        // Non-critical — the rank ladder below still works fine.
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const fetchRankData = async () => {
@@ -398,6 +426,111 @@ const RanksPage = () => {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* ============ RANK & REWARD SNAPSHOT (moved here from the
+          Member Dashboard) ============ */}
+      <section className={styles.snapshotSection}>
+        <h2 className={styles.snapshotHeading}>Rank & Reward Snapshot</h2>
+        <div className={styles.snapshotGrid}>
+          <div className={styles.snapshotCard}>
+            <div className={styles.snapshotCardHeader}>
+              <span className={styles.snapshotCardTitle}>CURRENT RANK</span>
+              <div className={styles.snapshotIconBox}>🏆</div>
+            </div>
+            <h3 className={styles.snapshotValueText}>{rankSnapshot?.currentRank?.name || 'Not Achieved'}</h3>
+            <span className={styles.snapshotSub}>Career Progression</span>
+          </div>
+
+          <div className={styles.snapshotCard}>
+            <div className={styles.snapshotCardHeader}>
+              <span className={styles.snapshotCardTitle}>CURRENT FUND ACHIEVED</span>
+              <div className={styles.snapshotIconBox}>🎯</div>
+            </div>
+            <h3 className={styles.snapshotValueText}>
+              {rankSnapshot?.currentFundAchieved?.icon || '🎯'} {rankSnapshot?.currentFundAchieved?.name || 'Not Achieved'}
+            </h3>
+            <span className={styles.snapshotSub}>Life Tension Free Benefit</span>
+          </div>
+
+          <div className={styles.snapshotCard}>
+            <div className={styles.snapshotCardHeader}>
+              <span className={styles.snapshotCardTitle}>REWARD ACHIEVED</span>
+              <div className={styles.snapshotIconBox}>🎁</div>
+            </div>
+            <h3 className={styles.snapshotValueText}>{rankSnapshot?.rewardAchieved?.name || 'Not Achieved'}</h3>
+            <span className={styles.snapshotSub}>
+              {rankSnapshot?.rewardAchieved?.value ? `Value: ${formatINR(rankSnapshot.rewardAchieved.value)}` : `From ${rankSnapshot?.currentRank?.name || 'Your Rank'}`}
+            </span>
+          </div>
+
+          <div className={styles.snapshotCard}>
+            <div className={styles.snapshotCardHeader}>
+              <span className={styles.snapshotCardTitle}>CURRENT REMUNERATION</span>
+              <div className={styles.snapshotIconBox}>📜</div>
+            </div>
+            <h3 className={styles.snapshotValue}>{formatINR(rankSnapshot?.currentRemuneration)}</h3>
+            <span className={styles.snapshotSub}>This Month's Rank Salary</span>
+          </div>
+
+          <div className={styles.snapshotCard}>
+            <div className={styles.snapshotCardHeader}>
+              <span className={styles.snapshotCardTitle}>MONTHLY STAR</span>
+              <div className={styles.snapshotIconBox}>🌟</div>
+            </div>
+            <div className={styles.snapshotDualBox}>
+              <span className={styles.snapshotDualLeft}>Left: <strong>{rankSnapshot?.monthlyStar?.left || 0}</strong></span>
+              <span className={styles.snapshotDualRight}>Right: <strong>{rankSnapshot?.monthlyStar?.right || 0}</strong></span>
+            </div>
+            <span className={styles.snapshotSub}>Qualified This Month</span>
+          </div>
+
+          <div className={styles.snapshotCard}>
+            <div className={styles.snapshotCardHeader}>
+              <span className={styles.snapshotCardTitle}>TODAY STAR</span>
+              <div className={styles.snapshotIconBox}>⭐</div>
+            </div>
+            <div className={styles.snapshotDualBox}>
+              <span className={styles.snapshotDualLeft}>Left: <strong>{rankSnapshot?.todayStar?.left || 0}</strong></span>
+              <span className={styles.snapshotDualRight}>Right: <strong>{rankSnapshot?.todayStar?.right || 0}</strong></span>
+            </div>
+            <span className={styles.snapshotSub}>Today's Stars</span>
+          </div>
+
+          <div className={styles.snapshotCard}>
+            <div className={styles.snapshotCardHeader}>
+              <span className={styles.snapshotCardTitle}>TOTAL STAR</span>
+              <div className={styles.snapshotIconBox}>🌟</div>
+            </div>
+            <div className={styles.snapshotDualBox}>
+              <span className={styles.snapshotDualLeft}>Left: <strong>{rankSnapshot?.totalStar?.left || 0}</strong></span>
+              <span className={styles.snapshotDualRight}>Right: <strong>{rankSnapshot?.totalStar?.right || 0}</strong></span>
+            </div>
+            <span className={styles.snapshotSub}>Lifetime Stars</span>
+          </div>
+
+          <div className={styles.snapshotCard}>
+            <div className={styles.snapshotCardHeader}>
+              <span className={styles.snapshotCardTitle}>STAR FOR NEXT RANK</span>
+              <div className={styles.snapshotIconBox}>🚀</div>
+            </div>
+            {rankSnapshot?.starForNextRank?.rankName ? (
+              <div className={styles.snapshotDualBox}>
+                <span className={styles.snapshotDualLeft}>Left: <strong>{rankSnapshot.starForNextRank.left || 0}</strong></span>
+                <span className={styles.snapshotDualRight}>Right: <strong>{rankSnapshot.starForNextRank.right || 0}</strong></span>
+              </div>
+            ) : (
+              <h3 className={styles.snapshotValueText}>Max Rank Achieved</h3>
+            )}
+            <span className={styles.snapshotSub}>
+              {rankSnapshot?.starForNextRank?.rankName ? `Required Per Leg for ${rankSnapshot.starForNextRank.rankName}` : 'All Ranks Completed'}
+            </span>
+          </div>
+        </div>
+
+        {/* Remuneration (Rank Salary) Live Progress — moved here alongside
+            the rest of the rank data it belongs with. */}
+        <SalaryProgressCard data={rankSnapshot} />
       </section>
 
       {/* ============ SEGMENTED FILTER BUTTONS ============ */}

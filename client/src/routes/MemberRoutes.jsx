@@ -11,6 +11,7 @@ import BonanzaPage from "../pages/member/BonanzaPage";
 import RepurchasePage from "../pages/member/RepurchasePage";
 import IncomePage from "../pages/member/IncomePage";
 import TeamPage from "../pages/member/TeamPage";
+import BusinessPage from "../pages/member/BusinessPage";
 import GrowthGenerationPage from "../pages/member/GrowthGenerationPage";
 import PackagesPage from "../pages/member/PackagesPage";
 import UpgradePackagePage from "../pages/member/UpgradePackagePage";
@@ -41,6 +42,7 @@ const MemberRoutes = () => {
         <Route path="repurchase" element={<RepurchasePage />} />
         <Route path="income" element={<IncomePage />} />
         <Route path="team" element={<TeamPage />} />
+        <Route path="business" element={<BusinessPage />} />
 
         {/* Growth Generation Routes */}
         <Route path="growth-generation" element={<GrowthGenerationPage />} />

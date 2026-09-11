@@ -7,6 +7,7 @@ const Fund = require('../models/Fund');
 const Wallet = require('../models/Wallet');
 const Package = require('../models/Package');
 const Order = require('../models/Order');
+const Withdrawal = require('../models/Withdrawal');
 const IncomeTransaction = require('../models/IncomeTransaction');
 const BinaryService = require('../services/binary.service');
 const SalaryService = require('../services/salary.service');
@@ -296,6 +297,80 @@ const getDashboardStats = async (req, res, next) => {
     const baseUrl = process.env.CLIENT_URL || 'https://www.kuwifr.in';
     const identifier = user.memberId || user.referralCode;
 
+    // ------------------------------------------------------------------
+    // PBW-style Member Dashboard widgets (user request: "make exactly
+    // like PBW Foundation... with LIVE Correct Data"). Every field below
+    // is a REAL aggregation against this member's own data — nothing is
+    // fabricated. Mapped from PBW's NGO-specific widgets to genuine
+    // Kuwifr/MLM equivalents:
+    //   Growth Snapshot        -> weekly/monthly new-member counts
+    //   Membership Health      -> KYC/bank/package/photo completion %
+    //   Grievance Pipeline     -> this member's own Withdrawal status pipeline
+    //   Scheme Requests        -> this member's own Order status pipeline
+    //   Top Districts          -> Left vs Right binary leg comparison
+    //   Recently Added         -> most recently joined downline members
+    // ------------------------------------------------------------------
+
+    const [weeklyAddMembers, monthlyAddMembers, leftActiveCount, rightActiveCount, withdrawalAgg, orderAgg] = await Promise.all([
+      User.countDocuments({ sponsorId: userId, createdAt: { $gte: weekStart } }),
+      User.countDocuments({ sponsorId: userId, createdAt: { $gte: monthStart } }),
+      User.countDocuments({ _id: { $in: leftSubtreeIds }, status: 'ACTIVE' }),
+      User.countDocuments({ _id: { $in: rightSubtreeIds }, status: 'ACTIVE' }),
+      Withdrawal.aggregate([
+        { $match: { userId: leadershipUserId } },
+        { $group: { _id: '$status', count: { $sum: 1 }, amount: { $sum: '$netAmount' } } }
+      ]),
+      Order.aggregate([
+        { $match: { userId: leadershipUserId } },
+        { $group: { _id: '$orderStatus', count: { $sum: 1 } } }
+      ])
+    ]);
+
+    const legComparison = {
+      left: {
+        members: leftSubtreeIds.length,
+        activeMembers: leftActiveCount,
+        kbp: totalKbpLeft,
+        stars: lifetimeStars.leftStars
+      },
+      right: {
+        members: rightSubtreeIds.length,
+        activeMembers: rightActiveCount,
+        kbp: totalKbpRight,
+        stars: lifetimeStars.rightStars
+      }
+    };
+
+    // Recently joined downline — sourced from the same fullDownline array
+    // already fetched above (no extra query), so it's always consistent
+    // with Total Members / Total Active Members on this same payload.
+    const recentlyJoined = [...fullDownline]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 6)
+      .map((m) => ({
+        id: m._id,
+        name: m.fullName,
+        memberId: m.memberId,
+        status: m.status,
+        joinedAt: m.createdAt,
+        level: (m.depth || 0) + 1
+      }));
+
+    const healthChecks = [
+      { key: 'kyc', label: 'KYC Verified', done: user.kyc?.status === 'VERIFIED' },
+      { key: 'bank', label: 'Bank Details Added', done: !!(user.bankDetails?.accountNumber) },
+      { key: 'package', label: 'Package Activated', done: (user.status || '').toUpperCase() === 'ACTIVE' },
+      { key: 'photo', label: 'Profile Photo Added', done: !!(user.profileImage?.url) }
+    ];
+    const healthDoneCount = healthChecks.filter((h) => h.done).length;
+    const membershipHealth = {
+      percent: Math.round((healthDoneCount / healthChecks.length) * 100),
+      checks: healthChecks
+    };
+
+    const withdrawalPipeline = withdrawalAgg.map((w) => ({ status: w._id, count: w.count, amount: w.amount || 0 }));
+    const orderPipeline = orderAgg.map((o) => ({ status: o._id, count: o.count }));
+
     res.json({
       success: true,
       data: {
@@ -304,9 +379,21 @@ const getDashboardStats = async (req, res, next) => {
         totalIncome: wallet?.totalIncome || 0,
         totalWithdrawal: wallet?.totalWithdrawn || 0,
         todayAddMembers,
+        weeklyAddMembers,
+        monthlyAddMembers,
         todayActiveMembers,
         totalMembers: totalTeamCount,
         totalActiveMembers: totalActiveTeamCount,
+        // Direct sponsees only (one level) — "My Direct Referral" on the
+        // Member Dashboard. Already computed above for totalTeamCount, just
+        // wasn't surfaced in the response until now.
+        directReferrals: totalDirects,
+        memberSince: user.createdAt || null,
+        legComparison,
+        recentlyJoined,
+        membershipHealth,
+        withdrawalPipeline,
+        orderPipeline,
 
         todayLeftBusiness,
         todayRightBusiness,

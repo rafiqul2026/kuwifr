@@ -5,6 +5,8 @@
   margin: 0 auto;
   padding: 12px 16px 40px 16px;
   box-sizing: border-box;
+  font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #1c2a2a;
 }
 
 /* Header */
@@ -22,27 +24,27 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #eff6ff;
-  color: #2563eb;
+  background: #e6f5f5;
+  color: #008080;
   font-size: 12px;
   font-weight: 700;
   padding: 4px 12px;
   border-radius: 999px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid #b3dcdc;
   width: fit-content;
 }
 
 .pageTitle {
   font-size: 26px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c2a2a;
   margin: 0;
   letter-spacing: -0.025em;
 }
 
 .pageSubtitle {
   font-size: 14px;
-  color: #64748b;
+  color: #737373;
   margin: 0;
 }
 
@@ -60,7 +62,7 @@
   border-radius: 16px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.04);
+  box-shadow: none;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   box-sizing: border-box;
 }
@@ -92,7 +94,7 @@
 
 .walletAmount {
   font-size: 28px;
-  font-weight: 900;
+  font-weight: 700;
   line-height: 1.15;
   margin-bottom: 12px;
 }
@@ -114,24 +116,24 @@
 }
 
 .totalWallet {
-  background: linear-gradient(145deg, #0f172a 0%, #1e293b 100%);
+  background: linear-gradient(145deg, #1c2a2a 0%, #123332 100%);
   color: #ffffff;
-  border: 1px solid #334155;
+  border: 1px solid #404040;
 }
 .totalWallet .walletChip {
-  background: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: rgba(94, 234, 212, 0.15);
+  color: #5eead4;
+  border: 1px solid rgba(94, 234, 212, 0.3);
 }
 .totalWallet .walletAmount {
-  color: #38bdf8;
+  color: #5eead4;
 }
 .totalWallet .walletFooter {
   border-top-color: rgba(255, 255, 255, 0.1);
-  color: #94a3b8;
+  color: #a3a3a3;
 }
 .totalWallet .walletFooter strong {
-  color: #e2e8f0;
+  color: #e5e5e5;
 }
 
 .selfWallet {
@@ -147,29 +149,29 @@
   color: #15803d;
 }
 .selfWallet .walletFooter {
-  color: #475569;
+  color: #525252;
 }
 .selfWallet .walletFooter strong {
   color: #166534;
 }
 
 .downlineWallet {
-  background: linear-gradient(145deg, #ffffff 0%, #eff6ff 100%);
-  border: 1px solid #bfdbfe;
+  background: linear-gradient(145deg, #ffffff 0%, #e6f5f5 100%);
+  border: 1px solid #b3dcdc;
 }
 .downlineWallet .walletChip {
-  background: #dbeafe;
-  color: #1d4ed8;
-  border: 1px solid #93c5fd;
+  background: #cceaea;
+  color: #006666;
+  border: 1px solid #99d6d6;
 }
 .downlineWallet .walletAmount {
-  color: #1d4ed8;
+  color: #006666;
 }
 .downlineWallet .walletFooter {
-  color: #475569;
+  color: #525252;
 }
 .downlineWallet .walletFooter strong {
-  color: #1e40af;
+  color: #006666;
 }
 
 /* ================= FEATURE CARDS (NAV CONTROLLERS) ================= */
@@ -182,7 +184,7 @@
 
 .featureCard {
   background: #ffffff;
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid #e5e5e5;
   border-radius: 16px;
   padding: 16px 18px;
   display: flex;
@@ -190,26 +192,26 @@
   gap: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  box-shadow: none;
 }
 
 .featureCard:hover {
-  border-color: #cbd5e1;
+  border-color: #d4d4d4;
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.04);
 }
 
 .featureCardActive {
   background: #ffffff;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12), 0 4px 16px rgba(37, 99, 235, 0.08);
+  border-color: #008080;
+  box-shadow: 0 0 0 3px rgba(0, 128, 128, 0.12), 0 4px 16px rgba(0, 128, 128, 0.08);
 }
 
 .featureCardIcon {
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: #f1f5f9;
+  background: #f3f3f3;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -217,7 +219,7 @@
   flex-shrink: 0;
 }
 .featureCardActive .featureCardIcon {
-  background: #eff6ff;
+  background: #e6f5f5;
 }
 
 .featureCardInfo {
@@ -228,22 +230,22 @@
 .featureCardInfo h4 {
   margin: 0 0 2px 0;
   font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c2a2a;
 }
 
 .featureCardInfo p {
   margin: 0;
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .featureBadgeCount {
-  background: #f1f5f9;
-  color: #475569;
+  background: #f3f3f3;
+  color: #525252;
   font-size: 11px;
   font-weight: 700;
   padding: 4px 10px;
@@ -251,8 +253,8 @@
   flex-shrink: 0;
 }
 .featureCardActive .featureBadgeCount {
-  background: #eff6ff;
-  color: #2563eb;
+  background: #e6f5f5;
+  color: #008080;
 }
 
 .pensionActiveBadge {
@@ -279,7 +281,7 @@
   flex-direction: column;
   gap: 12px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   padding: 16px;
   border-radius: 14px;
 }
@@ -294,13 +296,13 @@
   position: absolute;
   left: 14px;
   font-size: 14px;
-  color: #94a3b8;
+  color: #a3a3a3;
 }
 
 .searchBox input {
   width: 100%;
   padding: 11px 36px 11px 36px;
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid #e5e5e5;
   border-radius: 10px;
   font-size: 14px;
   outline: none;
@@ -308,8 +310,8 @@
   box-sizing: border-box;
 }
 .searchBox input:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  border-color: #008080;
+  box-shadow: 0 0 0 3px rgba(0, 128, 128, 0.1);
 }
 
 .clearBtn {
@@ -317,7 +319,7 @@
   right: 12px;
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: #a3a3a3;
   cursor: pointer;
   font-size: 14px;
 }
@@ -331,22 +333,22 @@
 .categoryChip {
   padding: 6px 12px;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  color: #475569;
+  border: 1px solid #e5e5e5;
+  background: #f3f3f3;
+  color: #525252;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 .categoryChip:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+  background: #f3f3f3;
+  border-color: #d4d4d4;
 }
 .categoryActive {
-  background: #0f172a;
-  color: #ffffff;
-  border-color: #0f172a;
+  background: #008080;
+  color: #fdfaf5;
+  border-color: #008080;
 }
 
 /* 3 PER ROW GRID */
@@ -358,16 +360,16 @@
 
 .modernCard {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   border-radius: 14px;
   padding: 16px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+  box-shadow: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .modernCard:hover {
-  border-color: #cbd5e1;
+  border-color: #d4d4d4;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.04);
 }
 
@@ -381,25 +383,25 @@
 .prodCat {
   font-size: 10px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .kbpPointBadge {
-  background: #eff6ff;
-  color: #2563eb;
+  background: #e6f5f5;
+  color: #008080;
   font-size: 11px;
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 6px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid #b3dcdc;
 }
 
 .prodTitle {
   font-size: 14px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c2a2a;
   margin: 0 0 12px 0;
   line-height: 1.35;
   min-height: 38px;
@@ -421,14 +423,14 @@
 .kspLabel {
   font-size: 11px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
   margin-right: 2px;
 }
 
 .kspPrice {
   font-size: 17px;
-  font-weight: 900;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c2a2a;
 }
 
 .mrpPrice {
@@ -436,7 +438,7 @@
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: #94a3b8;
+  color: #a3a3a3;
 }
 
 .discountTag {
@@ -464,7 +466,7 @@
 
 .cashbackVal {
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   color: #15803d;
 }
 
@@ -475,7 +477,7 @@
 .addCartBtn {
   width: 100%;
   padding: 8px;
-  background: #2563eb;
+  background: #008080;
   color: #ffffff;
   border: none;
   border-radius: 8px;
@@ -489,20 +491,20 @@
   transition: background 0.15s ease;
 }
 .addCartBtn:hover {
-  background: #1d4ed8;
+  background: #006666;
 }
 
 .qtyControl {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border: 1.5px solid #cbd5e1;
+  border: 1.5px solid #d4d4d4;
   border-radius: 8px;
   padding: 2px 6px;
 }
 
 .qtyControl button {
-  background: #f1f5f9;
+  background: #f3f3f3;
   border: none;
   width: 26px;
   height: 26px;
@@ -511,13 +513,13 @@
   cursor: pointer;
 }
 .qtyControl button:hover {
-  background: #e2e8f0;
+  background: #e5e5e5;
 }
 
 .qtyNumber {
   font-size: 13px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c2a2a;
 }
 
 /* Sticky Checkout Summary */
@@ -528,10 +530,10 @@
 
 .checkoutCard {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   border-radius: 16px;
   padding: 20px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  box-shadow: none;
 }
 
 .checkoutHead {
@@ -544,13 +546,13 @@
 .checkoutHead h3 {
   margin: 0;
   font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c2a2a;
 }
 
 .cartCountPill {
-  background: #eff6ff;
-  color: #2563eb;
+  background: #e6f5f5;
+  color: #008080;
   font-size: 11px;
   font-weight: 700;
   padding: 2px 8px;
@@ -559,7 +561,7 @@
 
 .unlimitedNotice {
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
   margin: 0 0 14px 0;
 }
 
@@ -574,12 +576,12 @@
   display: flex;
   justify-content: space-between;
   font-size: 13px;
-  color: #334155;
+  color: #404040;
 }
 
 .highlightKBP {
-  color: #2563eb;
-  font-weight: 800;
+  color: #008080;
+  font-weight: 700;
 }
 
 .cashbackHighlight {
@@ -602,7 +604,7 @@
 
 .cashbackAmount {
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 700;
   color: #15803d;
 }
 
@@ -620,7 +622,7 @@
   border: none;
   border-radius: 10px;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
   transition: opacity 0.2s ease;
@@ -639,7 +641,7 @@
 }
 
 .matrixRibbon {
-  background: #0f172a;
+  background: #1c2a2a;
   border-radius: 14px;
   padding: 16px 20px;
   color: #ffffff;
@@ -661,13 +663,13 @@
 .ribbonHeader h4 {
   margin: 0 0 2px 0;
   font-size: 15px;
-  color: #f8fafc;
+  color: #f3f3f3;
 }
 
 .ribbonHeader p {
   margin: 0;
   font-size: 12px;
-  color: #94a3b8;
+  color: #a3a3a3;
 }
 
 .ribbonBadges {
@@ -686,7 +688,7 @@
   gap: 4px;
 }
 .matrixPill strong {
-  color: #38bdf8;
+  color: #5eead4;
 }
 
 .levelCardGrid {
@@ -697,20 +699,20 @@
 
 .levelCardModern {
   background: #ffffff;
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid #e5e5e5;
   border-radius: 12px;
   padding: 14px 16px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 .levelCardModern:hover {
-  border-color: #2563eb;
+  border-color: #008080;
   transform: translateY(-2px);
 }
 .levelCardActive {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-  background: #f8fafc;
+  border-color: #008080;
+  box-shadow: 0 0 0 3px rgba(0, 128, 128, 0.1);
+  background: #f3f3f3;
 }
 
 .lvlCardTop {
@@ -721,8 +723,8 @@
 
 .lvlTitleBadge {
   font-size: 13px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c2a2a;
 }
 
 .lvlRateBadge {
@@ -745,28 +747,28 @@
 .metricBox small {
   display: block;
   font-size: 10px;
-  color: #64748b;
+  color: #737373;
   text-transform: uppercase;
   font-weight: 700;
 }
 .metricBox strong {
   font-size: 12px;
-  color: #0f172a;
+  color: #1c2a2a;
 }
 
 .lvlExpandPrompt {
   font-size: 11px;
-  color: #2563eb;
+  color: #008080;
   font-weight: 700;
   text-align: center;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid #f3f3f3;
   padding-top: 8px;
 }
 
 /* Data Table */
 .tableCard {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   border-radius: 14px;
   padding: 20px;
 }
@@ -781,15 +783,15 @@
 .tableHeadWrap h3 {
   margin: 0;
   font-size: 15px;
-  color: #0f172a;
+  color: #1c2a2a;
 }
 
 .tableRateInfo {
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
 }
 .tableRateInfo strong {
-  color: #2563eb;
+  color: #008080;
 }
 
 .tableResponsive {
@@ -804,23 +806,23 @@
 }
 
 .dataTable th {
-  background: #f8fafc;
+  background: #f3f3f3;
   padding: 10px 12px;
-  color: #475569;
+  color: #525252;
   font-weight: 700;
-  border-bottom: 1.5px solid #e2e8f0;
+  border-bottom: 1.5px solid #e5e5e5;
 }
 
 .dataTable td {
   padding: 10px 12px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f3f3f3;
 }
 
 .memberIdBadge {
-  background: #f1f5f9;
+  background: #f3f3f3;
   padding: 2px 6px;
   border-radius: 4px;
-  color: #0f172a;
+  color: #1c2a2a;
   font-family: monospace;
 }
 
@@ -829,12 +831,12 @@
   flex-direction: column;
 }
 .contactCell small {
-  color: #94a3b8;
+  color: #a3a3a3;
 }
 
 .kbpPointChip {
-  background: #eff6ff;
-  color: #2563eb;
+  background: #e6f5f5;
+  color: #008080;
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 4px;
@@ -858,7 +860,7 @@
 .emptyTable {
   text-align: center;
   padding: 28px;
-  color: #94a3b8;
+  color: #a3a3a3;
 }
 .emptyTable span {
   font-size: 28px;
@@ -875,7 +877,7 @@
 
 .fundsHero {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   padding: 18px 22px;
   border-radius: 14px;
   display: flex;
@@ -888,17 +890,17 @@
 .fundsHeroContent h3 {
   margin: 0 0 4px 0;
   font-size: 16px;
-  color: #0f172a;
+  color: #1c2a2a;
 }
 .fundsHeroContent p {
   margin: 0;
   font-size: 13px;
-  color: #64748b;
+  color: #737373;
 }
 
 .recheckBtn {
-  background: #0f172a;
-  color: #ffffff;
+  background: #008080;
+  color: #fdfaf5;
   border: none;
   padding: 10px 16px;
   border-radius: 8px;
@@ -908,7 +910,7 @@
   transition: background 0.15s ease;
 }
 .recheckBtn:hover {
-  background: #1e293b;
+  background: #006666;
 }
 
 .trophyBanner {
@@ -935,8 +937,8 @@
 }
 
 .pensionCardModern {
-  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-  border: 1.5px solid #fde68a;
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+  border: 1.5px solid #fed7aa;
   border-radius: 12px;
   padding: 14px 18px;
   display: flex;
@@ -949,19 +951,19 @@
 .pensionText h4 {
   margin: 0 0 2px 0;
   font-size: 14px;
-  color: #92400e;
+  color: #9a5b0a;
 }
 .pensionText p {
   margin: 0;
   font-size: 12px;
-  color: #b45309;
+  color: #c2660a;
 }
 .pensionLiveBadge {
   margin-left: auto;
   background: #10b981;
   color: #ffffff;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
   padding: 3px 8px;
   border-radius: 999px;
 }
@@ -975,17 +977,17 @@
 
 .fundModernCard {
   background: #ffffff;
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid #e5e5e5;
   border-radius: 16px;
   padding: 20px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  box-shadow: none;
   transition: all 0.2s ease;
 }
 .fundModernCard:hover {
   transform: translateY(-2px);
-  border-color: #cbd5e1;
+  border-color: #d4d4d4;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
 }
 .fundQualified {
@@ -1019,12 +1021,12 @@
 .fundHeaderInfo h4 {
   margin: 0;
   font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c2a2a;
 }
 .fundCodeTag {
   font-size: 10px;
-  color: #64748b;
+  color: #737373;
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -1041,15 +1043,15 @@
   color: #15803d;
 }
 .stateLocked {
-  background: #f1f5f9;
-  color: #64748b;
+  background: #f3f3f3;
+  color: #737373;
 }
 
 .formulaBox {
   font-size: 11px;
   font-weight: 700;
-  color: #1e293b;
-  background: #f8fafc;
+  color: #123332;
+  background: #f3f3f3;
   padding: 8px 10px;
   border-radius: 8px;
   margin-bottom: 14px;
@@ -1076,17 +1078,17 @@
   display: flex;
   justify-content: space-between;
   font-size: 11px;
-  color: #475569;
+  color: #525252;
   font-weight: 600;
 }
 .trackerLabel strong {
-  color: #0f172a;
-  font-weight: 800;
+  color: #1c2a2a;
+  font-weight: 700;
 }
 
 .trackerTrack {
   height: 6px;
-  background: #f1f5f9;
+  background: #f3f3f3;
   border-radius: 999px;
   overflow: hidden;
 }
@@ -1102,21 +1104,21 @@
   justify-content: space-between;
   font-size: 10px;
   font-weight: 700;
-  color: #2563eb;
+  color: #008080;
   margin-top: 1px;
 }
 
 .totalCompletionWrap {
-  background: #f8fafc;
+  background: #f3f3f3;
   padding: 10px 12px;
   border-radius: 10px;
   margin-bottom: 14px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
 }
 
 .completionBar {
   height: 7px;
-  background: #e2e8f0;
+  background: #e5e5e5;
   border-radius: 999px;
   overflow: hidden;
   margin-bottom: 4px;
@@ -1138,7 +1140,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid #f3f3f3;
   padding-top: 12px;
   margin-top: auto;
 }
@@ -1147,19 +1149,19 @@
   display: block;
   font-size: 9px;
   font-weight: 700;
-  color: #94a3b8;
+  color: #a3a3a3;
   text-transform: uppercase;
   margin-bottom: 2px;
 }
 .criteriaItem span {
   font-size: 11px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c2a2a;
 }
 .maintainRule {
   font-size: 10px !important;
   font-weight: 500 !important;
-  color: #475569 !important;
+  color: #525252 !important;
 }
 
 /* ================= GLOBAL LOADER ================= */
@@ -1175,8 +1177,8 @@
 .modernSpinner {
   width: 40px;
   height: 40px;
-  border: 3.5px solid #e2e8f0;
-  border-top-color: #2563eb;
+  border: 3.5px solid #e5e5e5;
+  border-top-color: #008080;
   border-radius: 50%;
   animation: spin 0.75s linear infinite;
 }

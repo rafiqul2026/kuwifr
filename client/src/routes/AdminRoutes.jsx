@@ -26,6 +26,7 @@ import AdminCampaignsPage from '../pages/admin/AdminCampaignsPage';
 import AdminNotificationsPage from '../pages/admin/AdminNotificationsPage';
 import AdminAuditLogsPage from '../pages/admin/AdminAuditLogsPage';
 import AdminFranchisePage from '../pages/admin/AdminFranchisePage';
+import AdminAlertsPage from '../pages/admin/AdminAlertsPage';
 
 const AdminRoutes = () => {
   return (
@@ -55,6 +56,7 @@ const AdminRoutes = () => {
         <Route path="campaigns" element={<AdminCampaignsPage />} />
         <Route path="notifications" element={<AdminNotificationsPage />} />
         <Route path="audit" element={<AdminAuditLogsPage />} />
+        <Route path="alerts" element={<AdminAlertsPage />} />
 
         {/* Catch-all fallback */}
         <Route path="*" element={<Navigate to="dashboard" replace />} />

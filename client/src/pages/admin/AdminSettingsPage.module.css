@@ -6,7 +6,7 @@
   max-width: 1400px;
   margin: 0 auto;
   box-sizing: border-box;
-  color: #0f172a;
+  color: #1c2a2a;
   position: relative;
   padding-bottom: 80px;
 }
@@ -46,14 +46,14 @@
 .title {
   font-size: 26px;
   font-weight: 850;
-  color: #0b1228;
+  color: #0d1f1f;
   margin: 0 0 4px 0;
   letter-spacing: -0.02em;
 }
 
 .subtitle {
   font-size: 13.5px;
-  color: #64748b;
+  color: #737373;
   margin: 0;
   max-width: 780px;
   line-height: 1.5;
@@ -67,8 +67,8 @@
 
 .resetBtn {
   background: #ffffff;
-  border: 1px solid #cbd5e1;
-  color: #334155;
+  border: 1px solid #d4d4d4;
+  color: #404040;
   font-weight: 700;
   font-size: 13px;
   padding: 9px 18px;
@@ -78,12 +78,12 @@
 }
 
 .resetBtn:hover {
-  background: #f8fafc;
-  color: #0f172a;
+  background: #f3f3f3;
+  color: #1c2a2a;
 }
 
 .saveBtn {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #008080 0%, #006666 100%);
   color: #ffffff;
   border: none;
   font-weight: 750;
@@ -91,13 +91,13 @@
   padding: 9px 22px;
   border-radius: 8px;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 4px 12px rgba(0, 128, 128, 0.25);
   transition: all 0.15s ease;
 }
 
 .saveBtn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 6px 16px rgba(0, 128, 128, 0.35);
 }
 
 /* 2. System Readiness KPI Grid */
@@ -110,10 +110,10 @@
 
 .statCard {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   border-radius: 12px;
   padding: 16px 18px;
-  box-shadow: 0 2px 6px rgba(11, 18, 40, 0.02);
+  box-shadow: 0 2px 6px rgba(13, 31, 31, 0.02);
   display: flex;
   flex-direction: column;
 }
@@ -128,7 +128,7 @@
 .statLabel {
   font-size: 11px;
   font-weight: 750;
-  color: #64748b;
+  color: #737373;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -145,13 +145,13 @@
 }
 
 .dotBlue {
-  background: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+  background: #008080;
+  box-shadow: 0 0 0 2px rgba(0, 128, 128, 0.2);
 }
 
 .dotAmber {
-  background: #f59e0b;
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+  background: #fd9911;
+  box-shadow: 0 0 0 2px rgba(253, 153, 17, 0.2);
 }
 
 .dotRed {
@@ -162,7 +162,7 @@
 .statValue {
   font-size: 18px;
   font-weight: 850;
-  color: #0f172a;
+  color: #1c2a2a;
   letter-spacing: -0.02em;
   margin-bottom: 2px;
 }
@@ -177,7 +177,7 @@
 
 .statHelp {
   font-size: 11px;
-  color: #94a3b8;
+  color: #a3a3a3;
 }
 
 /* 3. Navigation Tabs */
@@ -188,7 +188,7 @@
 .tabsStrip {
   display: flex;
   gap: 8px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e5e5e5;
   padding-bottom: 10px;
   overflow-x: auto;
 }
@@ -198,10 +198,10 @@
   align-items: center;
   gap: 8px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   font-size: 13px;
   font-weight: 750;
-  color: #475569;
+  color: #525252;
   padding: 10px 16px;
   border-radius: 10px;
   cursor: pointer;
@@ -210,15 +210,15 @@
 }
 
 .tabBtn:hover {
-  background: #f8fafc;
-  color: #0f172a;
+  background: #f3f3f3;
+  color: #1c2a2a;
 }
 
 .tabBtnActive {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border-color: #93c5fd;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+  background: #e6f5f5;
+  color: #006666;
+  border-color: #99d6d6;
+  box-shadow: 0 2px 8px rgba(0, 128, 128, 0.08);
 }
 
 .tabIcon {
@@ -226,27 +226,27 @@
 }
 
 .tabTag {
-  background: #f1f5f9;
+  background: #f3f3f3;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
   padding: 2px 6px;
   border-radius: 4px;
-  color: #64748b;
+  color: #737373;
   text-transform: uppercase;
 }
 
 .tabBtnActive .tabTag {
-  background: #dbeafe;
-  color: #1e40af;
+  background: #cceaea;
+  color: #006666;
 }
 
 /* 4. Settings Card Body */
 .contentCard {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   border-radius: 14px;
   padding: 26px 30px;
-  box-shadow: 0 4px 16px -2px rgba(11, 18, 40, 0.03);
+  box-shadow: 0 4px 16px -2px rgba(13, 31, 31, 0.03);
 }
 
 .formContainer {
@@ -265,7 +265,7 @@
   align-items: flex-start;
   margin-bottom: 22px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f3f3f3;
   flex-wrap: wrap;
   gap: 10px;
 }
@@ -273,13 +273,13 @@
 .sectionHeader h3 {
   font-size: 17px;
   font-weight: 850;
-  color: #0b1228;
+  color: #0d1f1f;
   margin: 0 0 3px 0;
 }
 
 .sectionHeader p {
   font-size: 13px;
-  color: #64748b;
+  color: #737373;
   margin: 0;
 }
 
@@ -287,16 +287,16 @@
   background: #ecfdf5;
   color: #059669;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   padding: 4px 10px;
   border-radius: 6px;
 }
 
 .toggleSecretsBtn,
 .testEmailBtn {
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
-  color: #334155;
+  background: #f3f3f3;
+  border: 1px solid #d4d4d4;
+  color: #404040;
   font-size: 12px;
   font-weight: 750;
   padding: 6px 14px;
@@ -307,8 +307,8 @@
 
 .toggleSecretsBtn:hover,
 .testEmailBtn:hover {
-  background: #e2e8f0;
-  color: #0f172a;
+  background: #e5e5e5;
+  color: #1c2a2a;
 }
 
 .formGrid {
@@ -330,7 +330,7 @@
 .formGroup label {
   font-size: 12px;
   font-weight: 750;
-  color: #334155;
+  color: #404040;
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
@@ -339,10 +339,10 @@
 .formGroup select,
 .formGroup textarea {
   padding: 11px 14px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #d4d4d4;
   border-radius: 8px;
   font-size: 14px;
-  color: #0f172a;
+  color: #1c2a2a;
   outline: none;
   background-color: #ffffff;
   font-family: inherit;
@@ -352,13 +352,13 @@
 .formGroup input:focus,
 .formGroup select:focus,
 .formGroup textarea:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  border-color: #008080;
+  box-shadow: 0 0 0 3px rgba(0, 128, 128, 0.12);
 }
 
 .fieldHelp {
   font-size: 11.5px;
-  color: #64748b;
+  color: #737373;
 }
 
 .checkboxContainer {
@@ -367,14 +367,14 @@
   gap: 10px;
   font-size: 13.5px;
   font-weight: 700;
-  color: #1e293b;
+  color: #123332;
   cursor: pointer;
 }
 
 .checkboxContainer input {
   width: 18px;
   height: 18px;
-  accent-color: #2563eb;
+  accent-color: #008080;
 }
 
 /* Maintenance Mode Alert Box */
@@ -404,11 +404,11 @@
   left: 50%;
   transform: translateX(-50%);
   width: min(90%, 750px);
-  background: #0f172a;
+  background: #1c2a2a;
   color: #ffffff;
   border-radius: 14px;
   padding: 12px 20px;
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.4);
+  box-shadow: 0 20px 40px rgba(28, 42, 42, 0.4);
   z-index: 1000;
   animation: slideUpFloat 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -449,7 +449,7 @@
 
 .floatingText p {
   font-size: 11.5px;
-  color: #94a3b8;
+  color: #a3a3a3;
   margin: 0;
 }
 
@@ -460,8 +460,8 @@
 
 .floatingDiscardBtn {
   background: transparent;
-  border: 1px solid #475569;
-  color: #cbd5e1;
+  border: 1px solid #525252;
+  color: #d4d4d4;
   font-size: 12.5px;
   font-weight: 700;
   padding: 8px 16px;
@@ -470,12 +470,12 @@
 }
 
 .floatingDiscardBtn:hover {
-  background: #1e293b;
+  background: #123332;
   color: #ffffff;
 }
 
 .floatingSaveBtn {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #008080 0%, #006666 100%);
   border: none;
   color: #ffffff;
   font-size: 12.5px;
@@ -483,25 +483,25 @@
   padding: 8px 18px;
   border-radius: 8px;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 128, 128, 0.3);
 }
 
 .floatingSaveBtn:hover {
-  background: #1d4ed8;
+  background: #006666;
 }
 
 /* Loading Area */
 .loadingArea {
   text-align: center;
   padding: 60px 20px;
-  color: #64748b;
+  color: #737373;
 }
 
 .spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid #e2e8f0;
-  border-top-color: #2563eb;
+  border: 3px solid #e5e5e5;
+  border-top-color: #008080;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
   margin: 0 auto 12px auto;

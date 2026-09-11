@@ -160,6 +160,20 @@ const UserSchema = new mongoose.Schema(
     joinedDate: {
       type: Date,
       default: Date.now
+    },
+    // Per-admin read/clear state for the Admin Alerts inbox
+    // (adminAlerts.service.js). Only ever populated on ADMIN/SUPER_ADMIN
+    // accounts. alertsReadAt: alerts created at-or-before this timestamp
+    // render as "read". clearedAlertIds: individually dismissed alerts
+    // (synthetic ids like "signup:<userId>"), capped so this array can
+    // never grow unbounded.
+    adminAlertsReadAt: {
+      type: Date,
+      default: null
+    },
+    clearedAlertIds: {
+      type: [String],
+      default: []
     }
   },
   { timestamps: true }
