@@ -29,6 +29,7 @@ router.post('/initialize', auth, adminAuth, rankController.initializeRanks);
 router.get('/admin/all', auth, adminAuth, rankController.getAllRanks);
 router.get('/admin/achievements', auth, adminAuth, rankController.getRankAchievementsAdmin);
 router.post('/admin/recalculate', auth, adminAuth, rankController.recalculateAllRankAchievements);
+router.put('/admin/achievements/:id/reward', auth, adminAuth, rankController.updateRewardStatus);
 router.post('/', auth, adminAuth, rankController.createRank);
 router.put('/:id', auth, adminAuth, rankController.updateRank);
 router.delete('/:id', auth, adminAuth, rankController.deleteRank);

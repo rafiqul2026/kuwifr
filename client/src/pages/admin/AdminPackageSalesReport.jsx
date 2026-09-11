@@ -1,9 +1,11 @@
 // client/src/pages/admin/AdminPackageSalesReport.jsx
 import React, { useState, useEffect } from "react";
 import api from "../../services/api";
+import { useNotification } from "../../hooks/useNotification";
 import styles from "./AdminPackageSalesReport.module.css";
 
 export default function AdminPackageSalesReport() {
+  const { showNotification } = useNotification();
   const [sales, setSales] = useState([]);
   const [stats, setStats] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +26,18 @@ export default function AdminPackageSalesReport() {
   const [receiptNumber, setReceiptNumber] = useState("");
   const [notes, setNotes] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  // Dedicated loading/error state for the member-search step of the modal —
+  // previously this relied entirely on a blocking window.alert() to tell the
+  // admin what happened, with no visible "in progress" state on the button
+  // itself. Chrome (and other browsers) silently suppress repeated
+  // window.alert() calls from the same page after the first few, and some
+  // ad-block / privacy extensions block window.alert() outright — so on a
+  // page an admin has been actively testing, a "Member not found" alert can
+  // fire with nothing visibly happening, which reads exactly like "the
+  // button isn't working." Inline, always-visible state fixes that
+  // regardless of the browser's alert-suppression behavior.
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState("");
 
   const fetchReport = async (page = 1) => {
     try {
@@ -75,6 +89,8 @@ export default function AdminPackageSalesReport() {
   const handleMemberSearch = async (e) => {
     e.preventDefault();
     if (!memberInput.trim()) return;
+    setSearchError("");
+    setSearchLoading(true);
     try {
       const res = await api.get("/api/admin/members/search", {
         params: { query: memberInput.trim() },
@@ -84,12 +100,16 @@ export default function AdminPackageSalesReport() {
       if (members.length > 0) {
         setSearchedMember(members[0]);
       } else {
-        alert("Member not found.");
+        setSearchError(`No member found matching "${memberInput.trim()}". Double-check the Member ID, email, or mobile number.`);
         setSearchedMember(null);
       }
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Error searching member.");
+      const message = err.response?.data?.message || "Error searching member. Please try again.";
+      setSearchError(message);
+      showNotification(message, "error");
+    } finally {
+      setSearchLoading(false);
     }
   };
 
@@ -101,7 +121,7 @@ export default function AdminPackageSalesReport() {
   const handleActivateSubmit = async (e) => {
     e.preventDefault();
     if (!searchedMember || !selectedPackageId || !cashAmount) {
-      alert("Please select a member and package.");
+      showNotification("Please select a member and package.", "warning");
       return;
     }
 
@@ -123,17 +143,18 @@ export default function AdminPackageSalesReport() {
         { withCredentials: true }
       );
 
-      alert(res.data.message || "Package activated successfully!");
+      showNotification(res.data.message || "Package activated successfully!", "success");
       setShowModal(false);
       setSearchedMember(null);
       setMemberInput("");
+      setSearchError("");
       setSelectedPackageId("");
       setCashAmount("");
       setReceiptNumber("");
       setNotes("");
       fetchReport(1);
     } catch (err) {
-      alert(err.response?.data?.message || "Package activation failed.");
+      showNotification(err.response?.data?.message || "Package activation failed.", "error");
     } finally {
       setActionLoading(false);
     }
@@ -148,7 +169,18 @@ export default function AdminPackageSalesReport() {
         </div>
         <div style={{ display: "flex", gap: "10px" }}>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              // Reset any leftover state from a previous search/activation
+              // so the modal always opens on a clean "find a member" step.
+              setMemberInput("");
+              setSearchedMember(null);
+              setSearchError("");
+              setSelectedPackageId("");
+              setCashAmount("");
+              setReceiptNumber("");
+              setNotes("");
+              setShowModal(true);
+            }}
             style={{ background: "#2563eb", color: "#fff", border: "none", padding: "10px 18px", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}
           >
             + Activate New Package (Cash)
@@ -283,11 +315,23 @@ export default function AdminPackageSalesReport() {
                   placeholder="e.g. KFR123456"
                   value={memberInput}
                   onChange={(e) => setMemberInput(e.target.value)}
-                  style={{ width: "100%", padding: "10px", marginBottom: "15px", borderRadius: "6px", border: "1px solid #cbd5e1" }}
+                  style={{ width: "100%", padding: "10px", marginBottom: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }}
                   required
+                  autoFocus
                 />
-                <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
-                  <button type="submit" style={{ background: "#2563eb", color: "#fff", padding: "10px 16px", border: "none", borderRadius: "6px", cursor: "pointer" }}>Search Member</button>
+                {searchError && (
+                  <div style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", padding: "10px 12px", borderRadius: "6px", marginBottom: "15px", fontSize: "13px" }}>
+                    ⚠️ {searchError}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: searchError ? 0 : "15px" }}>
+                  <button
+                    type="submit"
+                    disabled={searchLoading}
+                    style={{ background: searchLoading ? "#93c5fd" : "#2563eb", color: "#fff", padding: "10px 16px", border: "none", borderRadius: "6px", cursor: searchLoading ? "not-allowed" : "pointer" }}
+                  >
+                    {searchLoading ? "Searching…" : "Search Member"}
+                  </button>
                   <button type="button" onClick={() => setShowModal(false)} style={{ background: "#64748b", color: "#fff", padding: "10px 16px", border: "none", borderRadius: "6px", cursor: "pointer" }}>Cancel</button>
                 </div>
               </form>

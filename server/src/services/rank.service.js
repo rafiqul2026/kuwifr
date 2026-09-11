@@ -332,9 +332,25 @@ class RankService {
    * even split in the comp plan (6, 20, 70, 200, 700, 2200, 7000, 15000,
    * 35000, 75000, 160000 -> exactly half on each leg); Math.ceil guards
    * against a future odd/misconfigured value by never under-requiring.
+   *
+   * `requiredTotal` is the rank's OWN raw `starsRequired` — compared
+   * directly against the member's live lifetime left/right star count, NOT
+   * a cumulative sum across every prior tier. An earlier version of this
+   * method compared against a running sum of every tier's requirement
+   * (reading the comp plan's "Previous rank star will lock... only carry
+   * forward star will count in the next rank" language as "this rank needs
+   * that many stars ON TOP OF what the previous rank already used"). That
+   * was wrong: the comp plan's own explicit per-rank numbers ("Left 10
+   * Stars : Right 10 Stars" for Silver Star, etc.) are each already exactly
+   * half of that rank's raw `starsRequired` — not half of a cumulative sum
+   * — confirmed directly by a member-reported bug where Silver Star's page
+   * showed "need 13 on each leg" (the cumulative Bronze+Silver figure)
+   * instead of the correct 10. "Locks"/"carry forward" describes ranks
+   * being permanent, ever-growing milestones on the SAME live star count —
+   * not a per-rank-reset ledger.
    */
-  isBalancedRankQualified(leftStars, rightStars, rank) {
-    const requiredPerLeg = Math.ceil((rank.starsRequired || 0) / 2);
+  isBalancedRankQualified(leftStars, rightStars, requiredTotal) {
+    const requiredPerLeg = Math.ceil((requiredTotal || 0) / 2);
     return leftStars >= requiredPerLeg && rightStars >= requiredPerLeg;
   }
 
@@ -408,15 +424,27 @@ class RankService {
 
     let newRankAchieved = false;
 
+    // "All requirements of Rewards achieving will be calculated next to
+    // next basis" — ranks are awarded strictly in level order within this
+    // pass so a member can never be recorded as having a higher rank than
+    // one they haven't also crossed on the way up. Each rank's own raw
+    // starsRequired is itself monotonically increasing (6, 20, 70, 200,
+    // ...), so this loop naturally never skips a tier: qualifying for rank
+    // N's threshold always means rank N-1's smaller threshold was already
+    // satisfied on the same live star count.
     for (const rank of allRanks) {
       // Skip if already achieved
       if (achievedRankIds.includes(rank._id.toString())) {
         continue;
       }
 
-      if (this.isBalancedRankQualified(leftStars, rightStars, rank)) {
+      if (this.isBalancedRankQualified(leftStars, rightStars, rank.starsRequired)) {
         await this.achieveRank(userId, rank, currentStars);
         newRankAchieved = true;
+      } else {
+        // Not qualified for this tier yet -> can't qualify for any higher
+        // tier either this pass (requirements only increase with level).
+        break;
       }
     }
 
@@ -621,8 +649,18 @@ class RankService {
       achievement.rankId.toString(),
     );
 
+    // Progress toward each tier is measured against that tier's OWN raw
+    // starsRequired (halved per leg) — NOT a cumulative sum across prior
+    // tiers (see isBalancedRankQualified's docstring for why that was
+    // reverted) — and against the smaller (limiting) leg, matching what
+    // actually gates achievement in checkAndAwardRanks, not the combined
+    // total, which would read misleadingly high for a lopsided downline.
+    const limitingLegStars = Math.min(leftStars, rightStars);
+
     const progression = {
       currentStars,
+      currentLeftStars: leftStars,
+      currentRightStars: rightStars,
       achieved: [],
       next: null,
       all: [],
@@ -630,17 +668,17 @@ class RankService {
 
     for (const rank of allRanks) {
       const isAchieved = achievedIds.includes(rank._id.toString());
+      const requiredPerLeg = Math.ceil((rank.starsRequired || 0) / 2);
 
       progression.all.push({
         rank: rank,
         isAchieved: isAchieved,
         starsNeeded: rank.starsRequired,
-        progress:
-          rank.starsRequired > 0
-            ? Math.min(
-                100,
-                Math.round((currentStars / rank.starsRequired) * 100),
-              )
+        requiredPerLeg,
+        progress: isAchieved
+          ? 100
+          : requiredPerLeg > 0
+            ? Math.min(100, Math.round((limitingLegStars / requiredPerLeg) * 100))
             : 0,
       });
 
@@ -889,18 +927,32 @@ class RankService {
    * Process rewards for achieved ranks
    */
   async processReward(achievementId) {
+    return this.updateRewardStatus(achievementId, "PROCESSED");
+  }
+
+  /**
+   * Admin: move a physical/one-time reward (Diary+Pen, Executive Bag,
+   * Branded Watch, ... up to Bungalow) through its fulfillment lifecycle —
+   * PENDING -> PROCESSED -> DELIVERED. Used by the Admin "Member
+   * Achievements" panel so reward fulfillment can actually be tracked
+   * instead of every achievement sitting at PENDING forever.
+   */
+  async updateRewardStatus(achievementId, newStatus, adminId = null, notes = "") {
+    const VALID_STATUSES = ["PENDING", "PROCESSED", "DELIVERED", "NOT_APPLICABLE"];
+    if (!VALID_STATUSES.includes(newStatus)) {
+      throw new Error(`Invalid reward status: ${newStatus}`);
+    }
+
     const achievement = await RankAchievement.findById(achievementId);
 
     if (!achievement) {
       throw new Error("Achievement not found");
     }
 
-    if (achievement.rewardStatus === "DELIVERED") {
-      throw new Error("Reward already delivered");
-    }
-
-    achievement.rewardStatus = "PROCESSED";
-    achievement.rewardDeliveredAt = new Date();
+    achievement.rewardStatus = newStatus;
+    achievement.rewardDeliveredAt = newStatus === "DELIVERED" ? new Date() : achievement.rewardDeliveredAt;
+    if (adminId) achievement.verifiedBy = adminId;
+    if (notes) achievement.notes = `${achievement.notes ? achievement.notes + " | " : ""}${notes}`;
 
     await achievement.save();
 

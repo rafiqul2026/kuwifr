@@ -320,6 +320,22 @@ const RanksPage = () => {
       ? ranks.filter((r) => isRankAchieved(r))
       : ranks.filter((r) => !isRankAchieved(r));
 
+  // "Next to next basis" sequential unlock (comp plan: "these cards will
+  // lock until the Achievement of the [previous] Rank. After Achieve
+  // [previous] Rank, [this] Rank progress bar will continue.") — only the
+  // SINGLE lowest-level not-yet-achieved rank is actually "in progress";
+  // every rank beyond it must show as fully Locked, even if the member's
+  // raw star count would otherwise compute a nonzero-looking percentage
+  // for it (e.g. Platinum/Gold/Sapphire all showing "In Progress" while
+  // Silver Star itself is still unachieved). Computed off the full,
+  // level-sorted `ranks` list — NOT `filteredRanks` — so the lock boundary
+  // never shifts just because the visible filter/tab changed.
+  const nextUnlockedLevel = (() => {
+    const sortedByLevel = [...ranks].sort((a, b) => (a.level || 0) - (b.level || 0));
+    const firstUnachieved = sortedByLevel.find((r) => !isRankAchieved(r));
+    return firstUnachieved ? firstUnachieved.level : null;
+  })();
+
   if (loading) {
     return (
       <div className={styles.loading}>
@@ -424,7 +440,16 @@ const RanksPage = () => {
             // once you have 3 Left AND 3 Right), so progress tracks the
             // limiting (smaller) leg against half the requirement — not the
             // combined total, which could read 100% from one lopsided leg.
-            const requiredPerLeg = rank.starsRequired > 0 ? Math.ceil(rank.starsRequired / 2) : 0;
+            //
+            // rank.requiredPerLeg is computed server-side as this tier's own
+            // raw starsRequired/2 (e.g. Silver Star = 20 stars -> 10 per
+            // leg — matching the comp plan's own "Left 10 Stars : Right 10
+            // Stars" text exactly). Fall back to deriving the same half
+            // locally only if the API response predates this field (e.g.
+            // the static FALLBACK_RANKS list used when unreachable).
+            const requiredPerLeg = typeof rank.requiredPerLeg === 'number'
+              ? rank.requiredPerLeg
+              : (rank.starsRequired > 0 ? Math.ceil(rank.starsRequired / 2) : 0);
             const limitingLegStars = Math.min(myRanks.currentLeftStars || 0, myRanks.currentRightStars || 0);
             const progress = requiredPerLeg > 0
               ? Math.min(100, Math.round((limitingLegStars / requiredPerLeg) * 100))
@@ -432,9 +457,15 @@ const RanksPage = () => {
 
             const rankColor = getRankColor(rank);
             const rankIcon = getRankIcon(rank);
-            const isNext = !isAchieved && progress > 0;
+            // Sequential lock: this card is still out of reach if it isn't
+            // achieved AND it isn't the single next rank up for grabs.
+            const isLockedAhead = !isAchieved && typeof nextUnlockedLevel === 'number' && rank.level > nextUnlockedLevel;
+            const isNext = !isAchieved && !isLockedAhead && progress > 0;
             const conditions = getRankConditions(rank);
             const isHighestAchieved = isAchieved && myRanks.current?._id === rank._id;
+            const lockedOnRank = isLockedAhead
+              ? [...ranks].sort((a, b) => (a.level || 0) - (b.level || 0)).find((r) => !isRankAchieved(r))
+              : null;
 
             return (
               <article
@@ -492,8 +523,8 @@ const RanksPage = () => {
                     )}
                   </div>
 
-                  {/* Progress Bar */}
-                  {!isAchieved && rank.starsRequired > 0 && (
+                  {/* Progress Bar — only for the single next-up rank */}
+                  {!isAchieved && !isLockedAhead && rank.starsRequired > 0 && (
                     <div className={styles.progressWrapper}>
                       <div className={styles.progressBar}>
                         <div
@@ -511,6 +542,18 @@ const RanksPage = () => {
                         </span>
                         <strong>{progress}% Complete</strong>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Locked — every rank beyond the current next-up tier
+                      stays locked, with no progress preview, until the
+                      ranks in between are achieved in order. */}
+                  {isLockedAhead && (
+                    <div className={styles.lockedWrapper}>
+                      <span className={styles.lockedIcon}>🔒</span>
+                      <span className={styles.lockedText}>
+                        Locked — achieve <strong>{lockedOnRank?.name || 'the previous rank'}</strong> first to unlock progress on this rank.
+                      </span>
                     </div>
                   )}
 

@@ -39,10 +39,30 @@ const getAllRanks = async (req, res, next) => {
   try {
     await seedRanksIfEmpty();
     const ranks = await Rank.find().sort({ level: 1 }).lean();
+
+    // Expose each tier's own per-leg requirement (half of that tier's raw
+    // starsRequired) alongside starsRequired itself, so the Member Ranks
+    // page can show correct progress bars without re-deriving this itself.
+    //
+    // NOTE: an earlier version of this endpoint computed a CUMULATIVE
+    // running sum across every prior tier here (reading the comp plan's
+    // "carry forward" language as "stars already used for the previous
+    // rank don't count toward this one's total"). That was wrong — a
+    // member reported Silver Star's card showing "need 13 on each leg"
+    // (the cumulative Bronze+Silver figure) instead of the correct 10,
+    // and the comp plan's own per-rank numbers ("Left 10 Stars : Right 10
+    // Stars" for Silver Star, etc.) are each already exactly half of that
+    // rank's OWN raw starsRequired, confirming thresholds are NOT
+    // cumulative. Reverted to the simple per-rank half.
+    const ranksWithRequirement = (ranks || []).map((rank) => ({
+      ...rank,
+      requiredPerLeg: Math.ceil((rank.starsRequired || 0) / 2)
+    }));
+
     return res.status(200).json({
       success: true,
-      data: { ranks: ranks || [] },
-      ranks: ranks || []
+      data: { ranks: ranksWithRequirement },
+      ranks: ranksWithRequirement
     });
   } catch (error) {
     return res.status(200).json({
@@ -376,6 +396,34 @@ const recalculateAllRankAchievements = async (req, res, next) => {
   }
 };
 
+/**
+ * Admin: move a rank achievement's physical/one-time reward through its
+ * fulfillment lifecycle (PENDING -> PROCESSED -> DELIVERED).
+ * PUT /api/ranks/admin/achievements/:id/reward
+ * Body: { status: 'PENDING' | 'PROCESSED' | 'DELIVERED' | 'NOT_APPLICABLE', notes? }
+ */
+const updateRewardStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status, notes } = req.body;
+    const adminId = req.userId || req.user?.id || req.user?._id;
+
+    if (!status) {
+      return res.status(400).json({ success: false, message: 'A target reward status is required.' });
+    }
+
+    const achievement = await RankService.updateRewardStatus(id, status, adminId, notes || '');
+
+    return res.status(200).json({
+      success: true,
+      message: `Reward marked as ${status}.`,
+      data: { achievement }
+    });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message || 'Failed to update reward status.' });
+  }
+};
+
 module.exports = {
   getCurrentRank,
   getMyRanks,
@@ -389,5 +437,6 @@ module.exports = {
   updateRank,
   deleteRank,
   getRankAchievementsAdmin,
-  recalculateAllRankAchievements
+  recalculateAllRankAchievements,
+  updateRewardStatus
 };

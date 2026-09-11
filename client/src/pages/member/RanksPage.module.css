@@ -409,6 +409,35 @@
   color: #0f172a;
 }
 
+/* Locked (sequential "next to next" gate) — replaces the progress bar for
+   any rank beyond the single next-up tier, so a member never sees a
+   misleading "In Progress" percentage on a card several tiers away. */
+.lockedWrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #f1f5f9;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.lockedIcon {
+  font-size: 14px;
+  flex-shrink: 0;
+  line-height: 1.35;
+}
+
+.lockedText {
+  font-size: 12px;
+  line-height: 1.4;
+  color: #64748b;
+}
+
+.lockedText strong {
+  color: #334155;
+}
+
 /* Achieved Details */
 .achievedDetails {
   display: flex;

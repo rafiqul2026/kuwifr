@@ -126,6 +126,24 @@ const AdminRanksPage = () => {
     fetchAchievements(1, achievementsSearch, achievementsSponsorId);
   };
 
+  // Admin: move a physical/one-time reward through its fulfillment
+  // lifecycle (PENDING -> PROCESSED -> DELIVERED) for one achievement row.
+  const [updatingRewardId, setUpdatingRewardId] = useState(null);
+  const handleUpdateRewardStatus = async (achievementId, newStatus) => {
+    setUpdatingRewardId(achievementId);
+    try {
+      const res = await api.put(`/api/ranks/admin/achievements/${achievementId}/reward`, { status: newStatus });
+      setAchievements((prev) =>
+        prev.map((a) => (a._id === achievementId ? { ...a, rewardStatus: newStatus } : a))
+      );
+      showNotification(res.data?.message || `Reward marked as ${newStatus}.`, 'success');
+    } catch (error) {
+      showNotification(error?.response?.data?.message || 'Failed to update reward status.', 'error');
+    } finally {
+      setUpdatingRewardId(null);
+    }
+  };
+
   const handleRecalculateAll = async () => {
     setIsRecalculating(true);
     try {
@@ -576,6 +594,7 @@ const AdminRanksPage = () => {
                 <th>LEVEL</th>
                 <th>STARS AT ACHIEVEMENT</th>
                 <th>DATE ACHIEVED</th>
+                <th>REWARD ITEM</th>
                 <th>REWARD STATUS</th>
               </tr>
             </thead>
@@ -584,6 +603,8 @@ const AdminRanksPage = () => {
                 const member = a.userId || {};
                 const rank = a.rankId || {};
                 const achievedDate = a.achievedAt ? new Date(a.achievedAt) : null;
+                const rewardStatus = a.rewardStatus || 'PENDING';
+                const isUpdating = updatingRewardId === a._id;
                 return (
                   <tr key={a._id}>
                     <td>
@@ -610,9 +631,34 @@ const AdminRanksPage = () => {
                       </span>
                     </td>
                     <td>
-                      <span className={`${styles.salaryPill} ${a.rewardStatus === 'DELIVERED' ? styles.salaryActive : styles.salaryNone}`}>
-                        {a.rewardStatus || 'PENDING'}
-                      </span>
+                      <span className={styles.dateText}>{a.reward || rank.reward || '—'}</span>
+                    </td>
+                    <td>
+                      {rewardStatus === 'NOT_APPLICABLE' ? (
+                        <span className={`${styles.salaryPill} ${styles.salaryNone}`}>NOT APPLICABLE</span>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span className={`${styles.salaryPill} ${rewardStatus === 'DELIVERED' ? styles.salaryActive : styles.salaryNone}`}>
+                            {rewardStatus}
+                          </span>
+                          <select
+                            className={styles.pageBtn}
+                            value=""
+                            disabled={isUpdating}
+                            onChange={(e) => {
+                              if (e.target.value) handleUpdateRewardStatus(a._id, e.target.value);
+                              e.target.value = '';
+                            }}
+                          >
+                            <option value="">{isUpdating ? 'Updating…' : 'Update…'}</option>
+                            {['PENDING', 'PROCESSED', 'DELIVERED']
+                              .filter((s) => s !== rewardStatus)
+                              .map((s) => (
+                                <option key={s} value={s}>Mark {s}</option>
+                              ))}
+                          </select>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
