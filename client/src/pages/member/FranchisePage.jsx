@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
-import styles from './FranchisePage.module.css';
+import styles from "./FranchisePage.module.css";
 
 const formatINR = (val) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(val) || 0);
