@@ -301,19 +301,36 @@ const getRankAchievementsAdmin = async (req, res, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
-    const { search, rankLevel } = req.query;
+    const { search, rankLevel, sponsorId } = req.query;
 
     const match = { status: 'ACHIEVED' };
     if (rankLevel) match.rankLevel = Number(rankLevel);
 
-    let userIdFilter = null;
     if (search && search.trim()) {
       const re = new RegExp(search.trim(), 'i');
       const matchingUsers = await User.find({
         $or: [{ fullName: re }, { memberId: re }, { email: re }]
       }).select('_id').lean();
-      userIdFilter = matchingUsers.map((u) => u._id);
-      match.userId = { $in: userIdFilter };
+      match.userId = { $in: matchingUsers.map((u) => u._id) };
+    }
+
+    // Search by Sponsor ID — every member who achieved a rank under a given
+    // sponsor's direct downline. Combines (AND) with the free-text `search`
+    // above if both are supplied.
+    if (sponsorId && sponsorId.trim()) {
+      const sponsor = await User.findOne({
+        memberId: { $regex: new RegExp(`^${sponsorId.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+      }).select('_id').lean();
+
+      if (!sponsor) {
+        match._id = null;
+      } else {
+        const sponsees = await User.find({ sponsorId: sponsor._id }).select('_id').lean();
+        const sponseeIds = sponsees.map((u) => u._id);
+        match.userId = match.userId
+          ? { $in: match.userId.$in.filter((id) => sponseeIds.some((s) => s.equals(id))) }
+          : { $in: sponseeIds };
+      }
     }
 
     const [total, achievements] = await Promise.all([

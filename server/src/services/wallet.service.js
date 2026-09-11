@@ -61,7 +61,7 @@ class WalletService {
     // Determine wallet type based on source. LEADERSHIP_INCOME_L1/L2/L3 are the
     // per-level leadership bonus source values used by IncomeTransaction/income.service;
     // they must map to the same INCOME wallet as the generic LEADERSHIP_INCOME label.
-    const INCOME_SOURCES = ['REFERRAL_INCOME', 'MATCHING_INCOME', 'LEADERSHIP_INCOME', 'LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3'];
+    const INCOME_SOURCES = ['REFERRAL_INCOME', 'MATCHING_INCOME', 'LEADERSHIP_INCOME', 'LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3', 'FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE'];
     const REPURCHASE_SOURCES = ['REPURCHASE_SELF', 'REPURCHASE_DOWNLINE'];
 
     let walletType;
@@ -84,6 +84,7 @@ class WalletService {
     else if (['LEADERSHIP_INCOME', 'LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3'].includes(source)) extraIncrements.leadershipIncome = amount;
     else if (source === 'REPURCHASE_SELF') extraIncrements.selfRepurchaseIncome = amount;
     else if (source === 'REPURCHASE_DOWNLINE') extraIncrements.downlineRepurchaseIncome = amount;
+    else if (['FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE'].includes(source)) extraIncrements.franchiseIncome = amount;
 
     const { wallet, transaction } = await Wallet.atomicAdjustBalance(userId, {
       balanceField,
@@ -283,6 +284,8 @@ class WalletService {
       'REPURCHASE_DOWNLINE': 'Downline repurchase income',
       'RANK_SALARY': 'Rank salary (% on Team Turn Over)',
       'FUND_SALARY': 'Life Tension Free Fund salary (% on Team Turn Over)',
+      'FRANCHISE_ACTIVATION_OVERRIDE': 'Franchise territory activation override',
+      'FRANCHISE_KBP_OVERRIDE': 'Franchise territory business override',
       'SALARY': 'Monthly salary',
       'TDS_REFUND': 'TDS refund (PAN verified)',
       'WITHDRAWAL': 'Withdrawal request',

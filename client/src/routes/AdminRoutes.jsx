@@ -21,11 +21,11 @@ import AdminSettingsPage from '../pages/admin/AdminSettingsPage';
 // registered as routes — clicking them in the sidebar fell through to the
 // dashboard catch-all. Wiring them up here.
 import AdminPackageSalesReport from '../pages/admin/AdminPackageSalesReport';
-import AdminRulesPage from '../pages/admin/AdminRulesPage';
 import AdminReportsPage from '../pages/admin/AdminReportsPage';
 import AdminCampaignsPage from '../pages/admin/AdminCampaignsPage';
 import AdminNotificationsPage from '../pages/admin/AdminNotificationsPage';
 import AdminAuditLogsPage from '../pages/admin/AdminAuditLogsPage';
+import AdminFranchisePage from '../pages/admin/AdminFranchisePage';
 
 const AdminRoutes = () => {
   return (
@@ -46,11 +46,11 @@ const AdminRoutes = () => {
         <Route path="withdrawals" element={<AdminWithdrawalsPage />} />
         <Route path="ranks" element={<AdminRanksPage />} />
         <Route path="funds" element={<AdminFundsPage />} />
+        <Route path="franchise" element={<AdminFranchisePage />} />
         <Route path="settings" element={<AdminSettingsPage />} />
 
         {/* Previously orphaned sidebar links (page existed, no route) */}
         <Route path="package-sales-report" element={<AdminPackageSalesReport />} />
-        <Route path="rules" element={<AdminRulesPage />} />
         <Route path="reports" element={<AdminReportsPage />} />
         <Route path="campaigns" element={<AdminCampaignsPage />} />
         <Route path="notifications" element={<AdminNotificationsPage />} />

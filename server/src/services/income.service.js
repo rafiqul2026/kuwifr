@@ -38,6 +38,12 @@ class IncomeService {
     const referralResult = await this.processReferralIncome(userId, order);
     if (referralResult) results.push(referralResult);
 
+    // 1b. Process Franchise territory overrides (Franchise system) — a
+    // no-op for buyers whose upline has no APPROVED franchise, so this is
+    // safe to run unconditionally on every order.
+    const franchiseResult = await this.processFranchiseOverrides(userId, order, kbp);
+    if (franchiseResult) results.push(franchiseResult);
+
     // 2. Process Matching Income
     // NOTE: Matching is now handled exclusively by BinaryService, which walks the
     // actual binary tree (BinaryNode.parentId), applies the real 2:1 / 1:2 first-pair
@@ -192,6 +198,110 @@ class IncomeService {
       allowedAmount: cappedResult.allowedAmount,
       excess: cappedResult.excess
     };
+  }
+
+  // ============ FRANCHISE OVERRIDES ============
+
+  /**
+   * Franchise territory overrides (Franchise system). A Franchise's
+   * "territory" is their own full downline (any depth) — the same
+   * authoritative sponsor-chain relationship DownlineService already uses
+   * elsewhere, not a separately-tracked assignment. Walking UP from the
+   * buyer, the NEAREST ancestor holding an APPROVED Franchise record is the
+   * one governing franchise for this order (only one franchise is ever
+   * credited per order, even if there happen to be several franchises
+   * further up the same chain, to avoid stacking overrides on top of each
+   * other for a single sale).
+   *
+   * Two rates, both from Setting.compensation.franchise (admin-configurable,
+   * AdminSettingsPage → Franchise Commissions):
+   *   - kspRate: a ONE-TIME override, paid the first time a territory member
+   *     ever generates a real order (their "activation"), mirroring how
+   *     REFERRAL_INCOME is a one-time reward for a sponsor.
+   *   - kbpLifetimeRate: an ONGOING override paid on every real order from a
+   *     territory member for as long as the franchise stays approved —
+   *     "lifetime" because it accumulates across the member's whole
+   *     purchase history, not just their first order.
+   */
+  async processFranchiseOverrides(userId, order, kbp) {
+    try {
+      const Franchise = require('../models/Franchise');
+      const SettingsService = require('./settings.service');
+
+      // Walk up the sponsor chain from the buyer to find the nearest
+      // APPROVED franchise ancestor (bounded depth — sponsor chains in this
+      // codebase are never meaningfully deeper than a few dozen levels).
+      let franchise = null;
+      let currentId = userId;
+      for (let depth = 0; depth < 25 && !franchise; depth++) {
+        const current = await User.findById(currentId).select('sponsorId').lean();
+        if (!current || !current.sponsorId) break;
+        franchise = await Franchise.findOne({ userId: current.sponsorId, status: 'APPROVED' }).lean();
+        currentId = current.sponsorId;
+      }
+
+      if (!franchise) return null;
+      // A franchise never earns an override on their own personal orders.
+      if (String(franchise.userId) === String(userId)) return null;
+
+      const rates = await SettingsService.getFranchise();
+      const results = [];
+
+      // One-time activation override — same idempotency pattern as referral
+      // income (per source user, not per order, so repeat/duplicate order
+      // documents for the same activation event can never double-pay it).
+      const alreadyActivated = await IncomeTransaction.findOne({
+        userId: franchise.userId,
+        type: 'FRANCHISE_ACTIVATION_OVERRIDE',
+        'metadata.territoryUserId': userId
+      });
+
+      if (!alreadyActivated && rates.kspRate > 0) {
+        const grossActivation = kbp * rates.kspRate;
+        const cappedActivation = await this.applyCaps(franchise.userId, grossActivation);
+        const activationCredit = await this.creditIncome(
+          franchise.userId,
+          cappedActivation.allowedAmount,
+          'FRANCHISE_ACTIVATION_OVERRIDE',
+          order._id,
+          'Order',
+          kbp,
+          rates.kspRate,
+          { territoryUserId: userId, orderId: order._id }
+        );
+        if (activationCredit) results.push({ type: 'FRANCHISE_ACTIVATION_OVERRIDE', franchiseId: franchise.userId, grossAmount: grossActivation, allowedAmount: cappedActivation.allowedAmount });
+      }
+
+      // Ongoing per-order KBP override — guarded against the same order
+      // document being processed twice (a retried webhook, an admin
+      // re-trigger), same as every other income type here.
+      const alreadyCreditedForOrder = await IncomeTransaction.findOne({
+        userId: franchise.userId,
+        sourceId: order._id,
+        type: 'FRANCHISE_KBP_OVERRIDE'
+      });
+
+      if (!alreadyCreditedForOrder && rates.kbpLifetimeRate > 0) {
+        const grossKbp = kbp * rates.kbpLifetimeRate;
+        const cappedKbp = await this.applyCaps(franchise.userId, grossKbp);
+        const kbpCredit = await this.creditIncome(
+          franchise.userId,
+          cappedKbp.allowedAmount,
+          'FRANCHISE_KBP_OVERRIDE',
+          order._id,
+          'Order',
+          kbp,
+          rates.kbpLifetimeRate,
+          { territoryUserId: userId, orderId: order._id }
+        );
+        if (kbpCredit) results.push({ type: 'FRANCHISE_KBP_OVERRIDE', franchiseId: franchise.userId, grossAmount: grossKbp, allowedAmount: cappedKbp.allowedAmount });
+      }
+
+      return results.length > 0 ? { type: 'FRANCHISE_OVERRIDE', franchiseId: franchise.userId, entries: results } : null;
+    } catch (err) {
+      console.error('   Franchise override processing failed:', err.message);
+      return null;
+    }
   }
 
   // ============ MATCHING INCOME ============
@@ -394,7 +504,7 @@ class IncomeService {
   async creditIncome(userId, amount, type, sourceId, sourceModel, kbp, rate, metadata = {}) {
     if (amount <= 0) return null;
 
-    const walletType = ['REFERRAL_INCOME', 'MATCHING_INCOME', 'LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3'].includes(type) ? 'INCOME' : 'REPURCHASE';
+    const walletType = ['REFERRAL_INCOME', 'MATCHING_INCOME', 'LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3', 'FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE'].includes(type) ? 'INCOME' : 'REPURCHASE';
 
     try {
       const creditResult = await WalletService.credit(userId, amount, type, sourceId, { sourceModel, kbp, rate, ...metadata });

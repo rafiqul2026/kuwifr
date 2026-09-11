@@ -84,8 +84,14 @@ const countSubtreeKuwiStars = async (downlineIds, sinceDate = null) => {
 /** Delegates to RankService — the persisted, official rank for this user. */
 const evaluateMemberRank = async (user) => {
   const rank = await RankService.getCurrentRank(user._id);
-  if (!rank) return { name: 'Not Achieved', code: 'NONE', level: 0 };
-  return { name: rank.name, code: rank.code || 'RANK', level: rank.level || 1 };
+  if (!rank) return { name: 'Not Achieved', code: 'NONE', level: 0, reward: null, rewardValue: 0 };
+  return {
+    name: rank.name,
+    code: rank.code || 'RANK',
+    level: rank.level || 1,
+    reward: rank.reward || null,
+    rewardValue: rank.rewardValue || 0
+  };
 };
 
 const getDashboardStats = async (req, res, next) => {
@@ -227,6 +233,49 @@ const getDashboardStats = async (req, res, next) => {
       total: leadershipTotalAgg[0]?.total || 0
     };
 
+    // Weekly Income (Problem 2, "2nd day"/"1st day" reference mockups) — the
+    // dashboard already had Today/Total Income cards but no "this calendar
+    // week" figure, even though Weekly KBP/Weekly KBP Match right next to it
+    // are both week-scoped. Same CREDITED-only, same userId, just widened to
+    // the [weekStart, now) window used everywhere else on this page.
+    const [weeklyIncomeAgg, currentRemunerationAgg, pensionIncomeAgg] = await Promise.all([
+      IncomeTransaction.aggregate([
+        { $match: { userId: leadershipUserId, status: 'CREDITED', createdAt: { $gte: weekStart } } },
+        { $group: { _id: null, total: { $sum: '$creditedAmount' } } }
+      ]),
+      // Current Remuneration = this month's Rank Salary (1% TTO) installment,
+      // not the lifetime total (that's already Wallet.totalSalaryEarned) —
+      // "current" reads as "what's actively accruing this month" on the
+      // reference mockups, matching the same monthStart window RankService
+      // credits salary against.
+      IncomeTransaction.aggregate([
+        { $match: { userId: leadershipUserId, type: 'RANK_SALARY', status: 'CREDITED', createdAt: { $gte: monthStart } } },
+        { $group: { _id: null, total: { $sum: '$creditedAmount' } } }
+      ]),
+      IncomeTransaction.aggregate([
+        { $match: { userId: leadershipUserId, type: { $in: ['FUND_SALARY', 'FUND_INCOME'] }, status: 'CREDITED', 'metadata.fundCode': 'PENSION' } },
+        { $group: { _id: null, total: { $sum: '$creditedAmount' } } }
+      ])
+    ]);
+    const weeklyIncome = weeklyIncomeAgg[0]?.total || 0;
+    const currentRemuneration = currentRemunerationAgg[0]?.total || 0;
+    const pensionIncome = pensionIncomeAgg[0]?.total || 0;
+
+    // Star for Next Rank (Problem 2) — how many more per-leg Kuwi Stars are
+    // needed to reach the NEXT unachieved rank tier, mirroring the balanced
+    // Left:Right qualification rule from the "Uncommon Ranks and Rewards"
+    // spec (requiredPerLeg = ceil(starsRequired / 2), same formula
+    // RanksPage.jsx already renders member-side).
+    const rankProgression = await RankService.getRankProgression(userId).catch(() => null);
+    const nextRank = rankProgression?.next || null;
+    const starForNextRank = nextRank
+      ? {
+          rankName: nextRank.name,
+          left: Math.ceil((nextRank.starsRequired || 0) / 2),
+          right: Math.ceil((nextRank.starsRequired || 0) / 2)
+        }
+      : { rankName: null, left: 0, right: 0 };
+
     const todayStars = await countSubtreeKuwiStars(downlineIds, todayStart);
     const monthlyStars = await countSubtreeKuwiStars(downlineIds, monthStart);
 
@@ -251,6 +300,7 @@ const getDashboardStats = async (req, res, next) => {
       success: true,
       data: {
         todayIncome: wallet?.todayIncome || 0,
+        weeklyIncome,
         totalIncome: wallet?.totalIncome || 0,
         totalWithdrawal: wallet?.totalWithdrawn || 0,
         todayAddMembers,
@@ -289,16 +339,26 @@ const getDashboardStats = async (req, res, next) => {
           left: lifetimeStars.leftStars,
           right: lifetimeStars.rightStars
         },
+        starForNextRank,
 
         currentRank: {
           name: evaluatedRank.name,
           code: evaluatedRank.code,
           level: evaluatedRank.level
         },
+        rewardAchieved: {
+          name: evaluatedRank.reward || null,
+          value: evaluatedRank.rewardValue || 0
+        },
+        currentRemuneration,
         currentFundAchieved: {
           name: fundSummary.currentFundName,
           icon: fundSummary.currentFundIcon,
           count: fundSummary.totalAchievedCount
+        },
+        pension: {
+          active: fundSummary.pensionActive,
+          totalEarned: pensionIncome
         },
 
         salaryBalance: wallet?.salaryBalance || 0,
@@ -306,6 +366,8 @@ const getDashboardStats = async (req, res, next) => {
         salaryQualification: salaryProgress,
         walletBalance: wallet?.incomeBalance || 0,
         repurchaseWallet: wallet?.repurchaseBalance || 0,
+        selfRepurchaseIncome: wallet?.selfRepurchaseIncome || 0,
+        downlineRepurchaseIncome: wallet?.downlineRepurchaseIncome || 0,
         userStatus: user.status || 'INACTIVE',
         memberId: user.memberId,
         referralLinks: {

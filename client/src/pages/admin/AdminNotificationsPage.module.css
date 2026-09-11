@@ -717,6 +717,143 @@
   }
 }
 
+/* =========================================================
+   PAGE TABS (Broadcast Messages vs Dashboard Offer Slider)
+   ========================================================= */
+.pageTabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.pageTabBtn {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #64748b;
+  font-size: 13.5px;
+  font-weight: 750;
+  padding: 10px 6px 12px 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pageTabBtn:hover {
+  color: #1d4ed8;
+}
+
+.pageTabBtnActive {
+  color: #1d4ed8;
+  border-bottom-color: #2563eb;
+}
+
+/* =========================================================
+   OFFER SLIDER MANAGEMENT (Member Dashboard image carousel)
+   ========================================================= */
+.offersGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.offerCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px -4px rgba(11, 18, 40, 0.06);
+}
+
+.offerCardImageWrap {
+  position: relative;
+  aspect-ratio: 16 / 8;
+  background: #f1f5f9;
+}
+
+.offerCardImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.statusBadge2 {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 10.5px;
+  font-weight: 750;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.activeBadge {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.inactiveBadge {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.offerCardBody {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.offerCardBody strong {
+  font-size: 13.5px;
+  color: #0f172a;
+}
+
+.offerCardMeta {
+  font-size: 11px;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.offerCardActions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.editBtn {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.editBtn:hover {
+  background: #dbeafe;
+}
+
+.toggleBtn {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.toggleBtn:hover {
+  background: #f1f5f9;
+}
+
 @media (max-width: 600px) {
   .statsGrid {
     grid-template-columns: 1fr;

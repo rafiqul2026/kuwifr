@@ -40,7 +40,11 @@ const INITIAL_FORM = {
   sendEmail: true
 };
 
+const INITIAL_OFFER_FORM = { title: '', linkUrl: '', order: '0', isActive: true };
+
 const AdminNotificationsPage = () => {
+  const [activeTab, setActiveTab] = useState('BROADCASTS'); // 'BROADCASTS' | 'OFFERS'
+
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -52,6 +56,18 @@ const AdminNotificationsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('ALL');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Admin-controlled Offer Slider (Member Dashboard image carousel — docx
+  // Section 2.4: "a slider showing admin-controlled offer images that can
+  // be changed whenever admin adds a new offer").
+  const [offers, setOffers] = useState([]);
+  const [offersLoading, setOffersLoading] = useState(false);
+  const [showOfferModal, setShowOfferModal] = useState(false);
+  const [editingOffer, setEditingOffer] = useState(null);
+  const [offerForm, setOfferForm] = useState(INITIAL_OFFER_FORM);
+  const [offerImageFile, setOfferImageFile] = useState(null);
+  const [offerImagePreview, setOfferImagePreview] = useState('');
+  const [isSubmittingOffer, setIsSubmittingOffer] = useState(false);
 
   const { showNotification } = useNotification ? useNotification() : {
     showNotification: (msg, type) => console.log(`[${type}] ${msg}`)
@@ -87,6 +103,122 @@ const AdminNotificationsPage = () => {
   useEffect(() => {
     fetchNotifications();
   }, [fetchNotifications]);
+
+  // ============ OFFER SLIDER (Member Dashboard carousel) ============
+  const fetchOffers = useCallback(async () => {
+    try {
+      setOffersLoading(true);
+      const res = await api.get('/api/offers/admin');
+      if (res.data?.success) {
+        setOffers(res.data.data.offers || []);
+      }
+    } catch (error) {
+      console.error('Failed to load offers:', error);
+      showNotification('Unable to fetch the offer slider.', 'warning');
+    } finally {
+      setOffersLoading(false);
+    }
+  }, [showNotification]);
+
+  useEffect(() => {
+    if (activeTab === 'OFFERS') fetchOffers();
+  }, [activeTab, fetchOffers]);
+
+  const resetOfferForm = () => {
+    setEditingOffer(null);
+    setOfferForm(INITIAL_OFFER_FORM);
+    setOfferImageFile(null);
+    setOfferImagePreview('');
+  };
+
+  const handleOpenCreateOffer = () => {
+    resetOfferForm();
+    setShowOfferModal(true);
+  };
+
+  const handleOpenEditOffer = (offer) => {
+    setEditingOffer(offer);
+    setOfferForm({
+      title: offer.title || '',
+      linkUrl: offer.linkUrl || '',
+      order: String(offer.order ?? 0),
+      isActive: offer.isActive !== false
+    });
+    setOfferImageFile(null);
+    setOfferImagePreview(offer.imageUrl || '');
+    setShowOfferModal(true);
+  };
+
+  const handleOfferImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setOfferImageFile(file);
+    setOfferImagePreview(URL.createObjectURL(file));
+  };
+
+  const handleSubmitOffer = async (e) => {
+    e.preventDefault();
+    if (!offerForm.title.trim()) {
+      showNotification('Offer title is required.', 'warning');
+      return;
+    }
+    if (!editingOffer && !offerImageFile) {
+      showNotification('An offer image is required.', 'warning');
+      return;
+    }
+
+    setIsSubmittingOffer(true);
+    try {
+      const fd = new FormData();
+      fd.append('title', offerForm.title.trim());
+      fd.append('linkUrl', offerForm.linkUrl.trim());
+      fd.append('order', offerForm.order || '0');
+      fd.append('isActive', String(offerForm.isActive));
+      if (offerImageFile) fd.append('image', offerImageFile);
+
+      if (editingOffer) {
+        const id = editingOffer._id || editingOffer.id;
+        await api.put(`/api/offers/admin/${id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        showNotification('Offer updated successfully.', 'success');
+      } else {
+        await api.post('/api/offers/admin', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        showNotification('Offer added to the Dashboard slider!', 'success');
+      }
+
+      setShowOfferModal(false);
+      resetOfferForm();
+      fetchOffers();
+    } catch (error) {
+      showNotification(error.response?.data?.message || 'Failed to save offer.', 'error');
+    } finally {
+      setIsSubmittingOffer(false);
+    }
+  };
+
+  const handleToggleOfferActive = async (offer) => {
+    try {
+      const id = offer._id || offer.id;
+      setOffers((prev) => prev.map((o) => ((o._id || o.id) === id ? { ...o, isActive: !o.isActive } : o)));
+      const fd = new FormData();
+      fd.append('isActive', String(!offer.isActive));
+      await api.put(`/api/offers/admin/${id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+    } catch (error) {
+      showNotification('Failed to update offer status.', 'error');
+      fetchOffers();
+    }
+  };
+
+  const handleDeleteOffer = async (offer) => {
+    if (!window.confirm(`Remove "${offer.title}" from the Dashboard slider?`)) return;
+    try {
+      const id = offer._id || offer.id;
+      await api.delete(`/api/offers/admin/${id}`);
+      showNotification('Offer removed.', 'success');
+      setOffers((prev) => prev.filter((o) => (o._id || o.id) !== id));
+    } catch (error) {
+      showNotification('Failed to delete offer.', 'error');
+    }
+  };
 
   // Real-time catalog filtering
   const filteredNotifications = useMemo(() => {
@@ -249,6 +381,26 @@ const AdminNotificationsPage = () => {
         </div>
       </div>
 
+      {/* Tabs: Broadcast Messages vs the Dashboard Offer Slider */}
+      <div className={styles.pageTabs}>
+        <button
+          type="button"
+          className={`${styles.pageTabBtn} ${activeTab === 'BROADCASTS' ? styles.pageTabBtnActive : ''}`}
+          onClick={() => setActiveTab('BROADCASTS')}
+        >
+          📢 Broadcast Messages
+        </button>
+        <button
+          type="button"
+          className={`${styles.pageTabBtn} ${activeTab === 'OFFERS' ? styles.pageTabBtnActive : ''}`}
+          onClick={() => setActiveTab('OFFERS')}
+        >
+          🖼️ Dashboard Offer Slider
+        </button>
+      </div>
+
+      {activeTab === 'BROADCASTS' && (
+      <>
       {/* 2. KPI Metrics Grid */}
       <div className={styles.statsGrid}>
         <div className={styles.statCard}>
@@ -612,6 +764,148 @@ const AdminNotificationsPage = () => {
             </form>
           </div>
         </div>
+      )}
+      </>
+      )}
+
+      {activeTab === 'OFFERS' && (
+      <>
+      {/* Admin-controlled Offer Slider — appears as an image carousel on
+          the Member Dashboard, right under the notification bar. Adding,
+          editing, reordering, deactivating, or deleting an offer here is
+          reflected on every member's Dashboard the next time it loads. */}
+      <div className={styles.filterStrip}>
+        <div>
+          <strong style={{ fontSize: '13px', color: '#0f172a' }}>{offers.length} offer{offers.length === 1 ? '' : 's'} configured</strong>
+          <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', color: '#64748b' }}>Only offers marked Active appear in the Member Dashboard slider, in Order (lowest first).</p>
+        </div>
+        <button className={styles.createBtn} onClick={handleOpenCreateOffer}>
+          + Add Offer Image
+        </button>
+      </div>
+
+      {offersLoading ? (
+        <div className={styles.loadingArea}>
+          <div className={styles.spinner}></div>
+          <p>Loading offer slider...</p>
+        </div>
+      ) : offers.length === 0 ? (
+        <div className={styles.emptyArea}>
+          <span className={styles.emptyIcon}>🖼️</span>
+          <h3>No offer images yet</h3>
+          <p>Add an offer image — it appears instantly in the Member Dashboard's slider.</p>
+          <button onClick={handleOpenCreateOffer} className={styles.createBtn} style={{ marginTop: '12px' }}>
+            + Add First Offer
+          </button>
+        </div>
+      ) : (
+        <div className={styles.offersGrid}>
+          {offers.map((offer) => {
+            const id = offer._id || offer.id;
+            return (
+              <div key={id} className={styles.offerCard}>
+                <div className={styles.offerCardImageWrap}>
+                  <img src={offer.imageUrl} alt={offer.title} className={styles.offerCardImage} />
+                  <span className={`${styles.statusBadge2} ${offer.isActive ? styles.activeBadge : styles.inactiveBadge}`}>
+                    {offer.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                <div className={styles.offerCardBody}>
+                  <strong>{offer.title}</strong>
+                  <span className={styles.offerCardMeta}>Order: {offer.order ?? 0}{offer.linkUrl ? ` · Links to ${offer.linkUrl}` : ''}</span>
+                  <div className={styles.offerCardActions}>
+                    <button className={styles.editBtn} onClick={() => handleOpenEditOffer(offer)}>Edit</button>
+                    <button
+                      className={styles.toggleBtn}
+                      onClick={() => handleToggleOfferActive(offer)}
+                    >
+                      {offer.isActive ? 'Deactivate' : 'Activate'}
+                    </button>
+                    <button className={styles.deleteBtn} onClick={() => handleDeleteOffer(offer)} title="Delete Offer">🗑️</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {showOfferModal && (
+        <div className={styles.modalOverlay} onClick={() => !isSubmittingOffer && setShowOfferModal(false)}>
+          <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div>
+                <h2>{editingOffer ? 'Edit Offer' : 'Add Offer Image'}</h2>
+                <p>Shown as a banner slide on every member's Dashboard.</p>
+              </div>
+              <button className={styles.closeModalBtn} onClick={() => setShowOfferModal(false)} disabled={isSubmittingOffer}>✕</button>
+            </div>
+
+            <form onSubmit={handleSubmitOffer} className={styles.modalForm}>
+              <div className={styles.formGrid}>
+                <div className={`${styles.formGroup} ${styles.colSpan2}`}>
+                  <label>Offer Title *</label>
+                  <input
+                    type="text"
+                    value={offerForm.title}
+                    onChange={(e) => setOfferForm({ ...offerForm, title: e.target.value })}
+                    required
+                    placeholder="e.g. Diwali Mega Offer — Flat 20% Off"
+                  />
+                </div>
+
+                <div className={`${styles.formGroup} ${styles.colSpan2}`}>
+                  <label>Offer Image {editingOffer ? '(leave blank to keep current image)' : '*'}</label>
+                  <input type="file" accept="image/*" onChange={handleOfferImageChange} />
+                  {offerImagePreview && (
+                    <img src={offerImagePreview} alt="Preview" style={{ marginTop: '10px', maxWidth: '100%', borderRadius: '8px', maxHeight: '160px', objectFit: 'cover' }} />
+                  )}
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label>Tap-Through Link (optional)</label>
+                  <input
+                    type="text"
+                    value={offerForm.linkUrl}
+                    onChange={(e) => setOfferForm({ ...offerForm, linkUrl: e.target.value })}
+                    placeholder="e.g. /member/packages"
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label>Slider Order</label>
+                  <input
+                    type="number"
+                    value={offerForm.order}
+                    onChange={(e) => setOfferForm({ ...offerForm, order: e.target.value })}
+                  />
+                </div>
+
+                <div className={`${styles.formGroup} ${styles.colSpan2}`}>
+                  <label className={styles.checkboxContainer || ''} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      type="checkbox"
+                      checked={offerForm.isActive}
+                      onChange={(e) => setOfferForm({ ...offerForm, isActive: e.target.checked })}
+                    />
+                    <span>Active (visible in the Member Dashboard slider)</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className={styles.modalActions}>
+                <button type="button" className={styles.cancelBtn} onClick={() => setShowOfferModal(false)} disabled={isSubmittingOffer}>
+                  Cancel
+                </button>
+                <button type="submit" className={styles.saveBtn} disabled={isSubmittingOffer}>
+                  {isSubmittingOffer ? 'Saving...' : editingOffer ? 'Save Changes' : 'Add Offer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      </>
       )}
     </div>
   );

@@ -34,7 +34,14 @@ const IncomeTransactionSchema = new mongoose.Schema({
       'REPURCHASE_DOWNLINE',
       'RANK_SALARY',
       'FUND_SALARY',
-      'FUND_INCOME'
+      'FUND_INCOME',
+      // Franchise overrides (Franchise system) — credited to the nearest
+      // APPROVED-franchise ancestor of an order's buyer. ACTIVATION fires
+      // once per member (their first real order), KBP fires on every real
+      // order (ongoing team-volume override). See income.service.js
+      // #processFranchiseOverrides.
+      'FRANCHISE_ACTIVATION_OVERRIDE',
+      'FRANCHISE_KBP_OVERRIDE'
     ],
     required: true,
     index: true

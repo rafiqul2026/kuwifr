@@ -110,7 +110,12 @@ const settingSchema = new mongoose.Schema(
         minAmount: { type: Number, default: 100, min: 0 },
         adminChargeRate: { type: Number, default: 0.05, min: 0, max: 1 },
         serviceChargeRate: { type: Number, default: 0.05, min: 0, max: 1 },
-        tdsRate: { type: Number, default: 0.05, min: 0, max: 1 }
+        tdsRate: { type: Number, default: 0.05, min: 0, max: 1 },
+        // Admin kill-switch: when true, no member can submit a new withdrawal
+        // request (existing pending/approved requests are unaffected — this
+        // only gates createWithdrawal). "MAKE ADMIN PANEL DYNAMIC" §2.
+        stopWithdrawals: { type: Boolean, default: false },
+        stopWithdrawalsMessage: { type: String, default: 'Withdrawals are temporarily paused. Please check back later.' }
       },
 
       // Franchise commissions.

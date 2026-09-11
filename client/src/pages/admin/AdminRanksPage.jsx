@@ -51,6 +51,7 @@ const AdminRanksPage = () => {
   const [achievements, setAchievements] = useState([]);
   const [achievementsLoading, setAchievementsLoading] = useState(false);
   const [achievementsSearch, setAchievementsSearch] = useState('');
+  const [achievementsSponsorId, setAchievementsSponsorId] = useState('');
   const [achievementsPage, setAchievementsPage] = useState(1);
   const [achievementsPagination, setAchievementsPagination] = useState({ total: 0, page: 1, limit: 50, pages: 1 });
   const [isRecalculating, setIsRecalculating] = useState(false);
@@ -94,11 +95,11 @@ const AdminRanksPage = () => {
   // /api/ranks/admin/achievements, backed by real, persisted
   // RankAchievement records (self-synced whenever a member's Ranks page
   // loads, or via the "Recalculate All" backfill below).
-  const fetchAchievements = useCallback(async (page = 1, search = '') => {
+  const fetchAchievements = useCallback(async (page = 1, search = '', sponsorId = '') => {
     try {
       setAchievementsLoading(true);
       const res = await api.get('/api/ranks/admin/achievements', {
-        params: { page, limit: 50, search: search || undefined }
+        params: { page, limit: 50, search: search || undefined, sponsorId: sponsorId || undefined }
       });
       if (res.data?.success && res.data.data) {
         setAchievements(Array.isArray(res.data.data.achievements) ? res.data.data.achievements : []);
@@ -114,7 +115,7 @@ const AdminRanksPage = () => {
 
   useEffect(() => {
     if (activeTab === 'ACHIEVEMENTS') {
-      fetchAchievements(achievementsPage, achievementsSearch);
+      fetchAchievements(achievementsPage, achievementsSearch, achievementsSponsorId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, achievementsPage]);
@@ -122,7 +123,7 @@ const AdminRanksPage = () => {
   const handleAchievementsSearchSubmit = (e) => {
     e.preventDefault();
     setAchievementsPage(1);
-    fetchAchievements(1, achievementsSearch);
+    fetchAchievements(1, achievementsSearch, achievementsSponsorId);
   };
 
   const handleRecalculateAll = async () => {
@@ -130,7 +131,7 @@ const AdminRanksPage = () => {
     try {
       const res = await api.post('/api/ranks/admin/recalculate');
       showNotification(res.data?.message || 'Rank achievements recalculated for all members.', 'success');
-      fetchAchievements(1, achievementsSearch);
+      fetchAchievements(1, achievementsSearch, achievementsSponsorId);
       setAchievementsPage(1);
     } catch (error) {
       showNotification('Failed to recalculate rank achievements.', 'error');
@@ -516,7 +517,26 @@ const AdminRanksPage = () => {
           {achievementsSearch && (
             <button
               type="button"
-              onClick={() => { setAchievementsSearch(''); setAchievementsPage(1); fetchAchievements(1, ''); }}
+              onClick={() => { setAchievementsSearch(''); setAchievementsPage(1); fetchAchievements(1, '', achievementsSponsorId); }}
+              className={styles.clearSearch}
+            >
+              ✕
+            </button>
+          )}
+        </form>
+        <form onSubmit={handleAchievementsSearchSubmit} className={styles.searchWrap} style={{ flex: 1 }}>
+          <span className={styles.searchIcon}>🔍</span>
+          <input
+            type="text"
+            placeholder="Filter by Sponsor ID (e.g. KFR123456)..."
+            value={achievementsSponsorId}
+            onChange={(e) => setAchievementsSponsorId(e.target.value)}
+            className={styles.searchInput}
+          />
+          {achievementsSponsorId && (
+            <button
+              type="button"
+              onClick={() => { setAchievementsSponsorId(''); setAchievementsPage(1); fetchAchievements(1, achievementsSearch, ''); }}
               className={styles.clearSearch}
             >
               ✕

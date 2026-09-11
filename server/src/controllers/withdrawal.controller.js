@@ -2,6 +2,7 @@
 const Withdrawal = require('../models/Withdrawal');
 const Wallet = require('../models/Wallet');
 const User = require('../models/User');
+const SettingsService = require('../services/settings.service');
 
 const seedWithdrawalsIfEmpty = async () => {
   // Never fabricate a placeholder withdrawal (fake member "Rahul Sharma", fake
@@ -71,11 +72,24 @@ const createWithdrawal = async (req, res, next) => {
 
     const requestedAmount = Number(amount);
 
-    // 1. Strict ₹500 Minimum Limit
-    if (!requestedAmount || isNaN(requestedAmount) || requestedAmount < 500) {
+    // Admin-configurable minimum + kill-switch (AdminSettingsPage → Commission
+    // & Withdrawal Setup). This used to hardcode a ₹500 floor regardless of
+    // what the admin set here, so the dynamic control silently did nothing —
+    // both values are now read live, same as every other compensation figure.
+    const withdrawalSettings = await SettingsService.getWithdrawal();
+
+    if (withdrawalSettings.stopWithdrawals) {
+      return res.status(403).json({
+        success: false,
+        message: withdrawalSettings.stopWithdrawalsMessage || 'Withdrawals are temporarily paused. Please check back later.'
+      });
+    }
+
+    const minAmount = Number(withdrawalSettings.minAmount || 0);
+    if (!requestedAmount || isNaN(requestedAmount) || requestedAmount < minAmount) {
       return res.status(400).json({
         success: false,
-        message: 'Minimum withdrawal amount is ₹500.'
+        message: `Minimum withdrawal amount is ₹${minAmount}.`
       });
     }
 

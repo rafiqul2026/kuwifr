@@ -38,6 +38,7 @@ const navItems = [
   { id: "orders", label: "Orders", icon: "🛒", path: "/member/orders" },
   { id: "withdrawals", label: "Withdrawals", icon: "💸", path: "/member/withdrawals" },
   { id: "ranks", label: "Rank and Rewards", icon: "🏆", path: "/member/ranks" },
+  { id: "franchise", label: "Franchise", icon: "🏢", path: "/member/franchise" },
   { id: "notifications", label: "Notifications", icon: "🔔", path: "/member/notifications" },
   { id: "support", label: "Help & Support", icon: "🎧", path: "/member/support" }
 ];

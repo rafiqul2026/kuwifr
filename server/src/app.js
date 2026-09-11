@@ -37,10 +37,12 @@ const contactRoutes = require('./routes/contact.routes');
 const supportRoutes = require('./routes/support.routes');
 const adminRoutes = require('./routes/admin.routes');
 const settingRoutes = require('./routes/setting.routes');
+const franchiseRoutes = require('./routes/franchise.routes');
 const auditLogRoutes = require('./routes/auditLog.routes');
 const packagePurchaseRoutes = require('./routes/packagePurchase.routes');
 const teamRoutes = require('./routes/team.routes'); // 🌟 Ensure teamRoutes is imported
 const ruleRoutes = require('./routes/rule.routes');
+const offerRoutes = require('./routes/offer.routes');
 
 // Validate environment variables
 validateEnv();
@@ -214,6 +216,10 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin/notifications', notificationRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin/reports', reportRoutes);
+app.use('/api/franchise', franchiseRoutes);
+app.use('/api/admin/franchise', franchiseRoutes);
+app.use('/api/offers', offerRoutes);
+app.use('/api/admin/offers', offerRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/admin', adminRoutes);

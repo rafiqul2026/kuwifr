@@ -26,7 +26,7 @@
 
 .badgeTag {
   display: inline-block;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.8px;
   color: #2563eb;
@@ -63,7 +63,7 @@
 
 .totalLabel {
   display: block;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   color: #94a3b8;
   letter-spacing: 0.6px;
@@ -81,7 +81,7 @@
 
 .totalSubNote {
   display: block;
-  font-size: 10.5px;
+  font-size: 11.5px;
   color: #64748b;
   margin-top: 2px;
 }
@@ -131,7 +131,7 @@
 
 .cardLabel {
   display: block;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 800;
   color: #64748b;
   text-transform: uppercase;
@@ -149,7 +149,7 @@
 
 .cardSubText {
   display: block;
-  font-size: 10.5px;
+  font-size: 11.5px;
   color: #94a3b8;
   white-space: nowrap;
   overflow: hidden;
@@ -356,7 +356,7 @@
   border: 1px solid #e2e8f0;
   padding: 6px 14px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 800;
   color: #64748b;
   cursor: pointer;
@@ -435,7 +435,7 @@
 }
 
 .txDate {
-  font-size: 11.5px;
+  font-size: 12px;
   color: #94a3b8;
 }
 
@@ -446,7 +446,7 @@
 }
 
 .txSourceBadge {
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 800;
   color: #475569;
   background: #e2e8f0;

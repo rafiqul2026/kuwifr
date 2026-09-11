@@ -73,6 +73,7 @@ const WalletSchema = new mongoose.Schema(
     selfRepurchaseIncome: { type: Number, default: 0, comment: 'Lifetime self repurchase cashback' },
     downlineRepurchaseIncome: { type: Number, default: 0, comment: 'Lifetime downline repurchase income' },
     fundIncome: { type: Number, default: 0, comment: 'Lifetime Life Tension Free Fund TTO royalty' },
+    franchiseIncome: { type: Number, default: 0, comment: 'Lifetime franchise territory override income' },
 
     // ============ TRANSACTION COUNTS ============
     totalTransactions: {

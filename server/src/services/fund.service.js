@@ -207,6 +207,30 @@ class FundService {
   }
 
   /**
+   * Admin: force a live re-evaluation of Fund qualification for every active
+   * member — backfills real FundQualification history for members whose left/
+   * right repurchase KBP already clears a fund's target but who haven't
+   * triggered a fresh repurchase order since (so evaluateFundQualification
+   * was never re-run for them). Mirrors RankService.processAllRanks().
+   */
+  static async processAllFundQualifications() {
+    const users = await User.find({ status: 'ACTIVE' }).select('_id');
+
+    let processed = 0;
+    let newQualifications = 0;
+
+    for (const user of users) {
+      processed++;
+      const before = await FundQualification.countDocuments({ userId: user._id });
+      await this.evaluateFundQualification(user._id);
+      const after = await FundQualification.countDocuments({ userId: user._id });
+      if (after > before) newQualifications += (after - before);
+    }
+
+    return { processed, newQualifications };
+  }
+
+  /**
    * Whether a fund qualification has met this month's "new business" maintenance
    * requirement. Funds with no maintenance requirement (e.g. Pension: "No
    * Business Matching" needed) always pass.

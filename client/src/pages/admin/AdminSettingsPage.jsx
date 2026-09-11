@@ -40,7 +40,9 @@ const COMPENSATION_DEFAULTS = {
     minAmount: 100,
     adminChargeRate: 0.05,
     serviceChargeRate: 0.05,
-    tdsRate: 0.05
+    tdsRate: 0.05,
+    stopWithdrawals: false,
+    stopWithdrawalsMessage: 'Withdrawals are temporarily paused. Please check back later.'
   },
   franchise: {
     kspRate: 0.10,
@@ -799,6 +801,27 @@ const AdminSettingsPage = () => {
                       ) * 100}% of the gross amount requested.
                     </span>
                   </div>
+
+                  <div className={`${styles.formGroup} ${styles.colSpan2}`}>
+                    <label className={styles.checkboxContainer}>
+                      <input
+                        type="checkbox"
+                        checked={settings.compensation.withdrawal.stopWithdrawals}
+                        onChange={(e) => handleCompChange('withdrawal', 'stopWithdrawals', e.target.checked)}
+                      />
+                      <span>Stop All Withdrawals (blocks every new withdrawal request platform-wide)</span>
+                    </label>
+                  </div>
+                  {settings.compensation.withdrawal.stopWithdrawals && (
+                    <div className={`${styles.formGroup} ${styles.colSpan2}`}>
+                      <label>Message Shown to Members</label>
+                      <input
+                        type="text"
+                        value={settings.compensation.withdrawal.stopWithdrawalsMessage}
+                        onChange={(e) => handleCompChange('withdrawal', 'stopWithdrawalsMessage', e.target.value)}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className={styles.sectionHeader} style={{ marginTop: '28px' }}>

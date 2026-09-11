@@ -30,6 +30,8 @@ router.get('/current-tto', auth, fundController.getCurrentTTO);
 router.post('/initialize', auth, adminAuth, fundController.initializeFunds);
 router.post('/admin/initialize', auth, adminAuth, fundController.initializeFunds);
 router.get('/admin/stats', auth, adminAuth, fundController.getAdminFundStats);
+router.get('/admin/achievements', auth, adminAuth, fundController.getFundAchievementsAdmin);
+router.post('/admin/recalculate', auth, adminAuth, fundController.recalculateAllFundQualifications);
 router.put('/:id', auth, adminAuth, fundController.updateFund);
 router.put('/admin/:id', auth, adminAuth, fundController.updateFund);
 

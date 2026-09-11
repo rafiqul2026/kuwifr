@@ -30,6 +30,18 @@ const OrderSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  // Was previously undeclared, so every controller's `orderType: 'PACKAGE'`
+  // / `orderType: 'REPURCHASE'` write was silently dropped by Mongoose
+  // strict mode — orders saved fine but this field was never actually
+  // persisted. That broke the admin Package Sales Report, whose search
+  // used a hard `{ orderType: 'PACKAGE' }` filter that matched zero
+  // documents. No enum here (unlike paymentType) because createOrder
+  // passes this straight through from req.body, and a strict enum would
+  // turn any unexpected client value into an order-creation failure.
+  orderType: {
+    type: String,
+    default: 'REPURCHASE'
+  },
 
   // Products in Order
   products: [{

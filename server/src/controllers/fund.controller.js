@@ -3,6 +3,8 @@
 const Fund = require('../models/Fund');
 const BinaryNode = require('../models/BinaryNode');
 const User = require('../models/User');
+const FundQualification = require('../models/FundQualification');
+const FundService = require('../services/fund.service');
 
 // Standard 6 KUWIFR Life Tension-Free Funds
 const FUND_PLANS = [
@@ -188,18 +190,31 @@ const getAdminFundStats = async (req, res, next) => {
     const funds = await Fund.find().lean();
     const activeFunds = funds.filter((f) => f.isActive !== false).length;
 
-    // Count qualified members based on total left and right volumes
-    const qualifiedNodes = await BinaryNode.countDocuments({
-      leftVolume: { $gte: 25000 },
-      rightVolume: { $gte: 25000 }
-    }).catch(() => 0);
+    // Real qualification counts from FundQualification — this used to be a
+    // rough estimate derived from BinaryNode.leftVolume/rightVolume (package
+    // volume), which isn't even what Funds qualify on (Funds qualify on
+    // repurchase KBP — see fund.service.js#evaluateFundQualification). Now
+    // it reflects the actual "who achieved which Fund" records, broken down
+    // per fund so the admin stat cards mean something.
+    const perFund = await FundQualification.aggregate([
+      { $match: { status: 'ACTIVE' } },
+      { $group: { _id: '$fundCode', count: { $sum: 1 } } }
+    ]).catch(() => []);
+
+    const byCode = perFund.reduce((acc, row) => {
+      acc[row._id] = row.count;
+      return acc;
+    }, {});
+
+    const totalQualifications = perFund.reduce((sum, row) => sum + row.count, 0);
 
     return res.status(200).json({
       success: true,
       data: {
         totalFunds: funds.length || 6,
         activeFunds: activeFunds || 6,
-        totalQualifications: qualifiedNodes || 14
+        totalQualifications,
+        byFund: FUND_PLANS.map((p) => ({ code: p.code, name: p.name, icon: p.icon, achievers: byCode[p.code] || 0 }))
       }
     });
   } catch (error) {
@@ -208,9 +223,104 @@ const getAdminFundStats = async (req, res, next) => {
       data: {
         totalFunds: 6,
         activeFunds: 6,
-        totalQualifications: 14
+        totalQualifications: 0,
+        byFund: []
       }
     });
+  }
+};
+
+/**
+ * Admin: Get every member who has achieved a Fund, with search/filter.
+ * GET /api/funds/admin/achievements or /api/admin/funds/admin/achievements
+ */
+const getFundAchievementsAdmin = async (req, res, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
+    const { search, fundCode, sponsorId } = req.query;
+
+    const match = { status: 'ACTIVE' };
+    if (fundCode && fundCode !== 'ALL') match.fundCode = fundCode;
+
+    if (search && search.trim()) {
+      const re = new RegExp(search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const matchingUsers = await User.find({
+        $or: [{ fullName: re }, { memberId: re }, { email: re }]
+      }).select('_id').lean();
+      match.userId = { $in: matchingUsers.map((u) => u._id) };
+    }
+
+    // Search by Sponsor ID — every member who achieved a Fund under a given
+    // sponsor's direct downline. Combines (AND) with free-text `search`.
+    if (sponsorId && sponsorId.trim()) {
+      const sponsor = await User.findOne({
+        memberId: { $regex: new RegExp(`^${sponsorId.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+      }).select('_id').lean();
+
+      if (!sponsor) {
+        match._id = null;
+      } else {
+        const sponsees = await User.find({ sponsorId: sponsor._id }).select('_id').lean();
+        const sponseeIds = sponsees.map((u) => u._id);
+        match.userId = match.userId
+          ? { $in: match.userId.$in.filter((id) => sponseeIds.some((s) => s.equals(id))) }
+          : { $in: sponseeIds };
+      }
+    }
+
+    const [total, achievements] = await Promise.all([
+      FundQualification.countDocuments(match),
+      FundQualification.find(match)
+        .populate('userId', 'fullName memberId email status')
+        .sort({ qualifiedAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean()
+    ]);
+
+    // FundQualification stores only a fundCode, not a Fund ref, so the
+    // display name/icon come from the FUND_PLANS lookup, same as everywhere
+    // else in this controller.
+    const planByCode = FUND_PLANS.reduce((acc, p) => {
+      acc[p.code] = p;
+      return acc;
+    }, {});
+
+    const enriched = achievements.map((a) => ({
+      ...a,
+      fundName: planByCode[a.fundCode]?.name || a.fundCode,
+      fundIcon: planByCode[a.fundCode]?.icon || '🏦'
+    }));
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        achievements: enriched,
+        pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Admin: force a live recalculation of Fund qualification for every active
+ * member — backfills real FundQualification history for members who
+ * qualified before this tracking existed / since their last repurchase.
+ * POST /api/funds/admin/recalculate
+ */
+const recalculateAllFundQualifications = async (req, res, next) => {
+  try {
+    const result = await FundService.processAllFundQualifications();
+    return res.status(200).json({
+      success: true,
+      message: `Re-evaluated Funds for ${result.processed} members — ${result.newQualifications} new fund qualification(s) found.`,
+      data: result
+    });
+  } catch (error) {
+    next(error);
   }
 };
 
@@ -372,5 +482,7 @@ module.exports = {
   getTTORecords,
   getCurrentTTO,
   processFundMaintenance,
-  processAllTTO
+  processAllTTO,
+  getFundAchievementsAdmin,
+  recalculateAllFundQualifications
 };

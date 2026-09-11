@@ -8,6 +8,38 @@ import { useNotification } from '../../hooks/useNotification';
 import SalaryProgressCard from '../../components/member/SalaryProgressCard';
 import styles from './DashboardPage.module.css';
 
+// Member-side "skip/close" for the notification bar (docx follow-up: "so
+// member can skip or close the notification, for comfortable use of the
+// dashboard"). Dismissing a message hides only THAT message going forward
+// — new admin broadcasts still show up — by remembering its id in
+// localStorage. Wrapped in try/catch: private browsing / blocked storage
+// should never break the dashboard, it just means dismissals don't persist
+// across reloads for that visitor.
+const DISMISSED_KEY = 'kuwifr_dismissed_dashboard_notifications';
+
+const getDismissedIds = () => {
+  try {
+    const raw = localStorage.getItem(DISMISSED_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const addDismissedId = (id) => {
+  try {
+    const current = getDismissedIds();
+    if (!current.includes(id)) {
+      // Cap at the most recent 200 so this never grows unbounded.
+      const next = [...current, id].slice(-200);
+      localStorage.setItem(DISMISSED_KEY, JSON.stringify(next));
+    }
+  } catch {
+    // Non-critical — dismissal just won't survive a reload for this visitor.
+  }
+};
+
 /**
  * ============================================================================
  * 📊 MEMBER DASHBOARD COMPONENT (STANDARDIZED COMPACT CARDS)
@@ -21,6 +53,16 @@ const DashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copiedSide, setCopiedSide] = useState(null);
+
+  // Admin-set notification bar + admin-controlled offer slider (docx
+  // Section 2.4): unread broadcast notifications rotate through a compact
+  // bar, and active Offer images (managed on Admin > Notifications >
+  // Offer Slider) rotate through a banner carousel — both live right under
+  // the header, both update automatically whenever the admin adds new ones.
+  const [announcements, setAnnouncements] = useState([]);
+  const [offers, setOffers] = useState([]);
+  const [annIndex, setAnnIndex] = useState(0);
+  const [offerIndex, setOfferIndex] = useState(0);
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -44,6 +86,59 @@ const DashboardPage = () => {
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
+
+  // Non-critical extras — a failure here should never block the core
+  // earnings dashboard above, so both calls are isolated with allSettled
+  // and swallow their own errors.
+  const fetchDashboardExtras = useCallback(async () => {
+    const [notifRes, offerRes] = await Promise.allSettled([
+      api.get('/api/notifications', { params: { read: 'false', limit: 5 } }),
+      api.get('/api/offers')
+    ]);
+
+    if (notifRes.status === 'fulfilled' && notifRes.value.data?.success) {
+      const dismissed = getDismissedIds();
+      const list = (notifRes.value.data.data.notifications || []).filter(
+        (n) => !dismissed.includes(n._id || n.id)
+      );
+      setAnnouncements(list);
+      setAnnIndex(0);
+    }
+    if (offerRes.status === 'fulfilled' && offerRes.value.data?.success) {
+      setOffers(offerRes.value.data.data.offers || []);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDashboardExtras();
+  }, [fetchDashboardExtras]);
+
+  // Skip/close one notification bar message — removes it from the rotation
+  // immediately (no page reload needed) and remembers it so it stays gone.
+  // This does NOT mark it read on the server, so it still shows up in the
+  // 🔔 bell dropdown for later — dismissing just clears dashboard clutter.
+  const handleDismissAnnouncement = useCallback((id) => {
+    addDismissedId(id);
+    setAnnouncements((prev) => {
+      const next = prev.filter((n) => (n._id || n.id) !== id);
+      setAnnIndex((i) => (next.length ? i % next.length : 0));
+      return next;
+    });
+  }, []);
+
+  // Auto-rotate the notification bar every 6s
+  useEffect(() => {
+    if (announcements.length <= 1) return undefined;
+    const timer = setInterval(() => setAnnIndex((i) => (i + 1) % announcements.length), 6000);
+    return () => clearInterval(timer);
+  }, [announcements.length]);
+
+  // Auto-rotate the offer slider every 4.5s
+  useEffect(() => {
+    if (offers.length <= 1) return undefined;
+    const timer = setInterval(() => setOfferIndex((i) => (i + 1) % offers.length), 4500);
+    return () => clearInterval(timer);
+  }, [offers.length]);
 
   // Currency Formatter
   const formatINR = (val) => {
@@ -74,6 +169,17 @@ const DashboardPage = () => {
     left: Number(stats?.totalStar?.left || 0),
     right: Number(stats?.totalStar?.right || 0)
   }), [stats?.totalStar]);
+
+  const todayBusiness = useMemo(() => ({
+    left: Number(stats?.todayLeftBusiness || 0),
+    right: Number(stats?.todayRightBusiness || 0)
+  }), [stats?.todayLeftBusiness, stats?.todayRightBusiness]);
+
+  const starForNextRank = useMemo(() => ({
+    rankName: stats?.starForNextRank?.rankName || null,
+    left: Number(stats?.starForNextRank?.left || 0),
+    right: Number(stats?.starForNextRank?.right || 0)
+  }), [stats?.starForNextRank]);
 
   const LIVE_PRODUCTION_DOMAIN = 'https://www.kuwifr.in';
   const sponsorId = user?.memberId || stats?.memberId || 'KFR665384';
@@ -191,6 +297,78 @@ const DashboardPage = () => {
           </div>
         </header>
 
+        {/* Admin-set Notification Bar — rotates through unread admin
+            broadcasts (title/message), each dot jumps straight to one. */}
+        {announcements.length > 0 && (
+          <div className={styles.notificationBar} style={{ borderLeftColor: announcements[annIndex]?.color || '#2563eb' }}>
+            <span className={styles.notificationBarIcon}>{announcements[annIndex]?.icon || '📢'}</span>
+            <div className={styles.notificationBarText}>
+              <strong>{announcements[annIndex]?.title}</strong>
+              <span>{announcements[annIndex]?.message}</span>
+            </div>
+            {announcements[annIndex]?.action && (
+              <Link to={announcements[annIndex].action} className={styles.notificationBarAction}>
+                {announcements[annIndex].actionLabel || 'View'} →
+              </Link>
+            )}
+            {announcements.length > 1 && (
+              <div className={styles.notificationBarDots}>
+                {announcements.map((_, i) => (
+                  <button
+                    type="button"
+                    key={i}
+                    className={`${styles.dot} ${i === annIndex ? styles.dotActive : ''}`}
+                    onClick={() => setAnnIndex(i)}
+                    aria-label={`Show notification ${i + 1}`}
+                  />
+                ))}
+              </div>
+            )}
+            <button
+              type="button"
+              className={styles.notificationBarClose}
+              onClick={() => handleDismissAnnouncement(announcements[annIndex]?._id || announcements[annIndex]?.id)}
+              aria-label="Close this notification"
+              title="Close"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Admin-controlled Offer Slider — image carousel, refreshed
+            automatically whenever the admin adds/removes/reorders offers. */}
+        {offers.length > 0 && (
+          <div className={styles.offerSlider}>
+            <div className={styles.offerSlideTrack} style={{ transform: `translateX(-${offerIndex * 100}%)` }}>
+              {offers.map((o) =>
+                o.linkUrl ? (
+                  <a key={o._id} href={o.linkUrl} target="_blank" rel="noopener noreferrer" className={styles.offerSlide}>
+                    <img src={o.imageUrl} alt={o.title} />
+                  </a>
+                ) : (
+                  <div key={o._id} className={styles.offerSlide}>
+                    <img src={o.imageUrl} alt={o.title} />
+                  </div>
+                )
+              )}
+            </div>
+            {offers.length > 1 && (
+              <div className={styles.offerDots}>
+                {offers.map((_, i) => (
+                  <button
+                    type="button"
+                    key={i}
+                    className={`${styles.dot} ${i === offerIndex ? styles.dotActive : ''}`}
+                    onClick={() => setOfferIndex(i)}
+                    aria-label={`Show offer ${i + 1}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Compact Inactive Member Banner */}
         {user?.status !== 'ACTIVE' && (
           <div className={styles.activationNoticeBanner}>
@@ -222,6 +400,21 @@ const DashboardPage = () => {
                 <h2 className={styles.primaryMetric}>{formatINR(stats?.todayIncome)}</h2>
               )}
               <span className={styles.metricSubtitle}>Daily Earnings</span>
+            </div>
+          </div>
+
+          <div className={`${styles.statCard} ${styles.cardFinancial}`}>
+            <div className={styles.cardHeader}>
+              <span className={styles.cardTitle}>WEEKLY INCOME</span>
+              <div className={styles.cardIconBox}>💷</div>
+            </div>
+            <div className={styles.cardBody}>
+              {loading && !stats ? (
+                <div className={styles.skeletonMetric}></div>
+              ) : (
+                <h2 className={styles.primaryMetric}>{formatINR(stats?.weeklyIncome)}</h2>
+              )}
+              <span className={styles.metricSubtitle}>This Week's Earnings</span>
             </div>
           </div>
 
@@ -301,9 +494,34 @@ const DashboardPage = () => {
             </div>
           </div>
 
-          {/* Row 3: Carry Forward Business (single merged Left/Right card —
-              the separate "Businesses" card was removed per request: only
-              ONE card here, not two), Monthly Star */}
+          {/* Row 3: Today Business (raw left/right volume generated today,
+              BEFORE matching — distinct from Weekly KBP Match below), Carry
+              Forward Business (single merged Left/Right card), Monthly Star */}
+          <div className={`${styles.statCard} ${styles.cardKbp}`}>
+            <div className={styles.cardHeader}>
+              <span className={styles.cardTitle}>TODAY BUSINESS</span>
+              <div className={styles.cardIconBox}>📊</div>
+            </div>
+            <div className={styles.cardBody}>
+              {loading && !stats ? (
+                <div className={styles.skeletonSplit}></div>
+              ) : (
+                <div className={styles.dualVolumeBox}>
+                  <div className={styles.volumeColumn}>
+                    <span className={styles.sideLabelLeft}>Left:</span>
+                    <strong className={styles.sideValueLeft}>{todayBusiness.left.toLocaleString()}</strong>
+                  </div>
+                  <div className={styles.volumeDivider}></div>
+                  <div className={styles.volumeColumn}>
+                    <span className={styles.sideLabelRight}>Right:</span>
+                    <strong className={styles.sideValueRight}>{todayBusiness.right.toLocaleString()}</strong>
+                  </div>
+                </div>
+              )}
+              <span className={styles.metricSubtitle}>Today's KBP Generated (Pre-Match)</span>
+            </div>
+          </div>
+
           <div className={`${styles.statCard} ${styles.cardKbp}`}>
             <div className={styles.cardHeader}>
               <span className={styles.cardTitle}>CARRY FORWARD BUSINESS</span>
@@ -468,6 +686,35 @@ const DashboardPage = () => {
             </div>
           </div>
 
+          <div className={`${styles.statCard} ${styles.cardStar}`}>
+            <div className={styles.cardHeader}>
+              <span className={styles.cardTitle}>STAR FOR NEXT RANK</span>
+              <div className={styles.cardIconBox}>🚀</div>
+            </div>
+            <div className={styles.cardBody}>
+              {loading && !stats ? (
+                <div className={styles.skeletonSplit}></div>
+              ) : starForNextRank.rankName ? (
+                <div className={styles.dualVolumeBox}>
+                  <div className={styles.volumeColumn}>
+                    <span className={styles.sideLabelLeft}>Left:</span>
+                    <strong className={styles.sideValueLeft}>{starForNextRank.left}</strong>
+                  </div>
+                  <div className={styles.volumeDivider}></div>
+                  <div className={styles.volumeColumn}>
+                    <span className={styles.sideLabelRight}>Right:</span>
+                    <strong className={styles.sideValueRight}>{starForNextRank.right}</strong>
+                  </div>
+                </div>
+              ) : (
+                <h2 className={styles.primaryMetaText}>Max Rank Achieved</h2>
+              )}
+              <span className={styles.metricSubtitle}>
+                {starForNextRank.rankName ? `Required Per Leg for ${starForNextRank.rankName}` : 'All Ranks Completed'}
+              </span>
+            </div>
+          </div>
+
           {/* Row 6: Career & Fund Achievements */}
           <div className={`${styles.statCard} ${styles.cardMeta}`}>
             <div className={styles.cardHeader}>
@@ -502,6 +749,38 @@ const DashboardPage = () => {
             </div>
           </div>
 
+          <div className={`${styles.statCard} ${styles.cardMeta}`}>
+            <div className={styles.cardHeader}>
+              <span className={styles.cardTitle}>REWARD ACHIEVED</span>
+              <div className={styles.cardIconBox}>🎁</div>
+            </div>
+            <div className={styles.cardBody}>
+              {loading && !stats ? (
+                <div className={styles.skeletonMetric}></div>
+              ) : (
+                <h2 className={styles.primaryMetaText}>{stats?.rewardAchieved?.name || 'Not Achieved'}</h2>
+              )}
+              <span className={styles.metricSubtitle}>
+                {stats?.rewardAchieved?.value ? `Value: ${formatINR(stats.rewardAchieved.value)}` : `From ${stats?.currentRank?.name || 'Your Rank'}`}
+              </span>
+            </div>
+          </div>
+
+          <div className={`${styles.statCard} ${styles.cardMeta}`}>
+            <div className={styles.cardHeader}>
+              <span className={styles.cardTitle}>PENSION</span>
+              <div className={styles.cardIconBox}>🏦</div>
+            </div>
+            <div className={styles.cardBody}>
+              {loading && !stats ? (
+                <div className={styles.skeletonMetric}></div>
+              ) : (
+                <h2 className={styles.primaryMetaText}>{stats?.pension?.active ? 'Active' : 'Not Active'}</h2>
+              )}
+              <span className={styles.metricSubtitle}>Lifetime Paid: {formatINR(stats?.pension?.totalEarned)}</span>
+            </div>
+          </div>
+
           {/* Leadership Income (Cheque Match Bonus) — 50%/30%/20% on the
               matching income of your 1st/2nd/3rd level Leaders. Rates,
               qualifying rank and level count are admin-configurable
@@ -519,6 +798,51 @@ const DashboardPage = () => {
                 <h2 className={styles.primaryMetric}>{formatINR(stats?.leadershipIncome?.total)}</h2>
               )}
               <span className={styles.metricSubtitle}>Today: {formatINR(stats?.leadershipIncome?.today)}</span>
+            </div>
+          </div>
+
+          <div className={`${styles.statCard} ${styles.cardFinancial}`}>
+            <div className={styles.cardHeader}>
+              <span className={styles.cardTitle}>CURRENT REMUNERATION</span>
+              <div className={styles.cardIconBox}>📜</div>
+            </div>
+            <div className={styles.cardBody}>
+              {loading && !stats ? (
+                <div className={styles.skeletonMetric}></div>
+              ) : (
+                <h2 className={styles.primaryMetric}>{formatINR(stats?.currentRemuneration)}</h2>
+              )}
+              <span className={styles.metricSubtitle}>This Month's Rank Salary</span>
+            </div>
+          </div>
+
+          <div className={`${styles.statCard} ${styles.cardFinancial}`}>
+            <div className={styles.cardHeader}>
+              <span className={styles.cardTitle}>SELF REPURCHASE INCOME</span>
+              <div className={styles.cardIconBox}>🔄</div>
+            </div>
+            <div className={styles.cardBody}>
+              {loading && !stats ? (
+                <div className={styles.skeletonMetric}></div>
+              ) : (
+                <h2 className={styles.primaryMetric}>{formatINR(stats?.selfRepurchaseIncome)}</h2>
+              )}
+              <span className={styles.metricSubtitle}>Lifetime Self Repurchase Cashback</span>
+            </div>
+          </div>
+
+          <div className={`${styles.statCard} ${styles.cardFinancial}`}>
+            <div className={styles.cardHeader}>
+              <span className={styles.cardTitle}>DOWNLINE REPURCHASE INCOME</span>
+              <div className={styles.cardIconBox}>🔁</div>
+            </div>
+            <div className={styles.cardBody}>
+              {loading && !stats ? (
+                <div className={styles.skeletonMetric}></div>
+              ) : (
+                <h2 className={styles.primaryMetric}>{formatINR(stats?.downlineRepurchaseIncome)}</h2>
+              )}
+              <span className={styles.metricSubtitle}>Lifetime Downline Repurchase Income</span>
             </div>
           </div>
         </div>

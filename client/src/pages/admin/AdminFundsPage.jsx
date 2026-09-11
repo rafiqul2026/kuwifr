@@ -4,13 +4,35 @@ import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './AdminFundsPage.module.css';
 
+const FUND_CODE_META = {
+  SCHOOL: { name: 'School Fund', icon: '🏫' },
+  FAMILY: { name: 'Family Fund', icon: '👨‍👩‍👧‍👦' },
+  TRAVELLING: { name: 'Travelling Fund', icon: '✈️' },
+  LIFESTYLE: { name: 'Lifestyle Fund', icon: '🏡' },
+  FOREIGN_TRIP: { name: 'Foreign Trip Fund', icon: '🌍' },
+  PENSION: { name: 'Pension Fund', icon: '🧓' }
+};
+
 const AdminFundsPage = () => {
+  const [activeTab, setActiveTab] = useState('TIERS'); // 'TIERS' | 'ACHIEVEMENTS'
+
   const [funds, setFunds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ totalFunds: 6, activeFunds: 6, totalQualifications: 0 });
   const [searchQuery, setSearchQuery] = useState('');
   const [editingFund, setEditingFund] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Member Fund Achievements (live history — "which member achieved which
+  // Fund, and when" — Admin Panel dynamic requirement)
+  const [achievements, setAchievements] = useState([]);
+  const [achievementsLoading, setAchievementsLoading] = useState(false);
+  const [achievementsSearch, setAchievementsSearch] = useState('');
+  const [achievementsSponsorId, setAchievementsSponsorId] = useState('');
+  const [achievementsFundCode, setAchievementsFundCode] = useState('ALL');
+  const [achievementsPage, setAchievementsPage] = useState(1);
+  const [achievementsPagination, setAchievementsPagination] = useState({ total: 0, page: 1, limit: 50, pages: 1 });
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   // Edit form state
   const [formData, setFormData] = useState({
@@ -83,6 +105,55 @@ const AdminFundsPage = () => {
   useEffect(() => {
     fetchFunds();
   }, [fetchFunds]);
+
+  // Live "which member achieved which Fund, on which date" — GET
+  // /api/funds/admin/achievements, backed by real, persisted
+  // FundQualification records (self-synced whenever a repurchase order
+  // propagates KBP up the tree, or via the "Recalculate All" backfill below).
+  const fetchAchievements = useCallback(async (page = 1, search = '', sponsorId = '', fundCode = 'ALL') => {
+    try {
+      setAchievementsLoading(true);
+      const res = await api.get('/api/funds/admin/achievements', {
+        params: { page, limit: 50, search: search || undefined, sponsorId: sponsorId || undefined, fundCode: fundCode !== 'ALL' ? fundCode : undefined }
+      });
+      if (res.data?.success && res.data.data) {
+        setAchievements(Array.isArray(res.data.data.achievements) ? res.data.data.achievements : []);
+        setAchievementsPagination(res.data.data.pagination || { total: 0, page: 1, limit: 50, pages: 1 });
+      }
+    } catch (error) {
+      console.error('Failed to load fund achievements:', error);
+      showNotification('Unable to fetch member fund achievements.', 'warning');
+    } finally {
+      setAchievementsLoading(false);
+    }
+  }, [showNotification]);
+
+  useEffect(() => {
+    if (activeTab === 'ACHIEVEMENTS') {
+      fetchAchievements(achievementsPage, achievementsSearch, achievementsSponsorId, achievementsFundCode);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, achievementsPage, achievementsFundCode]);
+
+  const handleAchievementsSearchSubmit = (e) => {
+    e.preventDefault();
+    setAchievementsPage(1);
+    fetchAchievements(1, achievementsSearch, achievementsSponsorId, achievementsFundCode);
+  };
+
+  const handleRecalculateAll = async () => {
+    setIsRecalculating(true);
+    try {
+      const res = await api.post('/api/funds/admin/recalculate');
+      showNotification(res.data?.message || 'Fund achievements recalculated for all members.', 'success');
+      setAchievementsPage(1);
+      fetchAchievements(1, achievementsSearch, achievementsSponsorId, achievementsFundCode);
+    } catch (error) {
+      showNotification('Failed to recalculate fund achievements.', 'error');
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
 
   // One-click initialize funds button
   const handleInitialize = async () => {
@@ -250,6 +321,26 @@ const AdminFundsPage = () => {
         </div>
       </div>
 
+      {/* Tabs: Fund Tiers (configuration) vs Member Achievements (live history) */}
+      <div className={styles.pageTabs}>
+        <button
+          type="button"
+          className={`${styles.pageTabBtn} ${activeTab === 'TIERS' ? styles.pageTabBtnActive : ''}`}
+          onClick={() => setActiveTab('TIERS')}
+        >
+          🏦 Fund Tiers
+        </button>
+        <button
+          type="button"
+          className={`${styles.pageTabBtn} ${activeTab === 'ACHIEVEMENTS' ? styles.pageTabBtnActive : ''}`}
+          onClick={() => setActiveTab('ACHIEVEMENTS')}
+        >
+          📜 Member Achievements
+        </button>
+      </div>
+
+      {activeTab === 'TIERS' && (
+      <>
       {/* 2. KPI Metrics Grid */}
       <div className={styles.statsGrid}>
         <div className={styles.statCard}>
@@ -522,6 +613,166 @@ const AdminFundsPage = () => {
             </form>
           </div>
         </div>
+      )}
+      </>
+      )}
+
+      {activeTab === 'ACHIEVEMENTS' && (
+      <>
+      {/* Member Fund Achievements — live, persisted history: who achieved
+          which Fund, and on which date. Backed by real FundQualification
+          records, self-synced whenever repurchase KBP propagates up the
+          tree; "Recalculate All" force-backfills every active member now. */}
+      <div className={styles.filterStrip}>
+        <form onSubmit={handleAchievementsSearchSubmit} className={styles.searchWrap} style={{ flex: 1 }}>
+          <span className={styles.searchIcon}>🔍</span>
+          <input
+            type="text"
+            placeholder="Search by member name, ID, or email..."
+            value={achievementsSearch}
+            onChange={(e) => setAchievementsSearch(e.target.value)}
+            className={styles.searchInput}
+          />
+          {achievementsSearch && (
+            <button
+              type="button"
+              onClick={() => { setAchievementsSearch(''); setAchievementsPage(1); fetchAchievements(1, '', achievementsSponsorId, achievementsFundCode); }}
+              className={styles.clearSearch}
+            >
+              ✕
+            </button>
+          )}
+        </form>
+        <form onSubmit={handleAchievementsSearchSubmit} className={styles.searchWrap} style={{ flex: 1 }}>
+          <span className={styles.searchIcon}>🔍</span>
+          <input
+            type="text"
+            placeholder="Filter by Sponsor ID (e.g. KFR123456)..."
+            value={achievementsSponsorId}
+            onChange={(e) => setAchievementsSponsorId(e.target.value)}
+            className={styles.searchInput}
+          />
+          {achievementsSponsorId && (
+            <button
+              type="button"
+              onClick={() => { setAchievementsSponsorId(''); setAchievementsPage(1); fetchAchievements(1, achievementsSearch, '', achievementsFundCode); }}
+              className={styles.clearSearch}
+            >
+              ✕
+            </button>
+          )}
+        </form>
+        <select
+          className={styles.fundFilterCode}
+          value={achievementsFundCode}
+          onChange={(e) => { setAchievementsFundCode(e.target.value); setAchievementsPage(1); }}
+        >
+          <option value="ALL">All Funds</option>
+          {Object.entries(FUND_CODE_META).map(([code, meta]) => (
+            <option key={code} value={code}>{meta.icon} {meta.name}</option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={handleRecalculateAll}
+          disabled={isRecalculating}
+          className={styles.recalcBtn}
+          title="Live-recompute every active member's fund qualification right now"
+        >
+          {isRecalculating ? 'Recalculating...' : '⚡ Recalculate All'}
+        </button>
+      </div>
+
+      <div className={styles.tableWrapper}>
+        {achievementsLoading ? (
+          <div className={styles.loading}>
+            <div className={styles.spinner}></div>
+            <p>Loading member fund achievements...</p>
+          </div>
+        ) : achievements.length === 0 ? (
+          <div className={styles.emptyState}>
+            <span className={styles.emptyIcon}>📜</span>
+            <h3>No fund achievements recorded yet</h3>
+            <p>Click "Recalculate All" to backfill achievements for every currently-qualified member.</p>
+          </div>
+        ) : (
+          <>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>MEMBER</th>
+                <th>FUND ACHIEVED</th>
+                <th>DATE ACHIEVED</th>
+                <th>MATCHED KBP (L / R)</th>
+                <th>STATUS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {achievements.map((a) => {
+                const member = a.userId || {};
+                const qualifiedDate = a.qualifiedAt ? new Date(a.qualifiedAt) : null;
+                return (
+                  <tr key={a._id}>
+                    <td>
+                      <div className={styles.memberCell}>
+                        <span className={styles.memberName}>{member.fullName || 'Unknown Member'}</span>
+                        <span className={styles.memberMeta}>{member.memberId || member.email || ''}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={styles.fundBadgeCell}>
+                        <span>{a.fundIcon || '🏦'}</span>
+                        <span>{a.fundName || a.fundCode}</span>
+                      </span>
+                    </td>
+                    <td>
+                      <span className={styles.dateText}>
+                        {qualifiedDate ? qualifiedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={styles.kbpText}>
+                        {Number(a.matchedLeftKBP || 0).toLocaleString('en-IN')} / {Number(a.matchedRightKBP || 0).toLocaleString('en-IN')} KBP
+                      </span>
+                    </td>
+                    <td>
+                      <span className={styles.achievedPill} data-status={a.status || 'ACTIVE'}>
+                        {a.status || 'ACTIVE'}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <div className={styles.paginationRow}>
+            <span>
+              Showing {achievements.length} of {achievementsPagination.total} achievement{achievementsPagination.total === 1 ? '' : 's'}
+            </span>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                className={styles.pageBtn}
+                disabled={achievementsPage <= 1}
+                onClick={() => setAchievementsPage((p) => Math.max(1, p - 1))}
+              >
+                ← Prev
+              </button>
+              <span>Page {achievementsPagination.page} of {achievementsPagination.pages}</span>
+              <button
+                type="button"
+                className={styles.pageBtn}
+                disabled={achievementsPage >= achievementsPagination.pages}
+                onClick={() => setAchievementsPage((p) => p + 1)}
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+          </>
+        )}
+      </div>
+      </>
       )}
     </div>
   );

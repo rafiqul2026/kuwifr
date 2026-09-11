@@ -596,3 +596,183 @@
     grid-column: span 1;
   }
 }
+
+/* =========================================================
+   6. PAGE TABS (Fund Tiers vs Member Achievements)
+   ========================================================= */
+.pageTabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.pageTabBtn {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #64748b;
+  font-size: 13.5px;
+  font-weight: 750;
+  padding: 10px 6px 12px 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pageTabBtn:hover {
+  color: #1d4ed8;
+}
+
+.pageTabBtnActive {
+  color: #1d4ed8;
+  border-bottom-color: #2563eb;
+}
+
+/* Member Achievements table */
+.tableWrapper {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 4px 16px -2px rgba(11, 18, 40, 0.03);
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.table th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.table tbody tr:hover {
+  background: #fafbfc;
+}
+
+.memberCell {
+  display: flex;
+  flex-direction: column;
+}
+
+.memberName {
+  font-size: 13.5px;
+  font-weight: 750;
+  color: #0f172a;
+}
+
+.memberMeta {
+  font-size: 11px;
+  color: #94a3b8;
+  font-family: monospace;
+}
+
+.fundBadgeCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 750;
+  color: #0f172a;
+}
+
+.dateText {
+  color: #334155;
+  font-size: 13px;
+}
+
+.kbpText {
+  color: #1e293b;
+  font-size: 12.5px;
+}
+
+.achievedPill {
+  font-size: 11px;
+  font-weight: 750;
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+.achievedPill[data-status="ACTIVE"] {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.achievedPill[data-status="SUSPENDED"] {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.recalcBtn {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 9px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.recalcBtn:hover:not(:disabled) {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.recalcBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.paginationRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-top: 1px solid #f1f5f9;
+  font-size: 12.5px;
+  color: #64748b;
+}
+
+.pageBtn {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.pageBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fundFilterCode {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 13px;
+  background: #f8fafc;
+  color: #0f172a;
+}

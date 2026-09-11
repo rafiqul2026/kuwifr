@@ -96,7 +96,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 9.5px;
+  font-size: 10.5px;
   font-weight: 800;
   letter-spacing: 0.6px;
   color: #2563eb;
@@ -151,7 +151,7 @@
 .statusPillActive {
   display: inline-flex;
   align-items: center;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 800;
   color: #16a34a;
   background: #f0fdf4;
@@ -163,7 +163,7 @@
 .statusPillInactive {
   display: inline-flex;
   align-items: center;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 800;
   color: #d97706;
   background: #fffbeb;
@@ -234,7 +234,7 @@
 
 .noticeTextBox p {
   margin: 0;
-  font-size: 11.5px;
+  font-size: 12px;
   color: #b45309;
 }
 
@@ -244,7 +244,7 @@
   color: #ffffff;
   padding: 6px 14px;
   border-radius: 8px;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 800;
   text-decoration: none;
   white-space: nowrap;
@@ -252,6 +252,177 @@
 
 .noticeActionBtn:hover {
   background: #b45309;
+}
+
+/* ============================================================
+   📢 ADMIN NOTIFICATION BAR — rotates admin broadcast messages
+   ============================================================ */
+.notificationBar {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #2563eb;
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 12px -4px rgba(11, 18, 40, 0.06);
+}
+
+.notificationBarIcon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.notificationBarText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.notificationBarText strong {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notificationBarText span {
+  font-size: 12px;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notificationBarAction {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  font-size: 11.5px;
+  font-weight: 750;
+  padding: 5px 10px;
+  border-radius: 6px;
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.notificationBarAction:hover {
+  background: #dbeafe;
+}
+
+.notificationBarDots {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.notificationBarClose {
+  background: #f1f5f9;
+  border: none;
+  color: #64748b;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  border-radius: 50%;
+  font-size: 11px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 2px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.notificationBarClose:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: none;
+  background: #cbd5e1;
+  padding: 0;
+  cursor: pointer;
+}
+
+.dotActive {
+  background: #2563eb;
+  width: 16px;
+  border-radius: 3px;
+}
+
+/* ============================================================
+   🖼️ ADMIN OFFER SLIDER — image carousel of admin-managed offers
+   ============================================================ */
+.offerSlider {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 20px -8px rgba(11, 18, 40, 0.15);
+  background: #f1f5f9;
+}
+
+.offerSlideTrack {
+  display: flex;
+  transition: transform 0.4s ease;
+}
+
+.offerSlide {
+  flex: 0 0 100%;
+  width: 100%;
+  aspect-ratio: 16 / 5;
+  display: block;
+  background: #e2e8f0;
+}
+
+.offerSlide img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.offerDots {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.35);
+  padding: 5px 8px;
+  border-radius: 999px;
+}
+
+.offerDots .dot {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.offerDots .dotActive {
+  background: #ffffff;
+}
+
+@media (max-width: 640px) {
+  .offerSlide {
+    aspect-ratio: 16 / 8;
+  }
+  .notificationBarText strong,
+  .notificationBarText span {
+    white-space: normal;
+  }
 }
 
 /* ============================================================
@@ -294,7 +465,7 @@
 }
 
 .cardTitle {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   color: #64748b;
   letter-spacing: 0.5px;
@@ -324,7 +495,7 @@
 }
 
 .metricSubtitle {
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 600;
   color: #94a3b8;
   margin-top: 2px;
@@ -352,7 +523,7 @@
 }
 
 .sideLabelLeft, .sideLabelRight {
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -471,7 +642,7 @@
 }
 
 .referralHeaderDetails p {
-  font-size: 11.5px;
+  font-size: 12px;
   color: #64748b;
   margin: 1px 0 0 0;
 }
@@ -503,7 +674,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 9.5px;
+  font-size: 10.5px;
   font-weight: 800;
   letter-spacing: 0.4px;
   padding: 2px 6px;
@@ -538,7 +709,7 @@
 }
 
 .sponsorNotice {
-  font-size: 10.5px;
+  font-size: 11.5px;
   color: #64748b;
 }
 
@@ -565,7 +736,7 @@
 }
 
 .linkPrefixTag {
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 800;
   color: #64748b;
   background: #f1f5f9;
@@ -582,7 +753,7 @@
   min-width: 0;
   border: none;
   background: transparent;
-  font-size: 11.5px;
+  font-size: 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   color: #334155;
   outline: none;
@@ -604,7 +775,7 @@
   border: none;
   border-radius: 8px;
   padding: 0 12px;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 750;
   display: inline-flex;
   align-items: center;
@@ -711,20 +882,20 @@
 
   .statCard {
     padding: 10px 12px;
-    height: 92px;
+    height: 98px;
   }
 
   .cardTitle {
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 0.2px;
   }
 
   .primaryMetric {
-    font-size: 16px;
+    font-size: 17px;
   }
 
   .metricSubtitle {
-    font-size: 9.5px;
+    font-size: 11px;
   }
 
   .dualVolumeBox {
@@ -748,14 +919,14 @@
 
   .statCard {
     padding: 9px 10px;
-    height: 88px;
+    height: 94px;
   }
 
   .primaryMetric {
-    font-size: 14.5px;
+    font-size: 15.5px;
   }
 
   .primaryMetaText {
-    font-size: 13.5px;
+    font-size: 14px;
   }
 }

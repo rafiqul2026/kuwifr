@@ -17,6 +17,7 @@ import UpgradePackagePage from "../pages/member/UpgradePackagePage";
 import OrdersPage from "../pages/member/OrdersPage";
 import WithdrawalsPage from "../pages/member/WithdrawalsPage";
 import RanksPage from "../pages/member/RanksPage";
+import FranchisePage from "../pages/member/FranchisePage";
 import NotificationsPage from "../pages/member/NotificationsPage";
 import SupportPage from "../pages/member/SupportPage";
 
@@ -55,6 +56,7 @@ const MemberRoutes = () => {
         <Route path="orders" element={<OrdersPage />} />
         <Route path="withdrawals" element={<WithdrawalsPage />} />
         <Route path="ranks" element={<RanksPage />} />
+        <Route path="franchise" element={<FranchisePage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="support" element={<SupportPage />} />
 

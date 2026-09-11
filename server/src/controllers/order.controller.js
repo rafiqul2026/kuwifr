@@ -168,14 +168,69 @@ const getAllOrders = async (req, res, next) => {
 const getPackageSalesReport = async (req, res, next) => {
   try {
     await seedOrdersIfEmpty();
-    const { packageName, search, page = 1, limit = 20 } = req.query;
+    const { packageName, search, sponsorId, startDate, endDate, page = 1, limit = 20 } = req.query;
 
-    const query = { orderType: 'PACKAGE' };
+    // "Is this a package order" — orderType was, until now, never actually
+    // persisted: Order.js's schema never declared the field, so Mongoose's
+    // default strict mode silently stripped `orderType: 'PACKAGE'` on every
+    // single write (admin.controller.js, order.controller.js,
+    // package.controller.js, packagePurchase.controller.js all set it; none
+    // of it was ever saved). A hard `{ orderType: 'PACKAGE' }` filter
+    // therefore matched literally zero documents — EVERY member's package
+    // sales history, including real, completed purchases, showed "No
+    // package sales records found." The schema now declares the field (see
+    // Order.js), so it persists correctly going forward, but every order
+    // created before that fix still has no orderType stored at all. Falling
+    // back to `packageId` (a real, always-populated required field on every
+    // package order, completely unaffected by the strict-mode bug) makes
+    // this correct for that entire backlog of pre-existing orders too, with
+    // no migration needed.
+    const PACKAGE_ORDER_MATCH = { $or: [{ orderType: 'PACKAGE' }, { packageId: { $exists: true, $ne: null } }] };
+    const andConditions = [PACKAGE_ORDER_MATCH];
 
     if (packageName && packageName !== 'ALL') {
-      query.packageName = { $regex: new RegExp(packageName, 'i') };
+      andConditions.push({ packageName: { $regex: new RegExp(packageName, 'i') } });
     }
 
+    // Date range filter (Admin panel spec: "filter date wise, weekly wise,
+    // monthly wise, year wise, custom date") — the caller/UI turns any of
+    // those presets into a concrete startDate/endDate before it gets here.
+    if (startDate || endDate) {
+      const createdAt = {};
+      if (startDate) createdAt.$gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        createdAt.$lte = end;
+      }
+      andConditions.push({ createdAt });
+    }
+
+    // "Search By Sponsor ID (how many member buy package under xyz sponsor
+    // ID)" — resolve the sponsor by memberId, then restrict to orders placed
+    // by that sponsor's DIRECT sponsees. Applied ON TOP OF (not instead of)
+    // the free-text `search`, so an admin can combine both.
+    if (sponsorId && sponsorId.trim()) {
+      const sponsor = await User.findOne({
+        memberId: { $regex: new RegExp(`^${sponsorId.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+      }).select('_id');
+
+      if (!sponsor) {
+        // A sponsor ID that resolves to nobody should return zero rows, not
+        // silently ignore the filter and show every sale.
+        andConditions.push({ _id: null });
+      } else {
+        const sponsees = await User.find({ sponsorId: sponsor._id }).select('_id');
+        andConditions.push({ userId: { $in: sponsees.map((u) => u._id) } });
+      }
+    }
+
+    // NOTE: this is a second, independent $or (member/order text search),
+    // separate from PACKAGE_ORDER_MATCH's $or above. Putting both directly
+    // on `query` would mean the second `query.$or = [...]` assignment
+    // silently overwrites the first — so every condition is instead pushed
+    // into `andConditions` and combined with `$and`, which lets a query
+    // object hold any number of independent $or clauses safely.
     if (search) {
       const cleanSearch = search.trim();
       const matchingUsers = await User.find({
@@ -188,13 +243,17 @@ const getPackageSalesReport = async (req, res, next) => {
 
       const userIds = matchingUsers.map(u => u._id);
 
-      query.$or = [
-        { orderNumber: { $regex: cleanSearch, $options: 'i' } },
-        { customerName: { $regex: cleanSearch, $options: 'i' } },
-        { customerEmail: { $regex: cleanSearch, $options: 'i' } },
-        { userId: { $in: userIds } }
-      ];
+      andConditions.push({
+        $or: [
+          { orderNumber: { $regex: cleanSearch, $options: 'i' } },
+          { customerName: { $regex: cleanSearch, $options: 'i' } },
+          { customerEmail: { $regex: cleanSearch, $options: 'i' } },
+          { userId: { $in: userIds } }
+        ]
+      });
     }
+
+    const query = { $and: andConditions };
 
     const currentPage = Math.max(1, parseInt(page, 10) || 1);
     const pageLimit = Math.max(1, parseInt(limit, 10) || 20);
@@ -209,9 +268,9 @@ const getPackageSalesReport = async (req, res, next) => {
         .lean(),
       Order.countDocuments(query),
       Order.aggregate([
-        { $match: { orderType: 'PACKAGE' } },
-        { 
-          $group: { 
+        { $match: PACKAGE_ORDER_MATCH },
+        {
+          $group: {
             _id: '$packageName', 
             totalUnits: { $sum: 1 }, 
             totalRevenue: { $sum: '$totalAmount' } 

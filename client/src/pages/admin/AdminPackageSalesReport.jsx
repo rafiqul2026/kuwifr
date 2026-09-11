@@ -1,6 +1,6 @@
 // client/src/pages/admin/AdminPackageSalesReport.jsx
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../services/api";
 import styles from "./AdminPackageSalesReport.module.css";
 
 export default function AdminPackageSalesReport() {
@@ -8,6 +8,9 @@ export default function AdminPackageSalesReport() {
   const [stats, setStats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [sponsorIdFilter, setSponsorIdFilter] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [selectedPackage, setSelectedPackage] = useState("ALL");
   const [pagination, setPagination] = useState({ page: 1, pages: 1 });
 
@@ -25,11 +28,14 @@ export default function AdminPackageSalesReport() {
   const fetchReport = async (page = 1) => {
     try {
       setLoading(true);
-      const res = await axios.get("/api/admin/package-sales-report", {
-        params: { 
-          page, 
+      const res = await api.get("/api/admin/package-sales-report", {
+        params: {
+          page,
           packageName: selectedPackage,
-          search 
+          search,
+          sponsorId: sponsorIdFilter || undefined,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined
         },
         withCredentials: true,
       });
@@ -47,7 +53,7 @@ export default function AdminPackageSalesReport() {
 
   const fetchPackagesCatalog = async () => {
     try {
-      const res = await axios.get("/api/packages", { withCredentials: true });
+      const res = await api.get("/api/packages", { withCredentials: true });
       if (res.data.success) {
         setPackagesList(res.data.data.packages || res.data.data || []);
       }
@@ -70,7 +76,7 @@ export default function AdminPackageSalesReport() {
     e.preventDefault();
     if (!memberInput.trim()) return;
     try {
-      const res = await axios.get("/api/admin/members/search", {
+      const res = await api.get("/api/admin/members/search", {
         params: { query: memberInput.trim() },
         withCredentials: true,
       });
@@ -83,7 +89,7 @@ export default function AdminPackageSalesReport() {
       }
     } catch (err) {
       console.error(err);
-      alert("Error searching member.");
+      alert(err.response?.data?.message || "Error searching member.");
     }
   };
 
@@ -105,7 +111,7 @@ export default function AdminPackageSalesReport() {
 
     try {
       setActionLoading(true);
-      const res = await axios.post(
+      const res = await api.post(
         "/api/admin/package-activations",
         {
           memberIdentifier: searchedMember.memberId,
@@ -169,13 +175,34 @@ export default function AdminPackageSalesReport() {
 
       {/* Filters & Search Bar */}
       <div className={styles.filterBar}>
-        <form onSubmit={handleSearchSubmit} className={styles.searchForm}>
+        <form onSubmit={handleSearchSubmit} className={styles.searchForm} style={{ flexWrap: "wrap", gap: "10px" }}>
           <input
             type="text"
             placeholder="Search by Member ID, Name, or Email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className={styles.searchInput}
+          />
+          <input
+            type="text"
+            placeholder="Filter by Sponsor ID (e.g. KFR123456)..."
+            value={sponsorIdFilter}
+            onChange={(e) => setSponsorIdFilter(e.target.value)}
+            className={styles.searchInput}
+          />
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className={styles.searchInput}
+            title="From date"
+          />
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className={styles.searchInput}
+            title="To date"
           />
           <button type="submit" className={styles.searchBtn}>Search</button>
         </form>

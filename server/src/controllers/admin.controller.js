@@ -104,21 +104,60 @@ const searchMembersForActivation = async (req, res, next) => {
     }
 
     const adminRoles = ['ADMIN', 'SUPER_ADMIN', 'admin', 'super_admin'];
-    const sanitized = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    
+    const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // The admin very often gets this value by copy-pasting the Member ID
+    // badge straight out of the Members list table. That round-trip through
+    // the clipboard can carry along characters that never show on screen —
+    // a stray zero-width space, a non-breaking space, etc. Those are
+    // invisible, but they are real characters, and a query that was
+    // previously anchored ("must literally start with exactly what was
+    // typed") would silently fail to match a member who is plainly correct
+    // and visible on screen. Strip anything outside normal printable ASCII
+    // before building the identifier candidate so a clean paste of a real
+    // Member ID/email/phone always matches.
+    const rawTrimmed = query.trim();
+    const cleaned = rawTrimmed.replace(/[^\x20-\x7E]/g, '').trim();
+
+    const rawEscaped = escapeRegex(rawTrimmed);
+    const cleanedEscaped = cleaned ? escapeRegex(cleaned) : null;
+
+    // Unanchored (contains) match — not a strict "starts with" — so a
+    // partial ID, or an ID copy-pasted with incidental surrounding
+    // whitespace, still resolves. This mirrors the identical, already
+    // proven-working search used by the main Admin Members list
+    // (getAllUsers above), which never anchors its memberId match either.
+    const identifierOr = [rawEscaped, cleanedEscaped]
+      .filter((v, idx, arr) => v && arr.indexOf(v) === idx)
+      .map((val) => ({ memberId: { $regex: new RegExp(val, 'i') } }));
+
     const members = await User.find({
       role: { $nin: adminRoles },
       $or: [
-        { memberId: { $regex: new RegExp(`^${sanitized}`, 'i') } },
-        { email: { $regex: new RegExp(sanitized, 'i') } },
-        { fullName: { $regex: new RegExp(sanitized, 'i') } },
-        { phoneNumber: { $regex: new RegExp(sanitized, 'i') } }
+        ...identifierOr,
+        { email: { $regex: new RegExp(rawEscaped, 'i') } },
+        { fullName: { $regex: new RegExp(rawEscaped, 'i') } },
+        { phoneNumber: { $regex: new RegExp(rawEscaped, 'i') } }
       ]
     })
       .select('memberId fullName email phoneNumber status sponsorId kyc activePackageId')
       .limit(10)
       .lean();
 
+    // Exact Member ID match (once cleaned/uppercased) always wins the top
+    // slot, since the modal auto-selects members[0] — an admin who pasted
+    // an exact ID should never have a looser name/email substring match
+    // pushed in front of the member they actually asked for.
+    if (cleaned) {
+      const target = cleaned.toUpperCase();
+      members.sort((a, b) => {
+        const aExact = (a.memberId || '').toUpperCase() === target ? 1 : 0;
+        const bExact = (b.memberId || '').toUpperCase() === target ? 1 : 0;
+        return bExact - aExact;
+      });
+    }
+
+    res.set('Cache-Control', 'no-store');
     res.json({
       success: true,
       data: { members }
