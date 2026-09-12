@@ -2,6 +2,7 @@
 const BinaryNode = require('../models/BinaryNode');
 const User = require('../models/User');
 const Referral = require('../models/Referral');
+const Order = require('../models/Order');
 
 class BinaryService {
   /**
@@ -34,12 +35,13 @@ class BinaryService {
    * Traverses strictly down the specified leg (Left-most or Right-most) to find
    * the bottom leaf node without circular references.
    */
-  async findPlacement(sponsorId, preferredSide = 'left') {
+  async findPlacement(sponsorId, preferredSide = 'left', session = null) {
     const side = (preferredSide || 'left').toLowerCase() === 'right' ? 'right' : 'left';
+    const opts = session ? { session } : {};
 
-    let sponsorNode = await BinaryNode.findOne({ userId: sponsorId });
+    let sponsorNode = await BinaryNode.findOne({ userId: sponsorId }, null, opts);
     if (!sponsorNode) {
-      sponsorNode = await BinaryNode.create({
+      const created = await BinaryNode.create([{
         userId: sponsorId,
         parentId: null,
         position: 'root',
@@ -53,7 +55,8 @@ class BinaryService {
         matchingVolume: 0,
         pairCount: 0,
         totalKBP: 0
-      });
+      }], opts);
+      sponsorNode = created[0];
     }
 
     let currentNode = sponsorNode;
@@ -76,7 +79,7 @@ class BinaryService {
 
       visited.add(String(childUserId));
 
-      const nextNode = await BinaryNode.findOne({ userId: childUserId });
+      const nextNode = await BinaryNode.findOne({ userId: childUserId }, null, opts);
       if (!nextNode) {
         targetParentId = currentNode.userId;
         break;
@@ -90,20 +93,33 @@ class BinaryService {
   }
 
   /**
-   * Places a new member into the binary tree
+   * Places a new member into the binary tree.
+   *
+   * `session` is optional (defaults to no session, matching every existing
+   * caller — auth.controller.js's post-registration call and
+   * repairAllPlacements' backfill loop, neither of which run inside a
+   * transaction). packageActivation.service.js's activateCashPackage passes
+   * its own transaction session so a cash-activated member is correctly
+   * linked into their sponsor's leftChildId/rightChildId BEFORE
+   * IncomeService.processOrderIncome runs in the same transaction — that
+   * ordering matters because matching-income volume propagation
+   * (updateVolumes) walks up the tree via BinaryNode.parentId, so a member
+   * placed with the wrong (or no) parent silently loses upline matching
+   * income for that purchase, not just a cosmetic tree-display gap.
    */
-  async placeMember(userId, sponsorId, preferredSide = 'left') {
+  async placeMember(userId, sponsorId, preferredSide = 'left', session = null) {
     if (String(userId) === String(sponsorId)) return null;
+    const opts = session ? { session } : {};
 
     const side = (preferredSide || 'left').toLowerCase() === 'right' ? 'right' : 'left';
-    const placement = await this.findPlacement(sponsorId, side);
+    const placement = await this.findPlacement(sponsorId, side, session);
 
-    const parentNode = await BinaryNode.findOne({ userId: placement.parentId });
+    const parentNode = await BinaryNode.findOne({ userId: placement.parentId }, null, opts);
     const binaryLevel = parentNode ? (parentNode.level || 1) + 1 : 2;
 
-    let newNode = await BinaryNode.findOne({ userId });
+    let newNode = await BinaryNode.findOne({ userId }, null, opts);
     if (!newNode) {
-      newNode = new BinaryNode({
+      const created = await BinaryNode.create([{
         userId,
         parentId: placement.parentId,
         position: placement.position,
@@ -117,13 +133,14 @@ class BinaryService {
         matchingVolume: 0,
         pairCount: 0,
         totalKBP: 0
-      });
+      }], opts);
+      newNode = created[0];
     } else {
       newNode.parentId = placement.parentId;
       newNode.position = placement.position;
       newNode.level = binaryLevel;
+      await newNode.save(opts);
     }
-    await newNode.save();
 
     if (parentNode) {
       if (placement.position === 'left') {
@@ -131,20 +148,79 @@ class BinaryService {
       } else {
         parentNode.rightChildId = userId;
       }
-      await parentNode.save();
+      await parentNode.save(opts);
     }
 
-    await User.findByIdAndUpdate(userId, { binarySide: placement.position });
+    await User.findByIdAndUpdate(userId, { binarySide: placement.position }, opts);
     return newNode;
   }
 
   /**
    * Propagates KBP volume up the binary upline
+   *
+   * UNIVERSAL SELF-HEALING GUARANTEE (see the real-world case that exposed
+   * this: RAFIQUL Test / KFR441197's 5 real direct referrals — 3 of the 5
+   * had correct Direct Referral Income, but ALL 5 showed 0 KBP / 0 members
+   * on both binary legs and ₹0 Matching Income, even though every activation
+   * reported "success"). The reason: this codebase has FIVE independent
+   * activation call sites that each create an Order and call
+   * IncomeService.processOrderIncome — admin.controller.js#activateMemberWithPackage,
+   * order.controller.js#activateCashPackage, package.controller.js#purchasePackage,
+   * packagePurchase.controller.js#approvePackagePurchase, and
+   * packageActivation.service.js#activateCashPackage — and every one of
+   * them was independently expected to remember to call
+   * BinaryService.placeMember() first. Only some of them did. Every future
+   * activation path will make the same mistake unless the guarantee lives
+   * in the ONE function all five of them actually funnel through:
+   * updateVolumes(), called from inside processOrderIncome. Previously this
+   * function silently returned `false` and did nothing if the member had no
+   * BinaryNode — meaning a member's sponsor could show a real, ACTIVE
+   * downline while permanently getting ₹0 matching income from them,
+   * forever, with zero errors anywhere. Now it places the member correctly
+   * (or repairs a mislinked node) right here, so it is no longer possible
+   * for ANY activation path — present or future — to skip this.
    */
   async updateVolumes(userId, kbp) {
     if (!kbp || kbp <= 0) return true;
 
     let currentNode = await BinaryNode.findOne({ userId });
+
+    const isCorrectlyLinked = currentNode && (
+      !currentNode.parentId || // root node — nothing to be linked into
+      await BinaryNode.findOne({ userId: currentNode.parentId }).then((parent) =>
+        parent && (String(parent.leftChildId) === String(userId) || String(parent.rightChildId) === String(userId))
+      )
+    );
+
+    if (!isCorrectlyLinked) {
+      const user = await User.findById(userId);
+      if (user && user.sponsorId) {
+        try {
+          currentNode = await this.placeMember(userId, user.sponsorId, user.binarySide || 'left');
+        } catch (placementErr) {
+          console.error(
+            `\n🚨 SELF-HEAL BINARY PLACEMENT FAILED for user ${userId} inside updateVolumes: ${placementErr.message}\n` +
+            `   This member's KBP for this order could NOT be propagated to their upline — matching income was skipped.\n` +
+            `   Fix with: POST /api/admin/binary/repair (safe, non-destructive, re-runnable any time).\n`
+          );
+        }
+      } else if (!currentNode) {
+        // No sponsor at all (e.g. the root/admin-seeded member) — still
+        // needs a node so their own totalKBP accumulates correctly, even
+        // though there is no upline to propagate matching volume into.
+        currentNode = await BinaryNode.create({
+          userId,
+          parentId: null,
+          position: 'root',
+          level: 1,
+          leftVolume: 0,
+          rightVolume: 0,
+          availableLeftVolume: 0,
+          availableRightVolume: 0
+        });
+      }
+    }
+
     if (!currentNode) return false;
 
     currentNode.totalKBP = (currentNode.totalKBP || 0) + kbp;
@@ -159,9 +235,29 @@ class BinaryService {
       visited.add(String(parentId));
 
       const parentNode = await BinaryNode.findOne({ userId: parentId });
-      if (!parentNode) break;
+      if (!parentNode) {
+        console.error(
+          `\n🚨 BROKEN BINARY CHAIN inside updateVolumes: node ${childUserId} points at parentId ${parentId}, ` +
+          `but no BinaryNode exists for that parent. KBP propagation stops here — upline matching income above ` +
+          `this point was NOT credited for this order. Fix with: POST /api/admin/binary/repair.\n`
+        );
+        break;
+      }
 
       const isLeft = String(parentNode.leftChildId) === String(childUserId);
+      const isRight = String(parentNode.rightChildId) === String(childUserId);
+      if (!isLeft && !isRight) {
+        // parentId is set but the parent's own leftChildId/rightChildId
+        // doesn't actually point back at this child — a mislinked pair.
+        // Guessing "right" here (the old default) risks crediting the
+        // wrong leg's volume/matching. Stop and surface it instead.
+        console.error(
+          `\n🚨 MISLINKED BINARY PAIR inside updateVolumes: node ${childUserId}'s parentId is ${parentId}, but ` +
+          `that parent's leftChildId/rightChildId does not point back at ${childUserId}. KBP propagation stops ` +
+          `here to avoid crediting the wrong leg. Fix with: POST /api/admin/binary/repair.\n`
+        );
+        break;
+      }
 
       if (isLeft) {
         parentNode.leftVolume = (parentNode.leftVolume || 0) + kbp;
@@ -553,6 +649,28 @@ class BinaryService {
   }
 
   /**
+   * Is `targetUserId` anywhere in `viewerId`'s downline (sponsor-chain,
+   * unlimited depth)? Used by team.controller.js#getTeamOverview to decide
+   * whether a non-admin, non-self request may view someone else's team
+   * overview. This method didn't exist before — team.controller.js was
+   * calling it as if it did, which meant any such request threw a
+   * TypeError ("BinaryService.isInDownline is not a function") straight
+   * into a 500, rather than the intended 403. Only the requester's own
+   * overview (no ?userId= query param) was ever reachable in practice.
+   * Reuses DownlineService (the same authoritative sponsor-chain source
+   * the Team page and dashboard already rely on) instead of walking the
+   * binary placement tree, since "downline" here means unilevel genealogy,
+   * not binary leg membership.
+   */
+  async isInDownline(viewerId, targetUserId) {
+    if (!viewerId || !targetUserId) return false;
+    if (String(viewerId) === String(targetUserId)) return true;
+    const DownlineService = require('./downline.service');
+    const downline = await DownlineService.getFullDownlineIds(viewerId);
+    return downline.some((m) => String(m._id) === String(targetUserId));
+  }
+
+  /**
    * Get complete binary team overview with Left and Right downline breakdown for any member up to unlimited depth.
    */
   async getTeamOverview(userId) {
@@ -649,6 +767,87 @@ class BinaryService {
 
         await this.placeMember(user._id, user.sponsorId, user.binarySide || 'left');
         summary.placementsFixed.push({ userId: user._id, memberId: user.memberId, fullName: user.fullName });
+      } catch (err) {
+        summary.errors.push({ userId: user._id, memberId: user.memberId, message: err.message });
+      }
+    }
+
+    return summary;
+  }
+
+  /**
+   * Non-destructive repair pass for MATCHING INCOME / LEFT-RIGHT LEG VOLUME
+   * specifically — separate from repairAllPlacements() above, which only
+   * fixes the tree LINKS. Real-world case: even after a member's BinaryNode
+   * is correctly linked, their sponsor's leftVolume/rightVolume and Matching
+   * Income stay at ₹0 forever if the original activation call never
+   * actually invoked updateVolumes() for them in the first place (which is
+   * exactly what happened for RAFIQUL Test's/KFR441197's 5 real referrals —
+   * see updateVolumes()'s doc comment for the five separate activation call
+   * sites that could each independently skip this). Fixing the code going
+   * forward (updateVolumes now self-heals placement, and
+   * order.controller.js#activateCashPackage's transaction-ordering bug is
+   * fixed) does nothing for KBP that was already silently dropped in the
+   * past — this method finds and replays exactly that gap.
+   *
+   * For every user, sums the KBP of every real completed order they've ever
+   * placed (the same "counts as real business" rule used across this
+   * codebase) and compares it against their own BinaryNode.totalKBP, which
+   * only ever increases by exactly the kbp amount passed into a successful
+   * updateVolumes() call. Any shortfall means that much KBP was never
+   * propagated to their upline, so it re-runs updateVolumes() for exactly
+   * the missing amount — through the real matching engine, so first-pair
+   * 2:1 rules, capping, leadership bonus triggers, and rank re-evaluation
+   * all fire normally, exactly as if that KBP had propagated the first time.
+   *
+   * Safe to run any time, repeatedly: totalKBP only ever grows by what this
+   * method itself just topped it up with, so a second run always computes a
+   * shortfall of 0 for anyone already reconciled.
+   */
+  async reconcileMissingVolume() {
+    const REAL_ORDER_MATCH = {
+      $or: [
+        { orderStatus: { $in: ['COMPLETED', 'DELIVERED'] } },
+        { status: 'COMPLETED' }
+      ]
+    };
+
+    const users = await User.find({}).select('_id memberId fullName').sort({ createdAt: 1 }).lean();
+
+    const summary = {
+      totalUsers: users.length,
+      alreadyCorrect: 0,
+      reconciled: [],
+      errors: []
+    };
+
+    for (const user of users) {
+      try {
+        const orders = await Order.find({ userId: user._id, ...REAL_ORDER_MATCH })
+          .select('kbpGenerated')
+          .lean();
+
+        if (orders.length === 0) continue;
+
+        const realTotalKbp = orders.reduce((sum, o) => sum + (Number(o.kbpGenerated) || 0), 0);
+        if (realTotalKbp <= 0) continue;
+
+        const node = await BinaryNode.findOne({ userId: user._id }).select('totalKBP').lean();
+        const recordedKbp = node?.totalKBP || 0;
+
+        const missingKbp = realTotalKbp - recordedKbp;
+        if (missingKbp <= 0) {
+          summary.alreadyCorrect += 1;
+          continue;
+        }
+
+        await this.updateVolumes(user._id, missingKbp);
+        summary.reconciled.push({
+          userId: user._id,
+          memberId: user.memberId,
+          fullName: user.fullName,
+          missingKbp
+        });
       } catch (err) {
         summary.errors.push({ userId: user._id, memberId: user.memberId, message: err.message });
       }

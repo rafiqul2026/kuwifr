@@ -23,27 +23,27 @@
 
 .headerTag {
   display: inline-block;
-  background: #eff6ff;
-  color: #2563eb;
+  background: rgba(0, 128, 128, 0.08);
+  color: #008080;
   font-size: 12px;
   font-weight: 700;
   padding: 4px 12px;
   border-radius: 999px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid rgba(0, 128, 128, 0.25);
   margin-bottom: 8px;
 }
 
 .pageTitle {
   font-size: 26px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c2a2a;
   margin: 0 0 4px 0;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.5px;
 }
 
 .pageSubtitle {
   font-size: 14px;
-  color: #64748b;
+  color: #737373;
   margin: 0;
   max-width: 780px;
   line-height: 1.4;
@@ -53,12 +53,11 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #ffffff;
-  border: 1.5px solid #fde68a;
-  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  background: rgba(253, 153, 17, 0.08);
+  border: 1px solid rgba(253, 153, 17, 0.3);
   padding: 10px 18px;
   border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.1);
+  box-shadow: none;
 }
 
 .starsIcon {
@@ -68,15 +67,15 @@
 .starsCount strong {
   display: block;
   font-size: 18px;
-  font-weight: 900;
-  color: #b45309;
+  font-weight: 700;
+  color: #c2660a;
 }
 
 .starsCount small {
   display: block;
   font-size: 11px;
   font-weight: 700;
-  color: #92400e;
+  color: #c2660a;
   text-transform: uppercase;
 }
 
@@ -203,8 +202,12 @@
 }
 
 /* ================= CURRENT RANK CARD ================= */
+/* Recolored to PBW's teal hero-gradient treatment (same tokens as
+   DashboardPage's .heroCard) instead of the old slate/sky-blue card. */
 .currentRankCard {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #008080 0%, #036666 55%, #024a4a 100%);
   border-radius: 18px;
   padding: 22px 26px;
   color: #ffffff;
@@ -212,12 +215,14 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+  box-shadow: none;
   flex-wrap: wrap;
   gap: 16px;
 }
 
 .currentRankLeft {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -227,8 +232,8 @@
   width: 56px;
   height: 56px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -245,7 +250,7 @@
 .currentRankLabel {
   font-size: 11px;
   font-weight: 700;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.75);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -253,17 +258,20 @@
 .currentRankName {
   margin: 0;
   font-size: 22px;
-  font-weight: 900;
-  color: #38bdf8;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.3px;
 }
 
 .currentRankStars {
   font-size: 12px;
-  color: #cbd5e1;
+  color: rgba(255, 255, 255, 0.82);
   font-weight: 600;
 }
 
 .currentRankRight {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
 }
@@ -271,11 +279,12 @@
 .achievementStats {
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 12px;
   padding: 8px 18px;
   gap: 16px;
+  backdrop-filter: blur(4px);
 }
 
 .achievementStat {
@@ -286,13 +295,13 @@
 
 .statNumber {
   font-size: 18px;
-  font-weight: 900;
+  font-weight: 700;
   color: #ffffff;
 }
 
 .statLabel {
   font-size: 10px;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.75);
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -300,7 +309,7 @@
 .achievementDivider {
   width: 1px;
   height: 28px;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.22);
 }
 
 /* ================= FILTERS ================= */
@@ -314,25 +323,26 @@
 .filterBtn {
   padding: 9px 18px;
   border-radius: 10px;
-  border: 1.5px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   background: #ffffff;
-  color: #475569;
+  color: #737373;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .filterBtn:hover {
-  border-color: #cbd5e1;
-  background: #f8fafc;
+  border-color: #008080;
+  color: #008080;
+  background: rgba(0, 128, 128, 0.05);
 }
 
 .filterBtn.active {
-  background: #0f172a;
-  color: #ffffff;
-  border-color: #0f172a;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+  background: #008080;
+  color: #fdfaf5;
+  border-color: #008080;
+  box-shadow: none;
 }
 
 /* ================= RANKS GRID ================= */
@@ -344,30 +354,31 @@
 
 .rankCard {
   background: #ffffff;
-  border: 1.5px solid #e2e8f0;
-  border-left-width: 5px;
-  border-radius: 16px;
+  border: 1px solid #e5e5e5;
+  border-left-width: 4px;
+  border-radius: 14px;
   padding: 20px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.03);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 .rankCard:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 24px -4px rgba(0, 0, 0, 0.07);
+  border-color: #d4d4d4;
+  box-shadow: 0 4px 14px rgba(28, 42, 42, 0.08);
 }
 
 .rankCard.achieved {
-  border-color: #86efac;
-  border-left-color: #10b981 !important;
+  border-color: rgba(22, 163, 74, 0.3);
+  border-left-color: #16a34a !important;
   background: linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%);
 }
 
 .rankCard.next {
-  border-color: #fde68a;
-  border-left-color: #f59e0b !important;
+  border-color: rgba(217, 119, 6, 0.3);
+  border-left-color: #d97706 !important;
 }
 
 .rankCardHeader {
@@ -403,8 +414,8 @@
 .rankName {
   margin: 0;
   font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c2a2a;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -413,8 +424,8 @@
 .rankLevel {
   font-size: 11px;
   font-weight: 700;
-  color: #64748b;
-  background: #f1f5f9;
+  color: #737373;
+  background: #f3f3f3;
   padding: 2px 7px;
   border-radius: 6px;
 }
@@ -426,7 +437,7 @@
 }
 
 .rankStars {
-  color: #64748b;
+  color: #737373;
   font-weight: 600;
 }
 
@@ -439,18 +450,18 @@
 }
 
 .achievedBadge {
-  background: #dcfce7;
-  color: #15803d;
+  background: rgba(22, 163, 74, 0.12);
+  color: #16a34a;
 }
 
 .nextBadge {
-  background: #fef3c7;
-  color: #b45309;
+  background: rgba(217, 119, 6, 0.12);
+  color: #d97706;
 }
 
 .lockedBadge {
-  background: #f1f5f9;
-  color: #64748b;
+  background: #f3f3f3;
+  color: #737373;
 }
 
 /* Body & Conditions */
@@ -461,8 +472,8 @@
 }
 
 .rankConditions {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #fdfaf5;
+  border: 1px solid #e5e5e5;
   border-radius: 10px;
   padding: 10px 12px;
   display: flex;
@@ -475,7 +486,7 @@
   align-items: flex-start;
   gap: 8px;
   font-size: 12px;
-  color: #334155;
+  color: #1c2a2a;
 }
 
 .conditionIcon {
@@ -489,15 +500,15 @@
 }
 
 .conditionText strong {
-  color: #0f172a;
+  color: #1c2a2a;
 }
 
 .salaryCondition {
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
+  background: rgba(22, 163, 74, 0.1);
+  border: 1px solid rgba(22, 163, 74, 0.3);
   padding: 4px 8px;
   border-radius: 6px;
-  color: #065f46;
+  color: #16a34a;
 }
 
 /* Progress */
@@ -509,7 +520,7 @@
 
 .progressBar {
   height: 7px;
-  background: #e2e8f0;
+  background: #f0f0ec;
   border-radius: 999px;
   overflow: hidden;
 }
@@ -524,11 +535,11 @@
   display: flex;
   justify-content: space-between;
   font-size: 11px;
-  color: #64748b;
+  color: #737373;
 }
 
 .progressTextRow strong {
-  color: #0f172a;
+  color: #1c2a2a;
 }
 
 /* Locked (sequential "next to next" gate) — replaces the progress bar for
@@ -538,8 +549,8 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  background: #f1f5f9;
-  border: 1px dashed #cbd5e1;
+  background: #f3f3f3;
+  border: 1px dashed #d4d4d4;
   border-radius: 10px;
   padding: 10px 12px;
 }
@@ -553,11 +564,11 @@
 .lockedText {
   font-size: 12px;
   line-height: 1.4;
-  color: #64748b;
+  color: #737373;
 }
 
 .lockedText strong {
-  color: #334155;
+  color: #1c2a2a;
 }
 
 /* Achieved Details */
@@ -568,9 +579,9 @@
 }
 
 .rewardTag {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  color: #1e40af;
+  background: rgba(0, 128, 128, 0.08);
+  border: 1px solid rgba(0, 128, 128, 0.25);
+  color: #006666;
   font-size: 12px;
   font-weight: 600;
   padding: 6px 10px;
@@ -578,9 +589,9 @@
 }
 
 .salaryTag {
-  background: #dcfce7;
-  border: 1px solid #86efac;
-  color: #166534;
+  background: rgba(22, 163, 74, 0.12);
+  border: 1px solid rgba(22, 163, 74, 0.3);
+  color: #16a34a;
   font-size: 12px;
   font-weight: 700;
   padding: 6px 10px;
@@ -595,25 +606,25 @@
 
 .benefitTag {
   background: #ffffff;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #e5e5e5;
   font-size: 11px;
   font-weight: 600;
-  color: #475569;
+  color: #737373;
   padding: 2px 8px;
   border-radius: 6px;
 }
 
 .nextInfo {
   font-size: 11px;
-  color: #92400e;
-  background: #fef3c7;
+  color: #d97706;
+  background: rgba(217, 119, 6, 0.12);
   padding: 6px 10px;
   border-radius: 8px;
   font-weight: 600;
 }
 
 .nextInfo strong {
-  color: #b45309;
+  color: #d97706;
 }
 
 /* Empty State & Loader */
@@ -621,7 +632,7 @@
   grid-column: 1 / -1;
   text-align: center;
   padding: 40px;
-  color: #94a3b8;
+  color: #a3a3a3;
 }
 
 .emptyState span {
@@ -637,13 +648,14 @@
   justify-content: center;
   min-height: 400px;
   gap: 14px;
+  color: #737373;
 }
 
 .spinner {
   width: 42px;
   height: 42px;
-  border: 3.5px solid #e2e8f0;
-  border-top-color: #2563eb;
+  border: 3.5px solid #e5e5e5;
+  border-top-color: #008080;
   border-radius: 50%;
   animation: spin 0.75s linear infinite;
 }

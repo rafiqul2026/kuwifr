@@ -17,7 +17,7 @@ const ALL_5_PACKAGES = [
     dailyCap: 1500,
     weeklyCap: 10500,
     monthlyCap: 45000,
-    color: '#22c55e',
+    color: '#16a34a',
     badge: 'Tier 1'
   },
   {
@@ -30,7 +30,7 @@ const ALL_5_PACKAGES = [
     dailyCap: 7000,
     weeklyCap: 49000,
     monthlyCap: 210000,
-    color: '#2563eb',
+    color: '#3b82f6',
     badge: 'Tier 2'
   },
   {
@@ -43,7 +43,7 @@ const ALL_5_PACKAGES = [
     dailyCap: 15000,
     weeklyCap: 105000,
     monthlyCap: 450000,
-    color: '#8b5cf6',
+    color: '#6366f1',
     badge: 'Tier 3'
   },
   {
@@ -56,7 +56,7 @@ const ALL_5_PACKAGES = [
     dailyCap: 20000,
     weeklyCap: 140000,
     monthlyCap: 600000,
-    color: '#7c3aed',
+    color: '#008080',
     badge: 'Tier 4'
   },
   {
@@ -69,7 +69,7 @@ const ALL_5_PACKAGES = [
     dailyCap: 50000,
     weeklyCap: 350000,
     monthlyCap: 1500000,
-    color: '#f59e0b',
+    color: '#fd9911',
     badge: 'Tier 5'
   }
 ];
@@ -214,7 +214,7 @@ const UpgradePackagePage = () => {
                 ${isPrevious ? styles.previousLockedCard : ''} 
                 ${isEligibleUpgrade ? styles.eligibleCard : ''}
               `}
-              style={{ borderTopColor: isEligibleUpgrade ? pkg.color : (isCurrent ? '#10b981' : '#94a3b8') }}
+              style={{ borderTopColor: isEligibleUpgrade ? pkg.color : (isCurrent ? '#008080' : '#d4d4d4') }}
             >
               <div className={styles.cardHeader}>
                 <div className={styles.badgeRow}>
@@ -264,13 +264,13 @@ const UpgradePackagePage = () => {
                 {isEligibleUpgrade && (
                   <div className={styles.specItem}>
                     <span>Additional KBP Credited</span>
-                    <strong style={{ color: '#2563eb' }}>+{addedKBP.toLocaleString()} KBP</strong>
+                    <strong style={{ color: '#c2660a' }}>+{addedKBP.toLocaleString()} KBP</strong>
                   </div>
                 )}
 
                 <div className={styles.specItem}>
                   <span>Daily Binary Cap</span>
-                  <strong style={{ color: '#10b981' }}>₹{pkg.dailyCap.toLocaleString()} / Day</strong>
+                  <strong style={{ color: '#16a34a' }}>₹{pkg.dailyCap.toLocaleString()} / Day</strong>
                 </div>
 
                 <div className={styles.specItem}>
@@ -303,7 +303,6 @@ const UpgradePackagePage = () => {
                     type="button"
                     className={styles.upgradeBtn}
                     onClick={() => handleInitiateUpgrade(pkg)}
-                    style={{ background: pkg.color }}
                   >
                     Upgrade to {pkg.name} (Pay ₹{priceDifference.toLocaleString()}) →
                   </button>
@@ -341,7 +340,7 @@ const UpgradePackagePage = () => {
                   <span>₹{currentPackage?.price.toLocaleString()}</span>
                 </div>
                 <span className={styles.visualArrow}>➔</span>
-                <div className={styles.visualNode} style={{ borderColor: selectedUpgrade.color, background: '#eff6ff' }}>
+                <div className={styles.visualNode} style={{ borderColor: selectedUpgrade.color, background: 'rgba(0, 128, 128, 0.05)' }}>
                   <small>Upgrading To</small>
                   <strong style={{ color: selectedUpgrade.color }}>{selectedUpgrade.name}</strong>
                   <span>₹{selectedUpgrade.price.toLocaleString()}</span>
@@ -357,13 +356,13 @@ const UpgradePackagePage = () => {
                 </div>
                 <div className={styles.summaryRow}>
                   <span>Additional KBP Points</span>
-                  <strong style={{ color: '#2563eb' }}>
+                  <strong style={{ color: '#c2660a' }}>
                     +{(selectedUpgrade.kbp - (currentPackage?.kbp || 0)).toLocaleString()} KBP
                   </strong>
                 </div>
                 <div className={styles.summaryRow}>
                   <span>New Daily Binary Cap</span>
-                  <strong style={{ color: '#10b981' }}>
+                  <strong style={{ color: '#16a34a' }}>
                     ₹{selectedUpgrade.dailyCap.toLocaleString()} / Day
                   </strong>
                 </div>

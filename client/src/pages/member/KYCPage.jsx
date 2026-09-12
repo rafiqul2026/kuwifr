@@ -211,6 +211,19 @@ const KYCPage = () => {
                 {status === 'REJECTED' && 'Action Required (Rejected)'}
                 {status === 'NOT_SUBMITTED' && 'Action Required'}
               </span>
+              <span
+                className={`${styles.statusPill} ${
+                  status === 'VERIFIED'
+                    ? styles.pillVerified
+                    : status === 'PENDING'
+                    ? styles.pillPending
+                    : status === 'REJECTED'
+                    ? styles.pillRejected
+                    : styles.pillAction
+                }`}
+              >
+                {status.replace(/_/g, ' ')}
+              </span>
               <span className={styles.pulseDot}></span>
             </div>
             <p className={styles.statusMessage}>
@@ -299,7 +312,15 @@ const KYCPage = () => {
 
               <div className={styles.cardFooter}>
                 <div className={styles.statusChip}>
-                  {previews.aadhaarFront ? (
+                  {isLocked ? (
+                    <span
+                      className={`${styles.docStatusPill} ${
+                        status === 'VERIFIED' ? styles.docStatusVerified : styles.docStatusPending
+                      }`}
+                    >
+                      {status}
+                    </span>
+                  ) : previews.aadhaarFront ? (
                     <span className={styles.chipUploaded}>● Ready</span>
                   ) : (
                     <span className={styles.chipRequired}>● Required</span>
@@ -338,7 +359,15 @@ const KYCPage = () => {
 
               <div className={styles.cardFooter}>
                 <div className={styles.statusChip}>
-                  {previews.aadhaarBack ? (
+                  {isLocked ? (
+                    <span
+                      className={`${styles.docStatusPill} ${
+                        status === 'VERIFIED' ? styles.docStatusVerified : styles.docStatusPending
+                      }`}
+                    >
+                      {status}
+                    </span>
+                  ) : previews.aadhaarBack ? (
                     <span className={styles.chipUploaded}>● Ready</span>
                   ) : (
                     <span className={styles.chipRequired}>● Required</span>
@@ -377,7 +406,15 @@ const KYCPage = () => {
 
               <div className={styles.cardFooter}>
                 <div className={styles.statusChip}>
-                  {previews.panCard ? (
+                  {isLocked ? (
+                    <span
+                      className={`${styles.docStatusPill} ${
+                        status === 'VERIFIED' ? styles.docStatusVerified : styles.docStatusPending
+                      }`}
+                    >
+                      {status}
+                    </span>
+                  ) : previews.panCard ? (
                     <span className={styles.chipUploaded}>● Ready</span>
                   ) : (
                     <span className={styles.chipRequired}>● Required</span>

@@ -6,6 +6,8 @@ const Rank = require('../models/Rank');
 const Package = require('../models/Package');
 const Fund = require('../models/Fund');
 const IncomeService = require('../services/income.service');
+const BinaryService = require('../services/binary.service');
+const BinaryNode = require('../models/BinaryNode');
 
 /**
  * Get Admin Dashboard Overview Statistics (With Frontend Aliases)
@@ -234,6 +236,34 @@ const activateMemberWithPackage = async (req, res, next) => {
     member.activePackageId = pkg._id;
     member.activationDate = new Date();
     await member.save();
+
+    // Guarantee binary-tree placement before any income is processed below.
+    // If this member's registration-time placement never happened (the
+    // exact "Growth Generation tree is empty / Total Downline Left-Right
+    // shows 0" bug reported against the live site), IncomeService's
+    // matching-income step silently finds no BinaryNode for them and
+    // returns without crediting anyone — the admin sees a success message
+    // ("Commissions distributed...") while the member's upline gets no
+    // matching income at all. Checking and fixing placement here, right
+    // before processOrderIncome runs, closes that gap for every future
+    // admin-driven activation regardless of what happened at registration.
+    if (member.sponsorId) {
+      const ownNode = await BinaryNode.findOne({ userId: member._id });
+      const parentNode = ownNode?.parentId ? await BinaryNode.findOne({ userId: ownNode.parentId }) : null;
+      const alreadyLinked =
+        parentNode &&
+        (String(parentNode.leftChildId) === String(member._id) || String(parentNode.rightChildId) === String(member._id));
+
+      if (!alreadyLinked) {
+        await BinaryService.placeMember(member._id, member.sponsorId, member.binarySide || 'left').catch((err) => {
+          console.error(
+            `\n🚨 BINARY PLACEMENT FAILED during admin activation of ${member.memberId} (${member._id}): ${err.message}\n` +
+            `   Activation will continue, but matching income for this purchase may not propagate correctly.\n` +
+            `   Fix with: POST /api/admin/binary/repair (safe, non-destructive, can be run any time).\n`
+          );
+        });
+      }
+    }
 
     const orderNumber = `ORD-ADM-${Date.now().toString(36).toUpperCase()}`;
     const kbpAmount = pkg.kbpValue || pkg.kbp || 1000;

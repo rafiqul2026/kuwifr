@@ -1,5 +1,5 @@
 // client/src/pages/member/OrdersPage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
@@ -60,6 +60,39 @@ const DEMO_REPURCHASE_ORDERS = [
   }
 ];
 
+// Status pill color mapping — matches the token set used across every
+// other redesigned member page (TeamPage/DashboardPage): amber = pending,
+// teal = paid/verified, blue = processing, green = completed, red =
+// rejected/failed, grey = cancelled/refunded.
+const STATUS_STYLES = {
+  PENDING: { label: 'Pending', color: '#d97706', bg: 'rgba(217,119,6,0.12)' },
+  AWAITING_VERIFICATION: { label: 'Awaiting Verification', color: '#d97706', bg: 'rgba(217,119,6,0.12)' },
+  APPROVED: { label: 'Approved', color: '#008080', bg: 'rgba(0,128,128,0.12)' },
+  VERIFIED: { label: 'Verified', color: '#008080', bg: 'rgba(0,128,128,0.12)' },
+  PAID: { label: 'Paid', color: '#008080', bg: 'rgba(0,128,128,0.12)' },
+  PROCESSING: { label: 'Processing', color: '#2563eb', bg: 'rgba(37,99,235,0.12)' },
+  SHIPPED: { label: 'Shipped', color: '#2563eb', bg: 'rgba(37,99,235,0.12)' },
+  PROCESSED: { label: 'Processed', color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
+  DELIVERED: { label: 'Delivered', color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
+  COMPLETED: { label: 'Completed', color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
+  SUCCESS: { label: 'Success', color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
+  REJECTED: { label: 'Rejected', color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
+  FAILED: { label: 'Failed', color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
+  CANCELLED: { label: 'Cancelled', color: '#737373', bg: 'rgba(115,115,115,0.12)' },
+  REFUNDED: { label: 'Refunded', color: '#737373', bg: 'rgba(115,115,115,0.12)' }
+};
+
+const statusStyle = (status) =>
+  STATUS_STYLES[(status || 'PAID').toUpperCase()] ||
+  { label: (status || 'Paid').replace(/_/g, ' '), color: '#737373', bg: 'rgba(115,115,115,0.12)' };
+
+const formatDate = (value) => {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
 const OrdersPage = () => {
   const { user } = useAuth();
   const { showNotification } = useNotification();
@@ -99,11 +132,27 @@ const OrdersPage = () => {
     window.print();
   };
 
+  // Real, derived-only summary numbers for the KPI strip — nothing here is
+  // fabricated, every figure is computed straight from the order lists
+  // already fetched/rendered above.
+  const summary = useMemo(() => {
+    const totalOrders = packageOrders.length + repurchaseOrders.length;
+    const totalPaid =
+      packageOrders.reduce((sum, o) => sum + Number(o.price || o.totalAmount || 0), 0) +
+      repurchaseOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+    return {
+      totalOrders,
+      totalPackages: packageOrders.length,
+      totalRepurchase: repurchaseOrders.length,
+      totalPaid
+    };
+  }, [packageOrders, repurchaseOrders]);
+
   if (loading) {
     return (
-      <div className={styles.loadingWrapper}>
-        <div className={styles.spinner}></div>
-        <p>Loading Invoices & Billing Records...</p>
+      <div className={styles.pageLoaderScreen}>
+        <div className={styles.glowSpinner}></div>
+        <p className={styles.loadingText}>Loading invoices &amp; billing records...</p>
       </div>
     );
   }
@@ -111,15 +160,54 @@ const OrdersPage = () => {
   return (
     <div className={styles.ordersContainer}>
       {/* Header */}
-      <header className={styles.pageHeader}>
-        <div>
-          <span className={styles.headerTag}>🧾 Invoicing & Payment History</span>
-          <h1 className={styles.pageTitle}>Orders & Tax Invoices</h1>
+      <div className={styles.headerRow}>
+        <div className={styles.titleGroup}>
+          <div className={styles.titleBadge}>🧾 INVOICING &amp; PAYMENT HISTORY</div>
+          <h1 className={styles.pageTitle}>Orders &amp; Tax Invoices</h1>
           <p className={styles.pageSubtitle}>
             View official digital tax invoices and payment histories for membership package activations and repurchase store orders.
           </p>
         </div>
-      </header>
+      </div>
+
+      {/* KPI Summary Strip — real numbers only, derived from the fetched order lists */}
+      <div className={styles.gradientKpiGrid}>
+        <div className={`${styles.gradientKpiCard} ${styles.gradientMint}`}>
+          <div className={styles.gradientKpiTop}>
+            <span className={styles.gradientKpiIcon}>🧾</span>
+            <span className={styles.gradientKpiLabel}>Total Orders</span>
+          </div>
+          <h2 className={styles.gradientKpiValue}>{summary.totalOrders}</h2>
+          <span className={styles.gradientKpiSub}>Package + repurchase combined</span>
+        </div>
+
+        <div className={`${styles.gradientKpiCard} ${styles.gradientBlue}`}>
+          <div className={styles.gradientKpiTop}>
+            <span className={styles.gradientKpiIcon}>📦</span>
+            <span className={styles.gradientKpiLabel}>Package Purchases</span>
+          </div>
+          <h2 className={styles.gradientKpiValue}>{summary.totalPackages}</h2>
+          <span className={styles.gradientKpiSub}>Membership activations</span>
+        </div>
+
+        <div className={`${styles.gradientKpiCard} ${styles.gradientPeach}`}>
+          <div className={styles.gradientKpiTop}>
+            <span className={styles.gradientKpiIcon}>🛍️</span>
+            <span className={styles.gradientKpiLabel}>Repurchase Orders</span>
+          </div>
+          <h2 className={styles.gradientKpiValue}>{summary.totalRepurchase}</h2>
+          <span className={styles.gradientKpiSub}>Store repurchase orders</span>
+        </div>
+
+        <div className={`${styles.gradientKpiCard} ${styles.gradientLavender}`}>
+          <div className={styles.gradientKpiTop}>
+            <span className={styles.gradientKpiIcon}>💰</span>
+            <span className={styles.gradientKpiLabel}>Total Amount Paid</span>
+          </div>
+          <h2 className={styles.gradientKpiValue}>₹{summary.totalPaid.toLocaleString('en-IN')}</h2>
+          <span className={styles.gradientKpiSub}>Across all invoices</span>
+        </div>
+      </div>
 
       {/* Segmented Controller */}
       <nav className={styles.tabsNav}>
@@ -146,66 +234,82 @@ const OrdersPage = () => {
       {activeTab === 'packages' && (
         <section className={styles.historySection}>
           {packageOrders.length === 0 ? (
-            <div className={styles.emptyState}>
-              <span className={styles.emptyIcon}>📦</span>
-              <h3>No Package Purchases Found</h3>
-              <p>Activate or upgrade your packages to view generated tax invoices.</p>
+            <div className={styles.centerBox}>
+              <h4 className={styles.emptyTitle}>No Package Purchases Found</h4>
+              <p className={styles.emptyDesc}>Activate or upgrade your packages to view generated tax invoices.</p>
             </div>
           ) : (
             <div className={styles.tableCard}>
-              <table className={styles.ordersTable}>
-                <thead>
-                  <tr>
-                    <th>Invoice ID</th>
-                    <th>Package Tier</th>
-                    <th>Selected Product</th>
-                    <th>KBP Points</th>
-                    <th>Amount Paid</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {packageOrders.map((ord) => (
-                    <tr key={ord._id}>
-                      <td>
-                        <span className={styles.invoiceCode}>{ord.invoiceNumber || ord.orderNumber || `INV-PKG-${ord._id.slice(-5)}`}</span>
-                      </td>
-                      <td>
-                        <strong className={styles.pkgNameBadge}>{ord.packageName || 'Starter Package'}</strong>
-                      </td>
-                      <td>
-                        <div className={styles.productSnippet}>
-                          {ord.selectedProduct?.image && (
-                            <img src={ord.selectedProduct.image} alt={ord.selectedProduct.name} />
-                          )}
-                          <span>{ord.selectedProduct?.name || 'Package Included Product'}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={styles.kbpBadge}>⭐ {ord.kbp?.toLocaleString() || 1000} KBP</span>
-                      </td>
-                      <td>
-                        <strong className={styles.amountText}>₹{(ord.price || ord.totalAmount)?.toLocaleString()}</strong>
-                      </td>
-                      <td>{new Date(ord.createdAt).toLocaleDateString()}</td>
-                      <td>
-                        <span className={styles.paidChip}>✓ Paid</span>
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className={styles.viewInvoiceBtn}
-                          onClick={() => setSelectedInvoice({ ...ord, invoiceType: 'PACKAGE' })}
-                        >
-                          View Invoice →
-                        </button>
-                      </td>
+              <div className={styles.tableResponsive}>
+                <table className={styles.customTable}>
+                  <thead>
+                    <tr>
+                      <th className={styles.thOrder}>ORDER</th>
+                      <th className={styles.thProduct}>SELECTED PRODUCT</th>
+                      <th className={styles.thKbp}>KBP POINTS</th>
+                      <th className={styles.thAmount}>AMOUNT PAID</th>
+                      <th className={styles.thJoined}>DATE</th>
+                      <th className={styles.thStatus}>STATUS</th>
+                      <th className={styles.thAction}>ACTION</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {packageOrders.map((ord) => {
+                      const invoiceCode = ord.invoiceNumber || ord.orderNumber || `INV-PKG-${ord._id.slice(-5)}`;
+                      const st = statusStyle(ord.paymentStatus);
+                      return (
+                        <tr key={ord._id} className={styles.tableRow}>
+                          <td className={styles.tdOrder}>
+                            <div className={styles.orderIdentityBlock}>
+                              <div className={styles.orderAvatar}>📦</div>
+                              <div className={styles.nameBlock}>
+                                <span className={styles.orderNameText}>{ord.packageName || 'Starter Package'}</span>
+                                <span className={styles.orderIdSubText}>{invoiceCode}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className={styles.tdProduct}>
+                            <div className={styles.productSnippet}>
+                              {ord.selectedProduct?.image && (
+                                <img src={ord.selectedProduct.image} alt={ord.selectedProduct.name} />
+                              )}
+                              <span>{ord.selectedProduct?.name || 'Package Included Product'}</span>
+                            </div>
+                          </td>
+                          <td className={styles.tdKbp}>
+                            <span className={styles.kbpBadge}>⭐ {ord.kbp?.toLocaleString() || 1000} KBP</span>
+                          </td>
+                          <td className={styles.tdAmount}>
+                            <strong className={styles.amountText}>₹{(ord.price || ord.totalAmount)?.toLocaleString()}</strong>
+                          </td>
+                          <td className={styles.tdJoined}>
+                            <span className={styles.joinedDateText}>{formatDate(ord.createdAt)}</span>
+                          </td>
+                          <td className={styles.tdStatus}>
+                            <span className={styles.statusPill} style={{ color: st.color, background: st.bg }}>
+                              <span className={styles.statusDot} style={{ background: st.color }}></span>
+                              {st.label}
+                            </span>
+                          </td>
+                          <td className={styles.tdAction}>
+                            <button
+                              type="button"
+                              className={styles.actionViewBtn}
+                              onClick={() => setSelectedInvoice({ ...ord, invoiceType: 'PACKAGE' })}
+                            >
+                              <span>View</span>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path>
+                              </svg>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </section>
@@ -215,64 +319,84 @@ const OrdersPage = () => {
       {activeTab === 'repurchase' && (
         <section className={styles.historySection}>
           {repurchaseOrders.length === 0 ? (
-            <div className={styles.emptyState}>
-              <span className={styles.emptyIcon}>🛍️</span>
-              <h3>No Repurchase Orders Found</h3>
-              <p>Browse the Repurchase Store to purchase products with 25% instant cashback.</p>
+            <div className={styles.centerBox}>
+              <h4 className={styles.emptyTitle}>No Repurchase Orders Found</h4>
+              <p className={styles.emptyDesc}>Browse the Repurchase Store to purchase products with 25% instant cashback.</p>
             </div>
           ) : (
             <div className={styles.tableCard}>
-              <table className={styles.ordersTable}>
-                <thead>
-                  <tr>
-                    <th>Invoice ID</th>
-                    <th>Items Purchased</th>
-                    <th>Total Volume</th>
-                    <th>Self Cashback (25%)</th>
-                    <th>Total Paid</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {repurchaseOrders.map((ord) => (
-                    <tr key={ord._id}>
-                      <td>
-                        <span className={styles.invoiceCode}>{ord.invoiceNumber || ord.orderNumber || `INV-REP-${ord._id.slice(-5)}`}</span>
-                      </td>
-                      <td>
-                        <div className={styles.itemsSummary}>
-                          <strong>{ord.items?.length || 1} Item(s)</strong>
-                          <small>{ord.items?.map(i => i.name).join(', ').slice(0, 32)}...</small>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={styles.kbpBadge}>⭐ {ord.totalKBP?.toLocaleString()} KBP</span>
-                      </td>
-                      <td>
-                        <span className={styles.cashbackChip}>+₹{(ord.selfCashback || ord.totalKBP * 0.25)?.toLocaleString()}</span>
-                      </td>
-                      <td>
-                        <strong className={styles.amountText}>₹{ord.totalAmount?.toLocaleString()}</strong>
-                      </td>
-                      <td>{new Date(ord.createdAt).toLocaleDateString()}</td>
-                      <td>
-                        <span className={styles.paidChip}>✓ Paid</span>
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className={styles.viewInvoiceBtn}
-                          onClick={() => setSelectedInvoice({ ...ord, invoiceType: 'REPURCHASE' })}
-                        >
-                          View Invoice →
-                        </button>
-                      </td>
+              <div className={styles.tableResponsive}>
+                <table className={styles.customTable}>
+                  <thead>
+                    <tr>
+                      <th className={styles.thOrder}>ORDER</th>
+                      <th className={styles.thProduct}>ITEMS PURCHASED</th>
+                      <th className={styles.thKbp}>TOTAL VOLUME</th>
+                      <th className={styles.thAmount}>CASHBACK (25%)</th>
+                      <th className={styles.thAmount}>TOTAL PAID</th>
+                      <th className={styles.thJoined}>DATE</th>
+                      <th className={styles.thStatus}>STATUS</th>
+                      <th className={styles.thAction}>ACTION</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {repurchaseOrders.map((ord) => {
+                      const invoiceCode = ord.invoiceNumber || ord.orderNumber || `INV-REP-${ord._id.slice(-5)}`;
+                      const st = statusStyle(ord.paymentStatus);
+                      return (
+                        <tr key={ord._id} className={styles.tableRow}>
+                          <td className={styles.tdOrder}>
+                            <div className={styles.orderIdentityBlock}>
+                              <div className={styles.orderAvatar}>🛍️</div>
+                              <div className={styles.nameBlock}>
+                                <span className={styles.orderNameText}>Repurchase Order</span>
+                                <span className={styles.orderIdSubText}>{invoiceCode}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className={styles.tdProduct}>
+                            <div className={styles.itemsSummary}>
+                              <strong>{ord.items?.length || 1} Item(s)</strong>
+                              <small>{ord.items?.map((i) => i.name).join(', ').slice(0, 32)}...</small>
+                            </div>
+                          </td>
+                          <td className={styles.tdKbp}>
+                            <span className={styles.kbpBadge}>⭐ {ord.totalKBP?.toLocaleString()} KBP</span>
+                          </td>
+                          <td className={styles.tdAmount}>
+                            <span className={styles.cashbackChip}>+₹{(ord.selfCashback || ord.totalKBP * 0.25)?.toLocaleString()}</span>
+                          </td>
+                          <td className={styles.tdAmount}>
+                            <strong className={styles.amountText}>₹{ord.totalAmount?.toLocaleString()}</strong>
+                          </td>
+                          <td className={styles.tdJoined}>
+                            <span className={styles.joinedDateText}>{formatDate(ord.createdAt)}</span>
+                          </td>
+                          <td className={styles.tdStatus}>
+                            <span className={styles.statusPill} style={{ color: st.color, background: st.bg }}>
+                              <span className={styles.statusDot} style={{ background: st.color }}></span>
+                              {st.label}
+                            </span>
+                          </td>
+                          <td className={styles.tdAction}>
+                            <button
+                              type="button"
+                              className={styles.actionViewBtn}
+                              onClick={() => setSelectedInvoice({ ...ord, invoiceType: 'REPURCHASE' })}
+                            >
+                              <span>View</span>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path>
+                              </svg>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </section>
@@ -300,7 +424,7 @@ const OrdersPage = () => {
                     <span className={styles.brandIcon}>🚀</span>
                     <div>
                       <h2>KUWIFR GLOBAL NETWORKS</h2>
-                      <small className={styles.companyType}>KUWIFR Networking & E-Commerce Private Limited</small>
+                      <small className={styles.companyType}>KUWIFR Networking &amp; E-Commerce Private Limited</small>
                     </div>
                   </div>
                   <p>Corporate Hub: G.S. Road, Guwahati, Assam - 781005, India</p>
@@ -320,7 +444,7 @@ const OrdersPage = () => {
                       </tr>
                       <tr>
                         <td>Invoice Date:</td>
-                        <td>{new Date(selectedInvoice.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                        <td>{formatDate(selectedInvoice.createdAt)}</td>
                       </tr>
                       <tr>
                         <td>Payment Mode:</td>
@@ -332,7 +456,7 @@ const OrdersPage = () => {
                       </tr>
                     </tbody>
                   </table>
-                  <div className={styles.statusStamp}>✓ PAID & VERIFIED</div>
+                  <div className={styles.statusStamp}>✓ PAID &amp; VERIFIED</div>
                 </div>
               </div>
 
@@ -342,15 +466,15 @@ const OrdersPage = () => {
                   <div className={styles.addressBoxHeader}>BILLED TO / DISTRIBUTOR DETAILS</div>
                   <div className={styles.addressBoxContent}>
                     <h4 className={styles.distributorName}>{user?.fullName || 'Distributor Member'}</h4>
-                    <p>Member ID: <strong className={styles.memberIdText}>{user?.memberId || 'KFR665384'}</strong>[cite: 1, 2]</p>
-                    <p>Registered Email: {user?.email || 'mcarubul2021@gmail.com'}[cite: 1, 2]</p>
-                    <p>Contact Phone: {user?.phoneNumber || '+91 7578898063'}[cite: 1, 2]</p>
+                    <p>Member ID: <strong className={styles.memberIdText}>{user?.memberId || 'KFR665384'}</strong></p>
+                    <p>Registered Email: {user?.email || 'mcarubul2021@gmail.com'}</p>
+                    <p>Contact Phone: {user?.phoneNumber || '+91 7578898063'}</p>
                     <p>Address: Assam, India</p>
                   </div>
                 </div>
 
                 <div className={styles.addressBox}>
-                  <div className={styles.addressBoxHeader}>ORDER & TRANSACTION SUMMARY</div>
+                  <div className={styles.addressBoxHeader}>ORDER &amp; TRANSACTION SUMMARY</div>
                   <div className={styles.addressBoxContent}>
                     <p>Transaction Type: <strong>{selectedInvoice.invoiceType === 'PACKAGE' ? 'Membership Package Activation' : 'Repurchase Product Order'}</strong></p>
                     <p>Order Reference: <strong>#{selectedInvoice._id}</strong></p>
@@ -366,7 +490,7 @@ const OrdersPage = () => {
                   <thead>
                     <tr>
                       <th style={{ width: '4%' }}>#</th>
-                      <th style={{ width: '44%' }}>Item Description & Specification</th>
+                      <th style={{ width: '44%' }}>Item Description &amp; Specification</th>
                       <th style={{ width: '14%' }}>Category / HSN</th>
                       <th style={{ width: '12%', textAlign: 'center' }}>KBP Volume</th>
                       <th style={{ width: '6%', textAlign: 'center' }}>Qty</th>
@@ -416,7 +540,7 @@ const OrdersPage = () => {
               {/* Financial Calculation & Terms Summary */}
               <div className={styles.invoiceFooterSection}>
                 <div className={styles.termsBox}>
-                  <h5>Terms & Digital Declaration:</h5>
+                  <h5>Terms &amp; Digital Declaration:</h5>
                   <ul>
                     <li>This is a digitally generated tax invoice authorized under GST rules and requires no physical signature.</li>
                     <li>Points (KBP) are credited instantly to upline binary networks for binary matching and Life Tension Free target funds.</li>

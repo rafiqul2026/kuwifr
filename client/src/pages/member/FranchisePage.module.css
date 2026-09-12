@@ -1,82 +1,144 @@
+/* client/src/pages/member/FranchisePage.module.css */
+/* Styled to PBW Foundation's tokens: teal #008080 primary, orange #fd9911
+   secondary, #1c2a2a foreground, #737373 muted, #e5e5e5 border, no
+   box-shadow at rest, "Geist" font — matching Dashboard/Business pages. */
+
 .pageContainer {
-  padding: 24px;
+  padding: 16px 20px 40px 20px;
   max-width: 1200px;
   margin: 0 auto;
+  box-sizing: border-box;
+  font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #1c2a2a;
 }
 
 .loadingState {
-  padding: 60px 0;
-  text-align: center;
-  color: #64748b;
-  font-size: 15px;
+  padding: 80px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: #737373;
+  font-size: 13.5px;
+}
+
+.loadingSpinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e5e5e5;
+  border-top-color: #008080;
+  border-radius: 50%;
+  animation: franchiseSpin 0.75s linear infinite;
+}
+
+@keyframes franchiseSpin {
+  to { transform: rotate(360deg); }
 }
 
 .headerRow {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
+}
+
+.headerTitleWrap {
+  flex: 1;
+  min-width: 260px;
+}
+
+.pillBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #008080;
+  background: rgba(0, 128, 128, 0.1);
+  border: 1px solid rgba(0, 128, 128, 0.25);
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin-bottom: 8px;
 }
 
 .pageTitle {
   font-size: 24px;
-  font-weight: 800;
-  color: #1e293b;
-  margin: 0 0 6px 0;
+  font-weight: 700;
+  color: #1c2a2a;
+  margin: 0 0 4px 0;
+  letter-spacing: -0.5px;
 }
 
 .pageSubtitle {
-  color: #64748b;
-  font-size: 14px;
+  color: #737373;
+  font-size: 13px;
   margin: 0;
   max-width: 640px;
+  line-height: 1.5;
 }
 
 .noticeBanner {
-  background: #fef3c7;
-  border: 1px solid #fbbf24;
-  color: #92400e;
-  padding: 14px 18px;
-  border-radius: 8px;
+  background: rgba(217, 119, 6, 0.1);
+  border: 1px solid rgba(217, 119, 6, 0.3);
+  color: #d97706;
+  padding: 13px 16px;
+  border-radius: 10px;
   margin-bottom: 20px;
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .applyCard {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
+  padding: 22px;
   max-width: 560px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  box-shadow: none;
 }
 
 .formLabel {
   font-weight: 600;
-  color: #334155;
-  font-size: 14px;
+  color: #1c2a2a;
+  font-size: 13px;
 }
 
 .textarea {
   width: 100%;
   min-height: 100px;
   padding: 12px;
-  border-radius: 8px;
-  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  border: 1px solid #e5e5e5;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 13.5px;
   resize: vertical;
+  background: #fdfaf5;
+  color: #1c2a2a;
+  box-sizing: border-box;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: #008080;
 }
 
 .primaryBtn {
-  background: #2563eb;
-  color: #fff;
+  background: #008080;
+  color: #ffffff;
   border: none;
-  padding: 12px 20px;
-  border-radius: 8px;
+  padding: 11px 20px;
+  border-radius: 10px;
   font-weight: 700;
+  font-size: 13px;
   cursor: pointer;
   align-self: flex-start;
+  transition: background-color 0.15s ease;
+}
+
+.primaryBtn:hover:not(:disabled) {
+  background: #006a6a;
 }
 
 .primaryBtn:disabled {
@@ -85,9 +147,9 @@
 }
 
 .pendingCard {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
   padding: 48px 24px;
   text-align: center;
   max-width: 480px;
@@ -101,20 +163,23 @@
 
 .pendingCard h2 {
   margin: 0 0 8px 0;
-  color: #1e293b;
+  color: #1c2a2a;
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .pendingCard p {
-  color: #64748b;
-  font-size: 14px;
+  color: #737373;
+  font-size: 13.5px;
   margin: 0;
+  line-height: 1.5;
 }
 
 .statsGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 28px;
+  gap: 14px;
+  margin-bottom: 24px;
 }
 
 @media (max-width: 700px) {
@@ -122,40 +187,47 @@
 }
 
 .statCard {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 16px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: none;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.statCard:hover {
+  border-color: #d4d4d4;
+  box-shadow: 0 1px 3px rgba(28, 42, 42, 0.06);
 }
 
 .statLabel {
   display: block;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
-  color: #64748b;
+  color: #737373;
   margin-bottom: 6px;
 }
 
 .statValue {
   margin: 0;
   font-size: 20px;
-  font-weight: 800;
-  color: #1e293b;
+  font-weight: 700;
+  color: #1c2a2a;
 }
 
 .statHelp {
   display: block;
   margin-top: 4px;
-  font-size: 11px;
-  color: #94a3b8;
+  font-size: 11.5px;
+  color: #a3a3a3;
 }
 
 .territorySection {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
   padding: 20px;
 }
 
@@ -170,15 +242,25 @@
 
 .sectionHeader h3 {
   margin: 0;
-  color: #1e293b;
+  color: #1c2a2a;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .searchInput {
   padding: 8px 12px;
-  border-radius: 6px;
-  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  border: 1px solid #e5e5e5;
   font-size: 13px;
   min-width: 240px;
+  background: #fdfaf5;
+  color: #1c2a2a;
+  font-family: inherit;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: #008080;
 }
 
 .tableWrapper {
@@ -194,21 +276,24 @@
 .table th {
   text-align: left;
   padding: 10px 12px;
-  color: #64748b;
-  border-bottom: 1px solid #e2e8f0;
+  color: #737373;
+  border-bottom: 1px solid #e5e5e5;
   font-weight: 700;
   white-space: nowrap;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
 
 .table td {
   padding: 10px 12px;
-  border-bottom: 1px solid #f1f5f9;
-  color: #334155;
+  border-bottom: 1px solid #f0f0ec;
+  color: #1c2a2a;
 }
 
 .emptyState {
   text-align: center;
-  color: #94a3b8;
+  color: #a3a3a3;
   padding: 24px !important;
 }
 
@@ -217,18 +302,18 @@
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
-  background: #f1f5f9;
-  color: #64748b;
+  background: rgba(115, 115, 115, 0.12);
+  color: #737373;
 }
 
 .statusBadge[data-status="ACTIVE"] {
-  background: #dcfce7;
+  background: rgba(22, 163, 74, 0.12);
   color: #16a34a;
 }
 
 .statusBadge[data-status="INACTIVE"] {
-  background: #fef3c7;
-  color: #b45309;
+  background: rgba(217, 119, 6, 0.12);
+  color: #d97706;
 }
 
 .pagination {
@@ -238,18 +323,32 @@
   gap: 14px;
   margin-top: 16px;
   font-size: 13px;
-  color: #64748b;
+  color: #737373;
 }
 
 .pagination button {
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  background: #fdfaf5;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
   padding: 6px 12px;
   cursor: pointer;
+  color: #1c2a2a;
+  font-family: inherit;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.pagination button:hover:not(:disabled) {
+  border-color: #008080;
+  color: #008080;
 }
 
 .pagination button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+@media (max-width: 560px) {
+  .pageContainer {
+    padding: 12px 12px 32px 12px;
+  }
 }

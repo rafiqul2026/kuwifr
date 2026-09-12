@@ -154,7 +154,7 @@ const SupportPage = () => {
     <div className={styles.supportContainer}>
       {/* Header */}
       <header className={styles.pageHeader}>
-        <div>
+        <div className={styles.headerTitleWrap}>
           <span className={styles.headerTag}>🎧 24/7 Dedicated Helpdesk</span>
           <h1 className={styles.pageTitle}>Support & Ticket Center</h1>
           <p className={styles.pageSubtitle}>
@@ -166,7 +166,7 @@ const SupportPage = () => {
       {/* Stats Summary */}
       <section className={styles.statsGrid}>
         <div className={styles.statCard}>
-          <div className={styles.statIcon} style={{ background: '#eff6ff', color: '#2563eb' }}>🎫</div>
+          <div className={styles.statIcon} style={{ background: 'rgba(0, 128, 128, 0.12)', color: '#008080' }}>🎫</div>
           <div className={styles.statInfo}>
             <small>Total Tickets</small>
             <h3>{stats.total}</h3>
@@ -174,7 +174,7 @@ const SupportPage = () => {
         </div>
 
         <div className={styles.statCard}>
-          <div className={styles.statIcon} style={{ background: '#fffbeb', color: '#d97706' }}>⏳</div>
+          <div className={styles.statIcon} style={{ background: 'rgba(217, 119, 6, 0.12)', color: '#d97706' }}>⏳</div>
           <div className={styles.statInfo}>
             <small>Pending Resolution</small>
             <h3>{stats.open + stats.inProgress}</h3>
@@ -182,7 +182,7 @@ const SupportPage = () => {
         </div>
 
         <div className={styles.statCard}>
-          <div className={styles.statIcon} style={{ background: '#f0fdf4', color: '#16a34a' }}>✅</div>
+          <div className={styles.statIcon} style={{ background: 'rgba(22, 163, 74, 0.12)', color: '#16a34a' }}>✅</div>
           <div className={styles.statInfo}>
             <small>Resolved Tickets</small>
             <h3>{stats.resolved}</h3>

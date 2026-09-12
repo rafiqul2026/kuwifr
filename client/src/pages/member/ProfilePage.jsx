@@ -158,6 +158,7 @@ const ProfilePage = () => {
       {/* ================= TOP COMPACT HEADER ================= */}
       <div className={styles.headerBlock}>
         <div className={styles.headerTitleGroup}>
+          <span className={styles.headerEyebrow}>ACCOUNT SETTINGS</span>
           <h1 className={styles.pageTitle}>Profile</h1>
           <p className={styles.pageSubtitle}>Manage your personal credentials, identity & settlement details</p>
         </div>

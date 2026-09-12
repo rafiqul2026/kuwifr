@@ -411,10 +411,34 @@ const activateCashPackage = async (req, res, next) => {
     }], { session });
 
     // 4. Trigger authoritative KBP Income Distribution (Direct 10% & Matching 10%)
-    await IncomeService.processOrderIncome(newOrder[0]);
-
+    //
+    // CRITICAL ORDERING FIX: this used to call processOrderIncome() BEFORE
+    // committing the transaction above. IncomeService.processReferralIncome
+    // re-reads the member via a plain User.findById(userId) that is NOT part
+    // of this session — under MongoDB's transaction semantics, writes made
+    // inside an uncommitted transaction (member.status = 'ACTIVE' above) are
+    // NOT visible to reads outside that transaction. So that read always saw
+    // the member's PRE-activation status, "if (user.status !== 'ACTIVE')
+    // return null;" always fired, and referral income was silently skipped
+    // on every single activation through this endpoint — this is exactly
+    // what happened to 2 of RAFIQUL Test's (KFR441197) 5 real referrals.
+    // Commit first (mirrors the already-correct pattern in
+    // packagePurchase.controller.js#approvePackagePurchase), then run income
+    // processing against durably-committed data.
     await session.commitTransaction();
     session.endSession();
+
+    // Activation itself is already durably committed at this point. Income
+    // distribution runs outside the transaction (same reasoning as
+    // packagePurchase.controller.js#approvePackagePurchase) — if this throws,
+    // the member is still correctly ACTIVE; log loudly instead of reporting
+    // activation failure for what is really an income-processing hiccup.
+    let incomeResult = null;
+    try {
+      incomeResult = await IncomeService.processOrderIncome(newOrder[0]);
+    } catch (incomeErr) {
+      console.error(`❌ Income processing failed for cash-activated member ${member.memberId}:`, incomeErr.message);
+    }
 
     return res.json({
       success: true,
@@ -423,11 +447,14 @@ const activateCashPackage = async (req, res, next) => {
         memberId: member.memberId,
         package: pkg.name,
         kbp: authoritativeKbp,
-        amount: authoritativePrice
+        amount: authoritativePrice,
+        incomeResult
       }
     });
   } catch (error) {
-    await session.abortTransaction();
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
     session.endSession();
     console.error('❌ Cash Package Activation Error:', error);
 

@@ -257,9 +257,9 @@ const RanksPage = () => {
   };
 
   const getProgressColor = (progress) => {
-    if (progress >= 100) return "#10b981";
-    if (progress >= 50) return "#f59e0b";
-    return "#2563eb";
+    if (progress >= 100) return "#16a34a";
+    if (progress >= 50) return "#d97706";
+    return "#008080";
   };
 
   const getRankIcon = (rank) => {
@@ -267,7 +267,7 @@ const RanksPage = () => {
   };
 
   const getRankColor = (rank) => {
-    return rank?.color || "#2563eb";
+    return rank?.color || "#008080";
   };
 
   const getRankConditions = (rank) => {
@@ -605,12 +605,12 @@ const RanksPage = () => {
                 key={rank._id || rank.level}
                 className={`${styles.rankCard} ${isAchieved ? styles.achieved : ''} ${isNext ? styles.next : ''}`}
                 style={{
-                  borderLeftColor: isAchieved ? rankColor : isNext ? '#f59e0b' : '#e2e8f0',
+                  borderLeftColor: isAchieved ? rankColor : isNext ? '#d97706' : '#e5e5e5',
                   animationDelay: `${index * 0.03}s`
                 }}
               >
                 <div className={styles.rankCardHeader}>
-                  <div className={styles.rankIconWrapper} style={{ background: isAchieved ? rankColor : '#f1f5f9' }}>
+                  <div className={styles.rankIconWrapper} style={{ background: isAchieved ? rankColor : '#f3f3f3' }}>
                     <span className={styles.rankIcon}>{rankIcon}</span>
                   </div>
                   <div className={styles.rankCardInfo}>

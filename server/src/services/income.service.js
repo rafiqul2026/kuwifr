@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Package = require('../models/Package');
 const BinaryNode = require('../models/BinaryNode');
 const Referral = require('../models/Referral');
+const Order = require('../models/Order');
 const WalletService = require('./wallet.service');
 const BinaryService = require('./binary.service');
 
@@ -669,6 +670,112 @@ class IncomeService {
         monthly: { cap: pkg.monthlyCap, consumed: monthlyConsumed, remaining: Math.max(0, pkg.monthlyCap - monthlyConsumed), percentage: Math.round((monthlyConsumed / pkg.monthlyCap) * 100) }
       }
     };
+  }
+
+  // ============ ADMIN REPAIR: MISSING REFERRAL INCOME ============
+
+  /**
+   * Backfills the one-time 10% Direct Referral Bonus for any ACTIVE,
+   * sponsored member whose activation never actually triggered
+   * processReferralIncome().
+   *
+   * Real-world case this fixes: RAFIQUL Test (KFR441197) has 5 real,
+   * ACTIVE direct referrals — but only 3 of them ever generated a
+   * REFERRAL_INCOME transaction for him (₹1,500 credited instead of the
+   * correct ₹2,650). Root cause: this codebase has FIVE separate activation
+   * endpoints that each create an Order and call processOrderIncome
+   * (admin.controller.js#activateMemberWithPackage,
+   * order.controller.js#activateCashPackage,
+   * package.controller.js#purchasePackage,
+   * packagePurchase.controller.js#approvePackagePurchase,
+   * packageActivation.service.js#activateCashPackage). One of them —
+   * order.controller.js#activateCashPackage — called processOrderIncome()
+   * BEFORE committing its own MongoDB transaction, so processReferralIncome's
+   * plain (non-session) User.findById() read never saw the member's
+   * just-written 'ACTIVE' status and silently skipped every referral bonus
+   * it should have paid (fixed separately in that controller). This method
+   * repairs the DATA left behind by that bug (and any future gap of the
+   * same shape) without needing to know which endpoint caused it.
+   *
+   * Safe to run any time, repeatedly: processReferralIncome() already
+   * refuses to double-credit (a per-order guard AND a per-sponsored-member
+   * guard), so re-running this only ever fills in a genuinely missing
+   * credit — it can never duplicate one that already exists.
+   */
+  async reconcileMissingReferralIncome() {
+    // Same "counts as a real completed order" rule used everywhere else in
+    // this codebase (user.controller.js's REAL_ORDER_MATCH, fund.service.js's
+    // TTO aggregation) — orders can be marked COMPLETED via either the
+    // legacy `status` field or the newer `orderStatus`/`DELIVERED` field
+    // depending on which activation endpoint created them.
+    const REAL_ORDER_MATCH = {
+      $or: [
+        { orderStatus: { $in: ['COMPLETED', 'DELIVERED'] } },
+        { status: 'COMPLETED' }
+      ]
+    };
+
+    const activeMembers = await User.find({
+      status: 'ACTIVE',
+      sponsorId: { $ne: null, $exists: true }
+    }).select('_id sponsorId memberId fullName').lean();
+
+    let checked = 0;
+    let alreadyCredited = 0;
+    let credited = 0;
+    let noQualifyingOrder = 0;
+    let failed = 0;
+    const repaired = [];
+
+    for (const member of activeMembers) {
+      checked++;
+
+      const alreadyHasCredit = await IncomeTransaction.findOne({
+        type: 'REFERRAL_INCOME',
+        'metadata.sponsoredUserId': member._id
+      }).select('_id').lean();
+
+      if (alreadyHasCredit) {
+        alreadyCredited++;
+        continue;
+      }
+
+      // The earliest real PACKAGE order is this member's actual activation
+      // event — the one that should have paid their sponsor.
+      const order = await Order.findOne({
+        userId: member._id,
+        orderType: 'PACKAGE',
+        ...REAL_ORDER_MATCH
+      }).sort({ createdAt: 1 });
+
+      if (!order) {
+        noQualifyingOrder++;
+        continue;
+      }
+
+      try {
+        const result = await this.processReferralIncome(member._id, order);
+        if (result) {
+          credited++;
+          repaired.push({
+            memberId: member.memberId,
+            memberName: member.fullName,
+            sponsorId: result.sponsorId,
+            allowedAmount: result.allowedAmount
+          });
+        } else {
+          // processReferralIncome returned null for a reason other than
+          // "already credited" (e.g. sponsor suspended, member not ACTIVE
+          // at the moment of the re-check) — not an error, just not payable.
+          noQualifyingOrder++;
+        }
+      } catch (err) {
+        failed++;
+        console.error(`Reconcile referral income failed for ${member.memberId}:`, err.message);
+      }
+    }
+
+    return { checked, alreadyCredited, credited, noQualifyingOrder, failed, repaired };
   }
 }
 

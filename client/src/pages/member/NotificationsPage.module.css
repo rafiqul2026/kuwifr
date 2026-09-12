@@ -1,121 +1,141 @@
-/* ============================================================
-   NOTIFICATIONS PAGE - MODERN PROFESSIONAL DESIGN
-   ============================================================ */
+/* client/src/pages/member/NotificationsPage.module.css */
+/* Styled to PBW Foundation's tokens: teal #008080 primary, orange #fd9911
+   secondary, #1c2a2a foreground, #737373 muted, #e5e5e5 border, no
+   box-shadow at rest, "Geist" font — matching Dashboard/Business pages.
+   List items mirror the Dashboard's Announcements widget pattern
+   (.announceList / .announceItem / .announceIcon / .announceText). */
 
 .notificationsPage {
   max-width: 900px;
   margin: 0 auto;
+  padding: 16px 20px 40px 20px;
+  box-sizing: border-box;
+  font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #1c2a2a;
 }
 
 /* ============ PAGE HEADER ============ */
 .pageHeader {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
+  align-items: flex-start;
+  margin-bottom: 20px;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 14px;
+}
+
+.headerTitleWrap {
+  flex: 1;
+  min-width: 260px;
+}
+
+.pillBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #008080;
+  background: rgba(0, 128, 128, 0.1);
+  border: 1px solid rgba(0, 128, 128, 0.25);
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin-bottom: 8px;
 }
 
 .pageTitle {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c2a2a;
   margin: 0 0 4px 0;
+  letter-spacing: -0.5px;
 }
 
 .pageSubtitle {
-  font-size: 15px;
-  color: #64748b;
+  font-size: 13px;
+  color: #737373;
   margin: 0;
 }
 
 .headerActions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .unreadBadge {
-  font-size: 14px;
-  font-weight: 500;
-  color: #2563eb;
-  background: rgba(37, 99, 235, 0.08);
-  padding: 4px 14px;
-  border-radius: 20px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #008080;
+  background: rgba(0, 128, 128, 0.1);
+  padding: 5px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
 .markAllBtn {
-  padding: 8px 20px;
-  border: none;
+  padding: 8px 16px;
+  border: 1px solid #008080;
   border-radius: 10px;
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
-  color: white;
-  font-size: 14px;
-  font-weight: 500;
+  background: #008080;
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background-color 0.15s ease;
+  white-space: nowrap;
+  font-family: inherit;
 }
 
 .markAllBtn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(37, 99, 235, 0.3);
+  background: #006a6a;
 }
 
 /* ============ FILTERS ============ */
 .filters {
   display: flex;
   gap: 8px;
-  margin-bottom: 24px;
-  border-bottom: 2px solid #e2e8f0;
-  padding-bottom: 4px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
 }
 
 .filterBtn {
-  padding: 8px 20px;
-  border: none;
-  background: none;
-  color: #94a3b8;
-  font-size: 14px;
-  font-weight: 500;
+  padding: 7px 16px;
+  border: 1px solid #e5e5e5;
+  background: #ffffff;
+  color: #737373;
+  font-size: 12.5px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
-  border-radius: 8px 8px 0 0;
-  position: relative;
+  transition: all 0.15s ease;
+  border-radius: 999px;
   display: flex;
   align-items: center;
   gap: 6px;
+  font-family: inherit;
 }
 
 .filterBtn:hover {
-  color: #0f172a;
-  background: rgba(0, 0, 0, 0.02);
+  border-color: #d4d4d4;
+  color: #1c2a2a;
 }
 
 .filterBtn.active {
-  color: #2563eb;
-  background: rgba(37, 99, 235, 0.06);
-}
-
-.filterBtn.active::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #2563eb;
-  border-radius: 2px;
+  color: #008080;
+  background: rgba(0, 128, 128, 0.08);
+  border-color: #008080;
 }
 
 .filterCount {
-  background: #2563eb;
-  color: white;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 0 8px;
-  border-radius: 10px;
-  min-width: 18px;
+  background: #008080;
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  min-width: 16px;
   text-align: center;
 }
 
@@ -123,35 +143,36 @@
 .notificationsList {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .notificationItem {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
-  padding: 16px 20px;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(226, 232, 240, 0.6);
-  border-radius: 12px;
-  transition: all 0.3s ease;
+  gap: 14px;
+  padding: 16px 18px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
+  box-shadow: none;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 .notificationItem:hover {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  border-color: #d4d4d4;
+  box-shadow: 0 1px 3px rgba(28, 42, 42, 0.06);
 }
 
 .notificationItem.unread {
-  border-left: 4px solid #2563eb;
-  background: rgba(37, 99, 235, 0.02);
+  border-color: rgba(0, 128, 128, 0.35);
+  background: rgba(0, 128, 128, 0.03);
 }
 
 .notifIcon {
-  font-size: 24px;
-  width: 40px;
-  height: 40px;
+  font-size: 16px;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -179,44 +200,45 @@
 }
 
 .notifTitle {
-  font-size: 15px;
-  font-weight: 600;
-  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1c2a2a;
 }
 
 .unreadDot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: #2563eb;
+  background: #008080;
   display: inline-block;
+  flex-shrink: 0;
 }
 
 .notifPriority {
   font-size: 10px;
-  font-weight: 600;
-  padding: 2px 10px;
-  border-radius: 10px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 999px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
 
 .notifTime {
-  font-size: 12px;
-  color: #94a3b8;
+  font-size: 11.5px;
+  color: #a3a3a3;
   white-space: nowrap;
 }
 
 .notifMessage {
-  font-size: 14px;
-  color: #64748b;
+  font-size: 12.5px;
+  color: #737373;
   margin: 4px 0 0 0;
   line-height: 1.5;
 }
 
 .notifBody {
-  font-size: 13px;
-  color: #94a3b8;
+  font-size: 12px;
+  color: #a3a3a3;
   margin: 4px 0 0 0;
   line-height: 1.5;
 }
@@ -224,32 +246,36 @@
 .notifFooter {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   margin-top: 8px;
   flex-wrap: wrap;
 }
 
 .notifType {
-  font-size: 11px;
-  color: #94a3b8;
-  background: #f1f5f9;
-  padding: 2px 10px;
-  border-radius: 10px;
+  font-size: 10.5px;
+  color: #737373;
+  background: #fdfaf5;
+  border: 1px solid #e5e5e5;
+  padding: 2px 9px;
+  border-radius: 999px;
   text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .actionBtn {
-  font-size: 13px;
-  font-weight: 500;
-  color: #2563eb;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #008080;
   background: none;
   border: none;
   cursor: pointer;
-  transition: color 0.2s ease;
+  transition: color 0.15s ease;
+  padding: 0;
+  font-family: inherit;
 }
 
 .actionBtn:hover {
-  color: #1d4ed8;
+  text-decoration: underline;
 }
 
 .notifActions {
@@ -267,53 +293,52 @@
   border-radius: 50%;
   background: none;
   cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s ease;
+  font-size: 13px;
+  transition: all 0.15s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.4;
+  opacity: 0.45;
+  color: #737373;
 }
 
 .readBtn:hover {
   opacity: 1;
-  background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
+  background: rgba(22, 163, 74, 0.12);
+  color: #16a34a;
 }
 
 .deleteBtn:hover {
   opacity: 1;
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
 }
 
 /* ============ EMPTY STATE ============ */
 .emptyState {
   text-align: center;
   padding: 60px 20px;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(226, 232, 240, 0.6);
-  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
 }
 
 .emptyIcon {
-  font-size: 56px;
+  font-size: 48px;
   display: block;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .emptyState h3 {
-  font-size: 20px;
-  font-weight: 600;
-  color: #0f172a;
-  margin: 0 0 8px 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #1c2a2a;
+  margin: 0 0 6px 0;
 }
 
 .emptyState p {
-  font-size: 16px;
-  color: #64748b;
+  font-size: 13.5px;
+  color: #737373;
   margin: 0;
 }
 
@@ -322,26 +347,27 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 16px;
-  margin-top: 20px;
-  padding: 12px 0;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 8px 0;
 }
 
 .pagination button {
-  padding: 8px 20px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: white;
-  color: #0f172a;
-  font-size: 14px;
-  font-weight: 500;
+  padding: 8px 18px;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1c2a2a;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
+  font-family: inherit;
 }
 
 .pagination button:hover:not(:disabled) {
-  background: #f8fafc;
-  border-color: #94a3b8;
+  border-color: #008080;
+  color: #008080;
 }
 
 .pagination button:disabled {
@@ -350,8 +376,8 @@
 }
 
 .pageInfo {
-  font-size: 14px;
-  color: #64748b;
+  font-size: 13px;
+  color: #737373;
 }
 
 /* ============ LOADING ============ */
@@ -361,16 +387,19 @@
   align-items: center;
   justify-content: center;
   min-height: 400px;
-  gap: 16px;
+  gap: 14px;
+  color: #737373;
+  font-size: 13.5px;
+  font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 .spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #e2e8f0;
-  border-top-color: #2563eb;
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e5e5e5;
+  border-top-color: #008080;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  animation: spin 0.75s linear infinite;
 }
 
 @keyframes spin {
@@ -394,16 +423,16 @@
   }
 
   .filters {
-    gap: 4px;
+    gap: 6px;
   }
 
   .filterBtn {
-    padding: 6px 14px;
-    font-size: 13px;
+    padding: 6px 13px;
+    font-size: 12px;
   }
 
   .notificationItem {
-    padding: 12px 14px;
+    padding: 13px 14px;
     flex-wrap: wrap;
   }
 
@@ -426,7 +455,7 @@
   .deleteBtn {
     width: 32px;
     height: 32px;
-    font-size: 16px;
+    font-size: 15px;
   }
 
   .pagination {
@@ -436,24 +465,28 @@
 }
 
 @media (max-width: 480px) {
+  .notificationsPage {
+    padding: 12px 12px 32px 12px;
+  }
+
   .pageTitle {
-    font-size: 22px;
+    font-size: 20px;
   }
 
   .notificationItem {
-    padding: 10px 12px;
+    padding: 11px 12px;
   }
 
   .notifTitle {
-    font-size: 14px;
-  }
-
-  .notifMessage {
     font-size: 13px;
   }
 
+  .notifMessage {
+    font-size: 12px;
+  }
+
   .notifIcon {
-    font-size: 20px;
+    font-size: 14px;
     width: 32px;
     height: 32px;
   }
@@ -463,10 +496,10 @@
   }
 
   .emptyIcon {
-    font-size: 44px;
+    font-size: 40px;
   }
 
   .emptyState h3 {
-    font-size: 18px;
+    font-size: 16px;
   }
 }

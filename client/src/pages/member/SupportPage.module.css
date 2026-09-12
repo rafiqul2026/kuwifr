@@ -1,123 +1,148 @@
 /* client/src/pages/member/SupportPage.module.css */
+/* Styled to PBW Foundation's tokens: teal #008080 primary, orange #fd9911
+   secondary, #1c2a2a foreground, #737373 muted, #e5e5e5 border, no
+   box-shadow at rest, "Geist" font — matching Dashboard/Business pages. */
 
 .supportContainer {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 12px 16px 40px 16px;
+  padding: 16px 20px 40px 20px;
   box-sizing: border-box;
+  font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #1c2a2a;
 }
 
 .pageHeader {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
+}
+
+.headerTitleWrap {
+  max-width: 720px;
 }
 
 .headerTag {
   display: inline-block;
-  background: #eff6ff;
-  color: #2563eb;
-  font-size: 12px;
+  background: rgba(0, 128, 128, 0.1);
+  color: #008080;
+  font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.3px;
   padding: 4px 12px;
   border-radius: 999px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid rgba(0, 128, 128, 0.25);
   margin-bottom: 8px;
 }
 
 .pageTitle {
-  font-size: 26px;
-  font-weight: 800;
-  color: #0f172a;
+  font-size: 24px;
+  font-weight: 700;
+  color: #1c2a2a;
   margin: 0 0 4px 0;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.5px;
 }
 
 .pageSubtitle {
-  font-size: 14px;
-  color: #64748b;
+  font-size: 13px;
+  color: #737373;
   margin: 0;
+  line-height: 1.5;
 }
 
 /* ================= STATS ================= */
 .statsGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 14px;
+  margin-bottom: 20px;
 }
 
 .statCard {
   background: #ffffff;
-  border: 1.5px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   border-radius: 14px;
-  padding: 18px 20px;
+  padding: 16px 18px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+  gap: 14px;
+  box-shadow: none;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.statCard:hover {
+  border-color: #d4d4d4;
+  box-shadow: 0 1px 3px rgba(28, 42, 42, 0.06);
 }
 
 .statIcon {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: 20px;
+  flex-shrink: 0;
 }
 
 .statInfo small {
   display: block;
   font-size: 11px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
   text-transform: uppercase;
+  letter-spacing: 0.4px;
   margin-bottom: 2px;
 }
 
 .statInfo h3 {
   margin: 0;
-  font-size: 24px;
-  font-weight: 900;
-  color: #0f172a;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1c2a2a;
 }
 
 /* ================= TABS NAV ================= */
 .tabsNav {
   display: flex;
-  gap: 8px;
-  background: #f1f5f9;
-  padding: 6px;
+  gap: 6px;
+  background: #fdfaf5;
+  border: 1px solid #e5e5e5;
+  padding: 5px;
   border-radius: 12px;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .tabBtn {
   flex: 1;
-  padding: 10px 16px;
+  padding: 10px 14px;
   border: none;
   background: transparent;
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: 9px;
+  font-size: 12.5px;
   font-weight: 700;
-  color: #475569;
+  color: #737373;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.tabBtn:hover {
+  color: #1c2a2a;
 }
 
 .tabActive {
   background: #ffffff;
-  color: #2563eb;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  color: #008080;
+  border: 1px solid #e5e5e5;
 }
 
 /* ================= TICKETS TABLE ================= */
 .ticketsTableCard {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
   overflow-x: auto;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  box-shadow: none;
 }
 
 .ticketTable {
@@ -128,89 +153,100 @@
 }
 
 .ticketTable th {
-  background: #f8fafc;
-  padding: 12px 16px;
-  color: #475569;
+  background: #fdfaf5;
+  padding: 11px 16px;
+  color: #737373;
   font-weight: 700;
-  border-bottom: 1.5px solid #e2e8f0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border-bottom: 1px solid #e5e5e5;
 }
 
 .ticketTable td {
   padding: 12px 16px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f0f0ec;
+  color: #1c2a2a;
 }
 
 .ticketCode {
   font-family: monospace;
-  font-weight: 800;
-  color: #0f172a;
-  background: #f1f5f9;
+  font-weight: 700;
+  color: #1c2a2a;
+  background: #fdfaf5;
+  border: 1px solid #e5e5e5;
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: 5px;
 }
 
 .categoryBadge {
   font-size: 11px;
   font-weight: 600;
-  color: #475569;
+  color: #737373;
 }
 
 .subjectCell strong {
-  color: #0f172a;
+  color: #1c2a2a;
 }
 
 .badge {
   font-size: 11px;
   font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
   white-space: nowrap;
 }
-.badgeOpen { background: #eff6ff; color: #2563eb; }
-.badgeProgress { background: #fef3c7; color: #b45309; }
-.badgeResolved { background: #dcfce7; color: #15803d; }
-.badgeClosed { background: #f1f5f9; color: #64748b; }
+.badgeOpen { background: rgba(0, 128, 128, 0.12); color: #008080; }
+.badgeProgress { background: rgba(217, 119, 6, 0.12); color: #d97706; }
+.badgeResolved { background: rgba(22, 163, 74, 0.12); color: #16a34a; }
+.badgeClosed { background: rgba(115, 115, 115, 0.12); color: #737373; }
 
 .priorityChip {
   font-size: 10px;
-  font-weight: 800;
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
   text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
-.pUrgent { background: #fee2e2; color: #b91c1c; }
-.pHigh { background: #ffedd5; color: #c2410c; }
-.pMed { background: #fef3c7; color: #b45309; }
-.pLow { background: #f1f5f9; color: #64748b; }
+.pUrgent { background: rgba(220, 38, 38, 0.12); color: #dc2626; }
+.pHigh { background: rgba(253, 153, 17, 0.16); color: #c2660a; }
+.pMed { background: rgba(217, 119, 6, 0.12); color: #d97706; }
+.pLow { background: rgba(115, 115, 115, 0.12); color: #737373; }
 
 .viewDetailsBtn {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  color: #2563eb;
+  background: rgba(0, 128, 128, 0.08);
+  border: 1px solid rgba(0, 128, 128, 0.25);
+  color: #008080;
   padding: 5px 12px;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
 }
 .viewDetailsBtn:hover {
-  background: #2563eb;
+  background: #008080;
+  border-color: #008080;
   color: #ffffff;
 }
 
 /* ================= TICKET DETAIL & REPLIES ================= */
 .ticketDetailCard {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 24px;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
+  padding: 22px;
 }
 
 .detailHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #f1f5f9;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-bottom: 1px solid #f0f0ec;
   padding-bottom: 14px;
   margin-bottom: 16px;
 }
@@ -220,26 +256,33 @@
   border: none;
   font-size: 13px;
   font-weight: 700;
-  color: #2563eb;
+  color: #008080;
   cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+}
+
+.backBtn:hover {
+  text-decoration: underline;
 }
 
 .detailMeta {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .detailSubject {
-  font-size: 20px;
-  font-weight: 800;
-  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1c2a2a;
   margin: 0 0 16px 0;
 }
 
 .initialMessageBubble {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #fdfaf5;
+  border: 1px solid #e5e5e5;
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 20px;
@@ -248,17 +291,19 @@
 .bubbleHead {
   display: flex;
   justify-content: space-between;
+  gap: 8px;
   font-size: 12px;
   margin-bottom: 6px;
+  flex-wrap: wrap;
 }
-.bubbleHead strong { color: #0f172a; }
-.bubbleHead small { color: #94a3b8; }
+.bubbleHead strong { color: #1c2a2a; }
+.bubbleHead small { color: #a3a3a3; }
 
 .initialMessageBubble p {
   margin: 0;
-  font-size: 14px;
-  color: #334155;
-  line-height: 1.5;
+  font-size: 13.5px;
+  color: #1c2a2a;
+  line-height: 1.55;
 }
 
 .repliesStream {
@@ -270,8 +315,15 @@
 
 .repliesStream h4 {
   margin: 0;
-  font-size: 15px;
-  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1c2a2a;
+}
+
+.noRepliesText {
+  font-size: 13px;
+  color: #737373;
+  margin: 0;
 }
 
 .replyBubble {
@@ -280,13 +332,20 @@
 }
 
 .adminBubble {
-  background: #eff6ff;
-  border: 1.5px solid #bfdbfe;
+  background: rgba(0, 128, 128, 0.06);
+  border: 1px solid rgba(0, 128, 128, 0.25);
 }
 
 .userBubble {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #fdfaf5;
+  border: 1px solid #e5e5e5;
+}
+
+.replyBubble p {
+  margin: 0;
+  font-size: 13.5px;
+  color: #1c2a2a;
+  line-height: 1.55;
 }
 
 .replyFormBox {
@@ -298,46 +357,65 @@
 .replyFormBox textarea {
   width: 100%;
   padding: 12px;
-  border: 1.5px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 13.5px;
   outline: none;
   box-sizing: border-box;
+  font-family: inherit;
+  background: #ffffff;
+  color: #1c2a2a;
+  resize: vertical;
+}
+
+.replyFormBox textarea:focus {
+  border-color: #008080;
 }
 
 .sendReplyBtn {
   align-self: flex-end;
-  background: #2563eb;
+  background: #008080;
   color: #ffffff;
   border: none;
   padding: 10px 20px;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.15s ease;
+}
+
+.sendReplyBtn:hover:not(:disabled) {
+  background: #006a6a;
+}
+
+.sendReplyBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* ================= RAISE TICKET FORM ================= */
 .formCard {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 24px;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
+  padding: 22px;
 }
 
 .formHeader {
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 .formHeader h3 {
   margin: 0 0 4px 0;
-  font-size: 18px;
-  font-weight: 800;
-  color: #0f172a;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1c2a2a;
 }
 .formHeader p {
   margin: 0;
   font-size: 13px;
-  color: #64748b;
+  color: #737373;
 }
 
 .ticketForm {
@@ -361,77 +439,97 @@
 .formGroup label {
   font-size: 12px;
   font-weight: 700;
-  color: #334155;
+  color: #1c2a2a;
 }
 
 .formGroup input,
 .formGroup select,
 .formGroup textarea {
-  padding: 11px 14px;
-  border: 1.5px solid #e2e8f0;
+  padding: 10px 14px;
+  border: 1px solid #e5e5e5;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 13.5px;
   outline: none;
   background: #ffffff;
+  color: #1c2a2a;
+  font-family: inherit;
 }
 .formGroup input:focus,
 .formGroup select:focus,
 .formGroup textarea:focus {
-  border-color: #2563eb;
+  border-color: #008080;
 }
 
 .submitBtn {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background: #008080;
   color: #ffffff;
   border: none;
   padding: 12px 24px;
   border-radius: 10px;
-  font-size: 14px;
-  font-weight: 800;
+  font-size: 13.5px;
+  font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+  font-family: inherit;
+  transition: background-color 0.15s ease;
+}
+
+.submitBtn:hover:not(:disabled) {
+  background: #006a6a;
+}
+
+.submitBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* ================= CONTACT HELPDESK ================= */
 .contactGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  gap: 14px;
 }
 
 .contactCard {
   background: #ffffff;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 16px;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
   padding: 22px;
   text-align: center;
+  box-shadow: none;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.contactCard:hover {
+  border-color: #d4d4d4;
+  box-shadow: 0 1px 3px rgba(28, 42, 42, 0.06);
 }
 
 .contactIcon {
-  font-size: 32px;
+  font-size: 30px;
   margin-bottom: 8px;
 }
 
 .contactCard h4 {
   margin: 0 0 4px 0;
-  font-size: 16px;
-  color: #0f172a;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1c2a2a;
 }
 .contactCard p {
   margin: 0 0 12px 0;
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
 }
 .contactCard strong {
   font-size: 14px;
-  color: #2563eb;
+  color: #008080;
 }
 
 /* ================= LOADER & EMPTY ================= */
 .emptyState {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
   padding: 48px 24px;
   text-align: center;
 }
@@ -444,27 +542,35 @@
 
 .emptyState h3 {
   margin: 0 0 4px 0;
-  font-size: 18px;
-  color: #0f172a;
+  font-size: 17px;
+  font-weight: 700;
+  color: #1c2a2a;
 }
 .emptyState p {
   margin: 0 0 16px 0;
   font-size: 13px;
-  color: #64748b;
+  color: #737373;
   max-width: 480px;
   margin-left: auto;
   margin-right: auto;
+  line-height: 1.5;
 }
 
 .raiseBtn {
-  background: #2563eb;
+  background: #008080;
   color: #ffffff;
   border: none;
   padding: 10px 20px;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.15s ease;
+}
+
+.raiseBtn:hover {
+  background: #006a6a;
 }
 
 .loadingWrapper {
@@ -474,13 +580,15 @@
   justify-content: center;
   min-height: 380px;
   gap: 12px;
+  color: #737373;
+  font-size: 13.5px;
 }
 
 .spinner {
-  width: 40px;
-  height: 40px;
-  border: 3.5px solid #e2e8f0;
-  border-top-color: #2563eb;
+  width: 38px;
+  height: 38px;
+  border: 3px solid #e5e5e5;
+  border-top-color: #008080;
   border-radius: 50%;
   animation: spin 0.75s linear infinite;
 }
@@ -492,5 +600,11 @@
 @media (max-width: 900px) {
   .statsGrid, .contactGrid, .formRow {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .supportContainer {
+    padding: 12px 12px 32px 12px;
   }
 }

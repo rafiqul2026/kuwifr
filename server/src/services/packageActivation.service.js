@@ -6,6 +6,7 @@ const PackagePurchase = require('../models/PackagePurchase');
 const IncomeTransaction = require('../models/IncomeTransaction');
 const Wallet = require('../models/Wallet');
 const BinaryNode = require('../models/BinaryNode');
+const BinaryService = require('./binary.service');
 const IncomeService = require('./income.service');
 
 class PackageActivationService {
@@ -77,19 +78,42 @@ class PackageActivationService {
         referenceId
       }], { session });
 
-      // 7. Ensure Binary Node exists for user
+      // 7. Ensure Binary Node exists AND is correctly linked into the
+      // sponsor's tree before income processing runs below. This used to
+      // create an orphan node (parentId: member.binaryParentId — a field
+      // that is never actually written anywhere in this codebase, so it
+      // was always null) whenever a member reached cash-activation without
+      // already having a BinaryNode from registration. An orphan node has
+      // no parentId, so BinaryService.updateVolumes' upward walk from this
+      // member stops immediately — their sponsor's binary tree never shows
+      // them, and matching income never propagates up from their
+      // purchases. Using placeMember (with this same transaction session)
+      // instead performs the real extreme-leg-spillover placement and
+      // links the sponsor's leftChildId/rightChildId, exactly like a normal
+      // registration does.
       let binNode = await BinaryNode.findOne({ userId: member._id }).session(session);
-      if (!binNode) {
-        binNode = await BinaryNode.create([{
-          userId: member._id,
-          parentId: member.binaryParentId || null,
-          position: member.binarySide || 'root',
-          level: 1,
-          leftVolume: 0,
-          rightVolume: 0,
-          availableLeftVolume: 0,
-          availableRightVolume: 0
-        }], { session });
+      const alreadyLinked =
+        binNode &&
+        binNode.parentId &&
+        (await BinaryNode.findOne({ userId: binNode.parentId }).session(session).then((p) =>
+          p && (String(p.leftChildId) === String(member._id) || String(p.rightChildId) === String(member._id))
+        ));
+
+      if (!alreadyLinked) {
+        if (member.sponsorId) {
+          binNode = await BinaryService.placeMember(member._id, member.sponsorId, member.binarySide || 'left', session);
+        } else if (!binNode) {
+          binNode = await BinaryNode.create([{
+            userId: member._id,
+            parentId: null,
+            position: 'root',
+            level: 1,
+            leftVolume: 0,
+            rightVolume: 0,
+            availableLeftVolume: 0,
+            availableRightVolume: 0
+          }], { session });
+        }
       }
 
       // 8. Trigger Income Engine (Direct Referral 10% of KBP & Matching 10%)

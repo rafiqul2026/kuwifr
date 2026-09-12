@@ -1,52 +1,135 @@
 /* client/src/pages/member/OrdersPage.module.css */
 
+/* ============================================================
+   PBW Foundation design tokens (same palette as TeamPage /
+   DashboardPage): --background:#fdfaf5 --foreground:#1c2a2a
+   --card:#fff --primary:#008080 --secondary:#fd9911
+   --muted-foreground:#737373 --border:#e5e5e5 --radius:14px
+   --font-sans:"Geist". Cards carry no box-shadow at rest — only
+   a hairline border, with a subtle shadow on hover.
+   ============================================================ */
 .ordersContainer {
-  max-width: 1240px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 12px 16px 40px 16px;
+  padding: 24px 28px 60px 28px;
   box-sizing: border-box;
+  font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #1c2a2a;
 }
 
-.pageHeader {
-  margin-bottom: 24px;
+/* ================= HEADER ================= */
+.headerRow {
+  margin-bottom: 20px;
 }
 
-.headerTag {
+.titleGroup {
+  max-width: 720px;
+}
+
+.titleBadge {
   display: inline-block;
-  background: #eff6ff;
-  color: #2563eb;
-  font-size: 12px;
+  font-size: 10.5px;
   font-weight: 700;
-  padding: 4px 12px;
-  border-radius: 999px;
-  border: 1px solid #bfdbfe;
+  letter-spacing: 0.8px;
+  color: #008080;
+  background: #e6f5f5;
+  border: 1px solid #cceaea;
+  padding: 4px 10px;
+  border-radius: 6px;
   margin-bottom: 8px;
 }
 
 .pageTitle {
-  font-size: 26px;
-  font-weight: 800;
-  color: #0f172a;
-  margin: 0 0 4px 0;
-  letter-spacing: -0.025em;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1c2a2a;
+  letter-spacing: -0.03em;
+  margin: 0 0 6px 0;
 }
 
 .pageSubtitle {
   font-size: 14px;
-  color: #64748b;
+  color: #737373;
   margin: 0;
+  line-height: 1.5;
 }
 
-/* ================= MODERN BUTTONS ================= */
+/* ================= GRADIENT KPI STRIP ================= */
+.gradientKpiGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.gradientKpiCard {
+  position: relative;
+  border-radius: 14px;
+  padding: 16px 18px;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.gradientMint {
+  background: linear-gradient(150deg, #e3f6f0 0%, #d3efe6 100%);
+}
+
+.gradientLavender {
+  background: linear-gradient(150deg, #ede9fe 0%, #e0d9fb 100%);
+}
+
+.gradientPeach {
+  background: linear-gradient(150deg, #ffedd8 0%, #ffe1bf 100%);
+}
+
+.gradientBlue {
+  background: linear-gradient(150deg, #e0eefe 0%, #d2e5fd 100%);
+}
+
+.gradientKpiTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.gradientKpiIcon {
+  font-size: 15px;
+}
+
+.gradientKpiLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1c2a2a;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.gradientKpiValue {
+  font-size: 21px;
+  font-weight: 700;
+  color: #1c2a2a;
+  margin: 0 0 4px 0;
+  letter-spacing: -0.3px;
+}
+
+.gradientKpiSub {
+  display: block;
+  font-size: 11.5px;
+  color: #1c2a2a;
+  opacity: 0.6;
+}
+
+/* ================= SEGMENTED TABS ================= */
 .tabsNav {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   background: #ffffff;
   padding: 6px;
-  border: 1.5px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   border-radius: 14px;
-  margin-bottom: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  margin-bottom: 20px;
 }
 
 .tabBtn {
@@ -57,91 +140,147 @@
   gap: 8px;
   padding: 12px 20px;
   border: 1px solid transparent;
-  background: #f8fafc;
+  background: #fdfaf5;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 700;
-  color: #475569;
+  color: #404040;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.15s ease;
 }
 
 .tabBtn:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #f3f3f3;
+  color: #1c2a2a;
 }
 
-/* High-Contrast Active State for Package Purchases */
+/* Active state — Package Purchases uses the primary teal */
 .tabActivePackage {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  background: linear-gradient(135deg, #008080 0%, #006666 100%) !important;
   color: #ffffff !important;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
-  border-color: #1d4ed8 !important;
+  border-color: #006666 !important;
 }
 
-/* High-Contrast Active State for Repurchase Orders */
+/* Active state — Repurchase Orders uses the secondary orange accent */
 .tabActiveRepurchase {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+  background: linear-gradient(135deg, #fd9911 0%, #e2870a 100%) !important;
   color: #ffffff !important;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25);
-  border-color: #0f172a !important;
+  border-color: #e2870a !important;
 }
 
 .countPill {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.28);
   color: inherit;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   padding: 2px 8px;
   border-radius: 999px;
 }
 
 .tabBtn:not(.tabActivePackage):not(.tabActiveRepurchase) .countPill {
-  background: #e2e8f0;
-  color: #475569;
+  background: #e5e5e5;
+  color: #737373;
 }
 
-/* ================= TABLES ================= */
+/* ================= TABLE CARD ================= */
+.historySection {
+  margin-bottom: 8px;
+}
+
 .tableCard {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  overflow-x: auto;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  border: 1px solid #e5e5e5;
+  border-radius: 20px;
+  box-shadow: none;
+  overflow: hidden;
 }
 
-.ordersTable {
+.tableResponsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.customTable {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
   text-align: left;
 }
 
-.ordersTable th {
-  background: #f8fafc;
-  padding: 12px 16px;
-  color: #475569;
+.customTable thead th {
+  background: #f3f3f3;
+  padding: 14px 20px;
+  font-size: 11px;
   font-weight: 700;
-  border-bottom: 1.5px solid #e2e8f0;
+  color: #737373;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  border-bottom: 1.5px solid #e5e5e5;
+  white-space: nowrap;
 }
 
-.ordersTable td {
-  padding: 12px 16px;
-  border-bottom: 1px solid #f1f5f9;
+.thOrder { width: auto; }
+.thStatus { width: 150px; text-align: center; }
+.thAction { width: 110px; text-align: right; }
+
+.tableRow {
+  border-bottom: 1px solid #f3f3f3;
+  transition: background 0.15s ease;
 }
 
-.invoiceCode {
-  font-family: monospace;
-  font-weight: 800;
-  color: #0f172a;
-  background: #f1f5f9;
-  padding: 3px 8px;
-  border-radius: 6px;
+.tableRow:last-child {
+  border-bottom: none;
 }
 
-.pkgNameBadge {
-  color: #2563eb;
-  font-weight: 800;
+.tableRow:hover {
+  background: #fafafa;
+}
+
+.customTable td {
+  padding: 14px 20px;
+  vertical-align: middle;
+}
+
+/* Order identity block — avatar + name + invoice-code subtext, matching
+   the member identity pattern used on the Team page table. */
+.orderIdentityBlock {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.orderAvatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #008080 0%, #006666 100%);
+  color: #ffffff;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+.nameBlock {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.orderNameText {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1c2a2a;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.orderIdSubText {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #737373;
+  font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .productSnippet {
@@ -149,78 +288,189 @@
   align-items: center;
   gap: 10px;
 }
+
 .productSnippet img {
   width: 34px;
   height: 34px;
-  border-radius: 6px;
+  border-radius: 8px;
   object-fit: cover;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
+  flex-shrink: 0;
+}
+
+.productSnippet span {
+  font-size: 13px;
+  color: #404040;
+  font-weight: 500;
 }
 
 .itemsSummary {
   display: flex;
   flex-direction: column;
 }
+
+.itemsSummary strong {
+  font-size: 13px;
+  color: #1c2a2a;
+  font-weight: 700;
+}
+
 .itemsSummary small {
-  color: #94a3b8;
+  font-size: 11.5px;
+  color: #a3a3a3;
 }
 
 .kbpBadge {
-  background: #eff6ff;
-  color: #2563eb;
+  display: inline-flex;
+  align-items: center;
+  background: #e6f5f5;
+  color: #006666;
   font-size: 11px;
-  font-weight: 800;
-  padding: 3px 8px;
+  font-weight: 700;
+  padding: 3px 9px;
   border-radius: 6px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid #b3dcdc;
+  white-space: nowrap;
 }
 
 .cashbackChip {
-  background: #dcfce7;
-  color: #15803d;
-  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  background: rgba(22, 163, 74, 0.12);
+  color: #16a34a;
+  font-weight: 700;
   font-size: 11px;
-  padding: 3px 8px;
+  padding: 3px 9px;
   border-radius: 6px;
-  border: 1px solid #bbf7d0;
+  white-space: nowrap;
 }
 
 .amountText {
-  font-size: 15px;
-  color: #0f172a;
-  font-weight: 800;
+  font-size: 14.5px;
+  color: #1c2a2a;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
-.paidChip {
-  background: #dcfce7;
-  color: #15803d;
+.joinedDateText {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #404040;
+  white-space: nowrap;
+}
+
+/* Status pill — colors come inline from the STATUS_STYLES map so every
+   status (pending/paid/processing/completed/rejected/cancelled) reads
+   from the same token set used across the whole dashboard. */
+.tdStatus {
+  text-align: center;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 11px;
-  font-weight: 800;
-  padding: 3px 8px;
-  border-radius: 6px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 999px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
 }
 
-.viewInvoiceBtn {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  color: #2563eb;
-  padding: 6px 14px;
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tdAction {
+  text-align: right;
+}
+
+.actionViewBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #e6f5f5;
+  color: #008080;
+  border: 1px solid #b3dcdc;
+  padding: 7px 14px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
-}
-.viewInvoiceBtn:hover {
-  background: #2563eb;
-  color: #ffffff;
+  white-space: nowrap;
 }
 
-/* ================= MODAL STYLING ================= */
+.actionViewBtn:hover {
+  background: #008080;
+  color: #ffffff;
+  border-color: #008080;
+  box-shadow: 0 4px 12px rgba(0, 128, 128, 0.22);
+}
+
+/* ================= EMPTY / LOADING STATES ================= */
+.centerBox {
+  padding: 60px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 20px;
+}
+
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1c2a2a;
+  margin: 0 0 4px 0;
+}
+
+.emptyDesc {
+  font-size: 13px;
+  color: #737373;
+  margin: 0;
+}
+
+.pageLoaderScreen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 14px;
+}
+
+.glowSpinner {
+  width: 36px;
+  height: 36px;
+  border: 3.5px solid #e5e5e5;
+  border-top-color: #008080;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+.loadingText {
+  font-size: 13.5px;
+  color: #737373;
+  font-weight: 600;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ================= INVOICE MODAL ================= */
 .invoiceModalOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.75);
+  background: rgba(28, 42, 42, 0.65);
   backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
@@ -247,13 +497,13 @@
   justify-content: space-between;
   align-items: center;
   padding: 10px 24px;
-  background: #0f172a;
+  background: #1c2a2a;
   color: #ffffff;
 }
 
 .printBtn {
-  background: #2563eb;
-  color: #ffffff;
+  background: #008080;
+  color: #fdfaf5;
   border: none;
   padding: 8px 18px;
   border-radius: 8px;
@@ -263,7 +513,7 @@
   transition: background 0.15s ease;
 }
 .printBtn:hover {
-  background: #1d4ed8;
+  background: #006666;
 }
 
 .closeBtn {
@@ -281,8 +531,8 @@
   background: #ffffff;
   padding: 24px 30px;
   overflow-y: auto;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  color: #0f172a;
+  font-family: "Geist", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #1c2a2a;
   box-sizing: border-box;
 }
 
@@ -290,7 +540,7 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  border-bottom: 2px solid #0f172a;
+  border-bottom: 2px solid #1c2a2a;
   padding-bottom: 14px;
   margin-bottom: 14px;
 }
@@ -309,14 +559,14 @@
 .invoiceLogo h2 {
   margin: 0;
   font-size: 18px;
-  font-weight: 900;
-  color: #0f172a;
+  font-weight: 800;
+  color: #1c2a2a;
   letter-spacing: -0.02em;
 }
 
 .companyType {
   font-size: 10px;
-  color: #64748b;
+  color: #737373;
   display: block;
   font-weight: 600;
 }
@@ -324,7 +574,7 @@
 .companyInfo p {
   margin: 2px 0;
   font-size: 10px;
-  color: #475569;
+  color: #404040;
   line-height: 1.35;
 }
 
@@ -336,10 +586,10 @@
 }
 
 .taxBadge {
-  background: #0f172a;
+  background: #008080;
   color: #ffffff;
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 800;
   padding: 2px 10px;
   border-radius: 4px;
   letter-spacing: 0.05em;
@@ -353,17 +603,17 @@
 
 .invoiceMetaTable td {
   padding: 1px 4px;
-  color: #475569;
+  color: #404040;
 }
 
 .statusStamp {
-  background: #dcfce7;
-  color: #15803d;
+  background: rgba(22, 163, 74, 0.12);
+  color: #16a34a;
   font-size: 9px;
-  font-weight: 900;
+  font-weight: 800;
   padding: 2px 8px;
   border-radius: 4px;
-  border: 1px solid #86efac;
+  border: 1px solid #bbf7d0;
   margin-top: 4px;
   display: inline-block;
 }
@@ -377,18 +627,18 @@
 }
 
 .addressBox {
-  border: 1px solid #cbd5e1;
+  border: 1px solid #e5e5e5;
   border-radius: 6px;
   overflow: hidden;
 }
 
 .addressBoxHeader {
-  background: #f1f5f9;
+  background: #f3f3f3;
   padding: 4px 8px;
   font-size: 9px;
   font-weight: 800;
-  color: #334155;
-  border-bottom: 1px solid #cbd5e1;
+  color: #404040;
+  border-bottom: 1px solid #e5e5e5;
   letter-spacing: 0.04em;
 }
 
@@ -400,24 +650,24 @@
 .distributorName {
   margin: 0 0 2px 0;
   font-size: 13px;
-  color: #0f172a;
+  color: #1c2a2a;
   font-weight: 800;
 }
 
 .memberIdText {
-  color: #2563eb;
-  font-family: monospace;
+  color: #008080;
+  font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .addressBoxContent p {
   margin: 2px 0;
-  color: #475569;
+  color: #404040;
 }
 
 /* Itemized Table */
 .invoiceTableWrap {
   margin-bottom: 14px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #e5e5e5;
   border-radius: 6px;
   overflow: hidden;
 }
@@ -429,10 +679,10 @@
 }
 
 .invoiceTable th {
-  background: #0f172a;
+  background: #1c2a2a;
   color: #ffffff;
   padding: 6px 8px;
-  font-weight: 800;
+  font-weight: 700;
   text-align: left;
   font-size: 9.5px;
   text-transform: uppercase;
@@ -441,19 +691,19 @@
 
 .invoiceTable td {
   padding: 8px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #f3f3f3;
   vertical-align: top;
 }
 
 .itemNameMain {
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c2a2a;
   font-size: 11px;
 }
 
 .itemSubDesc {
   font-size: 9.5px;
-  color: #64748b;
+  color: #737373;
   margin-top: 2px;
 }
 
@@ -466,17 +716,17 @@
 }
 
 .termsBox {
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   border-radius: 6px;
   padding: 8px 10px;
-  background: #f8fafc;
+  background: #f3f3f3;
 }
 
 .termsBox h5 {
   margin: 0 0 4px 0;
   font-size: 9.5px;
   font-weight: 800;
-  color: #334155;
+  color: #404040;
   text-transform: uppercase;
 }
 
@@ -484,7 +734,7 @@
   margin: 0;
   padding-left: 14px;
   font-size: 9px;
-  color: #64748b;
+  color: #737373;
   line-height: 1.35;
 }
 
@@ -493,10 +743,10 @@
 }
 
 .calculationBox {
-  border: 1px solid #cbd5e1;
+  border: 1px solid #e5e5e5;
   border-radius: 6px;
   padding: 8px 10px;
-  background: #f8fafc;
+  background: #f3f3f3;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -506,16 +756,16 @@
   display: flex;
   justify-content: space-between;
   font-size: 10px;
-  color: #475569;
+  color: #404040;
 }
 
 .grandTotalRow {
   display: flex;
   justify-content: space-between;
   font-size: 13px;
-  font-weight: 900;
-  color: #0f172a;
-  border-top: 1.5px solid #0f172a;
+  font-weight: 800;
+  color: #1c2a2a;
+  border-top: 1.5px solid #1c2a2a;
   padding-top: 4px;
   margin-top: 4px;
 }
@@ -525,18 +775,18 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  border-top: 1px dashed #cbd5e1;
+  border-top: 1px dashed #e5e5e5;
   padding-top: 10px;
 }
 
 .thankYouBlock p {
   margin: 0;
   font-size: 10px;
-  color: #0f172a;
+  color: #1c2a2a;
 }
 .thankYouBlock small {
   font-size: 8.5px;
-  color: #94a3b8;
+  color: #a3a3a3;
 }
 
 .signatureBlock {
@@ -547,10 +797,10 @@
 }
 
 .digitalSeal {
-  border: 1.5px solid #10b981;
-  color: #10b981;
+  border: 1.5px solid #16a34a;
+  color: #16a34a;
   font-size: 8px;
-  font-weight: 900;
+  font-weight: 800;
   padding: 2px 8px;
   border-radius: 4px;
   margin-bottom: 3px;
@@ -559,7 +809,7 @@
 
 .signatureBlock span {
   font-size: 9px;
-  color: #64748b;
+  color: #737373;
   font-weight: 700;
 }
 
@@ -574,7 +824,7 @@
     visibility: hidden !important;
   }
 
-  .printableInvoiceSheet, 
+  .printableInvoiceSheet,
   .printableInvoiceSheet * {
     visibility: visible !important;
   }
@@ -614,25 +864,59 @@
   }
 }
 
-/* Loader */
-.loadingWrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 380px;
-  gap: 12px;
+/* ================= RESPONSIVE ================= */
+@media (max-width: 992px) {
+  .gradientKpiGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3.5px solid #e2e8f0;
-  border-top-color: #2563eb;
-  border-radius: 50%;
-  animation: spin 0.75s linear infinite;
+@media (max-width: 768px) {
+  .thProduct, .customTable td:nth-child(2) {
+    display: none;
+  }
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+@media (max-width: 640px) {
+  .ordersContainer {
+    padding: 16px 14px 40px 14px;
+  }
+
+  .gradientKpiGrid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .gradientKpiCard {
+    padding: 12px 14px;
+  }
+
+  .gradientKpiValue {
+    font-size: 17px;
+  }
+
+  .tabsNav {
+    flex-direction: column;
+  }
+
+  .customTable thead th,
+  .customTable td {
+    padding: 10px 12px;
+  }
+
+  .orderAvatar {
+    width: 32px;
+    height: 32px;
+    font-size: 13px;
+    border-radius: 9px;
+  }
+
+  .orderNameText {
+    font-size: 12.5px;
+  }
+
+  .invoiceAddressGrid,
+  .invoiceFooterSection {
+    grid-template-columns: 1fr;
+  }
 }

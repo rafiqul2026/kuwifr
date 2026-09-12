@@ -191,7 +191,10 @@ const WalletPage = () => {
       {/* ================= HEADER SECTION ================= */}
       <header className={styles.pageHeader}>
         <div className={styles.headerLeft}>
-          <div className={styles.badgeTag}>FINANCIAL HUB</div>
+          <span className={styles.badgeTag}>
+            <span className={styles.badgeDot}></span>
+            FINANCIAL HUB
+          </span>
           <h1 className={styles.pageTitle}>My Wallets</h1>
           <p className={styles.pageSubtitle}>
             Track real-time earnings, salary benefits, and transaction history
@@ -200,22 +203,22 @@ const WalletPage = () => {
 
         {/* Aggregate Net Total Balance Display */}
         <div className={styles.totalBalanceCard}>
-          <span className={styles.totalLabel}>TOTAL LIQUID BALANCE</span>
+          <span className={styles.totalLabel}>Total Liquid Balance</span>
           <span className={styles.totalValue}>{formatINR(netCalculatedTotal)}</span>
           <small className={styles.totalSubNote}>Income + Repurchase + Remuneration</small>
         </div>
       </header>
 
-      {/* ================= 5-CARD BALANCE GRID ================= */}
+      {/* ================= 5-CARD GRADIENT KPI GRID ================= */}
       <section className={styles.walletCardsGrid} aria-label="Wallet Overview">
         {walletCards.map((card) => (
           <div key={card.id} className={`${styles.walletCard} ${card.gradientClass}`}>
-            <div className={styles.cardIconBox}>{card.icon}</div>
-            <div className={styles.cardContent}>
-              <span className={styles.cardLabel}>{card.label}</span>
-              <span className={styles.cardValue}>{formatINR(card.value)}</span>
-              <small className={styles.cardSubText}>{card.sublabel}</small>
+            <div className={styles.walletCardTop}>
+              <span className={styles.walletCardIcon}>{card.icon}</span>
+              <span className={styles.walletCardLabel}>{card.label}</span>
             </div>
+            <h2 className={styles.walletCardValue}>{formatINR(card.value)}</h2>
+            <span className={styles.walletCardSub}>{card.sublabel}</span>
           </div>
         ))}
       </section>
@@ -227,10 +230,15 @@ const WalletPage = () => {
 
       {/* ================= TRANSFER SECTION ================= */}
       <section className={styles.transferSection}>
-        <div className={styles.transferHeader}>
-          <div>
-            <h2>Transfer to Repurchase Wallet</h2>
-            <p>Instantly move available funds from Income Wallet to make package/product purchases</p>
+        <div className={styles.widgetHeader}>
+          <div className={styles.widgetHeaderLeft}>
+            <div className={`${styles.widgetIconBox} ${styles.widgetIconTeal}`}>🔄</div>
+            <div>
+              <h3 className={styles.widgetTitle}>Transfer to Repurchase Wallet</h3>
+              <p className={styles.widgetSubtitle}>
+                Instantly move available funds from Income Wallet to make package/product purchases
+              </p>
+            </div>
           </div>
           <span className={styles.availableBalance}>
             Available for Transfer: <strong>{formatINR(wallet.incomeBalance)}</strong>
@@ -271,12 +279,15 @@ const WalletPage = () => {
 
       {/* ================= AUDIT TRANSACTION HISTORY ================= */}
       <section className={styles.transactionSection}>
-        <div className={styles.sectionHeader}>
-          <div>
-            <h2>Transaction Ledger</h2>
-            <span className={styles.transactionCount}>
-              Showing {filteredTransactions.length} records
-            </span>
+        <div className={styles.widgetHeader}>
+          <div className={styles.widgetHeaderLeft}>
+            <div className={`${styles.widgetIconBox} ${styles.widgetIconOrange}`}>🧾</div>
+            <div>
+              <h3 className={styles.widgetTitle}>Transaction Ledger</h3>
+              <p className={styles.widgetSubtitle}>
+                Showing {filteredTransactions.length} records
+              </p>
+            </div>
           </div>
 
           {/* Type Filter Pills — 'SALARY' stays the underlying walletType value

@@ -18,12 +18,12 @@ const TreeBranchConnector = () => {
       >
         <defs>
           <linearGradient id="leftLegGradient" x1="50%" y1="0%" x2="25%" y2="100%">
-            <stop offset="0%" stopColor="#94a3b8" />
-            <stop offset="100%" stopColor="#3b82f6" />
+            <stop offset="0%" stopColor="#c2c2ba" />
+            <stop offset="100%" stopColor="#008080" />
           </linearGradient>
           <linearGradient id="rightLegGradient" x1="50%" y1="0%" x2="75%" y2="100%">
-            <stop offset="0%" stopColor="#94a3b8" />
-            <stop offset="100%" stopColor="#f43f5e" />
+            <stop offset="0%" stopColor="#c2c2ba" />
+            <stop offset="100%" stopColor="#fd9911" />
           </linearGradient>
         </defs>
 

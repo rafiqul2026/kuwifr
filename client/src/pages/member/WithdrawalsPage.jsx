@@ -1,9 +1,47 @@
 // client/src/pages/member/WithdrawalsPage.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './WithdrawalsPage.module.css';
+
+// Status pill color mapping — same token set used across every other
+// redesigned member page (TeamPage/DashboardPage/OrdersPage): amber =
+// pending, teal = approved, green = processed/disbursed, red = rejected,
+// grey = cancelled/refunded.
+const STATUS_STYLES = {
+  PENDING: { color: '#d97706', bg: 'rgba(217,119,6,0.12)' },
+  APPROVED: { color: '#008080', bg: 'rgba(0,128,128,0.12)' },
+  PROCESSED: { color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
+  REJECTED: { color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
+  CANCELLED: { color: '#737373', bg: 'rgba(115,115,115,0.12)' },
+  REFUNDED: { color: '#737373', bg: 'rgba(115,115,115,0.12)' }
+};
+
+const statusMeta = (status) => {
+  const upper = (status || 'PENDING').toUpperCase();
+  const style = STATUS_STYLES[upper] || STATUS_STYLES.PENDING;
+  const label =
+    upper === 'PROCESSED'
+      ? '● Disbursed'
+      : upper === 'APPROVED'
+      ? '● Approved'
+      : upper === 'REJECTED'
+      ? '✕ Rejected'
+      : upper === 'CANCELLED'
+      ? '● Cancelled'
+      : upper === 'REFUNDED'
+      ? '● Refunded'
+      : '⏳ Pending Admin Audit';
+  return { ...style, label };
+};
+
+const formatDate = (value) => {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+};
 
 const WithdrawalsPage = () => {
   const { user } = useAuth();
@@ -79,6 +117,21 @@ const WithdrawalsPage = () => {
   const tdsAmount = Math.round(numericAmount * 0.05);         // 5% TDS
   const adminCharge = Math.round(numericAmount * 0.05);       // 5% Admin Handling
   const netPayable = Math.max(0, numericAmount - (tdsAmount + adminCharge));
+
+  // Real, derived-only summary numbers for the KPI strip — every figure
+  // here is computed straight from the withdrawal history already fetched
+  // above, nothing is fabricated.
+  const summary = useMemo(() => {
+    const totalRequests = withdrawals.length;
+    const totalWithdrawn = withdrawals
+      .filter((w) => ['APPROVED', 'PROCESSED'].includes((w.status || '').toUpperCase()))
+      .reduce((sum, w) => sum + Number(w.netAmount || w.amount || 0), 0);
+    const pendingCount = withdrawals.filter((w) => {
+      const s = (w.status || 'PENDING').toUpperCase();
+      return s !== 'APPROVED' && s !== 'PROCESSED' && s !== 'REJECTED' && s !== 'CANCELLED';
+    }).length;
+    return { totalRequests, totalWithdrawn, pendingCount };
+  }, [withdrawals]);
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({
@@ -190,24 +243,52 @@ const WithdrawalsPage = () => {
   return (
     <div className={styles.pageContainer}>
       {/* Top Banner */}
-      <header className={styles.header}>
-        <div>
-          <div className={styles.tagWrap}>
-            <span className={styles.pageTag}>💼 Payout Management</span>
-          </div>
-          <h1 className={styles.title}>Withdrawals & Payouts</h1>
-          <p className={styles.subtitle}>
+      <div className={styles.headerRow}>
+        <div className={styles.titleGroup}>
+          <div className={styles.titleBadge}>💼 PAYOUT MANAGEMENT</div>
+          <h1 className={styles.pageTitle}>Withdrawals &amp; Payouts</h1>
+          <p className={styles.pageSubtitle}>
             Request real-time earnings payout directly to your verified Indian bank account.
           </p>
         </div>
 
-        {/* Balance Card: Left-Aligned */}
-        <div className={styles.balanceBadge}>
-          <span className={styles.balanceLabel}>AVAILABLE FOR WITHDRAWAL</span>
-          <h2 className={styles.balanceValue}>₹{availableBalance.toLocaleString('en-IN')}</h2>
+        {/* Balance Card */}
+        <div className={styles.balanceCard}>
+          <div className={styles.balanceLabel}>AVAILABLE FOR WITHDRAWAL</div>
+          <div className={styles.balanceValue}>₹{availableBalance.toLocaleString('en-IN')}</div>
           <span className={styles.balanceSub}>Wallet Balance</span>
         </div>
-      </header>
+      </div>
+
+      {/* KPI Summary Strip — real numbers only, derived from the fetched withdrawal history */}
+      <div className={styles.gradientKpiGrid}>
+        <div className={`${styles.gradientKpiCard} ${styles.gradientMint}`}>
+          <div className={styles.gradientKpiTop}>
+            <span className={styles.gradientKpiIcon}>📨</span>
+            <span className={styles.gradientKpiLabel}>Total Requests</span>
+          </div>
+          <h2 className={styles.gradientKpiValue}>{summary.totalRequests}</h2>
+          <span className={styles.gradientKpiSub}>Lifetime payout requests</span>
+        </div>
+
+        <div className={`${styles.gradientKpiCard} ${styles.gradientBlue}`}>
+          <div className={styles.gradientKpiTop}>
+            <span className={styles.gradientKpiIcon}>💰</span>
+            <span className={styles.gradientKpiLabel}>Total Withdrawn</span>
+          </div>
+          <h2 className={styles.gradientKpiValue}>₹{summary.totalWithdrawn.toLocaleString('en-IN')}</h2>
+          <span className={styles.gradientKpiSub}>Approved &amp; disbursed payouts</span>
+        </div>
+
+        <div className={`${styles.gradientKpiCard} ${styles.gradientPeach}`}>
+          <div className={styles.gradientKpiTop}>
+            <span className={styles.gradientKpiIcon}>⏳</span>
+            <span className={styles.gradientKpiLabel}>Pending Requests</span>
+          </div>
+          <h2 className={styles.gradientKpiValue}>{summary.pendingCount}</h2>
+          <span className={styles.gradientKpiSub}>Awaiting admin audit</span>
+        </div>
+      </div>
 
       {/* Main Grid */}
       <div className={styles.mainGrid}>
@@ -409,48 +490,36 @@ const WithdrawalsPage = () => {
             <span className={styles.historyBadge}>{withdrawals.length} Records</span>
           </div>
 
-          {withdrawals.length === 0 ? (
-            <div className={styles.emptyWrap}>
-              <div className={styles.emptyIcon}>💸</div>
-              <h3>No withdrawal requests yet</h3>
-              <p>Your submitted payout requests and verification statuses will appear here.</p>
+          {loading ? (
+            <div className={styles.centerBox}>
+              <div className={styles.glowSpinner}></div>
+              <p className={styles.loadingText}>Loading withdrawal history...</p>
+            </div>
+          ) : withdrawals.length === 0 ? (
+            <div className={styles.centerBox}>
+              <span className={styles.emptyIcon}>💸</span>
+              <h4 className={styles.emptyTitle}>No withdrawal requests yet</h4>
+              <p className={styles.emptyDesc}>Your submitted payout requests and verification statuses will appear here.</p>
             </div>
           ) : (
             <div className={styles.historyList}>
               {withdrawals.map((item) => {
-                const statusUpper = (item.status || 'PENDING').toUpperCase();
+                const meta = statusMeta(item.status);
                 return (
                   <div key={item._id || item.id} className={styles.historyRow}>
+                    <div className={styles.historyAvatar}>💸</div>
                     <div className={styles.historyMeta}>
                       <span className={styles.historyAmount}>
                         ₹{(item.netAmount || item.amount || 0).toLocaleString('en-IN')}
                       </span>
                       <small className={styles.historyDate}>
-                        {new Date(item.createdAt || item.requestedAt).toLocaleDateString('en-IN', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric'
-                        })}
+                        {formatDate(item.createdAt || item.requestedAt)}
                       </small>
                     </div>
 
                     <div className={styles.historyStatusWrap}>
-                      <span
-                        className={`${styles.statusPill} ${
-                          statusUpper === 'APPROVED' || statusUpper === 'PROCESSED'
-                            ? styles.statusApproved
-                            : statusUpper === 'REJECTED'
-                            ? styles.statusRejected
-                            : styles.statusPending
-                        }`}
-                      >
-                        {statusUpper === 'PROCESSED'
-                          ? '● Disbursed'
-                          : statusUpper === 'APPROVED'
-                          ? '● Approved'
-                          : statusUpper === 'REJECTED'
-                          ? '✕ Rejected'
-                          : '⏳ Pending Admin Audit'}
+                      <span className={styles.statusPill} style={{ color: meta.color, background: meta.bg }}>
+                        {meta.label}
                       </span>
                     </div>
                   </div>

@@ -1,22 +1,30 @@
 /* client/src/pages/member/ProfilePage.module.css */
 
+/* ============================================================
+   PBW FOUNDATION TOKENS (read directly off the live reference
+   site): --background:#fdfaf5  --foreground:#1c2a2a  --card:#fff
+   --primary: teal (#008080)   --secondary/--accent:#fd9911
+   --muted-foreground:#737373  --border:#e5e5e5  --radius:.875rem(14px)
+   --font-sans:"Geist"  Cards carry NO box-shadow at rest, just a
+   hairline border — a subtle shadow appears only on hover.
+   ============================================================ */
 .profileContainer {
   max-width: 1080px;
   margin: 0 auto;
-  padding: 20px 24px 60px 24px;
+  padding: 16px 20px 60px 20px;
   box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  color: #0f172a;
+  font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #1c2a2a;
 }
 
 /* ============================================================
-   HEADER BLOCK & COMPACT SAAS BUTTONS
+   HEADER BLOCK
    ============================================================ */
 .headerBlock {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   flex-wrap: wrap;
   gap: 12px;
 }
@@ -26,21 +34,36 @@
   min-width: 240px;
 }
 
+.headerEyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.45px;
+  color: #008080;
+  background: rgba(0, 128, 128, 0.08);
+  border: 1px solid rgba(0, 128, 128, 0.25);
+  padding: 2.5px 8px;
+  border-radius: 999px;
+  margin-bottom: 6px;
+}
+
 .pageTitle {
   font-size: 24px;
-  font-weight: 850;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c2a2a;
   margin: 0 0 4px 0;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.5px;
 }
 
 .pageSubtitle {
   font-size: 13px;
-  color: #64748b;
+  color: #737373;
   margin: 0;
 }
 
-/* Compact SaaS Action Buttons */
+/* Compact header action buttons */
 .headerActionGroup {
   display: flex;
   align-items: center;
@@ -52,46 +75,43 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #0f172a;
-  color: #f8fafc;
-  border: 1px solid #1e293b;
-  padding: 7px 13px;
-  border-radius: 9px;
+  background: #ffffff;
+  color: #1c2a2a;
+  border: 1px solid #e5e5e5;
+  padding: 7px 14px;
+  border-radius: 10px;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .btnSecondary:hover {
-  background: #1e293b;
-  border-color: #334155;
-  transform: translateY(-1px);
+  border-color: #008080;
+  color: #008080;
+  background: rgba(0, 128, 128, 0.05);
 }
 
 .btnPrimary {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #2563eb;
+  background: #008080;
   color: #ffffff;
-  border: 1px solid #1d4ed8;
+  border: 1px solid #006666;
   padding: 7px 15px;
-  border-radius: 9px;
+  border-radius: 10px;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
 }
 
 .btnPrimary:hover {
-  background: #1d4ed8;
+  background: #006666;
   transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
 }
 
 .btnActive {
@@ -99,20 +119,51 @@
   border-color: #b91c1c !important;
 }
 
+.btnActive:hover {
+  background: #b91c1c !important;
+}
+
 /* ============================================================
-   HERO PROFILE CARD (MODERN SAAS GLASS DESIGN)
+   HERO PROFILE CARD — teal gradient, matching the Member
+   Dashboard's hero card treatment, adapted for a profile context.
    ============================================================ */
 .heroProfileCard {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #008080 0%, #036666 55%, #024a4a 100%);
   border-radius: 18px;
   padding: 24px 28px;
   color: #ffffff;
-  margin-bottom: 24px;
-  border: 1px solid #334155;
-  box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.15);
+  margin-bottom: 20px;
+}
+
+.heroProfileCard::before {
+  content: "";
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  top: -80px;
+  right: -40px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(253, 153, 17, 0.32) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.heroProfileCard::after {
+  content: "";
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  bottom: -70px;
+  left: 20%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  pointer-events: none;
 }
 
 .heroMainRow {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 24px;
@@ -132,12 +183,11 @@
   width: 76px;
   height: 76px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+  background: rgba(255, 255, 255, 0.14);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
-  border: 2px solid rgba(255, 255, 255, 0.15);
+  border: 2px solid rgba(255, 255, 255, 0.35);
   overflow: hidden;
 }
 
@@ -150,7 +200,7 @@
 
 .avatarInitial {
   font-size: 30px;
-  font-weight: 800;
+  font-weight: 700;
   color: #ffffff;
 }
 
@@ -174,9 +224,9 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: #0f172a;
-  border: 2px solid #334155;
-  color: #ffffff;
+  background: #fd9911;
+  border: 2px solid #036666;
+  color: #1c2a2a;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -186,8 +236,7 @@
 }
 
 .avatarUploadBadge:hover {
-  background: #2563eb;
-  border-color: #60a5fa;
+  background: #e2870a;
   transform: scale(1.08);
 }
 
@@ -200,11 +249,11 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: rgba(16, 185, 129, 0.15);
-  border: 1px solid rgba(52, 211, 153, 0.4);
-  color: #34d399;
+  background: #ffffff;
+  border: 1px solid #bbf7d0;
+  color: #16a34a;
   font-size: 10.5px;
-  font-weight: 750;
+  font-weight: 700;
   padding: 2px 8px;
   border-radius: 999px;
 }
@@ -213,7 +262,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #34d399;
+  background: #16a34a;
 }
 
 /* User Identity Info */
@@ -231,23 +280,29 @@
 
 .userName {
   font-size: 20px;
-  font-weight: 850;
+  font-weight: 700;
   margin: 0;
   color: #ffffff;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.3px;
 }
 
 .userIdPill {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   font-size: 12px;
   font-weight: 600;
-  color: #60a5fa;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 2px 9px;
+  border-radius: 999px;
   margin-bottom: 10px;
 }
 
 .userIdPill strong {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  color: #93c5fd;
+  font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #ffffff;
+  margin-left: 4px;
 }
 
 .contactMetaList {
@@ -263,12 +318,12 @@
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #cbd5e1;
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .otpTag {
   font-size: 10.5px;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .heroStatsRow {
@@ -276,7 +331,7 @@
   align-items: center;
   gap: 16px;
   padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
 }
 
 .heroStatItem {
@@ -286,33 +341,33 @@
 
 .statLabel {
   font-size: 9.5px;
-  font-weight: 750;
-  color: #94a3b8;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.65);
   letter-spacing: 0.5px;
 }
 
 .statValue {
   font-size: 12.5px;
-  font-weight: 750;
-  color: #e2e8f0;
+  font-weight: 700;
+  color: #ffffff;
 }
 
 .statValueActive {
   font-size: 12px;
-  font-weight: 800;
-  color: #4ade80;
+  font-weight: 700;
+  color: #86efac;
 }
 
 .statValueInactive {
   font-size: 12px;
-  font-weight: 800;
-  color: #fbbf24;
+  font-weight: 700;
+  color: #fed7aa;
 }
 
 .statDivider {
   width: 1px;
   height: 22px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.18);
 }
 
 /* ============================================================
@@ -321,15 +376,19 @@
 .formContainer {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .contentSection {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
   padding: 20px 24px;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.02);
+  transition: box-shadow 0.15s ease;
+}
+
+.contentSection:hover {
+  box-shadow: 0 4px 16px rgba(28, 42, 42, 0.05);
 }
 
 .sectionHeader {
@@ -338,14 +397,14 @@
 
 .sectionHeader h3 {
   font-size: 15px;
-  font-weight: 850;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c2a2a;
   margin: 0 0 2px 0;
 }
 
 .sectionSub {
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
 }
 
 .formGrid {
@@ -366,39 +425,45 @@
 
 .inputGroup label {
   font-size: 11.5px;
-  font-weight: 750;
-  color: #475569;
+  font-weight: 700;
+  color: #525252;
 }
 
 .formInput {
   height: 38px;
   padding: 0 12px;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: 9px;
+  background: #fdfaf5;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
   font-size: 12.5px;
-  color: #0f172a;
+  color: #1c2a2a;
   outline: none;
   transition: all 0.15s ease;
   box-sizing: border-box;
+  font-family: inherit;
+}
+
+.formInput::placeholder {
+  color: #a3a3a3;
 }
 
 .formInput:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  border-color: #008080;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(0, 128, 128, 0.12);
 }
 
 .inputLocked {
-  background: #f1f5f9;
-  color: #64748b;
+  background: #f3f3f3;
+  color: #737373;
   cursor: not-allowed;
-  border-color: #e2e8f0;
+  border-color: #e5e5e5;
 }
 
 .inputReadOnly {
-  background: #f8fafc;
-  border-color: #e2e8f0;
-  color: #334155;
+  background: #f7f5f0;
+  border-color: #e5e5e5;
+  color: #404040;
 }
 
 /* Edit Mode Action Footer */
@@ -408,18 +473,17 @@
   align-items: center;
   gap: 10px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   border-radius: 14px;
   padding: 12px 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
 .cancelBtn {
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #cbd5e1;
+  background: #f3f3f3;
+  color: #404040;
+  border: 1px solid #e5e5e5;
   padding: 8px 16px;
-  border-radius: 8px;
+  border-radius: 9px;
   font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
@@ -427,27 +491,32 @@
 }
 
 .cancelBtn:hover {
-  background: #e2e8f0;
+  background: #e5e5e5;
 }
 
 .saveBtn {
-  background: #2563eb;
+  background: #008080;
   color: #ffffff;
   border: none;
   padding: 8px 20px;
-  border-radius: 8px;
+  border-radius: 9px;
   font-size: 12.5px;
-  font-weight: 750;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .saveBtn:hover:not(:disabled) {
-  background: #1d4ed8;
+  background: #006666;
+}
+
+.saveBtn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 /* ============================================================
-   📱 MOBILE RESPONSIVENESS (PERFECT CENTER ALIGNMENT)
+   📱 MOBILE RESPONSIVENESS
    ============================================================ */
 @media (max-width: 768px) {
   .profileContainer {

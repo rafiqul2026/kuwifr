@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
-import styles from "./FranchisePage.module.css";
+import styles from './FranchisePage.module.css';
 
 const formatINR = (val) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(val) || 0);
@@ -86,7 +86,14 @@ const FranchisePage = () => {
   };
 
   if (loading) {
-    return <div className={styles.pageContainer}><div className={styles.loadingState}>Loading Franchise status...</div></div>;
+    return (
+      <div className={styles.pageContainer}>
+        <div className={styles.loadingState}>
+          <div className={styles.loadingSpinner}></div>
+          <p>Loading Franchise status...</p>
+        </div>
+      </div>
+    );
   }
 
   // ============ NOT YET APPLIED, OR REJECTED (can re-apply) ============
@@ -94,8 +101,9 @@ const FranchisePage = () => {
     return (
       <div className={styles.pageContainer}>
         <div className={styles.headerRow}>
-          <div>
-            <h1 className={styles.pageTitle}>🏢 Become a Franchise</h1>
+          <div className={styles.headerTitleWrap}>
+            <span className={styles.pillBadge}>🏢 Franchise Network</span>
+            <h1 className={styles.pageTitle}>Become a Franchise</h1>
             <p className={styles.pageSubtitle}>Apply to become an official KUWIFR Franchise and start earning territory overrides on your full downline's business.</p>
           </div>
         </div>
@@ -134,8 +142,9 @@ const FranchisePage = () => {
     return (
       <div className={styles.pageContainer}>
         <div className={styles.headerRow}>
-          <div>
-            <h1 className={styles.pageTitle}>🏢 Franchise Application</h1>
+          <div className={styles.headerTitleWrap}>
+            <span className={styles.pillBadge}>🏢 Franchise Network</span>
+            <h1 className={styles.pageTitle}>Franchise Application</h1>
             <p className={styles.pageSubtitle}>Your application is under review.</p>
           </div>
         </div>
@@ -152,8 +161,9 @@ const FranchisePage = () => {
   return (
     <div className={styles.pageContainer}>
       <div className={styles.headerRow}>
-        <div>
-          <h1 className={styles.pageTitle}>🏢 Franchise Dashboard</h1>
+        <div className={styles.headerTitleWrap}>
+          <span className={styles.pillBadge}>🏢 Franchise Network</span>
+          <h1 className={styles.pageTitle}>Franchise Dashboard</h1>
           <p className={styles.pageSubtitle}>Your territory is your full downline network — overrides are credited automatically on every real order placed within it.</p>
         </div>
       </div>

@@ -28,7 +28,6 @@ const IncomePage = () => {
 
   const [loading, setLoading] = useState(true);
   const [streams, setStreams] = useState([]); // live per-category totals from /api/income/streams
-  const [grandTotal, setGrandTotal] = useState(0);
 
   const [selectedStream, setSelectedStream] = useState('ALL');
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -48,7 +47,6 @@ const IncomePage = () => {
       const res = await api.get('/api/income/streams');
       if (res.data?.success && res.data?.data) {
         setStreams(res.data.data.streams || []);
-        setGrandTotal(res.data.data.grandTotal || 0);
       }
     } catch {
       showNotification('Failed to load income stream breakdown', 'error');
@@ -102,10 +100,6 @@ const IncomePage = () => {
   }, []);
 
   const getStream = (key) => streams.find((s) => s.key === key) || { total: 0, today: 0, count: 0 };
-
-  const todayTotal = streams.reduce((sum, s) => sum + (Number(s.today) || 0), 0);
-  const directTotal = getStream('DIRECT').total;
-  const matchingTotal = getStream('MATCHING').total;
 
   if (loading) {
     return (
@@ -168,92 +162,16 @@ const IncomePage = () => {
             <h3 className={styles.snapshotValue}>{formatINR(incomeSnapshot?.totalWithdrawal)}</h3>
             <span className={styles.snapshotSub}>Payouts Dispatched</span>
           </div>
-
-          <div className={styles.snapshotCard}>
-            <div className={styles.snapshotCardHeader}>
-              <span className={styles.snapshotCardTitle}>LEADERSHIP INCOME</span>
-              <div className={`${styles.snapshotIconBox} ${styles.snapshotIconOrange}`}>👑</div>
-            </div>
-            <h3 className={styles.snapshotValue}>{formatINR(incomeSnapshot?.leadershipIncome?.total)}</h3>
-            <span className={styles.snapshotSub}>Today: {formatINR(incomeSnapshot?.leadershipIncome?.today)}</span>
-          </div>
-
-          <div className={styles.snapshotCard}>
-            <div className={styles.snapshotCardHeader}>
-              <span className={styles.snapshotCardTitle}>SELF REPURCHASE INCOME</span>
-              <div className={`${styles.snapshotIconBox} ${styles.snapshotIconOrange}`}>🔄</div>
-            </div>
-            <h3 className={styles.snapshotValue}>{formatINR(incomeSnapshot?.selfRepurchaseIncome)}</h3>
-            <span className={styles.snapshotSub}>Lifetime Self Repurchase Cashback</span>
-          </div>
-
-          <div className={styles.snapshotCard}>
-            <div className={styles.snapshotCardHeader}>
-              <span className={styles.snapshotCardTitle}>DOWNLINE REPURCHASE INCOME</span>
-              <div className={`${styles.snapshotIconBox} ${styles.snapshotIconOrange}`}>🔁</div>
-            </div>
-            <h3 className={styles.snapshotValue}>{formatINR(incomeSnapshot?.downlineRepurchaseIncome)}</h3>
-            <span className={styles.snapshotSub}>Lifetime Downline Repurchase Income</span>
-          </div>
-
-          <div className={styles.snapshotCard}>
-            <div className={styles.snapshotCardHeader}>
-              <span className={styles.snapshotCardTitle}>PENSION</span>
-              <div className={`${styles.snapshotIconBox} ${styles.snapshotIconOrange}`}>🏦</div>
-            </div>
-            <h3 className={styles.snapshotValue}>{incomeSnapshot?.pension?.active ? 'Active' : 'Not Active'}</h3>
-            <span className={styles.snapshotSub}>Lifetime Paid: {formatINR(incomeSnapshot?.pension?.totalEarned)}</span>
-          </div>
         </div>
       </section>
 
-      {/* Income Streams Grid — Total / Direct / Matching (live, from IncomeTransaction) */}
-      <section className={styles.incomeGrid}>
-        <div className={`${styles.incomeCard} ${styles.totalCard}`}>
-          <div className={styles.cardTop}>
-            <span className={styles.cardIcon}>💰</span>
-            <span className={styles.cardChip}>Cumulative</span>
-          </div>
-          <div className={styles.cardAmount}>
-            <small>₹</small>
-            {grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <div className={styles.cardFooter}>
-            <span>Total Network Income</span>
-            <strong>Today: {formatINR(todayTotal)}</strong>
-          </div>
-        </div>
-
-        <div className={`${styles.incomeCard} ${styles.directCard}`}>
-          <div className={styles.cardTop}>
-            <span className={styles.cardIcon}>🎯</span>
-            <span className={styles.cardChip}>Sponsor Bonus</span>
-          </div>
-          <div className={styles.cardAmount}>
-            <small>₹</small>
-            {directTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <div className={styles.cardFooter}>
-            <span>Direct Referral Income</span>
-            <strong>Direct Sponsor Activations</strong>
-          </div>
-        </div>
-
-        <div className={`${styles.incomeCard} ${styles.matchingCard}`}>
-          <div className={styles.cardTop}>
-            <span className={styles.cardIcon}>🌳</span>
-            <span className={styles.cardChip}>Binary Match</span>
-          </div>
-          <div className={styles.cardAmount}>
-            <small>₹</small>
-            {matchingTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <div className={styles.cardFooter}>
-            <span>Binary Matching Income</span>
-            <strong>Matched Left / Right Volume</strong>
-          </div>
-        </div>
-      </section>
+      {/* Note: a "Total / Direct / Matching" summary grid used to sit here,
+          re-showing the exact same DIRECT and MATCHING totals (via the same
+          getStream() helper) that the Income Stream Breakdown section below
+          already surfaces per-category with today/total/count and full
+          transaction history — a pure override of that data with no unique
+          information of its own. Removed per user request to keep this page
+          to one live source of truth per figure. */}
 
       {/* ================= INCOME STREAM DROPDOWN ================= */}
       <section className={styles.streamSection}>

@@ -23,7 +23,7 @@ const NotificationsPage = () => {
         limit: pagination.limit,
         ...(filter !== 'all' && { read: filter === 'read' ? 'true' : 'false' })
       });
-      
+
       const response = await api.get(`/api/notifications?${params}`);
       if (response.data.success) {
         setNotifications(response.data.data.notifications || []);
@@ -59,7 +59,7 @@ const NotificationsPage = () => {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this notification?')) return;
-    
+
     try {
       await api.delete(`/api/notifications/${id}`);
       showNotification('Notification deleted', 'success');
@@ -69,27 +69,30 @@ const NotificationsPage = () => {
     }
   };
 
+  // Priority -> PBW status-pill tokens (success/warning/danger/info).
   const getPriorityColor = (priority) => {
     const colors = {
-      'LOW': { bg: '#f1f5f9', text: '#64748b' },
-      'MEDIUM': { bg: '#dbeafe', text: '#2563eb' },
-      'HIGH': { bg: '#fef3c7', text: '#d97706' },
-      'URGENT': { bg: '#fee2e2', text: '#dc2626' }
+      'LOW': { bg: 'rgba(115, 115, 115, 0.12)', text: '#737373' },
+      'MEDIUM': { bg: 'rgba(0, 128, 128, 0.12)', text: '#008080' },
+      'HIGH': { bg: 'rgba(217, 119, 6, 0.12)', text: '#d97706' },
+      'URGENT': { bg: 'rgba(220, 38, 38, 0.12)', text: '#dc2626' }
     };
     return colors[priority] || colors['LOW'];
   };
 
-  const getTypeIcon = (type) => {
-    const icons = {
-      'SYSTEM': '📢',
-      'FINANCIAL': '💰',
-      'ACHIEVEMENT': '🏆',
-      'CAMPAIGN': '🎯',
-      'ADMIN': '📋',
-      'SECURITY': '🔒',
-      'REMINDER': '⏰'
+  // Notification type -> icon-chip color, mirrors the Dashboard's
+  // Announcements widget icon treatment.
+  const getTypeChip = (type) => {
+    const chips = {
+      'SYSTEM': { icon: '📢', bg: 'rgba(99, 102, 241, 0.12)' },
+      'FINANCIAL': { icon: '💰', bg: 'rgba(22, 163, 74, 0.12)' },
+      'ACHIEVEMENT': { icon: '🏆', bg: 'rgba(253, 153, 17, 0.14)' },
+      'CAMPAIGN': { icon: '🎯', bg: 'rgba(0, 128, 128, 0.12)' },
+      'ADMIN': { icon: '📋', bg: 'rgba(0, 128, 128, 0.12)' },
+      'SECURITY': { icon: '🔒', bg: 'rgba(220, 38, 38, 0.12)' },
+      'REMINDER': { icon: '⏰', bg: 'rgba(217, 119, 6, 0.12)' }
     };
-    return icons[type] || '📢';
+    return chips[type] || chips['SYSTEM'];
   };
 
   const formatTime = (date) => {
@@ -121,7 +124,8 @@ const NotificationsPage = () => {
   return (
     <div className={styles.notificationsPage}>
       <div className={styles.pageHeader}>
-        <div>
+        <div className={styles.headerTitleWrap}>
+          <span className={styles.pillBadge}>🔔 Notification Center</span>
           <h1 className={styles.pageTitle}>Notifications</h1>
           <p className={styles.pageSubtitle}>Stay updated with your latest activities</p>
         </div>
@@ -130,7 +134,8 @@ const NotificationsPage = () => {
             {unreadCount} unread
           </span>
           {unreadCount > 0 && (
-            <button 
+            <button
+              type="button"
               className={styles.markAllBtn}
               onClick={handleMarkAllAsRead}
             >
@@ -142,13 +147,15 @@ const NotificationsPage = () => {
 
       {/* Filters */}
       <div className={styles.filters}>
-        <button 
+        <button
+          type="button"
           className={`${styles.filterBtn} ${filter === 'all' ? styles.active : ''}`}
           onClick={() => setFilter('all')}
         >
           All
         </button>
-        <button 
+        <button
+          type="button"
           className={`${styles.filterBtn} ${filter === 'unread' ? styles.active : ''}`}
           onClick={() => setFilter('unread')}
         >
@@ -157,7 +164,8 @@ const NotificationsPage = () => {
             <span className={styles.filterCount}>{unreadCount}</span>
           )}
         </button>
-        <button 
+        <button
+          type="button"
           className={`${styles.filterBtn} ${filter === 'read' ? styles.active : ''}`}
           onClick={() => setFilter('read')}
         >
@@ -165,7 +173,9 @@ const NotificationsPage = () => {
         </button>
       </div>
 
-      {/* Notifications List */}
+      {/* Notifications List — icon chip + title + message + timestamp +
+          unread indicator, the full-page version of the Dashboard's
+          Announcements widget list pattern. */}
       <div className={styles.notificationsList}>
         {notifications.length === 0 ? (
           <div className={styles.emptyState}>
@@ -176,26 +186,25 @@ const NotificationsPage = () => {
         ) : (
           notifications.map((notif) => {
             const priority = getPriorityColor(notif.priority);
+            const chip = getTypeChip(notif.type);
             const isUnread = !notif.read;
 
             return (
-              <div 
-                key={notif._id} 
+              <div
+                key={notif._id}
                 className={`${styles.notificationItem} ${isUnread ? styles.unread : ''}`}
               >
-                <div className={styles.notifIcon} style={{ color: notif.color || '#2563eb' }}>
-                  {getTypeIcon(notif.type)}
+                <div className={styles.notifIcon} style={{ background: chip.bg }}>
+                  {chip.icon}
                 </div>
                 <div className={styles.notifContent}>
                   <div className={styles.notifHeader}>
                     <div className={styles.notifTitleWrapper}>
+                      {isUnread && <span className={styles.unreadDot}></span>}
                       <span className={styles.notifTitle}>{notif.title}</span>
-                      {isUnread && (
-                        <span className={styles.unreadDot}></span>
-                      )}
-                      <span 
+                      <span
                         className={styles.notifPriority}
-                        style={{ 
+                        style={{
                           background: priority.bg,
                           color: priority.text
                         }}
@@ -214,7 +223,8 @@ const NotificationsPage = () => {
                   <div className={styles.notifFooter}>
                     <span className={styles.notifType}>{notif.type}</span>
                     {notif.action && (
-                      <button 
+                      <button
+                        type="button"
                         className={styles.actionBtn}
                         onClick={() => window.location.href = notif.action}
                       >
@@ -225,7 +235,8 @@ const NotificationsPage = () => {
                 </div>
                 <div className={styles.notifActions}>
                   {isUnread && (
-                    <button 
+                    <button
+                      type="button"
                       className={styles.readBtn}
                       onClick={() => handleMarkAsRead(notif._id)}
                       title="Mark as read"
@@ -233,7 +244,8 @@ const NotificationsPage = () => {
                       ✓
                     </button>
                   )}
-                  <button 
+                  <button
+                    type="button"
                     className={styles.deleteBtn}
                     onClick={() => handleDelete(notif._id)}
                     title="Delete"
@@ -251,6 +263,7 @@ const NotificationsPage = () => {
       {pagination.pages > 1 && (
         <div className={styles.pagination}>
           <button
+            type="button"
             disabled={pagination.page <= 1}
             onClick={() => setPagination({ ...pagination, page: pagination.page - 1 })}
           >
@@ -260,6 +273,7 @@ const NotificationsPage = () => {
             Page {pagination.page} of {pagination.pages}
           </span>
           <button
+            type="button"
             disabled={pagination.page >= pagination.pages}
             onClick={() => setPagination({ ...pagination, page: pagination.page + 1 })}
           >

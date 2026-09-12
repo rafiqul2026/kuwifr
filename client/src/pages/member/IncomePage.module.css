@@ -22,27 +22,27 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #eff6ff;
-  color: #2563eb;
+  background: rgba(0, 128, 128, 0.08);
+  color: #008080;
   font-size: 12px;
   font-weight: 700;
   padding: 4px 12px;
   border-radius: 999px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid rgba(0, 128, 128, 0.25);
   width: fit-content;
 }
 
 .pageTitle {
   font-size: 26px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c2a2a;
   margin: 0;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.5px;
 }
 
 .pageSubtitle {
   font-size: 14px;
-  color: #64748b;
+  color: #737373;
   margin: 0;
 }
 
@@ -130,150 +130,23 @@
   text-overflow: ellipsis;
 }
 
-/* ================= INCOME GRID CARDS ================= */
-.incomeGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
-  margin-bottom: 28px;
-}
-
-.incomeCard {
-  position: relative;
-  padding: 22px 24px;
-  border-radius: 18px;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.04);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  box-sizing: border-box;
-}
-
-.incomeCard:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.08);
-}
-
-.cardTop {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.cardIcon {
-  font-size: 24px;
-}
-
-.cardChip {
-  font-size: 11.5px;
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 999px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.cardAmount {
-  font-size: 32px;
-  font-weight: 900;
-  line-height: 1.1;
-  margin-bottom: 16px;
-}
-
-.cardAmount small {
-  font-size: 20px;
-  font-weight: 700;
-  margin-right: 2px;
-}
-
-.cardFooter {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-  padding-top: 12px;
-  font-size: 12px;
-  margin-top: auto;
-}
-
-/* Card Themes */
-.totalCard {
-  background: linear-gradient(145deg, #0f172a 0%, #1e293b 100%);
-  color: #ffffff;
-  border: 1px solid #334155;
-}
-.totalCard .cardChip {
-  background: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
-  border: 1px solid rgba(56, 189, 248, 0.3);
-}
-.totalCard .cardAmount {
-  color: #38bdf8;
-}
-.totalCard .cardFooter {
-  border-top-color: rgba(255, 255, 255, 0.1);
-  color: #94a3b8;
-}
-.totalCard .cardFooter strong {
-  color: #e2e8f0;
-}
-
-.directCard {
-  background: linear-gradient(145deg, #ffffff 0%, #eff6ff 100%);
-  border: 1px solid #bfdbfe;
-}
-.directCard .cardChip {
-  background: #dbeafe;
-  color: #1d4ed8;
-  border: 1px solid #93c5fd;
-}
-.directCard .cardAmount {
-  color: #1d4ed8;
-}
-.directCard .cardFooter {
-  color: #475569;
-}
-.directCard .cardFooter strong {
-  color: #1e40af;
-}
-
-.matchingCard {
-  background: linear-gradient(145deg, #ffffff 0%, #f0fdf4 100%);
-  border: 1px solid #bbf7d0;
-}
-.matchingCard .cardChip {
-  background: #dcfce7;
-  color: #15803d;
-  border: 1px solid #86efac;
-}
-.matchingCard .cardAmount {
-  color: #15803d;
-}
-.matchingCard .cardFooter {
-  color: #475569;
-}
-.matchingCard .cardFooter strong {
-  color: #166534;
-}
-
 /* ================= REPURCHASE NOTICE BANNER ================= */
 .repurchaseNoticeBox {
   background: #ffffff;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 16px;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
   padding: 20px 24px;
   display: flex;
   align-items: center;
   gap: 16px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  transition: all 0.15s ease;
+  box-shadow: none;
 }
 
 .repurchaseNoticeBox:hover {
-  border-color: #2563eb;
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.08);
+  border-color: #008080;
+  box-shadow: 0 1px 3px rgba(28, 42, 42, 0.06);
   transform: translateY(-1px);
 }
 
@@ -281,8 +154,8 @@
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: #eff6ff;
-  color: #2563eb;
+  background: rgba(0, 128, 128, 0.1);
+  color: #008080;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -297,21 +170,21 @@
 .noticeContent h4 {
   margin: 0 0 4px 0;
   font-size: 16px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c2a2a;
 }
 
 .noticeContent p {
   margin: 0;
   font-size: 13px;
-  color: #64748b;
+  color: #737373;
   line-height: 1.4;
 }
 
 .noticeAction {
   font-size: 13px;
   font-weight: 700;
-  color: #2563eb;
+  color: #008080;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -324,13 +197,14 @@
   justify-content: center;
   min-height: 380px;
   gap: 12px;
+  color: #737373;
 }
 
 .modernSpinner {
   width: 40px;
   height: 40px;
-  border: 3.5px solid #e2e8f0;
-  border-top-color: #2563eb;
+  border: 3.5px solid #e5e5e5;
+  border-top-color: #008080;
   border-radius: 50%;
   animation: spin 0.75s linear infinite;
 }
@@ -342,11 +216,11 @@
 /* ================= INCOME STREAM DROPDOWN SECTION ================= */
 .streamSection {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 18px;
-  padding: 22px 24px;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
+  padding: 20px 22px;
   margin-bottom: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  box-shadow: none;
 }
 
 .streamSectionHeader {
@@ -360,15 +234,15 @@
 
 .streamSectionHeader h2 {
   margin: 0 0 4px 0;
-  font-size: 17px;
-  font-weight: 800;
-  color: #0f172a;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1c2a2a;
 }
 
 .streamSectionHeader p {
   margin: 0;
   font-size: 12.5px;
-  color: #64748b;
+  color: #737373;
 }
 
 .streamSelectWrap {
@@ -381,30 +255,31 @@
 .streamSelectWrap label {
   font-size: 12.5px;
   font-weight: 700;
-  color: #334155;
+  color: #1c2a2a;
 }
 
 .streamSelect {
   appearance: none;
-  background: #f8fafc;
-  border: 1.5px solid #cbd5e1;
+  background: #f3f3f3;
+  border: 1px solid #e5e5e5;
   border-radius: 10px;
   padding: 9px 32px 9px 14px;
   font-size: 13px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c2a2a;
   cursor: pointer;
   min-width: 220px;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
   background-size: 14px;
+  transition: border-color 0.15s ease;
 }
 
 .streamSelect:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  border-color: #008080;
+  box-shadow: 0 0 0 3px rgba(0, 128, 128, 0.12);
 }
 
 /* Overview grid (All Income Streams) */
@@ -416,8 +291,8 @@
 
 .streamOverviewCard {
   text-align: left;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #fdfaf5;
+  border: 1px solid #e5e5e5;
   border-radius: 12px;
   padding: 14px 16px;
   cursor: pointer;
@@ -429,33 +304,33 @@
 }
 
 .streamOverviewCard:hover {
-  border-color: #93c5fd;
+  border-color: #008080;
   transform: translateY(-1px);
 }
 
 .streamOverviewLabel {
   font-size: 11.5px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
 
 .streamOverviewValue {
   font-size: 17px;
-  font-weight: 900;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c2a2a;
 }
 
 .streamOverviewSub {
   font-size: 11.5px;
-  color: #94a3b8;
+  color: #a3a3a3;
   font-weight: 600;
 }
 
 /* Detail view (single stream selected) */
 .streamDetailBox {
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   border-radius: 12px;
   overflow: hidden;
 }
@@ -464,9 +339,9 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #f8fafc;
+  background: #fdfaf5;
   padding: 14px 18px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e5e5e5;
   flex-wrap: wrap;
   gap: 8px;
 }
@@ -475,7 +350,7 @@
   display: block;
   font-size: 12px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
   text-transform: uppercase;
   letter-spacing: 0.02em;
   margin-bottom: 2px;
@@ -483,15 +358,15 @@
 
 .streamDetailTotal {
   font-size: 22px;
-  font-weight: 900;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c2a2a;
 }
 
 .streamDetailCount {
   font-size: 12px;
   font-weight: 700;
-  color: #64748b;
-  background: #eef2ff;
+  color: #008080;
+  background: rgba(0, 128, 128, 0.08);
   padding: 4px 10px;
   border-radius: 999px;
 }
@@ -508,7 +383,7 @@
   align-items: center;
   gap: 6px;
   padding: 32px 16px;
-  color: #94a3b8;
+  color: #a3a3a3;
 }
 
 .streamEmptyState span {
@@ -531,7 +406,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 12px 18px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f3f3f3;
 }
 
 .streamTransactionItem:last-child {
@@ -547,27 +422,24 @@
 .streamTxType {
   font-size: 12.5px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c2a2a;
   text-transform: capitalize;
 }
 
 .streamTxDate {
   font-size: 11.5px;
-  color: #94a3b8;
+  color: #a3a3a3;
   font-weight: 600;
 }
 
 .streamTxAmount {
   font-size: 13.5px;
-  font-weight: 800;
-  color: #15803d;
+  font-weight: 700;
+  color: #16a34a;
 }
 
 /* ================= MEDIA RESPONSIVENESS ================= */
 @media (max-width: 992px) {
-  .incomeGrid {
-    grid-template-columns: 1fr;
-  }
   .streamOverviewGrid {
     grid-template-columns: repeat(2, 1fr);
   }

@@ -105,6 +105,28 @@ const AdminSettingsPage = () => {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isTestingEmail, setIsTestingEmail] = useState(false);
+  // Data-integrity repair tools (see the "Data Integrity Tools" card in the
+  // Engine & TTO tab below) — one-click, non-destructive backfills for two
+  // known gaps: a member whose binary-tree placement (Growth Generation
+  // tree, Total Downline Left/Right, KBP matching) or unilevel Referral
+  // chain (My Team's generation grouping) never got written, most often
+  // because it silently failed at registration time on an earlier deploy.
+  const [isRepairingBinary, setIsRepairingBinary] = useState(false);
+  const [isRepairingReferrals, setIsRepairingReferrals] = useState(false);
+  const [binaryRepairResult, setBinaryRepairResult] = useState(null);
+  const [referralRepairResult, setReferralRepairResult] = useState(null);
+  // Income reconciliation — separate from the two repairs above, which only
+  // fix tree/genealogy LINKS. These backfill actual missing money: Direct
+  // Referral Income that an activation should have paid a sponsor but never
+  // did, and Matching Income/leg KBP that never propagated up the binary
+  // tree because the original activation skipped BinaryService.updateVolumes.
+  // Real case: RAFIQUL Test (KFR441197) had 5 real ACTIVE referrals, only
+  // 3 of which ever paid him referral income, and 0 KBP ever reached either
+  // of his legs despite all 5 being real, active, package-holding members.
+  const [isReconcilingReferral, setIsReconcilingReferral] = useState(false);
+  const [isReconcilingMatching, setIsReconcilingMatching] = useState(false);
+  const [referralReconcileResult, setReferralReconcileResult] = useState(null);
+  const [matchingReconcileResult, setMatchingReconcileResult] = useState(null);
   const [showSecrets, setShowSecrets] = useState(false);
 
   const { showNotification } = useNotification ? useNotification() : {
@@ -254,6 +276,90 @@ const AdminSettingsPage = () => {
       showNotification('Failed to deliver test email', 'error');
     } finally {
       setIsTestingEmail(false);
+    }
+  };
+
+  // Backfills any missing BinaryNode placement (leftChildId/rightChildId
+  // links) from existing sponsor data — fixes members whose Growth
+  // Generation tree, Total Downline Left/Right counts, or KBP matching
+  // show 0 despite having real downline. Never deletes anything and never
+  // touches a link that's already correct, so it's safe to run any time,
+  // repeatedly, with no risk to already-working members.
+  const handleRepairBinaryTree = async () => {
+    setIsRepairingBinary(true);
+    setBinaryRepairResult(null);
+    try {
+      const res = await api.post('/api/admin/binary/repair');
+      const summary = res.data?.data;
+      setBinaryRepairResult(summary);
+      showNotification(res.data?.message || 'Binary tree repair complete.', 'success');
+    } catch (err) {
+      showNotification(err.response?.data?.message || 'Binary tree repair failed.', 'error');
+    } finally {
+      setIsRepairingBinary(false);
+    }
+  };
+
+  // Same idea for the unilevel/sponsor-chain Referral collection (what "My
+  // Team" groups members by generation with) — a separate collection from
+  // BinaryNode, with the same "can silently fail to write at registration"
+  // failure shape, so it gets its own repair pass.
+  const handleRepairReferrals = async () => {
+    setIsRepairingReferrals(true);
+    setReferralRepairResult(null);
+    try {
+      const res = await api.post('/api/admin/referrals/repair');
+      const summary = res.data?.data;
+      setReferralRepairResult(summary);
+      showNotification(res.data?.message || 'Referral chain repair complete.', 'success');
+    } catch (err) {
+      showNotification(err.response?.data?.message || 'Referral chain repair failed.', 'error');
+    } finally {
+      setIsRepairingReferrals(false);
+    }
+  };
+
+  // Backfills the one-time 10% Direct Referral Bonus for any ACTIVE,
+  // sponsored member whose activation never actually credited their
+  // sponsor — most commonly caused by an activation path that has since
+  // been fixed but whose already-missed credit still needs paying.
+  // processReferralIncome's own duplicate guards make this safe to run any
+  // time, repeatedly: it can only ever fill in a genuinely missing credit,
+  // never pay one twice.
+  const handleReconcileReferralIncome = async () => {
+    setIsReconcilingReferral(true);
+    setReferralReconcileResult(null);
+    try {
+      const res = await api.post('/api/admin/income/reconcile-referral');
+      const summary = res.data?.data;
+      setReferralReconcileResult(summary);
+      showNotification(res.data?.message || 'Referral income reconciliation complete.', 'success');
+    } catch (err) {
+      showNotification(err.response?.data?.message || 'Referral income reconciliation failed.', 'error');
+    } finally {
+      setIsReconcilingReferral(false);
+    }
+  };
+
+  // Backfills Matching Income / Left-vs-Right leg KBP for any member whose
+  // real completed-order KBP never actually propagated up the binary tree —
+  // replays exactly the missing amount through the real matching engine
+  // (BinaryService.updateVolumes), so 2:1 first-pair rules, caps, leadership
+  // bonus, and rank re-evaluation all fire normally. Safe to run any time,
+  // repeatedly — a member already fully reconciled contributes a shortfall
+  // of 0 on every subsequent run.
+  const handleReconcileMatchingIncome = async () => {
+    setIsReconcilingMatching(true);
+    setMatchingReconcileResult(null);
+    try {
+      const res = await api.post('/api/admin/income/reconcile-matching');
+      const summary = res.data?.data;
+      setMatchingReconcileResult(summary);
+      showNotification(res.data?.message || 'Matching income reconciliation complete.', 'success');
+    } catch (err) {
+      showNotification(err.response?.data?.message || 'Matching income reconciliation failed.', 'error');
+    } finally {
+      setIsReconcilingMatching(false);
     }
   };
 
@@ -1080,6 +1186,157 @@ const AdminSettingsPage = () => {
                           style={{ width: '100%', marginTop: '6px' }}
                         />
                       </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Data Integrity Tools — one-click, non-destructive repair
+                    for the two known "member's data shows 0 / empty despite
+                    being real" gaps: a missing binary-tree placement
+                    (Growth Generation tree, Total Downline Left/Right, KBP
+                    matching) or a missing unilevel Referral chain (My
+                    Team's generation grouping). Both repairs only ever
+                    INSERT what should already be there from real
+                    User.sponsorId/binarySide data — never delete or
+                    overwrite a correct existing link — so they're safe to
+                    run at any time, including repeatedly. */}
+                <div className={styles.sectionBlock} style={{ marginTop: '24px' }}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <h3>Data Integrity Tools</h3>
+                      <p>
+                        Backfill any member whose binary tree or team genealogy never got linked correctly —
+                        safe to run any time, never deletes or overwrites correct data.
+                      </p>
+                    </div>
+                    <span className={styles.sectionBadge}>Non-destructive</span>
+                  </div>
+
+                  <div className={styles.formGrid}>
+                    <div className={styles.maintenanceCard}>
+                      <span className={styles.maintenanceLabel}>Repair Binary Tree Placement</span>
+                      <p className={styles.maintenanceHelp}>
+                        Fixes: Growth Generation tree showing empty/"Open Spot" for real members, Total Downline
+                        Left/Right showing 0, KBP Left/Right and Matched Pairs stuck at 0.
+                      </p>
+                      <button
+                        type="button"
+                        className={styles.testEmailBtn}
+                        onClick={handleRepairBinaryTree}
+                        disabled={isRepairingBinary}
+                        style={{ marginTop: '10px' }}
+                      >
+                        {isRepairingBinary ? 'Repairing...' : '🌳 Repair Binary Tree'}
+                      </button>
+                      {binaryRepairResult && (
+                        <p className={styles.maintenanceHelp} style={{ marginTop: '8px' }}>
+                          {binaryRepairResult.placementsFixed?.length || 0} member(s) re-linked ·{' '}
+                          {binaryRepairResult.rootsEnsured || 0} root node(s) ensured ·{' '}
+                          {binaryRepairResult.alreadyCorrect || 0} already correct
+                          {binaryRepairResult.errors?.length ? ` · ${binaryRepairResult.errors.length} error(s)` : ''}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className={styles.maintenanceCard}>
+                      <span className={styles.maintenanceLabel}>Repair Referral / Team Genealogy</span>
+                      <p className={styles.maintenanceHelp}>
+                        Fixes: a member missing from a downline's "My Team" generation grouping despite being a
+                        real, active sponsor-chain descendant.
+                      </p>
+                      <button
+                        type="button"
+                        className={styles.testEmailBtn}
+                        onClick={handleRepairReferrals}
+                        disabled={isRepairingReferrals}
+                        style={{ marginTop: '10px' }}
+                      >
+                        {isRepairingReferrals ? 'Repairing...' : '🔗 Repair Referral Chains'}
+                      </button>
+                      {referralRepairResult && (
+                        <p className={styles.maintenanceHelp} style={{ marginTop: '8px' }}>
+                          {referralRepairResult.rowsCreated || 0} row(s) created across{' '}
+                          {referralRepairResult.usersAffected || 0} member(s) ·{' '}
+                          {referralRepairResult.alreadyComplete || 0} already complete
+                          {referralRepairResult.errors?.length ? ` · ${referralRepairResult.errors.length} error(s)` : ''}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Income Reconciliation — separate from the two repairs
+                    above, which only fix tree/genealogy LINKS. These
+                    backfill actual missing money: a sponsor's Direct
+                    Referral Income that an activation should have paid but
+                    never did, and Matching Income/leg KBP that never
+                    propagated up the binary tree. Run "Repair Binary Tree"
+                    first if you haven't already — reconciling matching
+                    income needs each member correctly linked to get credited
+                    to the right upline. Both are non-destructive and safe to
+                    run repeatedly; each only ever fills in a genuinely
+                    missing amount, never pays or propagates the same KBP
+                    twice. */}
+                <div className={styles.sectionBlock} style={{ marginTop: '24px' }}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <h3>Income Reconciliation</h3>
+                      <p>
+                        Backfill Direct Referral or Matching Income that a real, ACTIVE member's activation should
+                        have paid but never did — safe to run any time, never double-credits a member who's already correct.
+                      </p>
+                    </div>
+                    <span className={styles.sectionBadge}>Non-destructive</span>
+                  </div>
+
+                  <div className={styles.formGrid}>
+                    <div className={styles.maintenanceCard}>
+                      <span className={styles.maintenanceLabel}>Reconcile Direct Referral Income</span>
+                      <p className={styles.maintenanceHelp}>
+                        Fixes: a sponsor whose Direct Income card is missing the 10% bonus for one or more real,
+                        ACTIVE direct referrals they already have.
+                      </p>
+                      <button
+                        type="button"
+                        className={styles.testEmailBtn}
+                        onClick={handleReconcileReferralIncome}
+                        disabled={isReconcilingReferral}
+                        style={{ marginTop: '10px' }}
+                      >
+                        {isReconcilingReferral ? 'Reconciling...' : '💰 Reconcile Referral Income'}
+                      </button>
+                      {referralReconcileResult && (
+                        <p className={styles.maintenanceHelp} style={{ marginTop: '8px' }}>
+                          {referralReconcileResult.credited || 0} missing credit(s) paid ·{' '}
+                          {referralReconcileResult.checked || 0} active member(s) checked ·{' '}
+                          {referralReconcileResult.alreadyCredited || 0} already correct
+                          {referralReconcileResult.failed ? ` · ${referralReconcileResult.failed} error(s)` : ''}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className={styles.maintenanceCard}>
+                      <span className={styles.maintenanceLabel}>Reconcile Matching Income / Leg KBP</span>
+                      <p className={styles.maintenanceHelp}>
+                        Fixes: Matching Income stuck at ₹0 and Left/Right Leg showing 0 KBP despite real, ACTIVE
+                        downline members with completed package orders.
+                      </p>
+                      <button
+                        type="button"
+                        className={styles.testEmailBtn}
+                        onClick={handleReconcileMatchingIncome}
+                        disabled={isReconcilingMatching}
+                        style={{ marginTop: '10px' }}
+                      >
+                        {isReconcilingMatching ? 'Reconciling...' : '⚖️ Reconcile Matching Income'}
+                      </button>
+                      {matchingReconcileResult && (
+                        <p className={styles.maintenanceHelp} style={{ marginTop: '8px' }}>
+                          {matchingReconcileResult.reconciled?.length || 0} member(s) had missing KBP replayed ·{' '}
+                          {matchingReconcileResult.alreadyCorrect || 0} already correct
+                          {matchingReconcileResult.errors?.length ? ` · ${matchingReconcileResult.errors.length} error(s)` : ''}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

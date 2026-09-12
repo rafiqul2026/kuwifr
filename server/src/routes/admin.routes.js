@@ -69,6 +69,52 @@ router.post('/referrals/repair', async (req, res, next) => {
   }
 });
 
+// Non-destructive backfill for Direct Referral Income that a member's
+// activation should have paid their sponsor but never did — e.g. any
+// activation that went through order.controller.js#activateCashPackage
+// before its transaction-commit-ordering bug was fixed. Only ever fills in
+// a genuinely missing credit (processReferralIncome's own duplicate guards
+// make this safe to run repeatedly); never re-pays a credit that already
+// exists. See IncomeService.reconcileMissingReferralIncome for the full
+// real-world case (RAFIQUL Test / KFR441197) that exposed this.
+router.post('/income/reconcile-referral', async (req, res, next) => {
+  try {
+    const IncomeService = require('../services/income.service');
+    const summary = await IncomeService.reconcileMissingReferralIncome();
+    res.json({
+      success: true,
+      message: `Referral income reconciliation complete. ${summary.credited} missing credit(s) paid across ${summary.checked} active member(s) checked, ${summary.alreadyCredited} already correct.`,
+      data: summary
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Non-destructive backfill for Matching Income / Left-vs-Right leg KBP that
+// was never propagated up the binary tree because the original activation
+// never called BinaryService.updateVolumes() correctly for that member (see
+// updateVolumes()'s doc comment for the five separate activation paths that
+// could each independently skip this). Compares each member's real
+// completed-order KBP total against what actually reached their own
+// BinaryNode.totalKBP and replays exactly the shortfall through the real
+// matching engine — so first-pair 2:1 rules, caps, leadership bonus, and
+// rank re-evaluation all fire normally. Safe to run repeatedly: a second run
+// always finds a shortfall of 0 for anyone already reconciled.
+router.post('/income/reconcile-matching', async (req, res, next) => {
+  try {
+    const BinaryService = require('../services/binary.service');
+    const summary = await BinaryService.reconcileMissingVolume();
+    res.json({
+      success: true,
+      message: `Matching income reconciliation complete. ${summary.reconciled.length} member(s) had missing KBP replayed through the matching engine, ${summary.alreadyCorrect} already correct.`,
+      data: summary
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Business rule: a member is ACTIVE only if they hold a real, verified
 // package. GET previews which MEMBER accounts are currently ACTIVE with NO
 // package on file (an impossible state, previously reachable via a bug in

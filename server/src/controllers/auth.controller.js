@@ -120,6 +120,22 @@ const register = async (req, res, next) => {
 
     // 10-level Unilevel genealogy (Defensive upsert)
     if (user.sponsorId) {
+      // IMPORTANT: binary tree placement must NOT live inside this same
+      // try/catch as the Referral genealogy writes below. It used to, and
+      // that was the root cause of members registering successfully with a
+      // correct User.binarySide (so their "Position" pill on the Team page
+      // showed L/R correctly) while never actually being linked into
+      // BinaryNode.leftChildId/rightChildId — which is what the Growth
+      // Generation tree, "Total Downline Left/Right" counts, and KBP/
+      // matching-income calculations all read from. Any throw in the
+      // Referral loop or the directReferrals $inc below (e.g. a transient
+      // DB hiccup, or exactly the kind of silent Referral-collection
+      // failure documented in downline.service.js) would skip line 159's
+      // placeMember call entirely, leaving that member's whole downline
+      // invisible to the binary tree forever with no error surfaced beyond
+      // a generic "Genealogy linking notice" log. Running it in its own,
+      // independent try/catch means a Referral-write failure can never
+      // again prevent binary placement (and vice versa).
       try {
         const chain = await getReferralChainForUser(user.sponsorId);
         for (let i = 0; i < chain.length && i < 10; i++) {
@@ -146,30 +162,32 @@ const register = async (req, res, next) => {
         await User.findByIdAndUpdate(user.sponsorId, {
           $inc: { directReferrals: 1 },
         });
-
-        // Registration itself must still succeed even if binary placement
-        // hits an unexpected error (we don't want a tree glitch to block
-        // account creation) — but a silent console.error here is easy to
-        // miss, and a member left unplaced shows up later as a confusing
-        // "why is my Growth Generation tree empty" support question with
-        // no obvious cause. Log it loudly and unmistakably so it's actually
-        // noticed, and remember the failure can be corrected afterward via
-        // POST /api/admin/binary/repair (BinaryService.repairAllPlacements)
-        // without needing to touch this user's account again.
-        await BinaryService.placeMember(
-          user._id,
-          user.sponsorId,
-          user.binarySide
-        ).catch((err) => {
-          console.error(
-            `\n🚨 BINARY PLACEMENT FAILED for new member ${user.memberId} (${user._id}): ${err.message}\n` +
-            `   This member's account was created successfully, but they are NOT linked into the binary tree.\n` +
-            `   Fix with: POST /api/admin/binary/repair (safe, non-destructive, can be run any time).\n`
-          );
-        });
       } catch (genealogyErr) {
         console.error("Genealogy linking notice:", genealogyErr.message);
       }
+
+      // Registration itself must still succeed even if binary placement
+      // hits an unexpected error (we don't want a tree glitch to block
+      // account creation) — but a silent console.error here is easy to
+      // miss, and a member left unplaced shows up later as a confusing
+      // "why is my Growth Generation tree empty" support question with
+      // no obvious cause. Log it loudly and unmistakably so it's actually
+      // noticed, and remember the failure can be corrected afterward via
+      // POST /api/admin/binary/repair (BinaryService.repairAllPlacements)
+      // without needing to touch this user's account again. This now runs
+      // UNCONDITIONALLY on its own — no longer gated on the Referral writes
+      // above having succeeded.
+      await BinaryService.placeMember(
+        user._id,
+        user.sponsorId,
+        user.binarySide
+      ).catch((err) => {
+        console.error(
+          `\n🚨 BINARY PLACEMENT FAILED for new member ${user.memberId} (${user._id}): ${err.message}\n` +
+          `   This member's account was created successfully, but they are NOT linked into the binary tree.\n` +
+          `   Fix with: POST /api/admin/binary/repair (safe, non-destructive, can be run any time).\n`
+        );
+      });
     } else {
       await BinaryNode.findOneAndUpdate(
         { userId: user._id },

@@ -148,12 +148,15 @@ const PRODUCT_TIERS = {
   ]
 };
 
+// PBW Foundation token palette — teal primary, orange accent, plus the
+// documented chart hues (green/blue/indigo) used elsewhere in the redesign
+// to keep each tier visually distinct without reaching for a foreign palette.
 const THEME_COLORS = {
-  STARTER: '#22c55e',
-  GROWTH: '#2563eb',
-  LIFE_SAFE: '#8b5cf6',
-  LIFE_SAFE_ELITE: '#7c3aed',
-  TITANIUM: '#f59e0b'
+  STARTER: '#16a34a',
+  GROWTH: '#3b82f6',
+  LIFE_SAFE: '#6366f1',
+  LIFE_SAFE_ELITE: '#008080',
+  TITANIUM: '#fd9911'
 };
 
 // Official Company Receiving Accounts verified from SBI Payments Merchant standee
@@ -212,7 +215,12 @@ const PackagesPage = () => {
             }
           }
 
-          const color = THEME_COLORS[typeUpper] || (dbPkg.price >= 50000 ? '#f59e0b' : '#2563eb');
+          const isPopular = !!dbPkg.isPopular;
+          // Recommended/popular packages get the teal "current/recommended"
+          // accent (PBW convention), overriding the per-tier chart color.
+          const color = isPopular
+            ? '#008080'
+            : THEME_COLORS[typeUpper] || (dbPkg.price >= 50000 ? '#fd9911' : '#3b82f6');
 
           return {
             ...dbPkg,
@@ -224,8 +232,9 @@ const PackagesPage = () => {
             weeklyCap: Number(dbPkg.weeklyCap !== undefined ? dbPkg.weeklyCap : ((dbPkg.dailyCap || dbPkg.price || 0) * 7)),
             monthlyCap: Number(dbPkg.monthlyCap !== undefined ? dbPkg.monthlyCap : ((dbPkg.dailyCap || dbPkg.price || 0) * 30)),
             description: dbPkg.description || dbPkg.entitlements || 'Package plan for KUWIFR members.',
-            badge: dbPkg.badge || dbPkg.displayBadge || (dbPkg.isPopular ? 'Popular Choice' : (typeUpper || 'Active Plan')),
+            badge: dbPkg.badge || dbPkg.displayBadge || (isPopular ? 'Popular Choice' : (typeUpper || 'Active Plan')),
             color,
+            isPopular,
             availableProducts: products
           };
         });
@@ -397,7 +406,11 @@ const PackagesPage = () => {
           const selectedProduct = selectedProductMap[pkgKey];
 
           return (
-            <article key={pkgKey} className={styles.packageCard} style={{ borderTopColor: pkg.color }}>
+            <article
+              key={pkgKey}
+              className={`${styles.packageCard} ${pkg.isPopular ? styles.packageCardPopular : ''}`}
+              style={{ borderTopColor: pkg.color }}
+            >
               <div className={styles.cardHeader}>
                 <div className={styles.badgeRow}>
                   <span className={styles.typeBadge} style={{ background: `${pkg.color}15`, color: pkg.color }}>
@@ -490,9 +503,8 @@ const PackagesPage = () => {
               <div className={styles.cardActionWrap}>
                 <button
                   type="button"
-                  className={styles.purchaseBtn}
+                  className={`${styles.purchaseBtn} ${selectedProduct ? styles.purchaseBtnActive : styles.purchaseBtnDisabled}`}
                   onClick={() => handleInitiatePurchase(pkg)}
-                  style={{ background: selectedProduct ? pkg.color : '#94a3b8' }}
                 >
                   {selectedProduct ? (
                     <span>Purchase {pkg.name} (₹{pkg.price?.toLocaleString()}) →</span>
@@ -664,9 +676,9 @@ const PackagesPage = () => {
                             fontSize: '11px',
                             padding: '3px 10px',
                             borderRadius: '6px',
-                            background: '#eff6ff',
-                            border: '1px solid #bfdbfe',
-                            color: '#2563eb',
+                            background: 'rgba(0, 128, 128, 0.08)',
+                            border: '1px solid rgba(0, 128, 128, 0.25)',
+                            color: '#008080',
                             cursor: 'pointer',
                             fontWeight: 700
                           }}
@@ -689,9 +701,9 @@ const PackagesPage = () => {
                                 padding: '2px 8px',
                                 fontSize: '10px',
                                 fontWeight: 800,
-                                background: '#eff6ff',
-                                border: '1px solid #bfdbfe',
-                                color: '#2563eb',
+                                background: 'rgba(0, 128, 128, 0.08)',
+                                border: '1px solid rgba(0, 128, 128, 0.25)',
+                                color: '#008080',
                                 borderRadius: '5px',
                                 cursor: 'pointer',
                                 flexShrink: 0
@@ -739,9 +751,9 @@ const PackagesPage = () => {
                               padding: '2px 6px',
                               fontSize: '10px',
                               fontWeight: 700,
-                              background: '#eff6ff',
-                              border: '1px solid #bfdbfe',
-                              color: '#2563eb',
+                              background: 'rgba(0, 128, 128, 0.08)',
+                              border: '1px solid rgba(0, 128, 128, 0.25)',
+                              color: '#008080',
                               borderRadius: '4px',
                               cursor: 'pointer'
                             }}
@@ -761,9 +773,9 @@ const PackagesPage = () => {
                               padding: '2px 6px',
                               fontSize: '10px',
                               fontWeight: 700,
-                              background: '#eff6ff',
-                              border: '1px solid #bfdbfe',
-                              color: '#2563eb',
+                              background: 'rgba(0, 128, 128, 0.08)',
+                              border: '1px solid rgba(0, 128, 128, 0.25)',
+                              color: '#008080',
                               borderRadius: '4px',
                               cursor: 'pointer'
                             }}

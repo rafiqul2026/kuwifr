@@ -16,21 +16,21 @@ const formatKBPDisplay = (val) => {
 };
 
 const getProgressColor = (progress) => {
-  if (progress >= 100) return '#10b981';
-  if (progress >= 50) return '#f59e0b';
-  return '#2563eb';
+  if (progress >= 100) return '#16a34a';
+  if (progress >= 50) return '#d97706';
+  return '#008080';
 };
 
 const getFundMeta = (code) => {
   const meta = {
-    SCHOOL: { icon: '🏫', color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #d97706)' },
-    FAMILY: { icon: '👨‍👩‍👦', color: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' },
-    TRAVELLING: { icon: '✈️', color: '#8b5cf6', gradient: 'linear-gradient(135deg, #8b5cf6, #6d28d9)' },
+    SCHOOL: { icon: '🏫', color: '#c2660a', gradient: 'linear-gradient(135deg, #fd9911, #c2660a)' },
+    FAMILY: { icon: '👨‍👩‍👦', color: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)' },
+    TRAVELLING: { icon: '✈️', color: '#6366f1', gradient: 'linear-gradient(135deg, #6366f1, #4f46e5)' },
     LIFESTYLE: { icon: '🌟', color: '#ec4899', gradient: 'linear-gradient(135deg, #ec4899, #be185d)' },
-    FOREIGN_TRIP: { icon: '🌍', color: '#14b8a6', gradient: 'linear-gradient(135deg, #14b8a6, #0f766e)' },
-    PENSION: { icon: '🏦', color: '#ef4444', gradient: 'linear-gradient(135deg, #ef4444, #b91c1c)' }
+    FOREIGN_TRIP: { icon: '🌍', color: '#008080', gradient: 'linear-gradient(135deg, #14b8a6, #008080)' },
+    PENSION: { icon: '🏦', color: '#d97706', gradient: 'linear-gradient(135deg, #d97706, #b45309)' }
   };
-  return meta[code] || { icon: '🏦', color: '#64748b', gradient: 'linear-gradient(135deg, #64748b, #334155)' };
+  return meta[code] || { icon: '🏦', color: '#737373', gradient: 'linear-gradient(135deg, #737373, #525252)' };
 };
 
 const getFundDescription = (fundObj) => {
@@ -516,7 +516,7 @@ const RepurchasePage = () => {
                   className={styles.matrixPill}
                   style={{
                     opacity: l.isUnlocked ? 1 : 0.45,
-                    border: l.isUnlocked ? '1.5px solid #22c55e' : '1px dashed #cbd5e1'
+                    border: l.isUnlocked ? '1.5px solid #16a34a' : '1px dashed #e5e5e5'
                   }}
                 >
                   <span>L{l.level} {l.isUnlocked ? '✓' : '🔒'}</span>
@@ -536,7 +536,7 @@ const RepurchasePage = () => {
                   className={`${styles.levelCardModern} ${isSelected ? styles.levelCardActive : ''}`}
                   style={{
                     opacity: lvl.isUnlocked ? 1 : 0.65,
-                    borderTop: lvl.isUnlocked ? '4px solid #2563eb' : '4px solid #94a3b8'
+                    borderTop: lvl.isUnlocked ? '4px solid #008080' : '4px solid #d4d4d4'
                   }}
                   onClick={() => setSelectedLevel(isSelected ? null : lvl.level)}
                 >
@@ -545,7 +545,7 @@ const RepurchasePage = () => {
                     {lvl.isUnlocked ? (
                       <span className={styles.lvlRateBadge}>{lvl.percentage}% Override</span>
                     ) : (
-                      <span className={styles.lvlLockedTag} style={{ fontSize: '10px', background: '#f1f5f9', color: '#64748b', padding: '2px 6px', borderRadius: '4px' }}>
+                      <span className={styles.lvlLockedTag} style={{ fontSize: '10px', background: '#f3f3f3', color: '#737373', padding: '2px 6px', borderRadius: '4px' }}>
                         🔒 Needs {lvl.requiredDirects} Directs
                       </span>
                     )}
@@ -558,11 +558,11 @@ const RepurchasePage = () => {
                     </div>
                     <div className={styles.metricBox}>
                       <small>Total KBP</small>
-                      <strong style={{ color: '#2563eb' }}>{lvl.totalLevelKBP.toLocaleString()} KBP</strong>
+                      <strong style={{ color: '#008080' }}>{lvl.totalLevelKBP.toLocaleString()} KBP</strong>
                     </div>
                     <div className={styles.metricBox}>
                       <small>Earned</small>
-                      <strong style={{ color: lvl.isUnlocked ? '#10b981' : '#94a3b8' }}>
+                      <strong style={{ color: lvl.isUnlocked ? '#16a34a' : '#a3a3a3' }}>
                         ₹{lvl.estimatedIncome.toLocaleString()}
                       </strong>
                     </div>
@@ -732,7 +732,7 @@ const RepurchasePage = () => {
                             className={styles.trackerFill}
                             style={{
                               width: `${leftProgress}%`,
-                              background: leftProgress >= 100 ? '#10b981' : '#3b82f6'
+                              background: leftProgress >= 100 ? '#16a34a' : '#008080'
                             }}
                           />
                         </div>
@@ -753,7 +753,7 @@ const RepurchasePage = () => {
                             className={styles.trackerFill}
                             style={{
                               width: `${rightProgress}%`,
-                              background: rightProgress >= 100 ? '#10b981' : '#ec4899'
+                              background: rightProgress >= 100 ? '#16a34a' : '#fd9911'
                             }}
                           />
                         </div>
@@ -779,7 +779,7 @@ const RepurchasePage = () => {
                         <div className={styles.completionText}>
                           <span>
                             {isQualified ? (
-                              <strong style={{ color: '#10b981' }}>🎯 Target Achieved!</strong>
+                              <strong style={{ color: '#16a34a' }}>🎯 Target Achieved!</strong>
                             ) : (
                               <strong style={{ color: '#d97706' }}>⏳ {remainingPercentage}% Remaining</strong>
                             )}

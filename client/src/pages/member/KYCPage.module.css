@@ -1,16 +1,28 @@
 /* client/src/pages/member/KYCPage.module.css */
 
+/* ============================================================
+   PBW FOUNDATION TOKENS (read directly off the live reference
+   site): --background:#fdfaf5  --foreground:#1c2a2a  --card:#fff
+   --primary: teal (#008080)   --secondary/--accent:#fd9911
+   --muted-foreground:#737373  --border:#e5e5e5  --radius:.875rem(14px)
+   --font-sans:"Geist"  Cards carry NO box-shadow at rest, just a
+   hairline border — a subtle shadow appears only on hover. Status
+   pills: VERIFIED = solid teal (#008080 bg, #fff text) — matching
+   PBW's own KYC pill exactly. PENDING = amber (#d97706 text on
+   rgba(217,119,6,.12)). REJECTED = red (#dc2626 text on
+   rgba(220,38,38,.12)).
+   ============================================================ */
 .kycPage {
   max-width: 980px;
   margin: 0 auto;
-  padding: 18px 20px 60px 20px;
+  padding: 16px 20px 60px 20px;
   box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  color: #0f172a;
+  font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #1c2a2a;
 }
 
 /* ============================================================
-   HEADER BLOCK (COMPACT, PROFESSIONAL SAAS STYLE)
+   HEADER BLOCK
    ============================================================ */
 .pageHeader {
   margin-bottom: 16px;
@@ -19,11 +31,11 @@
 .headerPill {
   display: inline-block;
   font-size: 9.5px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.6px;
-  color: #2563eb;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
+  color: #008080;
+  background: rgba(0, 128, 128, 0.08);
+  border: 1px solid rgba(0, 128, 128, 0.25);
   padding: 2.5px 8px;
   border-radius: 999px;
   margin-bottom: 6px;
@@ -31,21 +43,23 @@
 
 .pageTitle {
   font-size: 22px;
-  font-weight: 900;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c2a2a;
   margin: 0 0 3px 0;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.4px;
 }
 
 .pageSubtitle {
   font-size: 12.5px;
-  color: #64748b;
+  color: #737373;
   margin: 0;
   line-height: 1.4;
 }
 
 /* ============================================================
-   DYNAMIC STATUS HERO CARD (TACTILE, EYE-CATCHING GRADIENTS)
+   DYNAMIC STATUS HERO CARD — flat PBW surfaces (no gradient
+   soup): a tinted background matching the pill color + a hairline
+   border, consistent with the rest of the redesigned dashboard.
    ============================================================ */
 .statusBanner {
   display: flex;
@@ -55,7 +69,6 @@
   border-radius: 16px;
   margin-bottom: 18px;
   position: relative;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
   transition: all 0.25s ease;
   overflow: hidden;
 }
@@ -75,9 +88,8 @@
   justify-content: center;
   font-size: 20px;
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(4px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(28, 42, 42, 0.06);
 }
 
 .statusTextWrap {
@@ -89,18 +101,19 @@
 .statusTitleRow {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .statusPrefix {
   font-size: 12px;
   font-weight: 700;
-  color: #475569;
+  color: #525252;
 }
 
 .statusCurrent {
   font-size: 13.5px;
-  font-weight: 850;
+  font-weight: 700;
   letter-spacing: -0.01em;
 }
 
@@ -108,7 +121,40 @@
   margin: 0;
   font-size: 11.5px;
   line-height: 1.4;
-  color: #475569;
+  color: #525252;
+}
+
+/* Solid status pill — VERIFIED matches PBW's solid teal pill
+   exactly; PENDING/REJECTED/ACTION use the tinted pill palette. */
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 2.5px 9px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.pillVerified {
+  background: #008080;
+  color: #ffffff;
+}
+
+.pillPending {
+  background: rgba(217, 119, 6, 0.12);
+  color: #d97706;
+}
+
+.pillRejected {
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
+}
+
+.pillAction {
+  background: rgba(253, 153, 17, 0.14);
+  color: #c2660a;
 }
 
 /* 🌟 Pulse Dot Animation */
@@ -121,69 +167,62 @@
 }
 
 @keyframes pulseBeacon {
-  0% { transform: scale(0.95); opacity: 0.8; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.6); }
-  70% { transform: scale(1.15); opacity: 1; box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
-  100% { transform: scale(0.95); opacity: 0.8; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+  0% { transform: scale(0.95); opacity: 0.8; box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.5); }
+  70% { transform: scale(1.15); opacity: 1; box-shadow: 0 0 0 6px rgba(217, 119, 6, 0); }
+  100% { transform: scale(0.95); opacity: 0.8; box-shadow: 0 0 0 0 rgba(217, 119, 6, 0); }
 }
 
-/* 🎨 1. DYNAMIC COLOR: ACTION REQUIRED (Energetic Warm Amber/Golden Gradient) */
+/* 1. ACTION REQUIRED (not submitted) — PBW accent orange */
 .bannerActionRequired {
-  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 50%, #fde68a 100%);
-  border: 1.5px solid #f59e0b;
+  background: rgba(253, 153, 17, 0.08);
+  border: 1px solid rgba(253, 153, 17, 0.3);
 }
 
 .bannerActionRequired .statusCurrent {
-  color: #b45309;
+  color: #c2660a;
 }
 
 .bannerActionRequired .pulseDot {
-  background: #d97706;
+  background: #fd9911;
 }
 
-/* 🎨 2. DYNAMIC COLOR: UNDER REVIEW / PENDING (Soft Indigo/Sky Gradient) */
+/* 2. UNDER REVIEW / PENDING — amber */
 .bannerPending {
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #bae6fd 100%);
-  border: 1.5px solid #0284c7;
+  background: rgba(217, 119, 6, 0.08);
+  border: 1px solid rgba(217, 119, 6, 0.3);
 }
 
 .bannerPending .statusCurrent {
-  color: #0369a1;
+  color: #d97706;
 }
 
 .bannerPending .pulseDot {
-  background: #0284c7;
-  animation: pulseSky 1.8s infinite;
+  background: #d97706;
 }
 
-@keyframes pulseSky {
-  0% { box-shadow: 0 0 0 0 rgba(2, 132, 199, 0.6); }
-  70% { box-shadow: 0 0 0 6px rgba(2, 132, 199, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(2, 132, 199, 0); }
-}
-
-/* 🎨 3. DYNAMIC COLOR: VERIFIED (Emerald Forest Fresh Gradient) */
+/* 3. VERIFIED — teal (PBW's primary) */
 .bannerVerified {
-  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 50%, #bbf7d0 100%);
-  border: 1.5px solid #16a34a;
+  background: rgba(0, 128, 128, 0.07);
+  border: 1px solid rgba(0, 128, 128, 0.3);
 }
 
 .bannerVerified .statusCurrent {
-  color: #15803d;
+  color: #008080;
 }
 
 .bannerVerified .pulseDot {
-  background: #16a34a;
+  background: #008080;
   animation: none;
 }
 
-/* 🎨 4. DYNAMIC COLOR: REJECTED (Crimson Rose Warning Gradient) */
+/* 4. REJECTED — red */
 .bannerRejected {
-  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 50%, #fecaca 100%);
-  border: 1.5px solid #dc2626;
+  background: rgba(220, 38, 38, 0.07);
+  border: 1px solid rgba(220, 38, 38, 0.3);
 }
 
 .bannerRejected .statusCurrent {
-  color: #b91c1c;
+  color: #dc2626;
 }
 
 .bannerRejected .pulseDot {
@@ -201,10 +240,14 @@
 
 .section {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
   padding: 18px 22px;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.02);
+  transition: box-shadow 0.15s ease;
+}
+
+.section:hover {
+  box-shadow: 0 4px 16px rgba(28, 42, 42, 0.05);
 }
 
 .sectionHeader {
@@ -213,31 +256,33 @@
 
 .sectionHeader h2 {
   font-size: 14.5px;
-  font-weight: 850;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c2a2a;
   margin: 0 0 2px 0;
   letter-spacing: -0.01em;
 }
 
 .sectionHint {
   font-size: 11.5px;
-  color: #64748b;
+  color: #737373;
 }
 
 .sectionHeaderSplit {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .limitTag {
   font-size: 10px;
-  font-weight: 750;
-  color: #64748b;
-  background: #f1f5f9;
+  font-weight: 700;
+  color: #737373;
+  background: #f3f3f3;
   padding: 2px 8px;
   border-radius: 6px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
 }
 
 .formGrid {
@@ -254,8 +299,8 @@
 
 .formGroup label {
   font-size: 11.5px;
-  font-weight: 750;
-  color: #334155;
+  font-weight: 700;
+  color: #404040;
 }
 
 .inputShell {
@@ -268,37 +313,38 @@
   width: 100%;
   height: 38px;
   padding: 0 76px 0 12px;
-  background: #ffffff;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 9px;
+  background: #fdfaf5;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
   font-size: 13px;
-  color: #0f172a;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #1c2a2a;
+  font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   outline: none;
   transition: all 0.15s ease;
   box-sizing: border-box;
 }
 
 .formInput:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  border-color: #008080;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(0, 128, 128, 0.12);
 }
 
 .formInput:disabled {
-  background: #f8fafc;
-  color: #64748b;
+  background: #f3f3f3;
+  color: #737373;
   cursor: not-allowed;
-  border-color: #e2e8f0;
+  border-color: #e5e5e5;
 }
 
 .badgeFormat {
   position: absolute;
   right: 8px;
   font-size: 9px;
-  font-weight: 850;
-  color: #64748b;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  font-weight: 800;
+  color: #737373;
+  background: #f3f3f3;
+  border: 1px solid #e5e5e5;
   padding: 2px 6px;
   border-radius: 4px;
   pointer-events: none;
@@ -314,10 +360,10 @@
 }
 
 .uploadCard {
-  border: 1.5px solid #e2e8f0;
+  border: 1px solid #e5e5e5;
   border-radius: 14px;
   padding: 12px;
-  background: #f8fafc;
+  background: #fdfaf5;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -325,14 +371,14 @@
 }
 
 .uploadCard:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  border-color: #cfcfc9;
+  box-shadow: 0 4px 14px rgba(28, 42, 42, 0.05);
 }
 
 .cardHeader h4 {
   font-size: 11.5px;
-  font-weight: 750;
-  color: #1e293b;
+  font-weight: 700;
+  color: #1c2a2a;
   margin: 0 0 8px 0;
   white-space: nowrap;
   overflow: hidden;
@@ -344,7 +390,7 @@
   height: 110px;
   border-radius: 10px;
   background: #ffffff;
-  border: 1.5px dashed #cbd5e1;
+  border: 1.5px dashed #e5e5e5;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -355,7 +401,7 @@
 
 .hasPreview {
   border-style: solid;
-  border-color: #cbd5e1;
+  border-color: #e5e5e5;
 }
 
 .docImg {
@@ -381,7 +427,7 @@
 .placeholder p {
   font-size: 10.5px;
   font-weight: 600;
-  color: #94a3b8;
+  color: #a3a3a3;
   margin: 0;
 }
 
@@ -398,20 +444,48 @@
 }
 
 .chipUploaded {
-  color: #16a34a;
+  color: #008080;
 }
 
 .chipRequired {
-  color: #94a3b8;
+  color: #a3a3a3;
+}
+
+/* Per-document status pill shown once the KYC record is locked
+   (VERIFIED or PENDING) — same palette as the hero status pill. */
+.docStatusPill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.docStatusVerified {
+  background: #008080;
+  color: #ffffff;
+}
+
+.docStatusPending {
+  background: rgba(217, 119, 6, 0.12);
+  color: #d97706;
+}
+
+.docStatusRejected {
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
 }
 
 .fileButton {
-  background: #0f172a;
+  background: #1c2a2a;
   color: #ffffff;
   padding: 5px 12px;
-  border-radius: 7px;
+  border-radius: 8px;
   font-size: 11px;
-  font-weight: 750;
+  font-weight: 700;
   cursor: pointer;
   display: inline-block;
   transition: background 0.15s ease;
@@ -419,7 +493,7 @@
 }
 
 .fileButton:hover {
-  background: #1e293b;
+  background: #008080;
 }
 
 .fileButton input {
@@ -435,20 +509,19 @@
 }
 
 .submitBtn {
-  background: #2563eb;
+  background: #008080;
   color: #ffffff;
   border: none;
   padding: 9px 24px;
-  border-radius: 9px;
+  border-radius: 10px;
   font-size: 12.5px;
-  font-weight: 750;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
 }
 
 .submitBtn:hover:not(:disabled) {
-  background: #1d4ed8;
+  background: #006666;
   transform: translateY(-1px);
 }
 
@@ -465,15 +538,15 @@
   justify-content: center;
   min-height: 400px;
   gap: 12px;
-  color: #64748b;
+  color: #737373;
   font-size: 12px;
 }
 
 .spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid #e2e8f0;
-  border-top-color: #2563eb;
+  border: 3px solid #e5e5e5;
+  border-top-color: #008080;
   border-radius: 50%;
   animation: spin 0.75s linear infinite;
 }
@@ -483,7 +556,7 @@
 }
 
 /* ============================================================
-   📱 MOBILE RESPONSIVENESS (PERFECT FIT ON PHONES & TABLETS)
+   📱 MOBILE RESPONSIVENESS
    ============================================================ */
 @media (max-width: 768px) {
   .kycPage {
