@@ -566,6 +566,179 @@ const createOrder = async (req, res, next) => {
   }
 };
 
+// Payment-status buckets — Order.paymentStatus has grown a wide, messy
+// vocabulary over time (see the schema's own comments: different order
+// paths write 'COMPLETED', 'SUCCESS', 'PAYMENT_COMPLETED', 'VERIFIED' for
+// the same real-world outcome). Every transaction view/summary in this file
+// normalizes through this map so "Captured" always means the same thing
+// regardless of which code path created the order.
+const CAPTURED_STATUSES = ['PAYMENT_COMPLETED', 'COMPLETED', 'SUCCESS', 'VERIFIED'];
+const PENDING_STATUSES = ['PENDING', 'PAYMENT_INITIATED', 'AWAITING_VERIFICATION', 'VERIFICATION_PENDING'];
+const FAILED_STATUSES = ['PAYMENT_FAILED', 'REJECTED'];
+
+const bucketForPaymentStatus = (paymentStatus) => {
+  if (CAPTURED_STATUSES.includes(paymentStatus)) return 'CAPTURED';
+  if (PENDING_STATUSES.includes(paymentStatus)) return 'PENDING';
+  if (FAILED_STATUSES.includes(paymentStatus)) return 'FAILED';
+  return 'OTHER'; // e.g. REFUNDED
+};
+
+const buildTransactionQuery = ({ search, status, startDate, endDate }) => {
+  const query = {};
+
+  if (status && status !== 'ALL') {
+    const upper = status.toUpperCase();
+    if (upper === 'CAPTURED') query.paymentStatus = { $in: CAPTURED_STATUSES };
+    else if (upper === 'PENDING') query.paymentStatus = { $in: PENDING_STATUSES };
+    else if (upper === 'FAILED') query.paymentStatus = { $in: FAILED_STATUSES };
+    else query.paymentStatus = upper;
+  }
+
+  if (search && search.trim()) {
+    const sanitized = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    query.$or = [
+      { orderNumber: { $regex: sanitized, $options: 'i' } },
+      { customerName: { $regex: sanitized, $options: 'i' } },
+      { customerEmail: { $regex: sanitized, $options: 'i' } },
+      { razorpayOrderId: { $regex: sanitized, $options: 'i' } },
+      { razorpayPaymentId: { $regex: sanitized, $options: 'i' } }
+    ];
+  }
+
+  if (startDate || endDate) {
+    query.createdAt = {};
+    if (startDate) query.createdAt.$gte = new Date(startDate);
+    if (endDate) query.createdAt.$lte = new Date(`${endDate}T23:59:59.999Z`);
+  }
+
+  return query;
+};
+
+/**
+ * Admin: Unified Transactions view — every package/repurchase order across
+ * the platform (KUWIFR's equivalent of a payment-gateway transaction log),
+ * with Revenue/Total/Captured/Pending/Failed summary cards computed over
+ * EVERY matching document (not just the current page — a true global
+ * aggregate, the same way the summary cards work on the Withdrawals page).
+ * GET /api/admin/transactions
+ */
+const getUnifiedTransactions = async (req, res, next) => {
+  try {
+    const { search, status, startDate, endDate, page = 1, limit = 20 } = req.query;
+    const query = buildTransactionQuery({ search, status, startDate, endDate });
+
+    const currentPage = Math.max(1, parseInt(page, 10) || 1);
+    const pageLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const skip = (currentPage - 1) * pageLimit;
+
+    // Summary respects search/date filters (so "search for a member" also
+    // narrows the summary cards) but intentionally NOT the status filter
+    // itself — otherwise picking "Pending" would make the Captured/Failed
+    // cards always read zero, which defeats the point of an overview.
+    const summaryQuery = buildTransactionQuery({ search, startDate, endDate });
+
+    const [rows, total, summaryAgg] = await Promise.all([
+      Order.find(query)
+        .populate('userId', 'fullName email phoneNumber memberId')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(pageLimit)
+        .lean(),
+      Order.countDocuments(query),
+      Order.aggregate([
+        { $match: summaryQuery },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            captured: { $sum: { $cond: [{ $in: ['$paymentStatus', CAPTURED_STATUSES] }, 1, 0] } },
+            pending: { $sum: { $cond: [{ $in: ['$paymentStatus', PENDING_STATUSES] }, 1, 0] } },
+            failed: { $sum: { $cond: [{ $in: ['$paymentStatus', FAILED_STATUSES] }, 1, 0] } },
+            revenue: { $sum: { $cond: [{ $in: ['$paymentStatus', CAPTURED_STATUSES] }, '$totalAmount', 0] } }
+          }
+        }
+      ])
+    ]);
+
+    const summary = summaryAgg[0] || { total: 0, captured: 0, pending: 0, failed: 0, revenue: 0 };
+
+    const transactions = rows.map((o) => ({
+      _id: o._id,
+      orderNumber: o.orderNumber,
+      memberName: o.customerName || o.userId?.fullName || 'Member',
+      memberId: o.userId?.memberId || null,
+      memberEmail: o.customerEmail || o.userId?.email || null,
+      amount: o.totalAmount || 0,
+      kbp: o.kbpGenerated || 0,
+      orderType: o.orderType || 'REPURCHASE',
+      paymentStatus: o.paymentStatus,
+      statusBucket: bucketForPaymentStatus(o.paymentStatus),
+      transactionId: o.razorpayPaymentId || o.razorpayOrderId || o.orderNumber,
+      paymentMethod: o.paymentMethod,
+      createdAt: o.createdAt
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        transactions,
+        summary: {
+          revenue: summary.revenue || 0,
+          total: summary.total || 0,
+          captured: summary.captured || 0,
+          pending: summary.pending || 0,
+          failed: summary.failed || 0
+        },
+        pagination: {
+          page: currentPage,
+          limit: pageLimit,
+          total,
+          pages: Math.ceil(total / pageLimit) || 1
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Admin: CSV export for the Unified Transactions view, honoring the same
+ * search/status/date filters as the listing above. Capped at 5000 rows so
+ * an unfiltered export on a very large orders collection can't hang the
+ * request indefinitely — narrow with a date range for a full historical
+ * export beyond that.
+ * GET /api/admin/transactions/export
+ */
+const exportTransactionsCSV = async (req, res, next) => {
+  try {
+    const { search, status, startDate, endDate } = req.query;
+    const query = buildTransactionQuery({ search, status, startDate, endDate });
+
+    const rows = await Order.find(query)
+      .populate('userId', 'fullName email memberId')
+      .sort({ createdAt: -1 })
+      .limit(5000)
+      .lean();
+
+    let csv = 'Transaction ID,Member Name,Member ID,Email,Amount,Status,Type,Date\n';
+    rows.forEach((o) => {
+      const memberName = o.customerName || o.userId?.fullName || 'Member';
+      const memberId = o.userId?.memberId || '';
+      const email = o.customerEmail || o.userId?.email || '';
+      const txId = o.razorpayPaymentId || o.razorpayOrderId || o.orderNumber || '';
+      const date = o.createdAt ? new Date(o.createdAt).toISOString() : '';
+      csv += `"${txId}","${memberName}","${memberId}","${email}",${o.totalAmount || 0},"${bucketForPaymentStatus(o.paymentStatus)}","${o.orderType || ''}","${date}"\n`;
+    });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=transactions_${Date.now()}.csv`);
+    return res.status(200).send(csv);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getMyOrders,
   getOrderById,
@@ -574,5 +747,7 @@ module.exports = {
   createOrder,
   getPackageSalesReport,
   activateCashPackage,
-  cancelOrder: updateOrderStatus
+  cancelOrder: updateOrderStatus,
+  getUnifiedTransactions,
+  exportTransactionsCSV
 };

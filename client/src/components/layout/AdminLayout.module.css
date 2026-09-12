@@ -154,6 +154,7 @@
 }
 
 .sidebarFooter {
+  position: relative;
   padding: 14px 16px;
   border-top: 1px solid #e5e5e5;
   background: #f9f5ea;
@@ -162,10 +163,30 @@
   gap: 10px;
 }
 
+.adminMetaBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.accountMenuCaret {
+  font-size: 11px;
+  color: #a3a3a3;
+  flex-shrink: 0;
+}
+
 .adminMeta {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .adminAvatar {
@@ -216,6 +237,243 @@
 .logoutBtn:hover {
   background: #fef2f2;
   border-color: #fecaca;
+}
+
+/* Account dropdown — opens upward from the sidebar footer, matching the
+   PBW Foundation reference (Account / Notifications / Change Password /
+   Log out), replacing what used to be a single flat Logout button. */
+.accountDropdown {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(100% + 8px);
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(28, 42, 42, 0.16);
+  overflow: hidden;
+  z-index: 40;
+}
+
+.accountDropdownHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border-bottom: 1px solid #f3f3f3;
+}
+
+.accountDropdownName {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1c2a2a;
+}
+
+.accountDropdownEmail {
+  font-size: 11px;
+  color: #737373;
+  word-break: break-all;
+}
+
+.accountDropdownBadge {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #ef4444;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.accountMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 11px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #1c2a2a;
+  cursor: pointer;
+  text-align: left;
+}
+
+.accountMenuItem:hover {
+  background: #f9f5ea;
+}
+
+.accountMenuIcon {
+  font-size: 14px;
+  width: 18px;
+  text-align: center;
+}
+
+.accountMenuDivider {
+  height: 1px;
+  background: #f3f3f3;
+  margin: 4px 0;
+}
+
+.accountMenuItemDanger {
+  color: #ef4444;
+}
+
+.accountMenuItemDanger:hover {
+  background: #fef2f2;
+}
+
+/* Account / Change Password modals */
+.accountModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 42, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+
+.accountModalContent {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 380px;
+  overflow: hidden;
+}
+
+.accountModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.accountModalHeader h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1c2a2a;
+}
+
+.modalCloseBtn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #a3a3a3;
+  cursor: pointer;
+}
+
+.accountModalBody {
+  padding: 18px;
+}
+
+.accountAvatarLarge {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: #008080;
+  color: #fdfaf5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 20px;
+  margin: 0 auto 16px auto;
+}
+
+.accountDetailList {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.accountDetailList > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12.5px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f3f3f3;
+}
+
+.accountDetailList dt {
+  color: #737373;
+  font-weight: 600;
+}
+
+.accountDetailList dd {
+  margin: 0;
+  font-weight: 700;
+  color: #1c2a2a;
+  text-align: right;
+}
+
+.pwForm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pwForm label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #a3a3a3;
+  margin-top: 8px;
+}
+
+.pwForm input {
+  height: 40px;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 13px;
+  color: #1c2a2a;
+}
+
+.pwSubmitBtn {
+  margin-top: 16px;
+  height: 42px;
+  border-radius: 10px;
+  border: none;
+  background: #008080;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pwSubmitBtn:hover {
+  background: #006666;
+}
+
+.pwSubmitBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pwBackBtn {
+  margin-top: 10px;
+  background: none;
+  border: none;
+  color: #737373;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pwOtpNote {
+  font-size: 12.5px;
+  color: #737373;
+  margin: 0 0 4px 0;
 }
 
 /* Main Content Area — fixed to the viewport height; the header inside

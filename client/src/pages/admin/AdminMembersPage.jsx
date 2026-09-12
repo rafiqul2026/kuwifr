@@ -1,10 +1,12 @@
 // client/src/pages/admin/AdminMembersPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './AdminMembersPage.module.css';
 
 const AdminMembersPage = () => {
+  const navigate = useNavigate();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -388,9 +390,17 @@ const AdminMembersPage = () => {
                   </div>
                 </div>
               </div>
-              <button onClick={() => setSelectedMember(null)} className={styles.closeBtn}>
-                ✕
-              </button>
+              <div className={styles.modalHeaderActions}>
+                <button
+                  onClick={() => navigate(`/admin/members/${selectedMember._id}`)}
+                  className={styles.viewProfileBtn}
+                >
+                  👁️ View Full Profile
+                </button>
+                <button onClick={() => setSelectedMember(null)} className={styles.closeBtn}>
+                  ✕
+                </button>
+              </div>
             </div>
 
             <div className={styles.modalBody}>

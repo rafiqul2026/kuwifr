@@ -25,6 +25,13 @@ router.get('/users', adminController.getAllUsers);
 router.get('/members', adminController.getAllUsers);
 router.get('/members/search', adminController.searchMembersForActivation);
 
+// Full single-member detail — backs the Admin Dashboard's "Recent
+// Registrations" row click and the Admin Members page's detail link.
+// Registered after /members/search so that literal path never gets
+// swallowed as an :id param.
+router.get('/members/:id', adminController.getUserById);
+router.get('/users/:id', adminController.getUserById);
+
 router.put('/users/:id/status', adminController.updateUserStatus);
 router.put('/members/:id/status', adminController.updateUserStatus);
 
@@ -415,6 +422,14 @@ router.post('/wallet/adjust', adminController.adjustWallet);
 router.get('/orders', orderController.getAllOrders);
 router.put('/orders/:id/status', orderController.updateOrderStatus);
 router.get('/package-sales-report', orderController.getPackageSalesReport);
+
+// Unified Transactions view — every package/repurchase order with a true
+// global Revenue/Total/Captured/Pending/Failed summary (not just the
+// current page), matching the PBW Foundation reference the admin asked to
+// mirror. /export must be registered before nothing else conflicts with it
+// since there is no /transactions/:id route to collide with.
+router.get('/transactions', orderController.getUnifiedTransactions);
+router.get('/transactions/export', orderController.exportTransactionsCSV);
 
 if (packageController && packageController.getAllPackages) {
   router.get('/packages', packageController.getAllPackages);

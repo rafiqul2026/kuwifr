@@ -29,6 +29,14 @@ import AdminFranchisePage from '../pages/admin/AdminFranchisePage';
 import AdminAlertsPage from '../pages/admin/AdminAlertsPage';
 import AdminIncomeHistoryPage from '../pages/admin/AdminIncomeHistoryPage';
 
+// Detail pages — previously the Dashboard's "Recent Orders"/"Recent
+// Registrations" rows navigated to /admin/orders/:id and /admin/members/:id,
+// but neither route was registered, so clicking a row silently redirected
+// back to the dashboard via the catch-all below.
+import AdminMemberDetailPage from '../pages/admin/AdminMemberDetailPage';
+import AdminOrderDetailPage from '../pages/admin/AdminOrderDetailPage';
+import AdminTransactionsPage from '../pages/admin/AdminTransactionsPage';
+
 const AdminRoutes = () => {
   return (
     <Routes>
@@ -42,9 +50,12 @@ const AdminRoutes = () => {
 
         {/* Core Administrative Pages */}
         <Route path="members" element={<AdminMembersPage />} />
+        <Route path="members/:id" element={<AdminMemberDetailPage />} />
         <Route path="packages" element={<AdminPackagesPage />} />
         <Route path="products" element={<AdminProductsPage />} />
         <Route path="orders" element={<AdminOrdersPage />} />
+        <Route path="orders/:id" element={<AdminOrderDetailPage />} />
+        <Route path="transactions" element={<AdminTransactionsPage />} />
         <Route path="withdrawals" element={<AdminWithdrawalsPage />} />
         <Route path="ranks" element={<AdminRanksPage />} />
         <Route path="funds" element={<AdminFundsPage />} />

@@ -395,6 +395,60 @@ const adjustWallet = async (req, res, next) => {
   }
 };
 
+/**
+ * Full detail view for a single member — backs the Admin Dashboard's
+ * "Recent Registrations" row click and Admin Members page detail link.
+ * GET /api/admin/members/:id  (also mounted as /api/admin/users/:id)
+ */
+const getUserById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id)
+      .select('-password -resetPasswordToken -resetPasswordExpire')
+      .populate('sponsorId', 'fullName memberId email phoneNumber')
+      .populate('activePackageId', 'name price kbpValue kbp dailyCap weeklyCap monthlyCap')
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Member not found' });
+    }
+
+    const IncomeTransaction = require('../models/IncomeTransaction');
+    const [wallet, binaryNode, directReferralCount, recentOrders, recentIncome] = await Promise.all([
+      Wallet.findOne({ userId: id }).lean(),
+      BinaryNode.findOne({ userId: id }).lean(),
+      User.countDocuments({ sponsorId: id }),
+      Order.find({ userId: id }).sort({ createdAt: -1 }).limit(5).select('orderNumber status totalAmount kbpGenerated createdAt orderType').lean(),
+      IncomeTransaction.find({ userId: id }).sort({ createdAt: -1 }).limit(5).lean()
+    ]);
+
+    let downlineCount = 0;
+    try {
+      const DownlineService = require('../services/downline.service');
+      const fullDownline = await DownlineService.getFullDownline(id);
+      downlineCount = fullDownline.length;
+    } catch (err) {
+      console.error('[getUserById] downline count failed:', err.message);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        user,
+        wallet: wallet || null,
+        binaryNode: binaryNode || null,
+        directReferralCount,
+        downlineCount,
+        recentOrders: recentOrders || [],
+        recentIncome: recentIncome || []
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const initializeSystem = async (req, res, next) => {
   try {
     res.json({
@@ -409,6 +463,7 @@ const initializeSystem = async (req, res, next) => {
 module.exports = {
   getDashboardStats,
   getAllUsers,
+  getUserById,
   searchMembersForActivation,
   updateUserStatus,
   activateMemberWithPackage,
