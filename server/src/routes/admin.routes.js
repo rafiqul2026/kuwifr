@@ -75,6 +75,33 @@ router.get('/binary/audit-placement-integrity', async (req, res, next) => {
   }
 });
 
+// Applies the fix for exactly the nodes audit-placement-integrity finds:
+// re-parents each misplaced member under their real sponsor's current
+// binary subtree (structure only — parentId/position/level on the moved
+// node, leftChildId/rightChildId on its old and new parent). Never touches
+// leftVolume/rightVolume/totalKBP/availableLeftVolume/availableRightVolume/
+// matchingVolume/pairCount or any IncomeTransaction, so no already-paid
+// income is clawed back or re-credited — see BinaryService.correctMisplacedNodes
+// for the full rationale. Pass ?dryRun=true to preview exactly what would
+// change with zero writes. Safe to run more than once; a second run (or a
+// follow-up audit-placement-integrity call) should find nothing left to fix.
+router.post('/binary/correct-misplaced-nodes', async (req, res, next) => {
+  try {
+    const BinaryService = require('../services/binary.service');
+    const dryRun = req.query.dryRun === 'true' || req.body?.dryRun === true;
+    const result = await BinaryService.correctMisplacedNodes({ dryRun });
+    res.json({
+      success: true,
+      message: dryRun
+        ? `DRY RUN: ${result.correctedCount} of ${result.totalMisplaced} misplaced node(s) would be corrected (${result.skippedCount} skipped, ${result.errorCount} errors). No changes were made.`
+        : `${result.correctedCount} of ${result.totalMisplaced} misplaced node(s) corrected (${result.skippedCount} skipped, ${result.errorCount} errors).`,
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Non-destructive unilevel/sponsor-chain repair — fills in any missing
 // Referral rows (the data "My Team" groups members by generation with)
 // from the real User.sponsorId relationships, for every user. Never

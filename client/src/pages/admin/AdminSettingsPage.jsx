@@ -122,6 +122,8 @@ const AdminSettingsPage = () => {
   // anything. See BinaryService.auditPlacementIntegrity.
   const [isAuditingPlacement, setIsAuditingPlacement] = useState(false);
   const [placementAuditResult, setPlacementAuditResult] = useState(null);
+  const [isCorrectingPlacement, setIsCorrectingPlacement] = useState(false);
+  const [placementCorrectionResult, setPlacementCorrectionResult] = useState(null);
   // One-time index migration — the Referral collection's old single-field
   // unique index on `userId` made it impossible to store more than a
   // member's level-1 row, which is exactly why "Repair Referral Chains" can
@@ -325,6 +327,27 @@ const AdminSettingsPage = () => {
       showNotification(err.response?.data?.message || 'Placement integrity audit failed.', 'error');
     } finally {
       setIsAuditingPlacement(false);
+    }
+  };
+
+  // Applies the fix for exactly what Audit Placement Integrity finds: moves
+  // each misplaced member to sit under their REAL sponsor's current binary
+  // subtree. Structure-only — it does NOT touch any already-credited
+  // leftVolume/rightVolume/matching income, so no real money already paid
+  // out is clawed back or re-credited. Run Audit Placement Integrity again
+  // afterward to confirm 0 remain. Use dryRun to preview with zero writes.
+  const handleCorrectMisplacedNodes = async (dryRun = false) => {
+    setIsCorrectingPlacement(true);
+    if (!dryRun) setPlacementCorrectionResult(null);
+    try {
+      const res = await api.post(`/api/admin/binary/correct-misplaced-nodes${dryRun ? '?dryRun=true' : ''}`);
+      const summary = res.data?.data;
+      setPlacementCorrectionResult(summary);
+      showNotification(res.data?.message || 'Placement correction complete.', 'success');
+    } catch (err) {
+      showNotification(err.response?.data?.message || 'Placement correction failed.', 'error');
+    } finally {
+      setIsCorrectingPlacement(false);
     }
   };
 
@@ -1366,6 +1389,64 @@ const AdminSettingsPage = () => {
                                   <strong>{m.binaryParentFullName || m.binaryParentMemberId || m.binaryParentUserId || 'nothing (no parent)'}</strong>
                                   {m.binaryParentMemberId ? ` (${m.binaryParentMemberId})` : ''}
                                 </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className={styles.maintenanceCard}>
+                      <span className={styles.maintenanceLabel}>Correct Misplaced Binary Nodes (run after audit)</span>
+                      <p className={styles.maintenanceHelp}>
+                        Fixes exactly what "Audit Placement Integrity" found above: re-parents each misplaced member
+                        under their real sponsor's current binary subtree, using the same placement logic every
+                        normal registration uses. Structure only — it never touches leftVolume/rightVolume/matching
+                        income already credited, so no real money already paid out is moved, clawed back, or
+                        re-credited. Going forward, every calculation for these members and their downlines will be
+                        100% correct; past income already paid under the old (wrong) tree shape is left exactly as
+                        it is. Re-run "Audit Placement Integrity" afterward — it should report 0 misplaced.
+                      </p>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
+                        <button
+                          type="button"
+                          className={styles.testEmailBtn}
+                          onClick={() => handleCorrectMisplacedNodes(true)}
+                          disabled={isCorrectingPlacement}
+                        >
+                          {isCorrectingPlacement ? 'Working...' : '👁️ Preview (Dry Run)'}
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.testEmailBtn}
+                          onClick={() => handleCorrectMisplacedNodes(false)}
+                          disabled={isCorrectingPlacement}
+                        >
+                          {isCorrectingPlacement ? 'Correcting...' : '🛠️ Correct Misplaced Nodes'}
+                        </button>
+                      </div>
+                      {placementCorrectionResult && (
+                        <div className={styles.maintenanceHelp} style={{ marginTop: '8px' }}>
+                          <p style={{ margin: 0 }}>
+                            {placementCorrectionResult.dryRun ? 'DRY RUN — ' : ''}
+                            {placementCorrectionResult.correctedCount} of {placementCorrectionResult.totalMisplaced} corrected ·{' '}
+                            {placementCorrectionResult.skippedCount} skipped · {placementCorrectionResult.errorCount} errors
+                          </p>
+                          {placementCorrectionResult.corrected?.length > 0 && (
+                            <ul style={{ margin: '8px 0 0', paddingLeft: '18px', maxHeight: '220px', overflowY: 'auto' }}>
+                              {placementCorrectionResult.corrected.map((c) => (
+                                <li key={c.userId} style={{ marginBottom: '6px' }}>
+                                  <strong>{c.fullName || c.memberId}</strong> ({c.memberId}) moved from under{' '}
+                                  {c.oldParentMemberId || c.oldParentUserId || 'nothing'} to under real sponsor{' '}
+                                  <strong>{c.realSponsorMemberId || c.realSponsorUserId}</strong>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {placementCorrectionResult.errors?.length > 0 && (
+                            <ul style={{ margin: '8px 0 0', paddingLeft: '18px', color: '#b3261e' }}>
+                              {placementCorrectionResult.errors.map((e) => (
+                                <li key={e.userId}>{e.memberId}: {e.error}</li>
                               ))}
                             </ul>
                           )}

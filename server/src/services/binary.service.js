@@ -1213,6 +1213,139 @@ class BinaryService {
       misplaced: misplaced.slice(0, limit)
     };
   }
+
+  /**
+   * Corrects structurally misplaced binary nodes identified by
+   * auditPlacementIntegrity() — read that method's doc comment first for the
+   * full background on why a node ends up here.
+   *
+   * STRUCTURE-ONLY FIX: for each misplaced member this clears the stale
+   * child pointer on their CURRENT (wrong) binary parent, then re-places
+   * them under their REAL sponsor's CURRENT subtree using the exact same
+   * findPlacement()/placeMember() spillover logic every normal registration
+   * already uses. That's the only thing that changes: parentId/position/
+   * level on the moved node, and leftChildId/rightChildId on its old and
+   * new parents. A node's own existing children (its own downline subtree)
+   * are never touched, so they move together with it as a unit.
+   *
+   * Because findPlacement() always re-reads the sponsor's CURRENT
+   * BinaryNode and walks down fresh at the moment it's called, correcting
+   * these nodes in any order (including a real sponsor and their
+   * downline both being on the misplaced list at once) converges to the
+   * same correct tree — order does not matter.
+   *
+   * THIS DELIBERATELY NEVER TOUCHES:
+   *   - leftVolume / rightVolume / totalKBP on ANY node
+   *   - availableLeftVolume / availableRightVolume / matchingVolume / pairCount
+   *   - any IncomeTransaction, or any already-credited referral/matching income
+   *
+   * Volume and income already flowed through the OLD (wrong) tree shape and
+   * was already credited into real members' wallets. Retroactively moving
+   * that volume to "where it should have gone" would mean either clawing
+   * back real money from members who were already paid, or double-crediting
+   * members who should have received it — neither is safe to do
+   * automatically on a live financial system. This tool fixes the
+   * structure so every FUTURE registration/activation/matching calculation
+   * is 100% correct from this point on; it does not rewrite paid history.
+   * If retroactive re-attribution of historical income is ever wanted, that
+   * needs its own carefully-scoped, human-reviewed project — this tool does
+   * not attempt it.
+   *
+   * Idempotent: re-running after a successful correction (or calling
+   * auditPlacementIntegrity() again) should find 0 misplaced nodes.
+   *
+   * @param {Object} opts
+   * @param {boolean} [opts.dryRun=false] - if true, computes exactly what
+   *   would be corrected but performs no writes.
+   */
+  async correctMisplacedNodes({ dryRun = false } = {}) {
+    const audit = await this.auditPlacementIntegrity({ limit: 100000 });
+    const targets = audit.misplaced;
+
+    const corrected = [];
+    const skipped = [];
+    const errors = [];
+
+    for (const entry of targets) {
+      try {
+        const node = await BinaryNode.findOne({ userId: entry.userId });
+        if (!node) {
+          skipped.push({ ...entry, reason: 'BinaryNode no longer exists (already resolved)' });
+          continue;
+        }
+
+        const user = await User.findById(entry.userId).select('sponsorId binarySide memberId fullName');
+        if (!user || !user.sponsorId) {
+          skipped.push({ ...entry, reason: 'User has no sponsorId on record — cannot determine correct placement' });
+          continue;
+        }
+
+        const staleParentId = node.parentId ? String(node.parentId) : null;
+
+        if (dryRun) {
+          corrected.push({
+            userId: entry.userId,
+            memberId: entry.memberId,
+            fullName: entry.fullName,
+            oldParentUserId: staleParentId,
+            oldParentMemberId: entry.binaryParentMemberId,
+            realSponsorUserId: String(user.sponsorId),
+            realSponsorMemberId: entry.realSponsorMemberId,
+            note: 'DRY RUN — no changes made'
+          });
+          continue;
+        }
+
+        // 1) Clear the stale child pointer on the CURRENT (wrong) parent —
+        //    matched precisely by exact userId equality so we never clear a
+        //    pointer that happens to point somewhere else by now.
+        if (staleParentId) {
+          const staleParent = await BinaryNode.findOne({ userId: staleParentId });
+          if (staleParent) {
+            let touched = false;
+            if (staleParent.leftChildId && String(staleParent.leftChildId) === String(entry.userId)) {
+              staleParent.leftChildId = null;
+              touched = true;
+            }
+            if (staleParent.rightChildId && String(staleParent.rightChildId) === String(entry.userId)) {
+              staleParent.rightChildId = null;
+              touched = true;
+            }
+            if (touched) await staleParent.save();
+          }
+        }
+
+        // 2) Re-place under the real sponsor's CURRENT subtree, preserving
+        //    the member's original left/right leg preference where known.
+        //    This touches ONLY structural fields — see doc comment above.
+        const preferredSide = user.binarySide || 'left';
+        await this.placeMember(entry.userId, user.sponsorId, preferredSide);
+
+        corrected.push({
+          userId: entry.userId,
+          memberId: entry.memberId,
+          fullName: entry.fullName,
+          oldParentUserId: staleParentId,
+          oldParentMemberId: entry.binaryParentMemberId,
+          realSponsorUserId: String(user.sponsorId),
+          realSponsorMemberId: entry.realSponsorMemberId
+        });
+      } catch (err) {
+        errors.push({ userId: entry.userId, memberId: entry.memberId, error: err.message });
+      }
+    }
+
+    return {
+      totalMisplaced: targets.length,
+      dryRun,
+      correctedCount: corrected.length,
+      skippedCount: skipped.length,
+      errorCount: errors.length,
+      corrected,
+      skipped,
+      errors
+    };
+  }
 }
 
 module.exports = new BinaryService();
