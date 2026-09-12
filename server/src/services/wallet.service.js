@@ -50,7 +50,7 @@ class WalletService {
    *   transaction (e.g. RepurchaseService crediting self + up to 10 upline
    *   levels atomically).
    */
-  async credit(userId, amount, source, reference, metadata = {}, session = null) {
+  async credit(userId, amount, source, reference, metadata = {}, session = null, walletTypeOverride = null) {
     if (amount <= 0) {
       throw new Error('Amount must be greater than 0');
     }
@@ -65,7 +65,12 @@ class WalletService {
     const REPURCHASE_SOURCES = ['REPURCHASE_SELF', 'REPURCHASE_DOWNLINE'];
 
     let walletType;
-    if (INCOME_SOURCES.includes(source)) {
+    if (walletTypeOverride) {
+      // Explicit override — used by callers (e.g. transferToRepurchase) whose
+      // source label ('SYSTEM') doesn't by itself say which wallet this
+      // particular credit belongs to.
+      walletType = walletTypeOverride;
+    } else if (INCOME_SOURCES.includes(source)) {
       walletType = 'INCOME';
     } else if (REPURCHASE_SOURCES.includes(source)) {
       walletType = 'REPURCHASE';
@@ -76,7 +81,12 @@ class WalletService {
     }
 
     const balanceField = walletType === 'INCOME' ? 'incomeBalance' : 'repurchaseBalance';
-    const extraIncrements = walletType === 'INCOME' ? { totalIncome: amount } : { totalIncome: amount };
+    // A 'SYSTEM'-sourced credit is an internal transfer between a member's own
+    // wallets (see transferToRepurchase below) — it moves money that was
+    // already counted as income once, so it must NOT be counted again here.
+    // Every genuine earning source still increments totalIncome exactly as
+    // before.
+    const extraIncrements = source === 'SYSTEM' ? {} : { totalIncome: amount };
 
     // Maintain per-type lifetime breakdown counters (reporting only — see Wallet.js).
     if (source === 'REFERRAL_INCOME') extraIncrements.referralIncome = amount;
@@ -95,7 +105,11 @@ class WalletService {
         walletType,
         type: 'CREDIT',
         transactionId: undefined,
-        description: this.getTransactionDescription(source, reference),
+        // Prefer the caller-supplied description (many callers already pass
+        // a specific one, e.g. "Self Repurchase Cashback (20%)" or
+        // "Transfer from Income Wallet") over the generic source-based
+        // fallback, which was previously always used regardless.
+        description: metadata.description || this.getTransactionDescription(source, reference),
         source,
         reference,
         metadata,
@@ -166,7 +180,7 @@ class WalletService {
   /**
    * Debit amount from wallet
    */
-  async debit(userId, amount, source, reference, metadata = {}) {
+  async debit(userId, amount, source, reference, metadata = {}, walletTypeOverride = null) {
     if (amount <= 0) {
       throw new Error('Amount must be greater than 0');
     }
@@ -175,7 +189,9 @@ class WalletService {
 
     // Determine wallet type
     let walletType;
-    if (source === 'WITHDRAWAL') {
+    if (walletTypeOverride) {
+      walletType = walletTypeOverride;
+    } else if (source === 'WITHDRAWAL') {
       walletType = 'INCOME';
     } else if (source === 'PURCHASE') {
       walletType = 'REPURCHASE';
@@ -198,7 +214,7 @@ class WalletService {
         transactionData: {
           walletType,
           type: 'DEBIT',
-          description: this.getTransactionDescription(source, reference),
+          description: metadata.description || this.getTransactionDescription(source, reference),
           source,
           reference,
           metadata,
@@ -230,17 +246,25 @@ class WalletService {
       throw new Error('Amount must be greater than 0');
     }
 
-    // First, debit from income wallet
+    // First, debit from income wallet. Explicit walletTypeOverride='INCOME'
+    // so this always hits incomeBalance regardless of how 'SYSTEM' might be
+    // classified elsewhere.
     const debitResult = await this.debit(userId, amount, 'SYSTEM', null, {
       ...metadata,
       description: 'Transfer to Repurchase Wallet'
-    });
+    }, 'INCOME');
 
-    // Then, credit to repurchase wallet
+    // Then, credit to repurchase wallet. Explicit walletTypeOverride
+    // ='REPURCHASE' is required here — without it, source 'SYSTEM' falls
+    // through credit()'s inference to its 'INCOME' default, so this leg
+    // was silently crediting incomeBalance instead of repurchaseBalance
+    // (net effect: the debit above and this credit cancelled each other
+    // out on incomeBalance, the Income Wallet appeared unchanged, and the
+    // Repurchase Wallet never actually received the transferred funds).
     const creditResult = await this.credit(userId, amount, 'SYSTEM', null, {
       ...metadata,
       description: 'Transfer from Income Wallet'
-    });
+    }, null, 'REPURCHASE');
 
     return {
       success: true,

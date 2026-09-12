@@ -65,6 +65,12 @@
   box-shadow: none;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   box-sizing: border-box;
+  /* Same grid-item overflow guard as .featureCard above — .walletCard is a
+     grid item of .walletGrid, which also collapses to a single column on
+     mobile. Kept as a preventive fix even though this specific card wasn't
+     visibly clipped in the reported screenshots. */
+  min-width: 0;
+  overflow: hidden;
 }
 
 .walletCard:hover {
@@ -193,6 +199,14 @@
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: none;
+  /* .featureCard is a grid item of .featureCardsGrid, which collapses to a
+     single column on mobile. Grid items default to min-width:auto, so the
+     always-nowrap .featureCardInfo p subtitle below was forcing this card
+     (and its grid track) wider than the viewport — the "30 Items" /
+     "10/15 Open" / "0/6 Achieved" badges then got silently clipped by the
+     page-level overflow-x:hidden instead of truncating in place. */
+  min-width: 0;
+  overflow: hidden;
 }
 
 .featureCard:hover {

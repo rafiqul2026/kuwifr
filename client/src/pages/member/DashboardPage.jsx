@@ -308,39 +308,6 @@ const DashboardPage = () => {
               <span className={styles.greetingDot}></span>
               MEMBER DASHBOARD
             </div>
-            <h1 className={styles.welcomeTitle}>
-              Welcome back, <span className={styles.nameHighlight}>{user?.fullName || 'Member'}</span>
-            </h1>
-            <div className={styles.identityRow}>
-              <button
-                type="button"
-                className={styles.memberIdBadge}
-                onClick={handleCopyMemberId}
-                title="Click to copy your Member ID"
-              >
-                <span className={styles.memberIdLabel}>MEMBER ID</span>
-                <span className={styles.memberIdValue}>{sponsorId}</span>
-                <span
-                  className={`${styles.memberIdCopyIcon} ${
-                    copiedMemberId ? styles.memberIdCopyIconSuccess : ''
-                  }`}
-                >
-                  {copiedMemberId ? (
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                  ) : (
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="9" y="9" width="13" height="13" rx="2"></rect>
-                      <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
-                    </svg>
-                  )}
-                </span>
-              </button>
-              <span className={user?.status === 'ACTIVE' ? styles.statusPillActive : styles.statusPillInactive}>
-                ● {user?.status || 'INACTIVE'}
-              </span>
-            </div>
           </div>
 
           <div className={styles.headerActions}>
@@ -382,14 +349,37 @@ const DashboardPage = () => {
             <span className={styles.heroPill}>
               {user?.status === 'ACTIVE' ? '✅ Active Member' : '⚡ Activation Pending'}
             </span>
-            <h2 className={styles.heroTitle}>
+            <h1 className={styles.heroTitle}>
               Welcome back, {user?.fullName || 'Member'}
-            </h2>
+            </h1>
             <p className={styles.heroSubtitle}>
-              Member ID <strong>{sponsorId}</strong> &nbsp;·&nbsp; Member since {formatJoinDate(stats?.memberSince)}
+              Member ID{' '}
+              <button
+                type="button"
+                className={styles.heroIdCopyBtn}
+                onClick={handleCopyMemberId}
+                title="Click to copy your Member ID"
+              >
+                <strong>{sponsorId}</strong>
+                {copiedMemberId ? (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                ) : (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+                  </svg>
+                )}
+              </button>
+              &nbsp;·&nbsp; Member since {formatJoinDate(stats?.memberSince)}
               {stats?.currentRank?.name ? (
                 <>&nbsp;·&nbsp; Rank: <strong>{stats.currentRank.name}</strong></>
               ) : null}
+              &nbsp;·&nbsp;
+              <span className={user?.status === 'ACTIVE' ? styles.heroStatusPillActive : styles.heroStatusPillInactive}>
+                ● {user?.status || 'INACTIVE'}
+              </span>
             </p>
             <Link
               to={user?.status === 'ACTIVE' ? '/member/team' : '/member/packages'}
