@@ -32,9 +32,9 @@ const COMPENSATION_DEFAULTS = {
     minRankCode: 'KUWI_STAR'
   },
   repurchase: {
-    selfRate: 0.25,
-    levelRates: [0.17, 0.13, 0.09, 0.05, 0.03, 0.02, 0.01, 0.01, 0.01, 0.01],
-    unlockLevelsByDirects: [2, 4, 6, 8, 10]
+    selfRate: 0.20,
+    levelRates: [0.15, 0.10, 0.07, 0.06, 0.05, 0.04, 0.03, 0.02, 0.015, 0.01, 0.005, 0.005, 0.005, 0.005, 0.005],
+    unlockLevelsByDirects: [2, 4, 6, 8, 10, 12, 14, 15]
   },
   withdrawal: {
     minAmount: 100,
@@ -124,6 +124,8 @@ const AdminSettingsPage = () => {
   const [placementAuditResult, setPlacementAuditResult] = useState(null);
   const [isCorrectingPlacement, setIsCorrectingPlacement] = useState(false);
   const [placementCorrectionResult, setPlacementCorrectionResult] = useState(null);
+  const [isApplyingRepurchasePlan, setIsApplyingRepurchasePlan] = useState(false);
+  const [repurchasePlanApplyResult, setRepurchasePlanApplyResult] = useState(null);
   // One-time index migration — the Referral collection's old single-field
   // unique index on `userId` made it impossible to store more than a
   // member's level-1 row, which is exactly why "Repair Referral Chains" can
@@ -348,6 +350,39 @@ const AdminSettingsPage = () => {
       showNotification(err.response?.data?.message || 'Placement correction failed.', 'error');
     } finally {
       setIsCorrectingPlacement(false);
+    }
+  };
+
+  // Forces the new Repurchase Plan (20% self cashback, 15 downline levels)
+  // onto the LIVE settings document. Editing the form below and clicking
+  // "Save Settings" does the same thing, but since a settings document
+  // already exists on this live system, the page's own fields below will
+  // load and show whatever was last saved (the OLD 10-level plan) rather
+  // than the new defaults — this button applies the new plan directly, in
+  // one click, without needing to hand-type 15 numbers. Only touches the
+  // Repurchase Plan section; every other setting is left untouched.
+  const handleApplyRepurchasePlanUpdate = async () => {
+    setIsApplyingRepurchasePlan(true);
+    try {
+      const res = await api.post('/api/admin/settings/apply-repurchase-plan-update');
+      const summary = res.data?.data;
+      setRepurchasePlanApplyResult(summary);
+      showNotification(res.data?.message || 'Repurchase plan updated.', 'success');
+      // Reflect the newly-applied values in this form immediately, so the
+      // level-rate fields below don't keep showing the just-replaced old data.
+      if (summary?.applied) {
+        setSettings((prev) => ({
+          ...prev,
+          compensation: {
+            ...prev.compensation,
+            repurchase: summary.applied
+          }
+        }));
+      }
+    } catch (err) {
+      showNotification(err.response?.data?.message || 'Failed to apply repurchase plan update.', 'error');
+    } finally {
+      setIsApplyingRepurchasePlan(false);
     }
   };
 
@@ -942,10 +977,39 @@ const AdminSettingsPage = () => {
 
                 <div className={styles.sectionHeader} style={{ marginTop: '28px' }}>
                   <div>
-                    <h3>Repurchase Plan — 10-Level Downline Income</h3>
-                    <p>25% self cashback plus a 10-level downline matrix. Level unlock count is based on active direct referrals.</p>
+                    <h3>Repurchase Plan — 15-Level Downline Income</h3>
+                    <p>20% self cashback plus a 15-level downline matrix. Level unlock count is based on active direct referrals.</p>
                   </div>
                 </div>
+
+                <div className={styles.maintenanceCard} style={{ marginBottom: '16px' }}>
+                  <span className={styles.maintenanceLabel}>Apply New Repurchase Plan (one-click)</span>
+                  <p className={styles.maintenanceHelp}>
+                    This system already has saved compensation settings from before, so simply deploying the new
+                    code does not change them by itself — the fields below would keep showing the old 10-level,
+                    25% plan until you either type in all 15 new numbers by hand and click "Save Settings" below,
+                    or click this button to apply the new plan in one click: 20% self cashback, and Level 1-15
+                    rates of 15% / 10% / 7% / 6% / 5% / 4% / 3% / 2% / 1.5% / 1% / 0.5% / 0.5% / 0.5% / 0.5% / 0.5%.
+                    Only the Repurchase Plan section is changed — every other setting is left exactly as is. Safe
+                    to click more than once.
+                  </p>
+                  <button
+                    type="button"
+                    className={styles.testEmailBtn}
+                    onClick={handleApplyRepurchasePlanUpdate}
+                    disabled={isApplyingRepurchasePlan}
+                    style={{ marginTop: '10px' }}
+                  >
+                    {isApplyingRepurchasePlan ? 'Applying...' : '🚀 Apply New Repurchase Plan'}
+                  </button>
+                  {repurchasePlanApplyResult && (
+                    <p className={styles.maintenanceHelp} style={{ marginTop: '8px' }}>
+                      Applied. The fields below now reflect the new plan — review and click "Save Settings" only if
+                      you want to further hand-edit any individual rate.
+                    </p>
+                  )}
+                </div>
+
                 <div className={styles.formGrid}>
                   <div className={styles.formGroup}>
                     <label>Self Repurchase Cashback (%)</label>
@@ -981,7 +1045,7 @@ const AdminSettingsPage = () => {
                       <input
                         type="number"
                         min="0"
-                        max="10"
+                        max="15"
                         value={levels}
                         onChange={(e) => handleCompArrayChange('repurchase', 'unlockLevelsByDirects', idx, parseInt(e.target.value, 10) || 0)}
                       />

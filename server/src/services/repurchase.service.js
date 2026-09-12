@@ -9,15 +9,15 @@ class RepurchaseService {
   /**
    * Helper: Calculate the maximum open levels based on active direct referrals,
    * using the admin-configured unlock table (default: business plan rule —
-   * 1 direct unlocks levels 1-2, 2 directs unlocks 1-4, ... 5+ directs
-   * unlocks all 10).
+   * 1 direct unlocks levels 1-2, 2 directs unlocks 1-4, ... 8+ directs
+   * unlocks all 15).
    */
   static async getMaxUnlockedLevel(directCount) {
     if (!directCount || directCount <= 0) return 0;
     const { unlockLevelsByDirects } = await SettingsService.getRepurchase();
     const table = Array.isArray(unlockLevelsByDirects) && unlockLevelsByDirects.length
       ? unlockLevelsByDirects
-      : [2, 4, 6, 8, 10];
+      : [2, 4, 6, 8, 10, 12, 14, 15];
     const idx = Math.min(directCount, table.length) - 1;
     return table[idx];
   }
@@ -33,8 +33,8 @@ class RepurchaseService {
 
   /**
    * Process Repurchase Order Distribution:
-   * 1. Self Cashback (admin-configurable %, default 25%) to Buyer's Repurchase Wallet.
-   * 2. Traverse 10-Level Uplink: Credit commissions only if the upline has the required direct referrals.
+   * 1. Self Cashback (admin-configurable %, default 20%) to Buyer's Repurchase Wallet.
+   * 2. Traverse 15-Level Uplink: Credit commissions only if the upline has the required direct referrals.
    *
    * Both legs are credited through WalletService.credit() — atomic per-wallet
    * balance updates into the correct repurchaseBalance bucket (NOT
@@ -50,7 +50,7 @@ class RepurchaseService {
     const { selfRate, levelRates } = await SettingsService.getRepurchase();
     const rates = Array.isArray(levelRates) && levelRates.length
       ? levelRates
-      : [0.17, 0.13, 0.09, 0.05, 0.03, 0.02, 0.01, 0.01, 0.01, 0.01];
+      : [0.15, 0.10, 0.07, 0.06, 0.05, 0.04, 0.03, 0.02, 0.015, 0.01, 0.005, 0.005, 0.005, 0.005, 0.005];
 
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -177,7 +177,7 @@ class RepurchaseService {
   }
 
   /**
-   * Generate 10-Level Downline Matrix Statistics with Unlock Tracking
+   * Generate 15-Level Downline Matrix Statistics with Unlock Tracking
    *
    * Member lists/counts per level used to come from the `Referral`
    * collection, a best-effort mirror of User.sponsorId that can silently
@@ -195,7 +195,7 @@ class RepurchaseService {
     const { levelRates } = await SettingsService.getRepurchase();
     const rates = Array.isArray(levelRates) && levelRates.length
       ? levelRates
-      : [0.17, 0.13, 0.09, 0.05, 0.03, 0.02, 0.01, 0.01, 0.01, 0.01];
+      : [0.15, 0.10, 0.07, 0.06, 0.05, 0.04, 0.03, 0.02, 0.015, 0.01, 0.005, 0.005, 0.005, 0.005, 0.005];
 
     const directCount = await User.countDocuments({
       sponsorId: userId,

@@ -39,14 +39,18 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
 
-// Matches the existing 10-generation cap used across the app (Referral.level
-// 1-10 / the 10-level repurchase compensation plan): $graphLookup depth
-// 0..9 = generation/level 1..10 (depth + 1 = level number).
-const MAX_DEPTH = 9;
+// Matches the 15-level repurchase compensation plan (levelRates has 15
+// entries as of the Sept 2026 plan update — previously 10): $graphLookup
+// depth 0..14 = generation/level 1..15 (depth + 1 = level number). Also
+// used by "My Team" / Growth-Generation genealogy (buildGenerationGroups in
+// user.controller.js), which now shows up to 15 generations as a side
+// effect — a strict improvement (more real data visible), not a behavior
+// change to any payout logic.
+const MAX_DEPTH = 14;
 const MAX_LEVEL = MAX_DEPTH + 1;
 
 /**
- * Returns every downline member of `userId`, at any depth up to the 10-level
+ * Returns every downline member of `userId`, at any depth up to the 15-level
  * cap, computed directly from User.sponsorId. Each entry carries a `depth`
  * field (0 = direct referral, so level = depth + 1) and only the fields
  * callers actually need — deliberately excludes password/otp/kyc/etc, even

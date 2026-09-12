@@ -4,6 +4,16 @@ import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './RepurchasePage.module.css';
 
+// Mirrors server/src/services/settings.service.js DEFAULT_COMPENSATION.repurchase
+// — used here only for the client-side cart/estimate preview shown before
+// checkout; the actual credited amount is always computed server-side
+// (RepurchaseService.processRepurchaseDistribution) against the live admin
+// settings, so these constants being briefly out of sync with an admin's
+// custom rate change would only affect the preview number, never the payout.
+const SELF_REPURCHASE_RATE = 0.20;
+const FULL_UNLOCK_DIRECTS = 8; // 8+ active directs unlocks all 15 levels
+const TOTAL_REPURCHASE_LEVELS = 15;
+
 // ============ FORMATTING & CALCULATION HELPERS ============
 
 const formatKBPDisplay = (val) => {
@@ -178,7 +188,7 @@ const RepurchasePage = () => {
       itemCount,
       totalKSP,
       totalKBP,
-      selfIncome: Math.round(totalKBP * 0.25 * 100) / 100
+      selfIncome: Math.round(totalKBP * SELF_REPURCHASE_RATE * 100) / 100
     };
   }, [cart, products]);
 
@@ -248,10 +258,10 @@ const RepurchasePage = () => {
       {/* Header Banner */}
       <header className={styles.pageHeader}>
         <div className={styles.headerTitleWrap}>
-          <span className={styles.pillBadge}>✨ 10-Level Matrix & Target Fund Engine</span>
+          <span className={styles.pillBadge}>✨ {TOTAL_REPURCHASE_LEVELS}-Level Matrix & Target Fund Engine</span>
           <h1 className={styles.pageTitle}>Repurchase Income & Store</h1>
           <p className={styles.pageSubtitle}>
-            Self Repurchase = <strong>25% Cashback</strong> • 10-Level Overrides (Requires Direct Sponsors) • Life Tension Free Funds
+            Self Repurchase = <strong>{Math.round(SELF_REPURCHASE_RATE * 100)}% Cashback</strong> • {TOTAL_REPURCHASE_LEVELS}-Level Overrides (Requires Direct Sponsors) • Life Tension Free Funds
           </p>
         </div>
       </header>
@@ -276,7 +286,7 @@ const RepurchasePage = () => {
         <div className={`${styles.walletCard} ${styles.selfWallet}`}>
           <div className={styles.walletTop}>
             <span className={styles.walletIcon}>🛍️</span>
-            <span className={styles.walletChip}>25% of KBP</span>
+            <span className={styles.walletChip}>{Math.round(SELF_REPURCHASE_RATE * 100)}% of KBP</span>
           </div>
           <div className={styles.walletAmount}>
             <small>₹</small>
@@ -291,7 +301,7 @@ const RepurchasePage = () => {
         <div className={`${styles.walletCard} ${styles.downlineWallet}`}>
           <div className={styles.walletTop}>
             <span className={styles.walletIcon}>👥</span>
-            <span className={styles.walletChip}>10 Levels</span>
+            <span className={styles.walletChip}>{TOTAL_REPURCHASE_LEVELS} Levels</span>
           </div>
           <div className={styles.walletAmount}>
             <small>₹</small>
@@ -299,7 +309,7 @@ const RepurchasePage = () => {
           </div>
           <div className={styles.walletFooter}>
             <span>Downline Repurchase</span>
-            <strong>{directCount >= 5 ? '👑 All 10 Levels Open' : `🔓 Level 1 - ${maxUnlockedLevel} Open`}</strong>
+            <strong>{directCount >= FULL_UNLOCK_DIRECTS ? `👑 All ${TOTAL_REPURCHASE_LEVELS} Levels Open` : `🔓 Level 1 - ${maxUnlockedLevel} Open`}</strong>
           </div>
         </div>
       </section>
@@ -330,11 +340,11 @@ const RepurchasePage = () => {
         >
           <div className={styles.featureCardIcon}>📊</div>
           <div className={styles.featureCardInfo}>
-            <h4>10-Level Downline Matrix</h4>
+            <h4>{TOTAL_REPURCHASE_LEVELS}-Level Downline Matrix</h4>
             <p>Direct sponsor unlock tracking</p>
           </div>
           <span className={styles.featureBadgeCount}>
-            {directCount >= 5 ? '10/10 Open' : `${maxUnlockedLevel}/10 Open`}
+            {directCount >= FULL_UNLOCK_DIRECTS ? `${TOTAL_REPURCHASE_LEVELS}/${TOTAL_REPURCHASE_LEVELS} Open` : `${maxUnlockedLevel}/${TOTAL_REPURCHASE_LEVELS} Open`}
           </span>
         </div>
 
@@ -390,7 +400,7 @@ const RepurchasePage = () => {
 
             <div className={styles.productGrid3}>
               {filteredProducts.map((prod) => {
-                const selfCashback = prod.kbp * 0.25;
+                const selfCashback = prod.kbp * SELF_REPURCHASE_RATE;
                 const discountPercentage = Math.round(((prod.mrp - prod.ksp) / prod.mrp) * 100);
 
                 return (
@@ -416,7 +426,7 @@ const RepurchasePage = () => {
                       </div>
 
                       <div className={styles.cashbackPill}>
-                        <span className={styles.cashbackLabel}>Self 25%</span>
+                        <span className={styles.cashbackLabel}>Self {Math.round(SELF_REPURCHASE_RATE * 100)}%</span>
                         <strong className={styles.cashbackVal}>+₹{selfCashback.toLocaleString()}</strong>
                       </div>
                     </div>
@@ -450,7 +460,7 @@ const RepurchasePage = () => {
                 <h3>🛒 Order Summary</h3>
                 <span className={styles.cartCountPill}>{calculateCartTotals.itemCount} items</span>
               </div>
-              <p className={styles.unlimitedNotice}>Unlimited repurchase • 25% instant KBP credit</p>
+              <p className={styles.unlimitedNotice}>Unlimited repurchase • {Math.round(SELF_REPURCHASE_RATE * 100)}% instant KBP credit</p>
 
               <div className={styles.summaryBreakdown}>
                 <div className={styles.summaryItem}>
@@ -465,7 +475,7 @@ const RepurchasePage = () => {
 
                 <div className={styles.cashbackHighlight}>
                   <div className={styles.cashbackHeader}>
-                    <span>🎁 Self Repurchase Cashback (25%)</span>
+                    <span>🎁 Self Repurchase Cashback ({Math.round(SELF_REPURCHASE_RATE * 100)}%)</span>
                     <strong className={styles.cashbackAmount}>+ ₹{calculateCartTotals.selfIncome.toLocaleString()}</strong>
                   </div>
                   <small>Credited directly to your Repurchase Wallet upon checkout</small>
@@ -497,13 +507,13 @@ const RepurchasePage = () => {
             <div className={styles.ribbonHeader}>
               <span className={styles.ribbonIcon}>👥</span>
               <div>
-                <h4>10-Level Downline Repurchase Matrix (Direct Sponsor Rules)</h4>
+                <h4>{TOTAL_REPURCHASE_LEVELS}-Level Downline Repurchase Matrix (Direct Sponsor Rules)</h4>
                 <p>
-                  Current Active Directs: <strong>{directCount} Direct Sponsor(s)</strong> • 
-                  {directCount >= 5 ? (
-                    <span style={{ color: '#16a34a', fontWeight: '800' }}> 👑 All 10 Levels Fully Open</span>
+                  Current Active Directs: <strong>{directCount} Direct Sponsor(s)</strong> •
+                  {directCount >= FULL_UNLOCK_DIRECTS ? (
+                    <span style={{ color: '#16a34a', fontWeight: '800' }}> 👑 All {TOTAL_REPURCHASE_LEVELS} Levels Fully Open</span>
                   ) : (
-                    <span> Open Levels: <strong>Levels 1 to {maxUnlockedLevel || 0}</strong> ({5 - directCount} more directs needed for all levels)</span>
+                    <span> Open Levels: <strong>Levels 1 to {maxUnlockedLevel || 0}</strong> ({Math.max(0, FULL_UNLOCK_DIRECTS - directCount)} more directs needed for all levels)</span>
                   )}
                 </p>
               </div>

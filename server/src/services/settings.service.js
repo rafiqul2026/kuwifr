@@ -12,9 +12,9 @@ const DEFAULT_COMPENSATION = {
   matching: { rate: 0.10, unitValue: 1000, firstPairSmallUnits: 1, firstPairLargeUnits: 2, firstPairMinDirects: 2 },
   leadership: { levelRates: [0.50, 0.30, 0.20], minRankCode: 'KUWI_STAR' },
   repurchase: {
-    selfRate: 0.25,
-    levelRates: [0.17, 0.13, 0.09, 0.05, 0.03, 0.02, 0.01, 0.01, 0.01, 0.01],
-    unlockLevelsByDirects: [2, 4, 6, 8, 10]
+    selfRate: 0.20,
+    levelRates: [0.15, 0.10, 0.07, 0.06, 0.05, 0.04, 0.03, 0.02, 0.015, 0.01, 0.005, 0.005, 0.005, 0.005, 0.005],
+    unlockLevelsByDirects: [2, 4, 6, 8, 10, 12, 14, 15]
   },
   withdrawal: { minAmount: 100, adminChargeRate: 0.05, serviceChargeRate: 0.05, tdsRate: 0.05, stopWithdrawals: false, stopWithdrawalsMessage: 'Withdrawals are temporarily paused. Please check back later.' },
   franchise: { kspRate: 0.10, kbpLifetimeRate: 0.01 }
@@ -91,6 +91,44 @@ class SettingsService {
   async getFranchise() {
     const c = await this.getCompensation();
     return c.franchise;
+  }
+
+  /**
+   * Force-applies the current DEFAULT_COMPENSATION.repurchase values (the
+   * 15-level plan: 20% self cashback, levels 1-15, unlock table) onto the
+   * live Setting document, overwriting whatever repurchase config is
+   * currently stored — needed because a Setting document already exists on
+   * a live system, and Mongoose schema defaults only ever apply when a
+   * document is first CREATED, never to an existing saved document. Simply
+   * deploying new code with new schema/service defaults does NOT change
+   * already-saved settings — this is the one-time migration step that
+   * actually makes the new plan take effect. Only touches
+   * compensation.repurchase; every other settings section (company,
+   * payment, referral/matching/leadership rates, withdrawal, franchise) is
+   * left exactly as currently configured. Safe to run more than once
+   * (idempotent — reapplies the same target values).
+   */
+  async applyRepurchasePlanDefaults() {
+    const Setting = require('../models/Setting');
+    const newRepurchase = JSON.parse(JSON.stringify(DEFAULT_COMPENSATION.repurchase));
+
+    let doc = await Setting.findOne();
+    let previous = null;
+
+    if (doc) {
+      previous = doc.compensation?.repurchase
+        ? JSON.parse(JSON.stringify(doc.compensation.repurchase))
+        : null;
+      doc.compensation = doc.compensation || {};
+      doc.compensation.repurchase = newRepurchase;
+      doc.markModified('compensation');
+      await doc.save();
+    } else {
+      doc = await Setting.create({ compensation: { repurchase: newRepurchase } });
+    }
+
+    this.invalidateCache();
+    return { previous, applied: newRepurchase };
   }
 }
 

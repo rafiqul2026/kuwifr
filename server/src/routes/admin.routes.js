@@ -102,6 +102,29 @@ router.post('/binary/correct-misplaced-nodes', async (req, res, next) => {
   }
 });
 
+// Applies the Sept 2026 Repurchase Plan update (20% self cashback, 15
+// downline levels, extended unlock table) directly onto the live Setting
+// document. Deploying new code alone is NOT enough to change this — a
+// Setting document already exists on this live system, and Mongoose schema
+// defaults only ever populate a document that's being CREATED for the
+// first time, never an already-saved one. Run this once after deploying
+// the updated compensation defaults so the new rates actually take effect.
+// Only touches compensation.repurchase; every other settings section is
+// left untouched. Idempotent — safe to run more than once.
+router.post('/settings/apply-repurchase-plan-update', async (req, res, next) => {
+  try {
+    const SettingsService = require('../services/settings.service');
+    const result = await SettingsService.applyRepurchasePlanDefaults();
+    res.json({
+      success: true,
+      message: 'Repurchase plan updated: 20% self cashback + 15 downline levels now live.',
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Non-destructive unilevel/sponsor-chain repair — fills in any missing
 // Referral rows (the data "My Team" groups members by generation with)
 // from the real User.sponsorId relationships, for every user. Never

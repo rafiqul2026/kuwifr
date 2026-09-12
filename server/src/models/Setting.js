@@ -92,17 +92,17 @@ const settingSchema = new mongoose.Schema(
         minRankCode: { type: String, default: 'KUWI_STAR' }
       },
 
-      // Repurchase Plan: 25% instant self cashback + 10-level downline matrix.
-      // levelRates index 0 = level 1 ... index 9 = level 10. unlockLevelsByDirects
+      // Repurchase Plan: 20% instant self cashback + 15-level downline matrix.
+      // levelRates index 0 = level 1 ... index 14 = level 15. unlockLevelsByDirects
       // index 0 = "with 1 active direct referral, this many levels are unlocked"
-      // ... index 4 = "5+ active directs unlocks all levels".
+      // ... index 7 = "8+ active directs unlocks all 15 levels".
       repurchase: {
-        selfRate: { type: Number, default: 0.25, min: 0, max: 1 },
+        selfRate: { type: Number, default: 0.20, min: 0, max: 1 },
         levelRates: {
           type: [Number],
-          default: [0.17, 0.13, 0.09, 0.05, 0.03, 0.02, 0.01, 0.01, 0.01, 0.01]
+          default: [0.15, 0.10, 0.07, 0.06, 0.05, 0.04, 0.03, 0.02, 0.015, 0.01, 0.005, 0.005, 0.005, 0.005, 0.005]
         },
-        unlockLevelsByDirects: { type: [Number], default: [2, 4, 6, 8, 10] }
+        unlockLevelsByDirects: { type: [Number], default: [2, 4, 6, 8, 10, 12, 14, 15] }
       },
 
       // Withdrawal deductions, applied to the gross amount requested.
