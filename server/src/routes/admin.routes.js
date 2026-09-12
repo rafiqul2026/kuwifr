@@ -49,6 +49,32 @@ router.post('/binary/repair', async (req, res, next) => {
   }
 });
 
+// READ-ONLY diagnostic — never writes anything. Finds BinaryNodes whose
+// placement does NOT trace back through their own real sponsor at all
+// (see BinaryService.auditPlacementIntegrity for the full explanation and
+// the real confirmed case: RAFIQUL Test / KFR441197's Growth Generation
+// tree shows 14 members on his Left leg and his own immediate Left child is
+// someone who isn't one of his 5 real referrals and doesn't appear anywhere
+// in his real sponsor-chain downline either). Normal extreme-leg spillover
+// (a referral landing several levels below their sponsor because that leg
+// already has depth) is expected and will NOT be flagged — only nodes with
+// no legitimate placement explanation at all. Run this first, before any
+// binary-tree repair action, to see the real scope of the problem.
+router.get('/binary/audit-placement-integrity', async (req, res, next) => {
+  try {
+    const BinaryService = require('../services/binary.service');
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : 200;
+    const result = await BinaryService.auditPlacementIntegrity({ limit });
+    res.json({
+      success: true,
+      message: `${result.misplacedCount} misplaced node(s) found across ${result.totalSponsoredUsersChecked} sponsored member(s) checked, ${result.correctlyTraced} correctly traced to their real sponsor.`,
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Non-destructive unilevel/sponsor-chain repair — fills in any missing
 // Referral rows (the data "My Team" groups members by generation with)
 // from the real User.sponsorId relationships, for every user. Never
@@ -174,6 +200,35 @@ router.post('/income/reconcile-matching', async (req, res, next) => {
     res.json({
       success: true,
       message: `Matching income reconciliation complete. ${summary.reconciled.length} member(s) had missing KBP replayed through the matching engine, ${summary.alreadyCorrect} already correct.`,
+      data: summary
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Non-destructive top-up for Matching Income that is LESS than it should be
+// — run this AFTER "Reconcile Matching Income / Leg KBP" above, not instead
+// of it. That tool fixes KBP that never reached a member's leftVolume/
+// rightVolume totals at all; THIS tool fixes a separate bug where even
+// correct totals can underpay: the first-pair 2:1 rule burns an extra UNIT
+// from whichever leg happens to be heavier at the moment it fires, which for
+// a REPLAYED reconciliation (applied per-member, not in true chronological
+// order) can be the wrong (eventually smaller) leg — silently short-paying
+// by exactly one UNIT of income. See
+// BinaryService.reconcileUnderpaidMatchingIncome for the full explanation,
+// including the real confirmed case (RAFIQUL Test / KFR441197: ₹1,000 paid
+// vs. ₹1,100 correct). Computes each node's target directly from its own
+// (correct) leftVolume/rightVolume — never replays history — and tops up
+// only the shortfall as a new, separately-labeled correction transaction.
+// Idempotent: safe to run any time, repeatedly.
+router.post('/income/reconcile-matching-underpaid', async (req, res, next) => {
+  try {
+    const BinaryService = require('../services/binary.service');
+    const summary = await BinaryService.reconcileUnderpaidMatchingIncome();
+    res.json({
+      success: true,
+      message: `Underpaid matching income reconciliation complete. ${summary.corrected.length} member(s) corrected across ${summary.totalNodesChecked} node(s) checked, ${summary.alreadyCorrect} already correct.`,
       data: summary
     });
   } catch (error) {

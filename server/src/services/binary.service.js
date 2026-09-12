@@ -892,6 +892,327 @@ class BinaryService {
 
     return summary;
   }
+
+  /**
+   * Non-destructive top-up for Matching Income that is LESS than it should
+   * be — different from reconcileMissingVolume() above, which fixes KBP that
+   * never even reached a node's leftVolume/rightVolume totals. This fixes a
+   * separate, subtler bug: even once leftVolume/rightVolume ARE fully
+   * correct, the total income calculateMatching() has actually paid out can
+   * still be short, because the "first pair" 2:1 rule burns 2 UNITs from
+   * whichever side happens to be numerically heavier AT THE MOMENT the first
+   * pair triggers — not necessarily whichever side ends up being the larger
+   * total. If volume arrives (or, as here, gets REPLAYED by
+   * reconcileMissingVolume(), which applies each member's total shortfall as
+   * one lump per member in User.createdAt order — not necessarily the real
+   * chronological order their original orders happened in) such that the
+   * eventually-SMALLER leg is briefly the heavier one when the first pair
+   * fires, the engine wastes an extra UNIT of the scarce leg on the 2:1
+   * ratio instead of paying it out at full 1:1 value — silently underpaying
+   * by exactly one UNIT's worth of income (UNIT * rate).
+   *
+   * Real, confirmed case: RAFIQUL Test (KFR441197) — Left leg 15,500 KBP,
+   * Right leg 11,000 KBP. The mathematically correct lifetime matching total
+   * for ANY node, independent of history/ordering, is simply
+   * floor(min(leftVolume, rightVolume) / UNIT) * UNIT * rate — the first
+   * pair's extra UNIT is only ever "wasted" off the LARGER leg if the engine
+   * chooses correctly, so income is always exactly 10 (or 11, etc.) whole
+   * UNITs of the smaller leg's total, never dependent on arrival order. For
+   * RAFIQUL that's floor(11000/1000)*1000*0.10 = ₹1,100 — he had only been
+   * paid ₹1,000 (one UNIT / ₹100 short) because the reconciliation replay
+   * above happened to burn the extra first-pair UNIT off his (eventually)
+   * smaller Right leg instead of his larger Left leg.
+   *
+   * This method computes that authoritative target directly from each
+   * node's own (correct) leftVolume/rightVolume — never replays history, so
+   * it can't repeat the same ordering mistake — and tops up ONLY the
+   * shortfall vs. the node's current pairCount, as a new, separately-labeled
+   * correction transaction (append-only; never edits or deletes a prior
+   * credit). It also corrects the node's own pairCount/matchingVolume/
+   * availableLeftVolume/availableRightVolume to the same authoritative
+   * target state, so future volume increments compute correctly from here
+   * on. Idempotent: a second run always finds a shortfall of 0 for anyone
+   * already at their correct target.
+   */
+  async reconcileUnderpaidMatchingIncome() {
+    const SettingsService = require('./settings.service');
+    const IncomeService = require('./income.service');
+    const RankService = require('./rank.service');
+    const matchingCfg = await SettingsService.getMatching();
+    const UNIT = matchingCfg.unitValue;
+    const SMALL = matchingCfg.firstPairSmallUnits;
+    const LARGE = matchingCfg.firstPairLargeUnits;
+
+    const nodes = await BinaryNode.find({ leftVolume: { $gt: 0 }, rightVolume: { $gt: 0 } });
+
+    const summary = {
+      totalNodesChecked: nodes.length,
+      alreadyCorrect: 0,
+      corrected: [],
+      notEligible: 0,
+      errors: []
+    };
+
+    for (const node of nodes) {
+      try {
+        const L = node.leftVolume || 0;
+        const R = node.rightVolume || 0;
+        const currentPairCount = node.pairCount || 0;
+
+        let eligible = currentPairCount > 0;
+        if (!eligible) {
+          const directLeftCount = await User.countDocuments({ sponsorId: node.userId, binarySide: 'left', status: 'ACTIVE' });
+          const directRightCount = await User.countDocuments({ sponsorId: node.userId, binarySide: 'right', status: 'ACTIVE' });
+          const totalDirectCount = directLeftCount + directRightCount;
+          const hasFirstPairDirects = directLeftCount >= 1 && directRightCount >= 1 && totalDirectCount >= matchingCfg.firstPairMinDirects;
+          const canMatchLeftHeavy = L >= LARGE * UNIT && R >= SMALL * UNIT;
+          const canMatchRightHeavy = L >= SMALL * UNIT && R >= LARGE * UNIT;
+          eligible = hasFirstPairDirects && (canMatchLeftHeavy || canMatchRightHeavy);
+        }
+
+        if (!eligible) {
+          summary.notEligible += 1;
+          continue;
+        }
+
+        const targetUnits = Math.floor(Math.min(L, R) / UNIT);
+        const shortfallUnits = targetUnits - currentPairCount;
+
+        if (shortfallUnits <= 0) {
+          summary.alreadyCorrect += 1;
+          continue;
+        }
+
+        const shortfallKbp = shortfallUnits * UNIT;
+        const grossAmount = shortfallKbp * matchingCfg.rate;
+
+        const cappedResult = await IncomeService.applyCaps(node.userId, grossAmount);
+
+        let creditResult = null;
+        if (cappedResult.allowedAmount > 0) {
+          creditResult = await IncomeService.creditIncome(
+            node.userId,
+            cappedResult.allowedAmount,
+            'MATCHING_INCOME',
+            node._id,
+            'BinaryNode',
+            shortfallKbp,
+            matchingCfg.rate,
+            {
+              pairCount: shortfallUnits,
+              unitValue: UNIT,
+              correctionReason: 'matching_first_pair_side_correction',
+              previousPairCount: currentPairCount,
+              correctedTargetPairCount: targetUnits
+            }
+          );
+          if (creditResult && creditResult.transaction) {
+            const IncomeTransaction = require('../models/IncomeTransaction');
+            await IncomeTransaction.findByIdAndUpdate(creditResult.transaction._id, {
+              capBreakdown: cappedResult.capBreakdown,
+              grossAmount,
+              capAdjustment: grossAmount - cappedResult.allowedAmount
+            });
+          }
+        } else if (grossAmount > 0) {
+          // Genuinely owed but the daily/weekly/monthly cap leaves zero room
+          // right now — record it as a FAILED (₹0-credited) transaction for
+          // audit, same pattern as calculateMatching()'s own capped-to-zero
+          // branch, rather than silently doing nothing.
+          try {
+            const IncomeTransaction = require('../models/IncomeTransaction');
+            const WalletService = require('./wallet.service');
+            const fallbackWallet = await WalletService.getOrCreateWallet(node.userId);
+            await IncomeTransaction.create({
+              userId: node.userId,
+              transactionId: `MATCH-CORR-CAPPED-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`.toUpperCase(),
+              type: 'MATCHING_INCOME',
+              sourceId: node._id,
+              sourceModel: 'BinaryNode',
+              kbp: shortfallKbp,
+              rate: matchingCfg.rate,
+              grossAmount,
+              capAdjustment: grossAmount,
+              creditedAmount: 0,
+              walletType: 'INCOME',
+              walletId: fallbackWallet._id,
+              status: 'FAILED',
+              processedAt: new Date(),
+              capBreakdown: cappedResult.capBreakdown,
+              metadata: {
+                pairCount: shortfallUnits,
+                unitValue: UNIT,
+                correctionReason: 'matching_first_pair_side_correction',
+                failureReason: 'CAPPED_TO_ZERO — daily/weekly/monthly package cap already exhausted'
+              }
+            });
+          } catch (logError) {
+            console.error('   Failed to record capped-to-zero matching correction:', logError.message);
+          }
+        }
+
+        // Correct the node's own state to the authoritative target — the
+        // SAME leg-assignment logic that produces the correct target income
+        // above (heavier total leg absorbs the first pair's extra UNIT), so
+        // any future volume increment for this node starts from a
+        // consistent, correct base rather than repeating this shortfall.
+        const heavyIsLeft = L >= R;
+        const heavyTotal = heavyIsLeft ? L : R;
+        const lightTotal = heavyIsLeft ? R : L;
+        let consumedHeavy = 0;
+        let consumedLight = 0;
+        if (targetUnits > 0) {
+          consumedHeavy = Math.min(heavyTotal, LARGE * UNIT + Math.max(0, targetUnits - SMALL) * UNIT);
+          consumedLight = Math.min(lightTotal, SMALL * UNIT + Math.max(0, targetUnits - SMALL) * UNIT);
+        }
+        const correctedHeavyAvail = Math.max(0, heavyTotal - consumedHeavy);
+        const correctedLightAvail = Math.max(0, lightTotal - consumedLight);
+
+        node.availableLeftVolume = heavyIsLeft ? correctedHeavyAvail : correctedLightAvail;
+        node.availableRightVolume = heavyIsLeft ? correctedLightAvail : correctedHeavyAvail;
+        node.pairCount = targetUnits;
+        node.matchingVolume = targetUnits * UNIT;
+        await node.save();
+
+        if (creditResult && creditResult.success) {
+          await IncomeService.processLeadershipBonusForMatch(node.userId, cappedResult.allowedAmount, node._id).catch((err) => {
+            console.error('   Leadership bonus after matching correction failed:', err.message);
+          });
+        }
+
+        await RankService.checkAndAwardRanks(node.userId).catch((err) => {
+          console.error('   Rank check after matching correction failed:', err.message);
+        });
+
+        const user = await User.findById(node.userId).select('memberId fullName').lean();
+        summary.corrected.push({
+          userId: node.userId,
+          memberId: user?.memberId,
+          fullName: user?.fullName,
+          previousPairCount: currentPairCount,
+          correctedPairCount: targetUnits,
+          shortfallUnits,
+          shortfallKbp,
+          creditedAmount: cappedResult.allowedAmount || 0
+        });
+      } catch (err) {
+        summary.errors.push({ userId: node.userId, message: err.message });
+      }
+    }
+
+    return summary;
+  }
+
+  /**
+   * Read-only diagnostic — finds BinaryNodes whose placement does NOT trace
+   * back through their own real sponsor at all, i.e. genuinely misplaced /
+   * orphaned nodes, as opposed to normal extreme-leg spillover (which IS
+   * supposed to put a member several levels below their sponsor when that
+   * sponsor's leg already has depth — that's expected binary-plan behavior,
+   * not a bug).
+   *
+   * Real, confirmed case this was built for: RAFIQUL Test (KFR441197) has 5
+   * real direct referrals (confirmed via the live, authoritative
+   * User.sponsorId graph — see downline.service.js — which shows 0 members
+   * at every generation below level 1, i.e. none of his 5 referrals have
+   * ever sponsored anyone themselves). Yet his Growth Generation tree shows
+   * "Total Downline Left: 14" and his own immediate Left binary child is a
+   * member who is NOT one of his 5 real referrals and does not appear
+   * anywhere in his real sponsor-chain downline either. Since
+   * placeMember()/findPlacement() ALWAYS starts walking for open slots at
+   * the real sponsor's own BinaryNode (see placeMember's doc comment) and
+   * only descends through that same sponsor's own subtree, a CORRECTLY
+   * self-spillover-placed node's BinaryNode.parentId ancestor chain must,
+   * by construction, pass through its own real User.sponsorId at some
+   * point. A node whose ancestor chain never reaches its real sponsor has
+   * no legitimate placement explanation — it's either stale/seed data from
+   * before this system correctly wired placement to sponsorId, or damage
+   * from some earlier manual/ad-hoc DB write.
+   *
+   * This performs NO writes — it only reports what it finds, so an admin
+   * (or Claude, reading the JSON result) can see the real scope before any
+   * corrective action is taken. `limit` caps how many misplaced examples are
+   * returned in full detail (the counts themselves are never capped).
+   */
+  async auditPlacementIntegrity({ limit = 200 } = {}) {
+    const nodes = await BinaryNode.find({}).select('userId parentId').lean();
+    const parentByUserId = new Map(nodes.map((n) => [String(n.userId), n.parentId ? String(n.parentId) : null]));
+
+    const sponsoredUsers = await User.find({ sponsorId: { $ne: null } }).select('sponsorId memberId fullName email').lean();
+    const sponsorByUserId = new Map(sponsoredUsers.map((u) => [String(u._id), String(u.sponsorId)]));
+    const infoByUserId = new Map(sponsoredUsers.map((u) => [String(u._id), u]));
+
+    const misplaced = [];
+    let checked = 0;
+    let correctlyTraced = 0;
+    let noBinaryNode = 0;
+
+    for (const [userId, realSponsorId] of sponsorByUserId.entries()) {
+      checked++;
+
+      if (!parentByUserId.has(userId)) {
+        noBinaryNode++;
+        continue;
+      }
+
+      let found = false;
+      let cursor = parentByUserId.get(userId);
+      const seen = new Set([userId]);
+      let hops = 0;
+
+      while (cursor && hops < 1000) {
+        if (cursor === realSponsorId) {
+          found = true;
+          break;
+        }
+        if (seen.has(cursor)) break; // cycle guard — should never happen, but never loop forever
+        seen.add(cursor);
+        cursor = parentByUserId.get(cursor) || null;
+        hops++;
+      }
+
+      if (found) {
+        correctlyTraced++;
+        continue;
+      }
+
+      const info = infoByUserId.get(userId);
+      misplaced.push({
+        userId,
+        memberId: info?.memberId,
+        fullName: info?.fullName,
+        email: info?.email,
+        realSponsorUserId: realSponsorId,
+        binaryParentUserId: parentByUserId.get(userId)
+      });
+    }
+
+    // Resolve display info for the real sponsors named above (a sponsor may
+    // themselves have no sponsorId — e.g. a root/admin-seeded account — so
+    // they wouldn't be in infoByUserId, which was built only from sponsored
+    // users).
+    const sponsorIdsNeedingInfo = [...new Set(misplaced.map((m) => m.realSponsorUserId).filter((id) => !infoByUserId.has(id)))];
+    if (sponsorIdsNeedingInfo.length) {
+      const extraSponsors = await User.find({ _id: { $in: sponsorIdsNeedingInfo } }).select('memberId fullName email').lean();
+      for (const s of extraSponsors) infoByUserId.set(String(s._id), s);
+    }
+    for (const m of misplaced) {
+      const sponsorInfo = infoByUserId.get(m.realSponsorUserId);
+      m.realSponsorMemberId = sponsorInfo?.memberId || null;
+      m.realSponsorFullName = sponsorInfo?.fullName || null;
+      const parentInfo = infoByUserId.get(m.binaryParentUserId);
+      m.binaryParentMemberId = parentInfo?.memberId || null;
+      m.binaryParentFullName = parentInfo?.fullName || null;
+    }
+
+    return {
+      totalSponsoredUsersChecked: checked,
+      correctlyTraced,
+      noBinaryNode,
+      misplacedCount: misplaced.length,
+      misplaced: misplaced.slice(0, limit)
+    };
+  }
 }
 
 module.exports = new BinaryService();

@@ -115,6 +115,13 @@ const AdminSettingsPage = () => {
   const [isRepairingReferrals, setIsRepairingReferrals] = useState(false);
   const [binaryRepairResult, setBinaryRepairResult] = useState(null);
   const [referralRepairResult, setReferralRepairResult] = useState(null);
+  // READ-ONLY diagnostic — run this FIRST, before any binary-tree repair
+  // action. Finds nodes whose placement doesn't trace back through their own
+  // real sponsor at all (genuinely misplaced/orphaned data) as opposed to
+  // normal extreme-leg spillover (expected, not flagged). Never writes
+  // anything. See BinaryService.auditPlacementIntegrity.
+  const [isAuditingPlacement, setIsAuditingPlacement] = useState(false);
+  const [placementAuditResult, setPlacementAuditResult] = useState(null);
   // One-time index migration — the Referral collection's old single-field
   // unique index on `userId` made it impossible to store more than a
   // member's level-1 row, which is exactly why "Repair Referral Chains" can
@@ -140,6 +147,15 @@ const AdminSettingsPage = () => {
   // processReferralIncome; see IncomeService.reconcileUnderpaidReferralIncome).
   const [isReconcilingUnderpaid, setIsReconcilingUnderpaid] = useState(false);
   const [underpaidReconcileResult, setUnderpaidReconcileResult] = useState(null);
+  // Separate again from BOTH of the above: even once a member's leg KBP
+  // totals are fully correct, Matching Income itself can still be short by
+  // exactly one UNIT's worth — the first-pair 2:1 rule burns 2 UNITs from
+  // whichever leg happens to be heavier the moment it fires, which a
+  // REPLAYED reconciliation (not true chronological order) can get backwards
+  // relative to the final totals. Run this AFTER "Reconcile Matching Income"
+  // above. See BinaryService.reconcileUnderpaidMatchingIncome.
+  const [isReconcilingMatchingUnderpaid, setIsReconcilingMatchingUnderpaid] = useState(false);
+  const [matchingUnderpaidReconcileResult, setMatchingUnderpaidReconcileResult] = useState(null);
   const [showSecrets, setShowSecrets] = useState(false);
 
   const { showNotification } = useNotification ? useNotification() : {
@@ -292,6 +308,26 @@ const AdminSettingsPage = () => {
     }
   };
 
+  // READ-ONLY — never writes anything. Run this FIRST to see whether a
+  // confusing Growth Generation tree (e.g. "Total Downline Left" much higher
+  // than a member's real referral count, or their own immediate Left/Right
+  // child not being one of their actual referrals) is normal spillover
+  // (expected, not flagged) or genuinely misplaced/orphaned data.
+  const handleAuditPlacementIntegrity = async () => {
+    setIsAuditingPlacement(true);
+    setPlacementAuditResult(null);
+    try {
+      const res = await api.get('/api/admin/binary/audit-placement-integrity');
+      const summary = res.data?.data;
+      setPlacementAuditResult(summary);
+      showNotification(res.data?.message || 'Placement integrity audit complete.', 'success');
+    } catch (err) {
+      showNotification(err.response?.data?.message || 'Placement integrity audit failed.', 'error');
+    } finally {
+      setIsAuditingPlacement(false);
+    }
+  };
+
   // Backfills any missing BinaryNode placement (leftChildId/rightChildId
   // links) from existing sponsor data — fixes members whose Growth
   // Generation tree, Total Downline Left/Right counts, or KBP matching
@@ -419,6 +455,28 @@ const AdminSettingsPage = () => {
       showNotification(err.response?.data?.message || 'Matching income reconciliation failed.', 'error');
     } finally {
       setIsReconcilingMatching(false);
+    }
+  };
+
+  // Tops up Matching Income that is LESS than it should be even though a
+  // member's leg KBP totals ARE already correct — a separate bug from the
+  // "missing KBP" case above. The first-pair 2:1 rule burns an extra UNIT
+  // from whichever leg is heavier the moment it fires; a replayed
+  // reconciliation (not true chronological order) can pick the wrong leg
+  // relative to final totals and silently short-pay by one UNIT of income.
+  // Run this AFTER "Reconcile Matching Income" above, not instead of it.
+  const handleReconcileMatchingUnderpaid = async () => {
+    setIsReconcilingMatchingUnderpaid(true);
+    setMatchingUnderpaidReconcileResult(null);
+    try {
+      const res = await api.post('/api/admin/income/reconcile-matching-underpaid');
+      const summary = res.data?.data;
+      setMatchingUnderpaidReconcileResult(summary);
+      showNotification(res.data?.message || 'Underpaid matching income reconciliation complete.', 'success');
+    } catch (err) {
+      showNotification(err.response?.data?.message || 'Underpaid matching income reconciliation failed.', 'error');
+    } finally {
+      setIsReconcilingMatchingUnderpaid(false);
     }
   };
 
@@ -1273,6 +1331,49 @@ const AdminSettingsPage = () => {
 
                   <div className={styles.formGrid}>
                     <div className={styles.maintenanceCard}>
+                      <span className={styles.maintenanceLabel}>Audit Binary Placement Integrity (read-only, run first)</span>
+                      <p className={styles.maintenanceHelp}>
+                        Writes nothing — just reports. Fixes confusion like "Total Downline Left" far exceeding a
+                        member's real referral count, or their own immediate Left/Right child not being one of their
+                        actual referrals. Normal spillover (a referral landing below their sponsor because that leg
+                        already has depth) is NOT flagged — only nodes with no legitimate placement explanation at
+                        all back to their real sponsor.
+                      </p>
+                      <button
+                        type="button"
+                        className={styles.testEmailBtn}
+                        onClick={handleAuditPlacementIntegrity}
+                        disabled={isAuditingPlacement}
+                        style={{ marginTop: '10px' }}
+                      >
+                        {isAuditingPlacement ? 'Auditing...' : '🔍 Audit Placement Integrity'}
+                      </button>
+                      {placementAuditResult && (
+                        <div className={styles.maintenanceHelp} style={{ marginTop: '8px' }}>
+                          <p style={{ margin: 0 }}>
+                            {placementAuditResult.misplacedCount} misplaced node(s) found ·{' '}
+                            {placementAuditResult.correctlyTraced} correctly traced ·{' '}
+                            {placementAuditResult.totalSponsoredUsersChecked} member(s) checked
+                            {placementAuditResult.noBinaryNode ? ` · ${placementAuditResult.noBinaryNode} with no BinaryNode at all` : ''}
+                          </p>
+                          {placementAuditResult.misplaced?.length > 0 && (
+                            <ul style={{ margin: '8px 0 0', paddingLeft: '18px', maxHeight: '220px', overflowY: 'auto' }}>
+                              {placementAuditResult.misplaced.map((m) => (
+                                <li key={m.userId} style={{ marginBottom: '6px' }}>
+                                  <strong>{m.fullName || m.memberId}</strong> ({m.memberId}) — real sponsor{' '}
+                                  <strong>{m.realSponsorFullName || m.realSponsorMemberId || m.realSponsorUserId}</strong>
+                                  {m.realSponsorMemberId ? ` (${m.realSponsorMemberId})` : ''}, but binary-placed under{' '}
+                                  <strong>{m.binaryParentFullName || m.binaryParentMemberId || m.binaryParentUserId || 'nothing (no parent)'}</strong>
+                                  {m.binaryParentMemberId ? ` (${m.binaryParentMemberId})` : ''}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className={styles.maintenanceCard}>
                       <span className={styles.maintenanceLabel}>Fix Referral Chain Index (run first)</span>
                       <p className={styles.maintenanceHelp}>
                         One-time migration. Fixes: "Repair Referral Chains" below reporting a wall of errors — the
@@ -1447,6 +1548,34 @@ const AdminSettingsPage = () => {
                           {matchingReconcileResult.reconciled?.length || 0} member(s) had missing KBP replayed ·{' '}
                           {matchingReconcileResult.alreadyCorrect || 0} already correct
                           {matchingReconcileResult.errors?.length ? ` · ${matchingReconcileResult.errors.length} error(s)` : ''}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className={styles.maintenanceCard}>
+                      <span className={styles.maintenanceLabel}>Reconcile Underpaid Matching Income (run last)</span>
+                      <p className={styles.maintenanceHelp}>
+                        Different from the two Matching tools above — those fix KBP that never reached a member's
+                        leg totals. This fixes Matching Income that's short even though Left/Right Leg KBP is
+                        already correct: the first-pair 2:1 rule can burn its extra unit off the wrong (eventually
+                        smaller) leg when volume was replayed rather than processed in real time, silently
+                        underpaying by one unit's worth of income. Run this AFTER "Reconcile Matching Income" above.
+                      </p>
+                      <button
+                        type="button"
+                        className={styles.testEmailBtn}
+                        onClick={handleReconcileMatchingUnderpaid}
+                        disabled={isReconcilingMatchingUnderpaid}
+                        style={{ marginTop: '10px' }}
+                      >
+                        {isReconcilingMatchingUnderpaid ? 'Reconciling...' : '🎯 Reconcile Underpaid Matching Income'}
+                      </button>
+                      {matchingUnderpaidReconcileResult && (
+                        <p className={styles.maintenanceHelp} style={{ marginTop: '8px' }}>
+                          {matchingUnderpaidReconcileResult.corrected?.length || 0} member(s) corrected across{' '}
+                          {matchingUnderpaidReconcileResult.totalNodesChecked || 0} node(s) checked ·{' '}
+                          {matchingUnderpaidReconcileResult.alreadyCorrect || 0} already correct
+                          {matchingUnderpaidReconcileResult.errors?.length ? ` · ${matchingUnderpaidReconcileResult.errors.length} error(s)` : ''}
                         </p>
                       )}
                     </div>
