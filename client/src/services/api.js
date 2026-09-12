@@ -1,8 +1,18 @@
 // client/src/services/api.js
 import axios from 'axios';
 
+// In a production build (Vite sets import.meta.env.PROD=true) with no
+// VITE_API_URL configured, default to '' — a relative baseURL, so requests
+// go to /api/... on whatever domain served this page. That's exactly right
+// for the unified Vercel deployment (frontend + backend on the same
+// domain, e.g. www.kuwifr.in) and needs no env var set at all. In dev,
+// keep defaulting to the local backend on :5000 as before. VITE_API_URL
+// still overrides both when explicitly set (e.g. a separate-domain
+// backend).
+const defaultApiBaseUrl = import.meta.env.PROD ? '' : 'http://localhost:5000';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
+  baseURL: import.meta.env.VITE_API_URL || defaultApiBaseUrl,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json'

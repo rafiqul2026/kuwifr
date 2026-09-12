@@ -47,9 +47,6 @@ const offerRoutes = require('./routes/offer.routes');
 // Validate environment variables
 validateEnv();
 
-// Connect to MongoDB
-connectDB();
-
 // ============================================================
 // ✅ INITIALIZE APP
 // ============================================================
@@ -186,6 +183,30 @@ app.get('/api/test', (req, res) => {
     message: 'Backend is working!',
     timestamp: new Date().toISOString()
   });
+});
+
+// Ensure MongoDB is connected before any DATA route handler runs a query.
+// Deliberately placed after the health/test routes above (which should
+// keep working even if the database is briefly unreachable) and after
+// CORS/security/parsing middleware (so preflight OPTIONS requests and
+// security headers are never blocked on a DB round-trip). On a traditional
+// server (Render) this resolves once at boot and every request after that
+// hits the `mongoose.connection.readyState === 1` fast path in connectDB().
+// On serverless (Vercel) this is what makes the cached-connection pattern
+// in config/db.js actually safe: a request on a cold function instance
+// waits for the (cached, shared-across-warm-invocations) connection promise
+// instead of racing ahead and issuing queries before it's ready.
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error('❌ Request blocked — database unavailable:', error.message);
+    res.status(503).json({
+      success: false,
+      message: 'Database temporarily unavailable. Please try again in a moment.'
+    });
+  }
 });
 
 // ============================================================
