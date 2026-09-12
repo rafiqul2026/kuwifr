@@ -115,6 +115,14 @@ const AdminSettingsPage = () => {
   const [isRepairingReferrals, setIsRepairingReferrals] = useState(false);
   const [binaryRepairResult, setBinaryRepairResult] = useState(null);
   const [referralRepairResult, setReferralRepairResult] = useState(null);
+  // One-time index migration — the Referral collection's old single-field
+  // unique index on `userId` made it impossible to store more than a
+  // member's level-1 row, which is exactly why "Repair Referral Chains" can
+  // report a wall of errors (one per member per ancestor level beyond the
+  // first) the first time it's run after this fix ships. Run this once,
+  // THEN Repair Referral Chains.
+  const [isFixingReferralIndex, setIsFixingReferralIndex] = useState(false);
+  const [referralIndexFixResult, setReferralIndexFixResult] = useState(null);
   // Income reconciliation — separate from the two repairs above, which only
   // fix tree/genealogy LINKS. These backfill actual missing money: Direct
   // Referral Income that an activation should have paid a sponsor but never
@@ -127,6 +135,11 @@ const AdminSettingsPage = () => {
   const [isReconcilingMatching, setIsReconcilingMatching] = useState(false);
   const [referralReconcileResult, setReferralReconcileResult] = useState(null);
   const [matchingReconcileResult, setMatchingReconcileResult] = useState(null);
+  // Separate from "missing" referral credits above — this tops up a credit
+  // that EXISTS but used a stale package KBP value (fixed in
+  // processReferralIncome; see IncomeService.reconcileUnderpaidReferralIncome).
+  const [isReconcilingUnderpaid, setIsReconcilingUnderpaid] = useState(false);
+  const [underpaidReconcileResult, setUnderpaidReconcileResult] = useState(null);
   const [showSecrets, setShowSecrets] = useState(false);
 
   const { showNotification } = useNotification ? useNotification() : {
@@ -300,6 +313,28 @@ const AdminSettingsPage = () => {
     }
   };
 
+  // One-time index migration — must be run BEFORE "Repair Referral Chains"
+  // below. The Referral collection used to have a single-field unique index
+  // on userId alone, making it physically impossible to store more than a
+  // member's level-1 ancestor row; every level-2+ row failed with a
+  // duplicate-key error (this is exactly what "95 errors" on a Repair
+  // Referral Chains run means). Only touches indexes, never documents — safe
+  // to run any time, repeatedly (a no-op once the old index is already gone).
+  const handleFixReferralIndex = async () => {
+    setIsFixingReferralIndex(true);
+    setReferralIndexFixResult(null);
+    try {
+      const res = await api.post('/api/admin/referrals/fix-index');
+      const summary = res.data?.data;
+      setReferralIndexFixResult(summary);
+      showNotification(res.data?.message || 'Referral index migration complete.', 'success');
+    } catch (err) {
+      showNotification(err.response?.data?.message || 'Referral index migration failed.', 'error');
+    } finally {
+      setIsFixingReferralIndex(false);
+    }
+  };
+
   // Same idea for the unilevel/sponsor-chain Referral collection (what "My
   // Team" groups members by generation with) — a separate collection from
   // BinaryNode, with the same "can silently fail to write at registration"
@@ -338,6 +373,30 @@ const AdminSettingsPage = () => {
       showNotification(err.response?.data?.message || 'Referral income reconciliation failed.', 'error');
     } finally {
       setIsReconcilingReferral(false);
+    }
+  };
+
+  // Tops up a REFERRAL_INCOME credit that EXISTS but is for LESS than it
+  // should be — different from "missing" above. Root cause: the credit was
+  // calculated from the package's CURRENT catalog KBP instead of the order's
+  // own immutable kbpGenerated at the time it was placed (fixed in
+  // IncomeService.processReferralIncome). Uses ONLY each transaction's own
+  // source order's kbpGenerated to compute the correct amount and pays just
+  // the shortfall as a new, clearly-labeled correction transaction — the
+  // original transaction is never edited or deleted. Safe to run any time,
+  // repeatedly.
+  const handleReconcileUnderpaidReferral = async () => {
+    setIsReconcilingUnderpaid(true);
+    setUnderpaidReconcileResult(null);
+    try {
+      const res = await api.post('/api/admin/income/reconcile-referral-underpaid');
+      const summary = res.data?.data;
+      setUnderpaidReconcileResult(summary);
+      showNotification(res.data?.message || 'Underpaid referral income reconciliation complete.', 'success');
+    } catch (err) {
+      showNotification(err.response?.data?.message || 'Underpaid referral income reconciliation failed.', 'error');
+    } finally {
+      setIsReconcilingUnderpaid(false);
     }
   };
 
@@ -1214,6 +1273,32 @@ const AdminSettingsPage = () => {
 
                   <div className={styles.formGrid}>
                     <div className={styles.maintenanceCard}>
+                      <span className={styles.maintenanceLabel}>Fix Referral Chain Index (run first)</span>
+                      <p className={styles.maintenanceHelp}>
+                        One-time migration. Fixes: "Repair Referral Chains" below reporting a wall of errors — the
+                        collection's old index made it impossible to store a member's ancestor rows beyond level 1.
+                        Only touches indexes, never documents. Run this once, then run "Repair Referral Chains."
+                      </p>
+                      <button
+                        type="button"
+                        className={styles.testEmailBtn}
+                        onClick={handleFixReferralIndex}
+                        disabled={isFixingReferralIndex}
+                        style={{ marginTop: '10px' }}
+                      >
+                        {isFixingReferralIndex ? 'Migrating...' : '🛠️ Fix Referral Index'}
+                      </button>
+                      {referralIndexFixResult && (
+                        <p className={styles.maintenanceHelp} style={{ marginTop: '8px' }}>
+                          {referralIndexFixResult.droppedOldIndex
+                            ? 'Old index dropped and indexes re-synced.'
+                            : 'Old index already gone — indexes re-synced.'}{' '}
+                          Now run "Repair Referral Chains" below.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className={styles.maintenanceCard}>
                       <span className={styles.maintenanceLabel}>Repair Binary Tree Placement</span>
                       <p className={styles.maintenanceHelp}>
                         Fixes: Growth Generation tree showing empty/"Open Spot" for real members, Total Downline
@@ -1311,6 +1396,33 @@ const AdminSettingsPage = () => {
                           {referralReconcileResult.checked || 0} active member(s) checked ·{' '}
                           {referralReconcileResult.alreadyCredited || 0} already correct
                           {referralReconcileResult.failed ? ` · ${referralReconcileResult.failed} error(s)` : ''}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className={styles.maintenanceCard}>
+                      <span className={styles.maintenanceLabel}>Reconcile Underpaid Referral Income</span>
+                      <p className={styles.maintenanceHelp}>
+                        Different from the missing-credit tool above. Fixes: a sponsor's Direct Referral Income
+                        credit that already exists but is LESS than it should be, because it was calculated from a
+                        package's current catalog KBP instead of the order's own KBP at the time. Tops up exactly
+                        the shortfall as a new, separately-labeled credit — never edits the original transaction.
+                      </p>
+                      <button
+                        type="button"
+                        className={styles.testEmailBtn}
+                        onClick={handleReconcileUnderpaidReferral}
+                        disabled={isReconcilingUnderpaid}
+                        style={{ marginTop: '10px' }}
+                      >
+                        {isReconcilingUnderpaid ? 'Reconciling...' : '🧾 Reconcile Underpaid Referral Income'}
+                      </button>
+                      {underpaidReconcileResult && (
+                        <p className={styles.maintenanceHelp} style={{ marginTop: '8px' }}>
+                          {underpaidReconcileResult.corrected || 0} correction(s) credited ·{' '}
+                          {underpaidReconcileResult.checked || 0} transaction(s) checked ·{' '}
+                          {underpaidReconcileResult.alreadyCorrect || 0} already correct
+                          {underpaidReconcileResult.failed ? ` · ${underpaidReconcileResult.failed} error(s)` : ''}
                         </p>
                       )}
                     </div>

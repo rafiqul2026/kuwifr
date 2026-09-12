@@ -20,6 +20,7 @@ const AdminLayout = () => {
     { label: 'Products', path: '/admin/products', icon: '🛍️' },
     { label: 'Orders', path: '/admin/orders', icon: '🛒' },
     { label: 'Withdrawals', path: '/admin/withdrawals', icon: '💸' },
+    { label: 'Income History', path: '/admin/income-history', icon: '🧾' },
     { label: 'Ranks', path: '/admin/ranks', icon: '🏆' },
     { label: 'Funds', path: '/admin/funds', icon: '🏦' },
     { label: 'Franchise', path: '/admin/franchise', icon: '🏢' },

@@ -252,6 +252,25 @@ const IncomePage = () => {
                           month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
                         })}
                       </span>
+                      {/* Which member generated this credit, on which package, at
+                          what KBP value — per user request. Only Direct/Referral
+                          and Matching Income carry a source member; other income
+                          types (rank salary, funds, repurchase) show nothing extra
+                          here since they aren't "from" another member. */}
+                      {tx.sourceMemberName && (
+                        <span className={styles.streamTxSource}>
+                          From: <strong>{tx.sourceMemberName}</strong>
+                          {tx.sourceMemberId ? ` (${tx.sourceMemberId})` : ''}
+                          {tx.packageName ? ` · ${tx.packageName}` : ''}
+                          {typeof tx.kbp === 'number' ? ` · ${tx.kbp} KBP` : ''}
+                          {tx.triggeredByLeg ? ` · ${tx.triggeredByLeg} leg` : ''}
+                        </span>
+                      )}
+                      {!tx.sourceMemberName && tx.sourceAttributionNote && (
+                        <span className={styles.streamTxSource} title={tx.sourceAttributionNote}>
+                          Source member not recorded (older transaction)
+                        </span>
+                      )}
                     </div>
                     <strong className={styles.streamTxAmount}>+{formatINR(tx.creditedAmount)}</strong>
                   </div>

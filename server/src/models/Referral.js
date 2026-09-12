@@ -14,11 +14,27 @@ const ReferralSchema = new mongoose.Schema({
   },
   
   // Who was sponsored
+  //
+  // CRITICAL SCHEMA FIX: `unique: true` here used to put a single-field
+  // unique index on userId ALONE — meaning MongoDB physically could not
+  // store more than ONE Referral row per sponsored member, EVER, no matter
+  // how many ancestor levels referral.service.js#repairAllReferrals (or the
+  // original registration-time write) tried to create for them. Since this
+  // collection is explicitly designed to hold up to 10 rows per member (one
+  // per ancestor level 1-10 — see MAX_LEVEL in referral.service.js), every
+  // member with 2+ ancestors could only ever get their LEVEL 1 row written;
+  // every attempt to insert their level-2+ rows silently hit a duplicate-key
+  // error. This is exactly what surfaced as "95 errors" when
+  // repairAllReferrals was run for the first time — nearly every member
+  // beyond the first sponsor level failed. The real uniqueness rule needed
+  // is "one row per (sponsor, member) PAIR" — enforced below via a compound
+  // unique index on {userId, sponsorId} instead, which still prevents a true
+  // duplicate row while allowing the up-to-10 real ancestor rows a member is
+  // supposed to have.
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
-    unique: true,
     index: true
   },
 
@@ -80,7 +96,10 @@ const ReferralSchema = new mongoose.Schema({
 
 // Compound indexes for faster queries
 ReferralSchema.index({ sponsorId: 1, level: 1 });
-ReferralSchema.index({ userId: 1, sponsorId: 1 });
+// The real uniqueness rule for this collection: one row per (member,
+// sponsor) pair, not one row per member overall. See userId's field comment
+// above for why this replaced a single-field `unique: true` on userId.
+ReferralSchema.index({ userId: 1, sponsorId: 1 }, { unique: true });
 ReferralSchema.index({ path: 1 });
 
 const Referral = mongoose.model('Referral', ReferralSchema);

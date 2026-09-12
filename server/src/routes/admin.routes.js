@@ -69,6 +69,47 @@ router.post('/referrals/repair', async (req, res, next) => {
   }
 });
 
+// One-time index migration: the Referral collection used to have a
+// single-field unique index on `userId` alone, which made it physically
+// impossible for MongoDB to store more than the level-1 row for any member
+// with 2+ ancestors — see models/Referral.js's comment on the userId field
+// for the full story. Changing the Mongoose schema (already done) does NOT
+// retroactively drop that old index from an already-running database —
+// Mongoose only creates new indexes on startup, it doesn't remove ones no
+// longer declared. This endpoint does that one-time cleanup: drops the old
+// `userId_1` unique index if present (no-op if it's already gone) and syncs
+// the collection's indexes to exactly what the schema now declares
+// (recreating the correct compound-unique {userId,sponsorId} index and
+// leaving all data untouched — this only touches indexes, never documents).
+// Run this ONCE, then run /referrals/repair — before that, every level-2+
+// referral row will keep failing with the same duplicate-key error.
+router.post('/referrals/fix-index', async (req, res, next) => {
+  try {
+    const Referral = require('../models/Referral');
+    let droppedOldIndex = false;
+    try {
+      await Referral.collection.dropIndex('userId_1');
+      droppedOldIndex = true;
+    } catch (dropErr) {
+      // IndexNotFound (code 27) means it's already gone — fine. Anything
+      // else is worth surfacing.
+      if (dropErr.codeName !== 'IndexNotFound' && dropErr.code !== 27) {
+        throw dropErr;
+      }
+    }
+    const syncResult = await Referral.syncIndexes();
+    res.json({
+      success: true,
+      message: droppedOldIndex
+        ? 'Old single-field unique index on userId dropped and indexes re-synced. Run "Repair Referral Chains" next.'
+        : 'Old index was already gone (nothing to drop). Indexes re-synced. Run "Repair Referral Chains" next.',
+      data: { droppedOldIndex, syncResult }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Non-destructive backfill for Direct Referral Income that a member's
 // activation should have paid their sponsor but never did — e.g. any
 // activation that went through order.controller.js#activateCashPackage
@@ -84,6 +125,31 @@ router.post('/income/reconcile-referral', async (req, res, next) => {
     res.json({
       success: true,
       message: `Referral income reconciliation complete. ${summary.credited} missing credit(s) paid across ${summary.checked} active member(s) checked, ${summary.alreadyCredited} already correct.`,
+      data: summary
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Non-destructive top-up for a REFERRAL_INCOME credit that exists but is for
+// LESS than it should be — different from the "missing" case above. Root
+// cause: processReferralIncome used to re-derive KBP from the package's
+// CURRENT catalog value instead of the order's own immutable kbpGenerated
+// (fixed — see that function's comment), so any order processed after its
+// package's KBP was edited in Admin > Packages got a stale, lower credit.
+// Uses ONLY each transaction's own source Order's kbpGenerated (never a
+// live catalog lookup) to find the correct amount, and tops up exactly the
+// shortfall as a separate, clearly-labeled correction transaction — the
+// original transaction is never edited or deleted. Idempotent: safe to run
+// any time, repeatedly.
+router.post('/income/reconcile-referral-underpaid', async (req, res, next) => {
+  try {
+    const IncomeService = require('../services/income.service');
+    const summary = await IncomeService.reconcileUnderpaidReferralIncome();
+    res.json({
+      success: true,
+      message: `Underpaid referral income reconciliation complete. ${summary.corrected} correction(s) credited across ${summary.checked} transaction(s) checked, ${summary.alreadyCorrect} already correct.`,
       data: summary
     });
   } catch (error) {
@@ -109,6 +175,83 @@ router.post('/income/reconcile-matching', async (req, res, next) => {
       success: true,
       message: `Matching income reconciliation complete. ${summary.reconciled.length} member(s) had missing KBP replayed through the matching engine, ${summary.alreadyCorrect} already correct.`,
       data: summary
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Full, filterable income transaction history for the Admin panel — per the
+// user's explicit request: "PLEASE ADD ALL THE TRANSCTION HISTORY IN ADMIN
+// PANEL. ADMIN SHOULD KNOW WHICH MEMBER GET REFERRAL INCOME FROM WHICH
+// MEMBER WITH DATE AND TIME. AND ADD THE ALL OTHER HISTORY IN ADMIN PANEL."
+// Returns every IncomeTransaction (any type, not just referral/matching),
+// each enriched with WHO received it, and — for REFERRAL_INCOME/
+// MATCHING_INCOME specifically — WHICH member generated it, on WHICH
+// package, at WHAT KBP, with date/time (createdAt, already on every
+// transaction). See IncomeService.enrichTransactionHistory for exactly what
+// it fills in and why matching income before this fix can't be
+// retroactively attributed to a source member.
+//
+// Query params (all optional): type=REFERRAL_INCOME|MATCHING_INCOME|... ,
+// memberId=<memberId, email, or referral code of the RECIPIENT>,
+// status=CREDITED|FAILED|... (default: CREDITED + FAILED, so capped-to-zero
+// matching attempts stay visible for audit), page, limit (default 50).
+router.get('/income/history', async (req, res, next) => {
+  try {
+    const IncomeTransaction = require('../models/IncomeTransaction');
+    const User = require('../models/User');
+    const IncomeService = require('../services/income.service');
+
+    const { type, memberId, status, page = 1, limit = 50 } = req.query;
+    const match = {};
+    if (type) match.type = type;
+    match.status = status ? status : { $in: ['CREDITED', 'FAILED'] };
+
+    if (memberId) {
+      const recipient = await User.findOne({
+        $or: [{ memberId }, { email: memberId }, { referralCode: memberId }]
+      }).select('_id');
+      if (!recipient) {
+        return res.json({
+          success: true,
+          data: { transactions: [], totalCount: 0, page: parseInt(page, 10), limit: parseInt(limit, 10) }
+        });
+      }
+      match.userId = recipient._id;
+    }
+
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 50;
+    const skip = (pageNum - 1) * limitNum;
+
+    const [transactions, totalCount] = await Promise.all([
+      IncomeTransaction.find(match).sort({ createdAt: -1 }).skip(skip).limit(limitNum).lean(),
+      IncomeTransaction.countDocuments(match)
+    ]);
+
+    // WHO received each credit (the recipient) — batched, same pattern as
+    // enrichTransactionHistory's own batched lookups for WHO generated it.
+    const recipientIds = [...new Set(transactions.map((t) => String(t.userId)))];
+    const recipients = recipientIds.length
+      ? await User.find({ _id: { $in: recipientIds } }).select('memberId fullName email').lean()
+      : [];
+    const recipientMap = new Map(recipients.map((r) => [String(r._id), r]));
+
+    const enriched = await IncomeService.enrichTransactionHistory(transactions);
+    const rows = enriched.map((tx) => {
+      const recipient = recipientMap.get(String(tx.userId));
+      return {
+        ...tx,
+        recipientMemberId: recipient?.memberId || null,
+        recipientFullName: recipient?.fullName || null,
+        recipientEmail: recipient?.email || null
+      };
+    });
+
+    res.json({
+      success: true,
+      data: { transactions: rows, totalCount, page: pageNum, limit: limitNum }
     });
   } catch (error) {
     next(error);

@@ -27,6 +27,7 @@ import AdminNotificationsPage from '../pages/admin/AdminNotificationsPage';
 import AdminAuditLogsPage from '../pages/admin/AdminAuditLogsPage';
 import AdminFranchisePage from '../pages/admin/AdminFranchisePage';
 import AdminAlertsPage from '../pages/admin/AdminAlertsPage';
+import AdminIncomeHistoryPage from '../pages/admin/AdminIncomeHistoryPage';
 
 const AdminRoutes = () => {
   return (
@@ -57,6 +58,7 @@ const AdminRoutes = () => {
         <Route path="notifications" element={<AdminNotificationsPage />} />
         <Route path="audit" element={<AdminAuditLogsPage />} />
         <Route path="alerts" element={<AdminAlertsPage />} />
+        <Route path="income-history" element={<AdminIncomeHistoryPage />} />
 
         {/* Catch-all fallback */}
         <Route path="*" element={<Navigate to="dashboard" replace />} />

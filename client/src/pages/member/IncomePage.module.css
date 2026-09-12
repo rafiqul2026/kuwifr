@@ -432,6 +432,20 @@
   font-weight: 600;
 }
 
+/* Which member this Direct/Referral or Matching Income credit came from,
+   plus package/KBP context — see IncomePage.jsx's streamTransactionList. */
+.streamTxSource {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+  margin-top: 1px;
+}
+
+.streamTxSource strong {
+  color: #334155;
+  font-weight: 750;
+}
+
 .streamTxAmount {
   font-size: 13.5px;
   font-weight: 700;

@@ -345,6 +345,14 @@ const getIncomeStreamHistory = async (req, res, next) => {
       ])
     ]);
 
+    // TRANSACTION HISTORY DETAIL: for Direct/Referral and Matching Income,
+    // attach WHICH member generated this credit, on WHICH package, at WHAT
+    // KBP value — per the user's docx request. See
+    // IncomeService.enrichTransactionHistory for the full explanation
+    // (including why older, pre-fix matching transactions can't be
+    // retroactively attributed to a source member).
+    const enrichedTransactions = await IncomeService.enrichTransactionHistory(transactions);
+
     res.json({
       success: true,
       data: {
@@ -354,7 +362,7 @@ const getIncomeStreamHistory = async (req, res, next) => {
         totalCount,
         page: parseInt(page, 10),
         limit: parseInt(limit, 10),
-        transactions
+        transactions: enrichedTransactions
       }
     });
   } catch (error) {

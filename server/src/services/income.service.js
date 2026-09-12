@@ -107,20 +107,39 @@ class IncomeService {
       return null;
     }
 
-    // Authoritative KBP Resolution from Package Master Data.
-    // NOTE: Package.js's schema field is `kbp`, not `kbpValue` — the previous
-    // `pkg.kbpValue` check always read `undefined` and silently fell through
-    // to the order.kbpGenerated fallback below (which happened to still be
-    // correct for normal package orders, but meant this "authoritative"
-    // resolution path never actually ran).
+    // KBP Resolution — use the order's OWN recorded kbpGenerated first.
+    //
+    // CRITICAL FIX: this used to always re-fetch Package.findById(order.packageId)
+    // and trust THAT document's CURRENT `kbp` field as "authoritative" —
+    // meaning if a package's KBP value is ever edited in Admin > Packages
+    // AFTER some member's order was already placed under the old value,
+    // every future call to processReferralIncome for that OLD order (e.g.
+    // an admin reconciliation run today) would silently use TODAY's catalog
+    // number instead of what the order was actually worth when placed. This
+    // is exactly what produced a real, confirmed mismatch: a member's order
+    // recorded kbpGenerated: 3500 (paying his sponsor ₹350, correct for that
+    // order), but the package catalog was later changed so every OTHER
+    // screen that looks up the package fresh (e.g. the Team page's member
+    // detail modal, which resolves activePackageId -> live Package.kbp)
+    // shows 10000 KBP for the "same" package today — making the ₹350
+    // referral credit look wrong when it was actually computed correctly
+    // for a package definition that no longer exists in its original form.
+    // order.kbpGenerated is written once, at order-creation time, from
+    // whatever the catalog said AT THAT MOMENT (see admin.controller.js,
+    // order.controller.js, package.controller.js, packagePurchase.controller.js
+    // — all four set it the same way) — exactly the same immutable snapshot
+    // BinaryService.updateVolumes/matching income already correctly relies
+    // on via processOrderIncome's `const kbp = order.kbpGenerated || 1000`.
+    // Referral income now uses that same trustworthy source, falling back
+    // to a live Package lookup only for legacy orders missing the field.
     let effectiveKbp = 1000; // Default Starter KBP fallback
-    if (order.packageId) {
+    if (order.kbpGenerated) {
+      effectiveKbp = Number(order.kbpGenerated);
+    } else if (order.packageId) {
       const pkg = await Package.findById(order.packageId);
       if (pkg && typeof pkg.kbp === 'number') {
         effectiveKbp = pkg.kbp;
       }
-    } else if (order.kbpGenerated) {
-      effectiveKbp = Number(order.kbpGenerated);
     }
 
     const SettingsService = require('./settings.service');
@@ -165,6 +184,17 @@ class IncomeService {
     const cappedResult = await this.applyCaps(sponsor._id, grossAmount);
 
     // Credit to wallet
+    //
+    // TRANSACTION HISTORY DETAIL: per the user's explicit request ("ADMIN
+    // SHOULD KNOW WHICH MEMBER GET REFERRAL INCOME FROM WHICH MEMBER WITH
+    // DATE AND TIME"), this metadata is what both the member-facing Income
+    // Stream history and the Admin Income History view read to show WHO
+    // generated this credit, on WHICH package, at WHAT KBP value — sourced
+    // from `order.packageName`/`order.orderNumber`, the same kind of
+    // immutable order-time snapshot as `order.kbpGenerated` above (never a
+    // live/mutable lookup, for the same reason effectiveKbp isn't one).
+    // `createdAt` (when this credit happened) is already a standard
+    // IncomeTransaction timestamp field — no separate date/time field needed.
     const creditResult = await this.creditIncome(
       sponsor._id,
       cappedResult.allowedAmount,
@@ -176,7 +206,12 @@ class IncomeService {
       {
         sponsoredUserId: userId,
         sponsoredEmail: user.email,
-        orderId: order._id
+        sponsoredMemberId: user.memberId,
+        sponsoredFullName: user.fullName,
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        packageId: order.packageId,
+        packageName: order.packageName
       }
     );
 
@@ -199,6 +234,96 @@ class IncomeService {
       allowedAmount: cappedResult.allowedAmount,
       excess: cappedResult.excess
     };
+  }
+
+  /**
+   * TRANSACTION HISTORY DETAIL — shared enrichment for both the
+   * member-facing Income Stream history (income.controller.js#getIncomeStreamHistory)
+   * and the Admin panel's income history view (admin.routes.js GET
+   * /income/history). Per the user's explicit request ("ADMIN SHOULD KNOW
+   * WHICH MEMBER GET REFERRAL INCOME FROM WHICH MEMBER WITH DATE AND TIME"),
+   * this attaches, for every REFERRAL_INCOME / MATCHING_INCOME transaction:
+   *   - sourceMemberId / sourceMemberName / sourceMemberEmail — WHICH member
+   *     generated this credit (the sponsored downline for referral income;
+   *     the immediate contributing downline for matching income — see
+   *     binary.service.js#calculateMatching's trigger comment for why that's
+   *     "which activity caused this," not a claim of sole authorship of 100%
+   *     of a matched pair's pooled volume).
+   *   - packageName / orderNumber — WHICH package (referral income only;
+   *     matching income isn't tied to one single order).
+   *   - kbp / rate / creditedAmount / createdAt — already plain top-level
+   *     IncomeTransaction fields (kbp value, date & time), untouched here.
+   *
+   * New transactions (created after this fix shipped) already carry all of
+   * this directly in their own `metadata` — see processReferralIncome above
+   * and calculateMatching's `triggerMeta`. For OLDER transactions credited
+   * before this fix, metadata is missing these fields; this method fills in
+   * what it safely still CAN via a batched live lookup (who the sponsored
+   * member / source order actually is) for referral income. Matching income
+   * has no such fallback — which downline contributed a pre-fix match was
+   * simply never recorded at the time, so those older rows are marked with
+   * `sourceAttributionNote` instead of a guess.
+   *
+   * Accepts and returns plain (lean) transaction objects; never mutates the
+   * database, and batches its lookups so displaying a page of history never
+   * costs more than 2 extra queries regardless of page size.
+   */
+  async enrichTransactionHistory(transactions) {
+    if (!transactions || transactions.length === 0) return [];
+
+    const missingReferralUserIds = new Set();
+    const missingOrderIds = new Set();
+
+    for (const tx of transactions) {
+      const meta = tx.metadata || {};
+      if (tx.type === 'REFERRAL_INCOME') {
+        if ((!meta.sponsoredMemberId || !meta.sponsoredFullName) && meta.sponsoredUserId) {
+          missingReferralUserIds.add(String(meta.sponsoredUserId));
+        }
+        if (!meta.packageName) {
+          const orderId = meta.orderId || tx.sourceId;
+          if (orderId) missingOrderIds.add(String(orderId));
+        }
+      }
+    }
+
+    const [userDocs, orderDocs] = await Promise.all([
+      missingReferralUserIds.size
+        ? User.find({ _id: { $in: [...missingReferralUserIds] } }).select('memberId fullName email').lean()
+        : Promise.resolve([]),
+      missingOrderIds.size
+        ? Order.find({ _id: { $in: [...missingOrderIds] } }).select('packageName orderNumber').lean()
+        : Promise.resolve([])
+    ]);
+    const userMap = new Map(userDocs.map((u) => [String(u._id), u]));
+    const orderMap = new Map(orderDocs.map((o) => [String(o._id), o]));
+
+    return transactions.map((tx) => {
+      const meta = tx.metadata || {};
+      const enriched = { ...tx };
+
+      if (tx.type === 'REFERRAL_INCOME') {
+        const fallbackUser = meta.sponsoredUserId ? userMap.get(String(meta.sponsoredUserId)) : null;
+        const fallbackOrderId = meta.orderId || tx.sourceId;
+        const fallbackOrder = fallbackOrderId ? orderMap.get(String(fallbackOrderId)) : null;
+
+        enriched.sourceMemberId = meta.sponsoredMemberId || fallbackUser?.memberId || null;
+        enriched.sourceMemberName = meta.sponsoredFullName || fallbackUser?.fullName || null;
+        enriched.sourceMemberEmail = meta.sponsoredEmail || fallbackUser?.email || null;
+        enriched.packageName = meta.packageName || fallbackOrder?.packageName || null;
+        enriched.orderNumber = meta.orderNumber || fallbackOrder?.orderNumber || null;
+      } else if (tx.type === 'MATCHING_INCOME') {
+        enriched.sourceMemberId = meta.triggeredByMemberId || null;
+        enriched.sourceMemberName = meta.triggeredByFullName || null;
+        enriched.sourceMemberEmail = meta.triggeredByEmail || null;
+        enriched.triggeredByLeg = meta.triggeredByLeg || null;
+        if (!enriched.sourceMemberId) {
+          enriched.sourceAttributionNote = 'Matched before per-member attribution was tracked for this transaction — source member not recorded.';
+        }
+      }
+
+      return enriched;
+    });
   }
 
   // ============ FRANCHISE OVERRIDES ============
@@ -776,6 +901,126 @@ class IncomeService {
     }
 
     return { checked, alreadyCredited, credited, noQualifyingOrder, failed, repaired };
+  }
+
+  /**
+   * Backfills the SHORTFALL on a REFERRAL_INCOME transaction that was
+   * credited using the wrong KBP amount — not "missing" (that's
+   * reconcileMissingReferralIncome above), but "paid, and for the correct
+   * order, but for less than it should have been."
+   *
+   * Root cause (now fixed in processReferralIncome, see that function's
+   * comment): the referral engine used to always re-fetch
+   * Package.findById(order.packageId).kbp — the package's CURRENT, mutable
+   * catalog value — instead of the order's own `kbpGenerated`, which is
+   * written once at order-creation time and never changes. So a member
+   * activated when a package was, say, 3500 KBP correctly got credited 10%
+   * of 3500 (₹350) — but if that package's KBP was LATER edited in
+   * Admin > Packages (e.g. to 10000), every other screen that looks the
+   * package up fresh (the Team page's member-detail modal, which resolves
+   * activePackageId -> live Package.kbp) shows the NEW number, making the
+   * old ₹350 credit look wrong even though it was correctly computed for
+   * what the package was worth at the time. This was a REAL, confirmed
+   * case: RAFIQUL Test's (KFR441197) direct referral Kalim (KFR916989).
+   *
+   * This method finds every such case using ONLY the order's own immutable
+   * kbpGenerated — never a live catalog value — and tops up the exact
+   * shortfall as a separate, clearly-labeled correction transaction. It
+   * never edits or deletes the original transaction (append-only ledger),
+   * and is idempotent: it records which original transaction each
+   * correction resolves and skips any it's already corrected, so running
+   * it again finds nothing left to do.
+   */
+  async reconcileUnderpaidReferralIncome() {
+    const referralTxns = await IncomeTransaction.find({
+      type: 'REFERRAL_INCOME',
+      status: 'CREDITED',
+      sourceModel: 'Order'
+    }).lean();
+
+    let checked = 0;
+    let alreadyCorrect = 0;
+    let alreadyCorrected = 0;
+    let corrected = 0;
+    let noSourceOrder = 0;
+    let failed = 0;
+    const corrections = [];
+
+    for (const tx of referralTxns) {
+      checked++;
+
+      try {
+        // Skip correction entries themselves — only ever re-check the
+        // ORIGINAL referral credit for a given order/sponsored-member.
+        if (tx.metadata?.correctionForTransactionId) continue;
+
+        const order = await Order.findById(tx.sourceId).select('kbpGenerated').lean();
+        if (!order || !order.kbpGenerated) {
+          noSourceOrder++;
+          continue;
+        }
+
+        const correctKbp = Number(order.kbpGenerated);
+        const correctGross = correctKbp * tx.rate;
+        const shortfall = correctGross - (tx.grossAmount || 0);
+
+        if (shortfall <= 0) {
+          alreadyCorrect++;
+          continue;
+        }
+
+        const alreadyCorrectedTx = await IncomeTransaction.findOne({
+          type: 'REFERRAL_INCOME',
+          'metadata.correctionForTransactionId': tx.transactionId
+        }).select('_id').lean();
+
+        if (alreadyCorrectedTx) {
+          alreadyCorrected++;
+          continue;
+        }
+
+        const cappedResult = await this.applyCaps(tx.userId, shortfall);
+        if (cappedResult.allowedAmount <= 0) {
+          // Genuinely nothing payable right now (cap exhausted) — not an
+          // error, just not payable today. Leave it for a future run.
+          continue;
+        }
+
+        const creditResult = await this.creditIncome(
+          tx.userId,
+          cappedResult.allowedAmount,
+          'REFERRAL_INCOME',
+          order._id,
+          'Order',
+          correctKbp,
+          tx.rate,
+          {
+            ...tx.metadata,
+            correctionForTransactionId: tx.transactionId,
+            correctionReason: 'kbp_resolution_fix',
+            originalGrossAmount: tx.grossAmount,
+            originalKbp: tx.kbp,
+            correctKbp
+          }
+        );
+
+        if (creditResult) {
+          corrected++;
+          corrections.push({
+            userId: String(tx.userId),
+            originalTransactionId: tx.transactionId,
+            originalAmount: tx.grossAmount,
+            correctAmount: correctGross,
+            topUpCredited: cappedResult.allowedAmount
+          });
+        }
+      } catch (err) {
+        failed++;
+        console.error(`Reconcile underpaid referral income failed for transaction ${tx.transactionId}:`, err.message);
+      }
+    }
+
+    return { checked, alreadyCorrect, alreadyCorrected, corrected, noSourceOrder, failed, corrections };
   }
 }
 

@@ -270,7 +270,20 @@ class BinaryService {
       parentNode.totalKBP = (parentNode.totalKBP || 0) + kbp;
       await parentNode.save();
 
-      await this.calculateMatching(parentNode);
+      // TRANSACTION HISTORY DETAIL: pass along which immediate downline
+      // (childUserId) and which leg this propagation step came from, so
+      // calculateMatching can record it on any MATCHING_INCOME transaction
+      // it credits here — per the user's request to show "which member ID
+      // the matching income came from." NOTE this names the immediate
+      // contributing downline whose KBP triggered THIS pass up the tree, not
+      // necessarily the sole source of the whole matched volume — a leg's
+      // available volume is a pool that can carry unspent contributions from
+      // several different downline members over time, and a single pair can
+      // legitimately be completed by pooled volume from more than one of
+      // them. This is the same "which activity caused this" attribution
+      // real-world binary MLM back-offices show; it is not a claim that
+      // 100% of the matched rupees came from this one member alone.
+      await this.calculateMatching(parentNode, { triggeredByUserId: childUserId, triggeredByLeg: isLeft ? 'LEFT' : 'RIGHT', triggeredByKbp: kbp });
 
       childUserId = parentNode.userId;
       parentId = parentNode.parentId;
@@ -285,9 +298,33 @@ class BinaryService {
    * 2. Kuwi Star Rank: Requires 3 Direct Sponsors across both sides
    * 3. Subsequent Pairs: 1:1 Matching to Unlimited Depth
    */
-  async calculateMatching(node) {
+  async calculateMatching(node, trigger = null) {
     const user = await User.findById(node.userId).populate('activePackageId');
     if (!user) return node;
+
+    // TRANSACTION HISTORY DETAIL: resolve the triggering downline member's
+    // display info ONCE here (memberId/fullName/email), so both the
+    // successful-credit and capped-to-zero IncomeTransaction records below
+    // can embed it directly in metadata without a further live lookup later
+    // — see updateVolumes()'s call site for what `trigger` carries and why
+    // it's "the immediate contributing downline," not a claim of sole
+    // authorship of the whole matched volume.
+    let triggerMeta = {};
+    if (trigger && trigger.triggeredByUserId) {
+      try {
+        const triggerUser = await User.findById(trigger.triggeredByUserId).select('memberId fullName email');
+        triggerMeta = {
+          triggeredByUserId: trigger.triggeredByUserId,
+          triggeredByMemberId: triggerUser?.memberId,
+          triggeredByFullName: triggerUser?.fullName,
+          triggeredByEmail: triggerUser?.email,
+          triggeredByLeg: trigger.triggeredByLeg,
+          triggeredByKbp: trigger.triggeredByKbp
+        };
+      } catch (lookupErr) {
+        console.error('   Failed to resolve matching-income trigger member for history:', lookupErr.message);
+      }
+    }
 
     const SettingsService = require('./settings.service');
     const matchingCfg = await SettingsService.getMatching();
@@ -370,7 +407,7 @@ class BinaryService {
           'BinaryNode',
           matchedVolume,
           matchingCfg.rate,
-          { pairCount: matchingUnits, unitValue: UNIT }
+          { pairCount: matchingUnits, unitValue: UNIT, ...triggerMeta }
         );
 
         if (creditResult && creditResult.transaction) {
@@ -416,7 +453,7 @@ class BinaryService {
             status: 'FAILED',
             processedAt: new Date(),
             capBreakdown: cappedResult.capBreakdown,
-            metadata: { pairCount: matchingUnits, unitValue: UNIT, failureReason: 'CAPPED_TO_ZERO — daily/weekly/monthly package cap already exhausted' }
+            metadata: { pairCount: matchingUnits, unitValue: UNIT, failureReason: 'CAPPED_TO_ZERO — daily/weekly/monthly package cap already exhausted', ...triggerMeta }
           });
         } catch (logError) {
           console.error('   Failed to record capped-to-zero matching income:', logError.message);
