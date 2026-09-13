@@ -1296,74 +1296,79 @@ async correctMisplacedNodes({ dryRun = false } = {}) {
         continue;
       }
 
-      // LIVE RUN: previously this ran as a handful of independent, unlocked
-      // .save() calls with no session — on a live site under real traffic
-      // (ordinary registrations and package activations calling this exact
-      // same placeMember() logic on these exact same BinaryNode documents),
-      // that is a classic lost-update race: this loop's read-modify-save
-      // steps could be silently clobbered by a concurrent write, or could
-      // clobber one, with neither side ever throwing an error. That is
-      // exactly how this tool could report "N corrected, 0 errors" while a
-      // fresh audit right after showed most of those N members still on
-      // their original wrong parent. Wrapping each member's correction in
-      // its own transaction (the same pattern packageActivation.service.js
-      // already uses for cash package activation) makes the clear-old-
-      // pointer + re-place steps atomic and isolated from concurrent
-      // writes elsewhere, so a write either fully lands or the whole
-      // transaction retries/aborts — it can no longer half-happen.
+      // LIVE RUN — uses the exact same manual session pattern already
+      // proven in packageActivation.service.js#activateCashPackage
+      // (session.startTransaction() + explicit commitTransaction()/
+      // abortTransaction(), rather than the session.withTransaction()
+      // auto-retry helper an earlier version of this fix used). That
+      // earlier attempt reported "N corrected, 0 errors" on every run but
+      // verifiably wrote nothing — a fresh audit right after, and a direct
+      // re-read of the same BinaryNode, both showed the original wrong
+      // parent still in place. Logging the before/after parentId here so a
+      // silent no-op like that is visible in the function logs instead of
+      // only in a false "corrected" count.
       const session = await mongoose.startSession();
+      session.startTransaction();
       let outcome = null;
       try {
-        await session.withTransaction(async () => {
-          const node = await BinaryNode.findOne({ userId: entry.userId }).session(session);
-          if (!node) {
-            outcome = { type: 'skip', reason: 'BinaryNode no longer exists (already resolved)' };
-            return;
-          }
-
+        const node = await BinaryNode.findOne({ userId: entry.userId }).session(session);
+        if (!node) {
+          outcome = { type: 'skip', reason: 'BinaryNode no longer exists (already resolved)' };
+        } else {
           const user = await User.findById(entry.userId).select('sponsorId binarySide memberId fullName').session(session);
           if (!user || !user.sponsorId) {
             outcome = { type: 'skip', reason: 'User has no sponsorId on record — cannot determine correct placement' };
-            return;
-          }
+          } else {
+            const staleParentId = node.parentId ? String(node.parentId) : null;
 
-          const staleParentId = node.parentId ? String(node.parentId) : null;
-
-          // 1) Clear the stale child pointer on the CURRENT (wrong) parent —
-          //    matched precisely by exact userId equality so we never clear a
-          //    pointer that happens to point somewhere else by now.
-          if (staleParentId) {
-            const staleParent = await BinaryNode.findOne({ userId: staleParentId }).session(session);
-            if (staleParent) {
-              let touched = false;
-              if (staleParent.leftChildId && String(staleParent.leftChildId) === String(entry.userId)) {
-                staleParent.leftChildId = null;
-                touched = true;
+            // 1) Clear the stale child pointer on the CURRENT (wrong) parent —
+            //    matched precisely by exact userId equality so we never clear a
+            //    pointer that happens to point somewhere else by now.
+            if (staleParentId) {
+              const staleParent = await BinaryNode.findOne({ userId: staleParentId }).session(session);
+              if (staleParent) {
+                let touched = false;
+                if (staleParent.leftChildId && String(staleParent.leftChildId) === String(entry.userId)) {
+                  staleParent.leftChildId = null;
+                  touched = true;
+                }
+                if (staleParent.rightChildId && String(staleParent.rightChildId) === String(entry.userId)) {
+                  staleParent.rightChildId = null;
+                  touched = true;
+                }
+                if (touched) await staleParent.save({ session });
               }
-              if (staleParent.rightChildId && String(staleParent.rightChildId) === String(entry.userId)) {
-                staleParent.rightChildId = null;
-                touched = true;
-              }
-              if (touched) await staleParent.save({ session });
             }
+
+            // 2) Re-place under the real sponsor's CURRENT subtree, preserving
+            //    the member's original left/right leg preference where known.
+            //    This touches ONLY structural fields — see doc comment above.
+            const preferredSide = user.binarySide || 'left';
+            await this.placeMember(entry.userId, user.sponsorId, preferredSide, session);
+
+            outcome = {
+              type: 'corrected',
+              staleParentId,
+              realSponsorUserId: String(user.sponsorId)
+            };
           }
+        }
 
-          // 2) Re-place under the real sponsor's CURRENT subtree, preserving
-          //    the member's original left/right leg preference where known.
-          //    This touches ONLY structural fields — see doc comment above.
-          const preferredSide = user.binarySide || 'left';
-          await this.placeMember(entry.userId, user.sponsorId, preferredSide, session);
-
-          outcome = {
-            type: 'corrected',
-            staleParentId,
-            realSponsorUserId: String(user.sponsorId)
-          };
-        });
+        await session.commitTransaction();
       } catch (err) {
+        try { await session.abortTransaction(); } catch (abortErr) { /* transaction may already be aborted */ }
         outcome = { type: 'error', message: err.message };
       } finally {
-        await session.endSession();
+        session.endSession();
+      }
+
+      if (outcome?.type === 'corrected') {
+        // Verify outside the just-committed transaction, the same way a
+        // fresh audit call would see it — if this doesn't match, the
+        // commit above did not actually durably land.
+        const verify = await BinaryNode.findOne({ userId: entry.userId }).select('parentId').lean();
+        const landedParentId = verify?.parentId ? String(verify.parentId) : null;
+        console.log(`[correctMisplacedNodes] ${entry.memberId}: staleParent=${outcome.staleParentId} -> committed, post-commit read parentId=${landedParentId}`);
       }
 
       if (outcome?.type === 'skip') {
