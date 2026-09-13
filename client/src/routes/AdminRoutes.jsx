@@ -28,6 +28,7 @@ import AdminAuditLogsPage from '../pages/admin/AdminAuditLogsPage';
 import AdminFranchisePage from '../pages/admin/AdminFranchisePage';
 import AdminAlertsPage from '../pages/admin/AdminAlertsPage';
 import AdminIncomeHistoryPage from '../pages/admin/AdminIncomeHistoryPage';
+import AdminSupportPage from '../pages/admin/AdminSupportPage';
 
 // Detail pages — previously the Dashboard's "Recent Orders"/"Recent
 // Registrations" rows navigated to /admin/orders/:id and /admin/members/:id,
@@ -70,6 +71,7 @@ const AdminRoutes = () => {
         <Route path="audit" element={<AdminAuditLogsPage />} />
         <Route path="alerts" element={<AdminAlertsPage />} />
         <Route path="income-history" element={<AdminIncomeHistoryPage />} />
+        <Route path="support" element={<AdminSupportPage />} />
 
         {/* Catch-all fallback */}
         <Route path="*" element={<Navigate to="dashboard" replace />} />
