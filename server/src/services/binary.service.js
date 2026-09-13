@@ -3,6 +3,7 @@ const BinaryNode = require('../models/BinaryNode');
 const User = require('../models/User');
 const Referral = require('../models/Referral');
 const Order = require('../models/Order');
+const mongoose = require('mongoose');
 
 class BinaryService {
   /**
@@ -1258,7 +1259,7 @@ class BinaryService {
    * @param {boolean} [opts.dryRun=false] - if true, computes exactly what
    *   would be corrected but performs no writes.
    */
-  async correctMisplacedNodes({ dryRun = false } = {}) {
+async correctMisplacedNodes({ dryRun = false } = {}) {
     const audit = await this.auditPlacementIntegrity({ limit: 100000 });
     const targets = audit.misplaced;
 
@@ -1267,71 +1268,118 @@ class BinaryService {
     const errors = [];
 
     for (const entry of targets) {
-      try {
-        const node = await BinaryNode.findOne({ userId: entry.userId });
-        if (!node) {
-          skipped.push({ ...entry, reason: 'BinaryNode no longer exists (already resolved)' });
-          continue;
-        }
-
-        const user = await User.findById(entry.userId).select('sponsorId binarySide memberId fullName');
-        if (!user || !user.sponsorId) {
-          skipped.push({ ...entry, reason: 'User has no sponsorId on record — cannot determine correct placement' });
-          continue;
-        }
-
-        const staleParentId = node.parentId ? String(node.parentId) : null;
-
-        if (dryRun) {
+      if (dryRun) {
+        try {
+          const node = await BinaryNode.findOne({ userId: entry.userId });
+          if (!node) {
+            skipped.push({ ...entry, reason: 'BinaryNode no longer exists (already resolved)' });
+            continue;
+          }
+          const user = await User.findById(entry.userId).select('sponsorId binarySide memberId fullName');
+          if (!user || !user.sponsorId) {
+            skipped.push({ ...entry, reason: 'User has no sponsorId on record — cannot determine correct placement' });
+            continue;
+          }
           corrected.push({
             userId: entry.userId,
             memberId: entry.memberId,
             fullName: entry.fullName,
-            oldParentUserId: staleParentId,
+            oldParentUserId: node.parentId ? String(node.parentId) : null,
             oldParentMemberId: entry.binaryParentMemberId,
             realSponsorUserId: String(user.sponsorId),
             realSponsorMemberId: entry.realSponsorMemberId,
             note: 'DRY RUN — no changes made'
           });
-          continue;
+        } catch (err) {
+          errors.push({ userId: entry.userId, memberId: entry.memberId, error: err.message });
         }
+        continue;
+      }
 
-        // 1) Clear the stale child pointer on the CURRENT (wrong) parent —
-        //    matched precisely by exact userId equality so we never clear a
-        //    pointer that happens to point somewhere else by now.
-        if (staleParentId) {
-          const staleParent = await BinaryNode.findOne({ userId: staleParentId });
-          if (staleParent) {
-            let touched = false;
-            if (staleParent.leftChildId && String(staleParent.leftChildId) === String(entry.userId)) {
-              staleParent.leftChildId = null;
-              touched = true;
-            }
-            if (staleParent.rightChildId && String(staleParent.rightChildId) === String(entry.userId)) {
-              staleParent.rightChildId = null;
-              touched = true;
-            }
-            if (touched) await staleParent.save();
+      // LIVE RUN: previously this ran as a handful of independent, unlocked
+      // .save() calls with no session — on a live site under real traffic
+      // (ordinary registrations and package activations calling this exact
+      // same placeMember() logic on these exact same BinaryNode documents),
+      // that is a classic lost-update race: this loop's read-modify-save
+      // steps could be silently clobbered by a concurrent write, or could
+      // clobber one, with neither side ever throwing an error. That is
+      // exactly how this tool could report "N corrected, 0 errors" while a
+      // fresh audit right after showed most of those N members still on
+      // their original wrong parent. Wrapping each member's correction in
+      // its own transaction (the same pattern packageActivation.service.js
+      // already uses for cash package activation) makes the clear-old-
+      // pointer + re-place steps atomic and isolated from concurrent
+      // writes elsewhere, so a write either fully lands or the whole
+      // transaction retries/aborts — it can no longer half-happen.
+      const session = await mongoose.startSession();
+      let outcome = null;
+      try {
+        await session.withTransaction(async () => {
+          const node = await BinaryNode.findOne({ userId: entry.userId }).session(session);
+          if (!node) {
+            outcome = { type: 'skip', reason: 'BinaryNode no longer exists (already resolved)' };
+            return;
           }
-        }
 
-        // 2) Re-place under the real sponsor's CURRENT subtree, preserving
-        //    the member's original left/right leg preference where known.
-        //    This touches ONLY structural fields — see doc comment above.
-        const preferredSide = user.binarySide || 'left';
-        await this.placeMember(entry.userId, user.sponsorId, preferredSide);
+          const user = await User.findById(entry.userId).select('sponsorId binarySide memberId fullName').session(session);
+          if (!user || !user.sponsorId) {
+            outcome = { type: 'skip', reason: 'User has no sponsorId on record — cannot determine correct placement' };
+            return;
+          }
 
+          const staleParentId = node.parentId ? String(node.parentId) : null;
+
+          // 1) Clear the stale child pointer on the CURRENT (wrong) parent —
+          //    matched precisely by exact userId equality so we never clear a
+          //    pointer that happens to point somewhere else by now.
+          if (staleParentId) {
+            const staleParent = await BinaryNode.findOne({ userId: staleParentId }).session(session);
+            if (staleParent) {
+              let touched = false;
+              if (staleParent.leftChildId && String(staleParent.leftChildId) === String(entry.userId)) {
+                staleParent.leftChildId = null;
+                touched = true;
+              }
+              if (staleParent.rightChildId && String(staleParent.rightChildId) === String(entry.userId)) {
+                staleParent.rightChildId = null;
+                touched = true;
+              }
+              if (touched) await staleParent.save({ session });
+            }
+          }
+
+          // 2) Re-place under the real sponsor's CURRENT subtree, preserving
+          //    the member's original left/right leg preference where known.
+          //    This touches ONLY structural fields — see doc comment above.
+          const preferredSide = user.binarySide || 'left';
+          await this.placeMember(entry.userId, user.sponsorId, preferredSide, session);
+
+          outcome = {
+            type: 'corrected',
+            staleParentId,
+            realSponsorUserId: String(user.sponsorId)
+          };
+        });
+      } catch (err) {
+        outcome = { type: 'error', message: err.message };
+      } finally {
+        await session.endSession();
+      }
+
+      if (outcome?.type === 'skip') {
+        skipped.push({ ...entry, reason: outcome.reason });
+      } else if (outcome?.type === 'corrected') {
         corrected.push({
           userId: entry.userId,
           memberId: entry.memberId,
           fullName: entry.fullName,
-          oldParentUserId: staleParentId,
+          oldParentUserId: outcome.staleParentId,
           oldParentMemberId: entry.binaryParentMemberId,
-          realSponsorUserId: String(user.sponsorId),
+          realSponsorUserId: outcome.realSponsorUserId,
           realSponsorMemberId: entry.realSponsorMemberId
         });
-      } catch (err) {
-        errors.push({ userId: entry.userId, memberId: entry.memberId, error: err.message });
+      } else {
+        errors.push({ userId: entry.userId, memberId: entry.memberId, error: outcome?.message || 'Unknown error — transaction did not complete' });
       }
     }
 
