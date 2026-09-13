@@ -1,12 +1,38 @@
 // client/src/services/api.js
 import axios from 'axios';
 
-// Unified deployment:
-// Development -> http://localhost:5000/api
-// Production  -> /api (same Vercel domain)
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  (import.meta.env.PROD ? '' : 'http://localhost:5000');
+// ============================================================
+// KUWIFR API BASE URL
+// ============================================================
+//
+// Development:
+//   http://localhost:5000
+//
+// Production:
+//   Same-origin /api through Vercel
+//
+// IMPORTANT:
+// Production NEVER allows localhost / 127.0.0.1.
+// This prevents an accidental VITE_API_URL from breaking
+// the live application.
+// ============================================================
+
+const configuredApiUrl = (import.meta.env.VITE_API_URL || '').trim();
+
+const normalizedConfiguredApiUrl = configuredApiUrl
+  .replace(/\/+$/, '')
+  .replace(/\/api$/, '');
+
+const API_BASE_URL = import.meta.env.PROD
+  ? (
+      normalizedConfiguredApiUrl &&
+      !/localhost|127\.0\.0\.1/i.test(normalizedConfiguredApiUrl)
+        ? normalizedConfiguredApiUrl
+        : ''
+    )
+  : (
+      normalizedConfiguredApiUrl || 'http://localhost:5000'
+    );
 
 const api = axios.create({
   baseURL: API_BASE_URL,
