@@ -51,6 +51,10 @@ const DEFAULT_LOGS = [
 ];
 
 const seedLogsIfEmpty = async () => {
+  // Never fabricate a placeholder audit trail (fake payout confirmations,
+  // fake rank changes) on a real deployment — demo data stays opt-in to
+  // non-production environments only.
+  if (process.env.NODE_ENV === 'production') return;
   try {
     const count = await AuditLog.countDocuments();
     if (count === 0) {
