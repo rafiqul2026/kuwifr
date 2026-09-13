@@ -1263,11 +1263,47 @@ async correctMisplacedNodes({ dryRun = false } = {}) {
     const audit = await this.auditPlacementIntegrity({ limit: 100000 });
     const targets = audit.misplaced;
 
+    // Order chains top-down (ancestor-in-the-wrong-tree before descendant)
+    // before correcting anything. Without this, re-deriving a deep member's
+    // placement can walk straight back down through their OWN still-intact
+    // wrong chain and land them right back where they started — the write
+    // genuinely commits every time, it just recomputes the same answer,
+    // which is exactly what made this tool previously report "N corrected"
+    // while a fresh audit right after showed the same N members unchanged.
+    // Concretely: if Soni's wrong parent is Moni, whose wrong parent is
+    // Rafiqul, ... whose wrong parent is Earmin, and Earmin is a real
+    // (correctly-traced) descendant of Soni's REAL sponsor Priya Das, then
+    // correcting Soni FIRST walks Priya Das → ... → Earmin → ... → Moni
+    // (all still wrongly attached) and finds Moni's freshly-vacated slot —
+    // right where Soni just came from. Correcting Earmin's whole chain's
+    // topmost misplaced member first detaches it from Earmin before any
+    // lower member's placement is recomputed, so that stale path is gone
+    // by the time we get to it.
+    const misplacedIds = new Set(targets.map((t) => t.userId));
+    const byUserId = new Map(targets.map((t) => [t.userId, t]));
+    const ordered = [];
+    const settled = new Set();
+    const visiting = new Set();
+    const visit = (t) => {
+      if (settled.has(t.userId) || visiting.has(t.userId)) return;
+      visiting.add(t.userId);
+      const wrongParentId = t.binaryParentUserId;
+      if (wrongParentId && misplacedIds.has(wrongParentId) && byUserId.has(wrongParentId)) {
+        visit(byUserId.get(wrongParentId));
+      }
+      visiting.delete(t.userId);
+      if (!settled.has(t.userId)) {
+        settled.add(t.userId);
+        ordered.push(t);
+      }
+    };
+    for (const t of targets) visit(t);
+
     const corrected = [];
     const skipped = [];
     const errors = [];
 
-    for (const entry of targets) {
+    for (const entry of ordered) {
       if (dryRun) {
         try {
           const node = await BinaryNode.findOne({ userId: entry.userId });
