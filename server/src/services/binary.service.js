@@ -86,6 +86,22 @@ class BinaryService {
         break;
       }
 
+      // Stale/dangling pointer guard: currentNode's leftChildId/rightChildId
+      // claims nextNode as its child, but if nextNode's OWN parentId disagrees,
+      // that forward link is a leftover from an earlier re-parenting that
+      // never cleared the old parent's side (see correctMisplacedNodes,
+      // which only clears the ONE stale pointer for the entry it is actively
+      // fixing, not every stale pointer elsewhere in the tree). Walking
+      // through it would silently rediscover a slot that is not really
+      // open, or land back on a member's own pre-correction position.
+      // Treat it as an open slot right here instead, and self-heal it: the
+      // caller (placeMember) will overwrite this stale link with the real
+      // child once it places someone here.
+      if (!nextNode.parentId || String(nextNode.parentId) !== String(currentNode.userId)) {
+        targetParentId = currentNode.userId;
+        break;
+      }
+
       currentNode = nextNode;
       currentBinaryDepth = (currentNode.level || currentBinaryDepth) + 1;
     }
