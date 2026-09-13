@@ -1,6 +1,7 @@
 // server/src/controllers/support.controller.js
 const Ticket = require('../models/Ticket');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 
 /**
  * Get all support tickets raised by current logged in member
@@ -70,7 +71,10 @@ const createTicket = async (req, res, next) => {
 };
 
 /**
- * Add a response reply to an existing ticket
+ * Add a response reply to an existing ticket. Shared by both the member's
+ * own ticket thread (SupportPage.jsx) and the Admin Support Tickets page
+ * (AdminSupportPage.jsx) — the same endpoint, differentiated by the
+ * caller's real User.role, not by which UI called it.
  * POST /api/support/tickets/:id/reply
  */
 const addReply = async (req, res, next) => {
@@ -89,7 +93,19 @@ const addReply = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Ticket not found' });
     }
 
-    const isAdmin = user?.role === 'ADMIN';
+    // SUPER_ADMIN accounts were previously falling through to the MEMBER
+    // branch below (only the literal 'ADMIN' role was recognized), which
+    // silently mis-tagged their replies and never auto-moved a fresh
+    // ticket to IN_PROGRESS.
+    const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+
+    // A non-admin can only reply on their OWN ticket — otherwise any
+    // authenticated member could post into (and read) a ticket they don't
+    // own just by knowing/guessing its id.
+    if (!isAdmin && String(ticket.userId) !== String(userId)) {
+      return res.status(403).json({ success: false, message: 'You can only reply to your own tickets' });
+    }
+
     const role = isAdmin ? 'ADMIN' : 'MEMBER';
 
     ticket.replies.push({
@@ -103,6 +119,26 @@ const addReply = async (req, res, next) => {
     }
 
     await ticket.save();
+
+    // Let the member know support actually responded — otherwise the only
+    // way to find out is to happen to reopen the ticket thread themselves.
+    if (isAdmin) {
+      try {
+        await Notification.create({
+          userId: ticket.userId,
+          type: 'ADMIN',
+          priority: ticket.priority === 'URGENT' ? 'URGENT' : 'MEDIUM',
+          title: `New reply on ticket #${ticket.ticketId}`,
+          message: `Support replied to "${ticket.subject}": ${message.slice(0, 120)}${message.length > 120 ? '…' : ''}`,
+          icon: '🎧',
+          color: '#2563eb',
+          action: '/member/support',
+          actionLabel: 'View Ticket'
+        });
+      } catch (notifyErr) {
+        console.error('[addReply] notification failed:', notifyErr.message);
+      }
+    }
 
     res.json({
       success: true,
@@ -130,9 +166,17 @@ const getAllTicketsAdmin = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .lean();
 
+    const stats = {
+      total: tickets.length,
+      open: tickets.filter(t => t.status === 'OPEN').length,
+      inProgress: tickets.filter(t => t.status === 'IN_PROGRESS').length,
+      resolved: tickets.filter(t => t.status === 'RESOLVED').length,
+      closed: tickets.filter(t => t.status === 'CLOSED').length
+    };
+
     res.json({
       success: true,
-      data: { tickets: tickets || [] }
+      data: { tickets: tickets || [], stats }
     });
   } catch (error) {
     next(error);
@@ -148,6 +192,11 @@ const updateTicketStatus = async (req, res, next) => {
     const { id } = req.params;
     const { status } = req.body;
 
+    const validStatuses = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status value' });
+    }
+
     const ticket = await Ticket.findByIdAndUpdate(
       id,
       {
@@ -159,6 +208,30 @@ const updateTicketStatus = async (req, res, next) => {
 
     if (!ticket) {
       return res.status(404).json({ success: false, message: 'Ticket not found' });
+    }
+
+    // Tell the member their ticket was resolved/closed — this is the only
+    // signal they get short of reopening the ticket thread themselves.
+    if (status === 'RESOLVED' || status === 'CLOSED') {
+      try {
+        await Notification.create({
+          userId: ticket.userId,
+          type: 'ADMIN',
+          priority: 'MEDIUM',
+          title: status === 'RESOLVED'
+            ? `Ticket #${ticket.ticketId} resolved`
+            : `Ticket #${ticket.ticketId} closed`,
+          message: status === 'RESOLVED'
+            ? `Your support ticket "${ticket.subject}" has been marked resolved. Reply if you still need help.`
+            : `Your support ticket "${ticket.subject}" has been closed.`,
+          icon: status === 'RESOLVED' ? '✅' : '🔒',
+          color: status === 'RESOLVED' ? '#16a34a' : '#6b7280',
+          action: '/member/support',
+          actionLabel: 'View Ticket'
+        });
+      } catch (notifyErr) {
+        console.error('[updateTicketStatus] notification failed:', notifyErr.message);
+      }
     }
 
     res.json({
