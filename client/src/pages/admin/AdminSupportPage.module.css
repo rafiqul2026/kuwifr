@@ -1,0 +1,499 @@
+/* client/src/pages/admin/AdminSupportPage.module.css */
+
+.supportPage {
+  padding: 24px clamp(16px, 3vw, 36px);
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.loadingWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  gap: 12px;
+  color: #6b7280;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #008080;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.pageTitle {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: #111827;
+}
+
+.pageSubtitle {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.92rem;
+}
+
+.refreshBtn {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+}
+
+.refreshBtn:hover {
+  border-color: #008080;
+  color: #008080;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.statCard {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.statIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.statInfo small {
+  display: block;
+  color: #6b7280;
+  font-size: 0.78rem;
+  margin-bottom: 2px;
+}
+
+.statInfo h3 {
+  margin: 0;
+  font-size: 1.4rem;
+  color: #111827;
+}
+
+.filterBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.filterTabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filterTab {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.filterTabActive {
+  background: #008080;
+  border-color: #008080;
+  color: #ffffff;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 220px;
+  max-width: 360px;
+  padding: 8px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.88rem;
+}
+
+.tableSection {
+  width: 100%;
+}
+
+.emptyState {
+  background: #ffffff;
+  border: 1px dashed #d1d5db;
+  border-radius: 12px;
+  padding: 48px 24px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.emptyIcon {
+  font-size: 2.4rem;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.ticketsTableCard {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow-x: auto;
+}
+
+.ticketTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 780px;
+}
+
+.ticketTable th {
+  text-align: left;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.ticketTable td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 0.88rem;
+  vertical-align: middle;
+}
+
+.ticketTable tr:last-child td {
+  border-bottom: none;
+}
+
+.ticketCode {
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+  color: #008080;
+}
+
+.memberCell {
+  display: flex;
+  flex-direction: column;
+}
+
+.memberCell small {
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+.categoryBadge {
+  background: #f3f4f6;
+  color: #374151;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.subjectCell {
+  max-width: 260px;
+}
+
+.viewDetailsBtn {
+  background: none;
+  border: none;
+  color: #008080;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.viewDetailsBtn:hover {
+  text-decoration: underline;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badgeOpen { background: rgba(220, 38, 38, 0.1); color: #dc2626; }
+.badgeProgress { background: rgba(217, 119, 6, 0.1); color: #d97706; }
+.badgeResolved { background: rgba(22, 163, 74, 0.1); color: #16a34a; }
+.badgeClosed { background: rgba(107, 114, 128, 0.12); color: #6b7280; }
+
+.priorityChip {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.pUrgent { background: rgba(220, 38, 38, 0.12); color: #dc2626; }
+.pHigh { background: rgba(234, 88, 12, 0.12); color: #ea580c; }
+.pMed { background: rgba(217, 119, 6, 0.12); color: #d97706; }
+.pLow { background: rgba(107, 114, 128, 0.12); color: #6b7280; }
+
+/* ===== Ticket Detail Panel ===== */
+
+.ticketDetailCard {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.detailHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fafafa;
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  color: #008080;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.88rem;
+}
+
+.detailMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.detailBody {
+  padding: 20px;
+}
+
+.memberInfoBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.memberAvatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #008080;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.memberInfoMeta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: #6b7280;
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+.detailSubject {
+  font-size: 1.2rem;
+  margin: 0 0 12px;
+  color: #111827;
+}
+
+.initialMessageBubble,
+.replyBubble {
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+}
+
+.initialMessageBubble {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.userBubble {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.adminBubble {
+  background: rgba(0, 128, 128, 0.06);
+  border: 1px solid rgba(0, 128, 128, 0.2);
+}
+
+.bubbleHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.bubbleHead strong {
+  font-size: 0.85rem;
+  color: #111827;
+}
+
+.bubbleHead small {
+  color: #9ca3af;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.initialMessageBubble p,
+.replyBubble p {
+  margin: 0;
+  color: #374151;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.repliesStream {
+  margin: 18px 0;
+}
+
+.repliesStream h4 {
+  font-size: 0.88rem;
+  color: #374151;
+  margin: 0 0 10px;
+}
+
+.noRepliesText {
+  color: #9ca3af;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.statusActionBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 14px 0;
+  border-top: 1px solid #f3f4f6;
+  border-bottom: 1px solid #f3f4f6;
+  margin: 16px 0;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.statusActionBtn {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+}
+
+.statusActionBtn:hover:not(:disabled) {
+  border-color: #008080;
+  color: #008080;
+}
+
+.statusActionBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.statusActionCurrent {
+  background: #008080;
+  border-color: #008080;
+  color: #ffffff;
+}
+
+.replyFormBox {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.replyFormBox textarea {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.sendReplyBtn {
+  align-self: flex-end;
+  background: #008080;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 22px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sendReplyBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .detailHeader { flex-direction: column; align-items: flex-start; }
+  .memberInfoBar { flex-direction: column; align-items: flex-start; }
+}
