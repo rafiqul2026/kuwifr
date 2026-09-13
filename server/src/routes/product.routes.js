@@ -19,8 +19,9 @@ router.get('/categories', productController.getCategories);
 router.get('/admin/all', auth, adminAuth, productController.adminGetAllProducts);
 router.get('/:id', productController.getProductById);
 
-// Seed Route to populate all 30 products if needed
-router.post('/seed-all', productController.seedAllProductsManual);
+// Seed Route to populate all 30 products if needed — admin-only, so a
+// public, unauthenticated caller can't force arbitrary database writes.
+router.post('/seed-all', auth, adminAuth, productController.seedAllProductsManual);
 
 // Admin Mutating Routes
 router.post('/', auth, adminAuth, productController.createProduct);
