@@ -322,6 +322,35 @@ router.post('/income/reconcile-matching-underpaid', async (req, res, next) => {
   }
 });
 
+// Multi-day CAP ROLLOVER top-up for income that was correctly CALCULATED
+// but is still short because the recipient's OWN package daily/weekly/
+// monthly earning cap hasn't had enough room to pay all of it — e.g. RUPA
+// (KFR518158) still owed part of a correct ₹500 referral credit for KANI's
+// activation after her Starter Package's real ₹1,500 daily cap was
+// exhausted by other same-day credits. The caps are a fixed business rule —
+// a pacing limit on how much can be paid per day/week/month, not a
+// permanent forfeiture — so this is MEANT to be run repeatedly (this manual
+// button, or the automatic GET /api/cron/reconcile-capped-rollover Vercel
+// Cron entry in app.js, which runs it once a day): each run recomputes the
+// true remaining shortfall fresh and pays out whatever the CURRENT cap
+// allows, as a new, separately-labeled correction transaction (original
+// transaction untouched). See IncomeService.reconcileCappedIncomeShortfall
+// Rollover for the full explanation. Safe to run any time, as often as
+// once a day.
+router.post('/income/reconcile-capped-rollover', async (req, res, next) => {
+  try {
+    const IncomeService = require('../services/income.service');
+    const summary = await IncomeService.reconcileCappedIncomeShortfallRollover();
+    res.json({
+      success: true,
+      message: `Cap rollover complete. ${summary.corrected} top-up(s) credited across ${summary.checked} transaction(s) checked, ${summary.alreadyFull} already fully paid, ${summary.stillCapped} still capped right now.`,
+      data: summary
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // One-time retroactive correction for package Orders whose stored
 // kbpGenerated snapshot no longer matches their Package's CURRENT kbp
 // value — e.g. the Growth Package was misconfigured at 4000 KBP (instead

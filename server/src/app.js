@@ -259,6 +259,48 @@ app.use('/api/admin/audit', auditLogRoutes);
 // 🌟 Team Overview (Binary Tree & Unlimited Depth Downline Branch Inspection)
 app.use('/api/team', teamRoutes);
 
+// ==================== VERCEL CRON: CAP ROLLOVER ====================
+// Automatic daily trigger for IncomeService.reconcileCappedIncomeShortfall
+// Rollover (see that method's own comment for the full explanation): pays
+// out whatever a member's daily/weekly/monthly package cap now allows
+// toward income that was correctly calculated but still short from a prior
+// day's cap being exhausted — the caps are a pacing limit, not a permanent
+// forfeiture, so this needs to run again each day for anyone still owed
+// money to actually get paid as room frees up. Configured to fire once a
+// day via the "crons" entry in vercel.json.
+//
+// NOT behind the normal user-JWT auth above (Vercel's cron caller has no
+// user session) — instead requires the shared secret Vercel sends
+// automatically as `Authorization: Bearer <CRON_SECRET>` when a CRON_SECRET
+// environment variable is configured for this project in Vercel > Settings
+// > Environment Variables. Fails closed: with no CRON_SECRET set, or a
+// non-matching one, every call is refused rather than left open.
+app.get('/api/cron/reconcile-capped-rollover', async (req, res) => {
+  const expectedSecret = process.env.CRON_SECRET;
+  if (!expectedSecret) {
+    return res.status(503).json({ success: false, message: 'CRON_SECRET is not configured for this project.' });
+  }
+
+  const provided = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+  if (provided !== expectedSecret) {
+    return res.status(401).json({ success: false, message: 'Unauthorized' });
+  }
+
+  try {
+    const IncomeService = require('./services/income.service');
+    const summary = await IncomeService.reconcileCappedIncomeShortfallRollover();
+    console.log(`⏰ [CAP ROLLOVER CRON] ${summary.corrected} top-up(s) credited across ${summary.checked} checked, ${summary.alreadyFull} already fully paid, ${summary.stillCapped} still capped.`);
+    res.json({
+      success: true,
+      message: `Cap rollover complete. ${summary.corrected} top-up(s) credited across ${summary.checked} transaction(s) checked, ${summary.alreadyFull} already fully paid, ${summary.stillCapped} still capped right now.`,
+      data: summary
+    });
+  } catch (error) {
+    console.error('❌ [CAP ROLLOVER CRON] Failed:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // ==================== ERROR HANDLING ====================
 app.use(notFoundHandler);
 app.use(errorHandler);

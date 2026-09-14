@@ -1022,6 +1022,163 @@ class IncomeService {
 
     return { checked, alreadyCorrect, alreadyCorrected, corrected, noSourceOrder, failed, corrections };
   }
+
+
+  // ============ ADMIN REPAIR: CAPPED INCOME SHORTFALL (MULTI-DAY ROLLOVER) ============
+
+  /**
+   * Tops up income that was correctly CALCULATED but is still short because
+   * the recipient's OWN package daily/weekly/monthly earning cap hasn't had
+   * enough room to pay all of it — e.g. RUPA (KFR518158) still owed ₹440 of
+   * a correct ₹500 referral credit for KANI's (KFR792123) Growth Package
+   * activation after her Starter Package's real ₹1,500 daily cap was
+   * exhausted by other same-day credits. Distinct from every other
+   * reconcile* method above, which each fix a ONE-TIME calculation error and
+   * are designed to find nothing left to do on a second run: the caps
+   * themselves are a fixed, non-negotiable BUSINESS RULE (see
+   * SettingsService/Package.dailyCap|weeklyCap|monthlyCap) — a pacing limit
+   * on how much can be paid out per day/week/month, not a permanent
+   * forfeiture of money that was genuinely earned. So this method is MEANT
+   * to be re-run repeatedly (see the /api/cron/reconcile-capped-rollover
+   * Vercel Cron entry in app.js, which does exactly that once a day): each
+   * run recomputes the TRUE remaining shortfall fresh — for REFERRAL_INCOME
+   * sourced from an Order, directly from that order's own (immutable, and
+   * by now correct — see reconcileUnderpaidReferralIncome/the KBP-snapshot
+   * fix) kbpGenerated, never a stale grossAmount; for everything else, the
+   * transaction's own already-correct grossAmount — minus every credit
+   * already paid toward it (the original transaction plus every correction
+   * this method or reconcileUnderpaidReferralIncome/reconcileUnderpaid
+   * MatchingIncome has already made for it, found via
+   * metadata.correctionForTransactionId) — and pays out whatever room the
+   * CURRENT cap allows as a new, separately-labeled correction transaction.
+   * Never edits or deletes any prior transaction (append-only, same as
+   * every other reconcile* method here). Safe to run any time, as often as
+   * once a day: a transaction with nothing left owed is simply skipped, and
+   * one still capped today is left for the next run rather than being
+   * treated as an error.
+   */
+  async reconcileCappedIncomeShortfallRollover() {
+    const CAPPABLE_TYPES = [
+      'REFERRAL_INCOME',
+      'MATCHING_INCOME',
+      'LEADERSHIP_INCOME_L1',
+      'LEADERSHIP_INCOME_L2',
+      'LEADERSHIP_INCOME_L3'
+    ];
+
+    // Only ORIGINAL transactions are "roots" — a correction this method (or
+    // reconcile-referral-underpaid / reconcile-matching-underpaid) already
+    // created carries its own metadata.correctionForTransactionId and must
+    // never be treated as a new root to top up, or shortfalls would compound.
+    const roots = await IncomeTransaction.find({
+      type: { $in: CAPPABLE_TYPES },
+      status: { $in: ['CREDITED', 'FAILED'] },
+      'metadata.correctionForTransactionId': { $exists: false }
+    }).lean();
+
+    let checked = 0;
+    let alreadyFull = 0;
+    let corrected = 0;
+    let stillCapped = 0;
+    let failed = 0;
+    const corrections = [];
+
+    for (const root of roots) {
+      checked++;
+
+      try {
+        let targetGross = Number(root.grossAmount || 0);
+
+        // REFERRAL_INCOME's true target can only be trusted by re-deriving
+        // it from the source Order's own kbpGenerated — the original
+        // transaction's grossAmount can be stale (computed back when the
+        // order's snapshot, or the package it came from, was wrong; see
+        // POST /orders/fix-kbp-snapshot). Every other type's grossAmount is
+        // already authoritative by the time this runs.
+        if (root.type === 'REFERRAL_INCOME' && root.sourceModel === 'Order' && root.sourceId) {
+          const order = await Order.findById(root.sourceId).select('kbpGenerated').lean();
+          if (order && order.kbpGenerated) {
+            targetGross = Number(order.kbpGenerated) * Number(root.rate || 0);
+          }
+        }
+
+        if (targetGross <= 0) {
+          alreadyFull++;
+          continue;
+        }
+
+        const priorCorrections = await IncomeTransaction.find({
+          'metadata.correctionForTransactionId': root.transactionId
+        }).select('creditedAmount').lean();
+
+        const creditedSoFar =
+          Number(root.creditedAmount || 0) +
+          priorCorrections.reduce((sum, c) => sum + Number(c.creditedAmount || 0), 0);
+
+        const remaining = targetGross - creditedSoFar;
+
+        if (remaining <= 0) {
+          alreadyFull++;
+          continue;
+        }
+
+        // Re-check against the CURRENT cap state (today's, not the day the
+        // original transaction was capped) — this is what makes it a
+        // rollover instead of a one-time fix.
+        const cappedResult = await this.applyCaps(root.userId, remaining);
+
+        if (cappedResult.allowedAmount <= 0) {
+          // Genuinely no room today — not an error, just not payable yet.
+          // Leave it for tomorrow's run.
+          stillCapped++;
+          continue;
+        }
+
+        const creditResult = await this.creditIncome(
+          root.userId,
+          cappedResult.allowedAmount,
+          root.type,
+          root.sourceId,
+          root.sourceModel,
+          root.kbp,
+          root.rate,
+          {
+            ...root.metadata,
+            correctionForTransactionId: root.transactionId,
+            correctionReason: 'cap_rollover',
+            targetGross,
+            remainingBeforeThisTopUp: remaining
+          }
+        );
+
+        if (creditResult && creditResult.transaction) {
+          await IncomeTransaction.findByIdAndUpdate(creditResult.transaction._id, {
+            capBreakdown: cappedResult.capBreakdown
+          });
+        }
+
+        if (creditResult) {
+          corrected++;
+          corrections.push({
+            userId: String(root.userId),
+            rootTransactionId: root.transactionId,
+            type: root.type,
+            targetGross,
+            creditedSoFarBeforeThisRun: creditedSoFar,
+            creditedThisRun: cappedResult.allowedAmount,
+            stillRemainingAfter: remaining - cappedResult.allowedAmount
+          });
+        } else {
+          stillCapped++;
+        }
+      } catch (err) {
+        failed++;
+        console.error(`Cap rollover failed for transaction ${root.transactionId}:`, err.message);
+      }
+    }
+
+    return { checked, alreadyFull, corrected, stillCapped, failed, corrections };
+  }
 }
 
 module.exports = new IncomeService();
