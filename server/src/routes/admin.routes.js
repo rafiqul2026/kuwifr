@@ -775,4 +775,56 @@ router.post('/system/factory-reset', async (req, res, next) => {
   }
 });
 
+// Flags one existing member as the company/system-root account (see
+// User.isSystemRoot's own comment) after it has been registered through
+// the normal POST /api/auth/register flow with no sponsor — registration
+// itself has no reason to ever set this flag, so it's applied here as a
+// deliberate, separate admin action. Enforces there is ever only ONE
+// system-root account at a time (unsets the flag on any previous holder)
+// so the income-crediting guards in processReferralIncome/calculateMatching
+// never have to reason about more than one root paying out to itself.
+router.post('/system/set-root', async (req, res, next) => {
+  try {
+    const memberId = (req.body?.memberId || '').trim().toUpperCase();
+    if (!memberId) {
+      return res.status(400).json({ success: false, message: 'memberId is required.' });
+    }
+
+    const User = require('../models/User');
+    const target = await User.findOne({ memberId });
+    if (!target) {
+      return res.status(404).json({ success: false, message: `No member found with memberId ${memberId}.` });
+    }
+    if (target.role !== 'MEMBER') {
+      return res.status(400).json({
+        success: false,
+        message: `${memberId} has role ${target.role}, not MEMBER. The system-root account must be a normal MEMBER so it can be used as a registration sponsor.`
+      });
+    }
+    if (target.sponsorId) {
+      return res.status(400).json({
+        success: false,
+        message: `${memberId} was registered WITH a sponsor, so it isn't the top of the tree. Register a fresh account with no sponsorId to become root.`
+      });
+    }
+
+    const previousRoots = await User.find({ isSystemRoot: true, _id: { $ne: target._id } }).select('memberId');
+    if (previousRoots.length) {
+      await User.updateMany({ isSystemRoot: true, _id: { $ne: target._id } }, { $set: { isSystemRoot: false } });
+    }
+
+    target.isSystemRoot = true;
+    await target.save();
+
+    res.json({
+      success: true,
+      message: `${memberId} is now the system-root account.` +
+        (previousRoots.length ? ` Unset on previous root(s): ${previousRoots.map((u) => u.memberId).join(', ')}.` : ''),
+      data: { memberId: target.memberId, userId: target._id, previousRoots: previousRoots.map((u) => u.memberId) }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;
