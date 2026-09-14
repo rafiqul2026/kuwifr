@@ -5,61 +5,6 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './OrdersPage.module.css';
 
-const DEMO_PACKAGE_ORDERS = [
-  {
-    _id: 'pkg-ord-101',
-    invoiceNumber: 'INV-PKG-98214',
-    createdAt: '2026-08-25T10:30:00.000Z',
-    packageName: 'Starter Package',
-    packageType: 'STARTER',
-    price: 1500,
-    kbp: 1000,
-    dailyCap: 1500,
-    paymentMethod: 'ONLINE GATEWAY',
-    paymentStatus: 'PAID',
-    selectedProduct: {
-      name: 'Instant Magic Hair Color Shampoo',
-      category: 'Hair Care',
-      mrp: 1999,
-      ksp: 1500,
-      image: 'https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?w=300&auto=format&fit=crop&q=80'
-    }
-  }
-];
-
-const DEMO_REPURCHASE_ORDERS = [
-  {
-    _id: 'rep-ord-201',
-    invoiceNumber: 'INV-REP-77302',
-    createdAt: '2026-08-28T14:15:00.000Z',
-    totalAmount: 3000,
-    totalKBP: 2000,
-    selfCashback: 500,
-    paymentMethod: 'ONLINE GATEWAY',
-    paymentStatus: 'PAID',
-    items: [
-      {
-        name: 'Kuwi Gold Magic Black Hair oil',
-        category: 'Hair Care',
-        qty: 1,
-        ksp: 1500,
-        mrp: 2100,
-        kbp: 1000,
-        subtotal: 1500
-      },
-      {
-        name: 'Modern Saree (Ready Made Wear)',
-        category: 'Apparel',
-        qty: 1,
-        ksp: 1500,
-        mrp: 2499,
-        kbp: 1000,
-        subtotal: 1500
-      }
-    ]
-  }
-];
-
 // Status pill color mapping — matches the token set used across every
 // other redesigned member page (TeamPage/DashboardPage): amber = pending,
 // teal = paid/verified, blue = processing, green = completed, red =
@@ -110,19 +55,26 @@ const OrdersPage = () => {
   const fetchOrderHistories = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/api/orders').catch(() => ({ data: { success: false } }));
+      // Was previously hitting the admin-only `/api/orders` (returns every
+      // member's orders and 403s for a non-admin member) with a hardcoded
+      // "demo" fallback masking that failure — so every real member saw
+      // fabricated sample invoices instead of their own (empty or real)
+      // order history. `/my-orders` is the member-scoped endpoint that
+      // actually returns this user's own packageOrders/repurchaseOrders.
+      const res = await api.get('/api/orders/my-orders');
 
       if (res.data?.success && res.data.data) {
         const d = res.data.data;
-        setPackageOrders(d.packageOrders?.length > 0 ? d.packageOrders : DEMO_PACKAGE_ORDERS);
-        setRepurchaseOrders(d.repurchaseOrders?.length > 0 ? d.repurchaseOrders : DEMO_REPURCHASE_ORDERS);
+        setPackageOrders(d.packageOrders || []);
+        setRepurchaseOrders(d.repurchaseOrders || []);
       } else {
-        setPackageOrders(DEMO_PACKAGE_ORDERS);
-        setRepurchaseOrders(DEMO_REPURCHASE_ORDERS);
+        setPackageOrders([]);
+        setRepurchaseOrders([]);
       }
-    } catch {
-      setPackageOrders(DEMO_PACKAGE_ORDERS);
-      setRepurchaseOrders(DEMO_REPURCHASE_ORDERS);
+    } catch (err) {
+      showNotification(err.response?.data?.message || 'Failed to load your order history.', 'error');
+      setPackageOrders([]);
+      setRepurchaseOrders([]);
     } finally {
       setLoading(false);
     }

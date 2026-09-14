@@ -42,9 +42,11 @@ const AdminPackageAnalyticsPage = () => {
     }).format(Number(val) || 0);
 
   // Admin Verification Handlers
-  const handleApprove = async (id, memberId, pkgName) => {
+  const handleApprove = async (id, memberId, pkgName, purchaseType) => {
     const confirmed = window.confirm(
-      `Verify and ACTIVATE Member ${memberId} with ${pkgName}?\n\nThis will mark their account ACTIVE, allocate their KBP, and apply their daily binary cap.`
+      purchaseType === 'UPGRADE'
+        ? `Verify and UPGRADE Member ${memberId} to ${pkgName}?\n\nThis will raise their package tier and daily binary cap. No extra referral/matching income is paid on the upgrade difference.`
+        : `Verify and ACTIVATE Member ${memberId} with ${pkgName}?\n\nThis will mark their account ACTIVE, allocate their KBP, and apply their daily binary cap.`
     );
     if (!confirmed) return;
 
@@ -241,7 +243,16 @@ const AdminPackageAnalyticsPage = () => {
                       </div>
                     </td>
                     <td>
-                      <span className={styles.packageNamePill}>{item.packageName}</span>
+                      {item.purchaseType === 'UPGRADE' ? (
+                        <div className={styles.upgradeCell}>
+                          <span className={styles.upgradeTag}>⬆ UPGRADE</span>
+                          <span className={styles.upgradePath}>
+                            {item.previousPackageName || 'Previous'} → <strong>{item.packageName}</strong>
+                          </span>
+                        </div>
+                      ) : (
+                        <span className={styles.packageNamePill}>{item.packageName}</span>
+                      )}
                     </td>
                     <td>
                       <span className={styles.productNameText} title={item.selectedProduct?.name}>
@@ -250,6 +261,9 @@ const AdminPackageAnalyticsPage = () => {
                     </td>
                     <td>
                       <strong className={styles.amountCol}>{formatINR(item.packagePrice)}</strong>
+                      {item.purchaseType === 'UPGRADE' && (
+                        <small className={styles.amountSubNote}>upgrade difference</small>
+                      )}
                     </td>
                     <td>
                       <span className={styles.paymentMethodTag}>{item.paymentMethod || 'UPI'}</span>
@@ -286,7 +300,7 @@ const AdminPackageAnalyticsPage = () => {
                         <div className={styles.actionBtnGroup}>
                           <button
                             type="button"
-                            onClick={() => handleApprove(item._id, item.memberId, item.packageName)}
+                            onClick={() => handleApprove(item._id, item.memberId, item.packageName, item.purchaseType)}
                             disabled={actionLoadingId === item._id}
                             className={styles.approveBtn}
                             title="Confirm payment and activate member account"

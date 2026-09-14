@@ -58,8 +58,67 @@
 /* Packages Grid */
 .packagesGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  /* min(350px, 100%) keeps a track from ever demanding more width than the
+     container actually has — without it, minmax(350px, 1fr) forces a track
+     wider than most phone viewports and the whole grid clips/scrolls
+     horizontally instead of wrapping to a single column. */
+  grid-template-columns: repeat(auto-fill, minmax(min(350px, 100%), 1fr));
   gap: 18px;
+}
+
+/* Already-Active Redirect Card */
+.alreadyActiveCard {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 16px;
+  padding: 40px 24px;
+  text-align: center;
+  max-width: 520px;
+  margin: 20px auto 0;
+}
+
+.alreadyActiveIcon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  background: rgba(22, 163, 74, 0.12);
+  border: 2px solid rgba(22, 163, 74, 0.3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+}
+
+.alreadyActiveCard h2 {
+  font-size: 19px;
+  font-weight: 700;
+  color: #1c2a2a;
+  margin: 0 0 10px 0;
+}
+
+.alreadyActiveCard p {
+  font-size: 13.5px;
+  color: #737373;
+  line-height: 1.6;
+  margin: 0 0 22px 0;
+}
+
+.goToUpgradeBtn {
+  padding: 12px 24px;
+  background: #fd9911;
+  color: #1c2a2a;
+  border: none;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.goToUpgradeBtn:hover {
+  background: #e2870a;
+  transform: translateY(-1px);
 }
 
 .packageCard {
@@ -1008,5 +1067,24 @@
   }
   .infoRow {
     align-items: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .packagesContainer {
+    padding: 12px 12px 48px 12px;
+  }
+  .pageTitle {
+    font-size: 21px;
+  }
+  .cardHeader,
+  .productSelectionSection,
+  .capsFooter,
+  .cardActionWrap {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .metricsGrid {
+    grid-template-columns: 1fr;
   }
 }

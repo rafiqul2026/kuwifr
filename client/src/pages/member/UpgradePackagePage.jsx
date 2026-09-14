@@ -1,153 +1,208 @@
 // client/src/pages/member/UpgradePackagePage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './UpgradePackagePage.module.css';
 
-// 5 Standard Membership Packages
-const ALL_5_PACKAGES = [
-  {
-    level: 1,
-    id: 'starter',
-    type: 'STARTER',
-    name: 'Starter Package',
-    price: 1500,
-    kbp: 1000,
-    dailyCap: 1500,
-    weeklyCap: 10500,
-    monthlyCap: 45000,
-    color: '#16a34a',
-    badge: 'Tier 1'
-  },
-  {
-    level: 2,
-    id: 'growth',
-    type: 'GROWTH',
-    name: 'Growth Package',
-    price: 5000,
-    kbp: 4000,
-    dailyCap: 7000,
-    weeklyCap: 49000,
-    monthlyCap: 210000,
-    color: '#3b82f6',
-    badge: 'Tier 2'
-  },
-  {
-    level: 3,
-    id: 'life_safe',
-    type: 'LIFE_SAFE',
-    name: 'Life Safe Package',
-    price: 10000,
-    kbp: 7500,
-    dailyCap: 15000,
-    weeklyCap: 105000,
-    monthlyCap: 450000,
-    color: '#6366f1',
-    badge: 'Tier 3'
-  },
-  {
-    level: 4,
-    id: 'life_safe_elite',
-    type: 'LIFE_SAFE_ELITE',
-    name: 'Life Safe Elite Package',
-    price: 15000,
-    kbp: 10000,
-    dailyCap: 20000,
-    weeklyCap: 140000,
-    monthlyCap: 600000,
-    color: '#008080',
-    badge: 'Tier 4'
-  },
-  {
-    level: 5,
-    id: 'titanium',
-    type: 'TITANIUM',
-    name: 'Titanium Package',
-    price: 110000,
-    kbp: 50000,
-    dailyCap: 50000,
-    weeklyCap: 350000,
-    monthlyCap: 1500000,
-    color: '#fd9911',
-    badge: 'Tier 5'
-  }
-];
+// Per-tier accent colors, matches the palette used on the Buy Package page.
+const THEME_COLORS = {
+  STARTER: '#16a34a',
+  GROWTH: '#3b82f6',
+  LIFE_SAFE: '#6366f1',
+  LIFE_SAFE_ELITE: '#008080',
+  TITANIUM: '#fd9911'
+};
+
+const TIER_BADGES = ['Tier 1', 'Tier 2', 'Tier 3', 'Tier 4', 'Tier 5'];
+
+// Official Company Receiving Accounts — same account used on the Buy Package
+// checkout, kept in sync manually since there is no shared config module.
+const COMPANY_PAYMENT_INFO = {
+  upiId: 'SBIBHIM.INSTANT13112874693574880@sbipay',
+  merchantName: 'SB214110 (KUWIFR SERVICES PVT LTD)',
+  accountName: 'KUWIFR SERVICES PRIVATE LIMITED',
+  bankName: 'State Bank of India',
+  accountNumber: '44708235535',
+  ifscCode: 'SBIN0011617',
+  branch: 'BARPETA BAZAR, ASSAM'
+};
 
 const UpgradePackagePage = () => {
   const { user } = useAuth();
   const { showNotification } = useNotification();
+  const navigate = useNavigate();
 
+  const [packages, setPackages] = useState([]);
   const [currentPackage, setCurrentPackage] = useState(null);
+  const [memberStatus, setMemberStatus] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Multi-step modal: 'CONFIRM' | 'PAYMENT' | 'SUCCESS' | null
+  const [modalStep, setModalStep] = useState(null);
   const [selectedUpgrade, setSelectedUpgrade] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('UPI_GATEWAY');
+  const [qrViewMode, setQrViewMode] = useState('DYNAMIC');
+  const [utrNumber, setUtrNumber] = useState('');
+  const [proofPreview, setProofPreview] = useState('');
   const [processing, setProcessing] = useState(false);
+  const [successReceipt, setSuccessReceipt] = useState(null);
 
-  useEffect(() => {
-    fetchCurrentPackageStatus();
-  }, [user]);
-
-  const fetchCurrentPackageStatus = async () => {
+  // Live package catalog + the member's real current package/status — both
+  // previously came from a hardcoded 5-package array with guessed prices and
+  // a fake payment-gateway stub, so an admin changing a package's price
+  // would silently desync this page and members could never actually pay.
+  const fetchUpgradeData = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get('/api/users/profile').catch(() => ({ data: { data: {} } }));
-      const userProfile = res.data?.data?.user || user;
+      const [pkgRes, profileRes] = await Promise.all([
+        api.get('/api/packages'),
+        api.get('/api/users/profile').catch(() => ({ data: { data: {} } }))
+      ]);
 
-      const activeType = userProfile?.activePackageId?.type || userProfile?.packageType || 'STARTER';
-      const matchedCurrent = ALL_5_PACKAGES.find(p => p.type === activeType) || ALL_5_PACKAGES[0];
+      const remotePkgs = pkgRes.data?.data?.packages || pkgRes.data?.packages || [];
+      const sorted = [...remotePkgs]
+        .map((p) => ({
+          ...p,
+          _id: p._id || p.id,
+          name: p.name || p.packageName,
+          type: (p.type || '').toUpperCase(),
+          price: Number(p.price || 0),
+          kbp: Number(p.kbp !== undefined ? p.kbp : (p.kbpPoints || 0)),
+          dailyCap: Number(p.dailyCap !== undefined ? p.dailyCap : (p.dailyBinaryCap || p.price || 0)),
+          weeklyCap: Number(p.weeklyCap !== undefined ? p.weeklyCap : ((p.dailyCap || p.price || 0) * 7)),
+          monthlyCap: Number(p.monthlyCap !== undefined ? p.monthlyCap : ((p.dailyCap || p.price || 0) * 30))
+        }))
+        .sort((a, b) => a.price - b.price)
+        .map((p, idx) => ({
+          ...p,
+          level: idx + 1,
+          color: THEME_COLORS[p.type] || '#3b82f6',
+          badge: TIER_BADGES[idx] || `Tier ${idx + 1}`
+        }));
 
-      setCurrentPackage(matchedCurrent);
-    } catch {
-      setCurrentPackage(ALL_5_PACKAGES[0]); // Default to Starter
+      setPackages(sorted);
+
+      const profile = profileRes.data?.data?.user;
+      const status = profile?.status || 'INACTIVE';
+      setMemberStatus(status);
+
+      if (status === 'ACTIVE' && profile?.activePackageId) {
+        const activeId = String(profile.activePackageId._id || profile.activePackageId);
+        const matched = sorted.find((p) => String(p._id) === activeId)
+          || sorted.find((p) => p.type === (profile.activePackageId?.type || '').toUpperCase());
+        setCurrentPackage(matched || null);
+      } else {
+        setCurrentPackage(null);
+      }
+    } catch (error) {
+      console.error('Failed to load upgrade data:', error);
+      showNotification('Unable to load package catalog. Please refresh.', 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [showNotification]);
 
-  // Open confirmation modal for any higher package
+  useEffect(() => {
+    fetchUpgradeData();
+  }, [fetchUpgradeData]);
+
   const handleInitiateUpgrade = (targetPkg) => {
-    if (targetPkg.level <= currentPackage.level) {
+    if (!currentPackage || targetPkg.level <= currentPackage.level) {
       showNotification(`You are already on or above ${targetPkg.name}. Lower tiers cannot be selected.`, 'warning');
       return;
     }
     setSelectedUpgrade(targetPkg);
+    setUtrNumber('');
+    setProofPreview('');
+    setQrViewMode('DYNAMIC');
+    setModalStep('CONFIRM');
   };
 
-  // Process upgrade order and redirect directly to payment gateway
-  const handleProceedToPayment = async () => {
+  const handleProceedToPayment = () => {
+    setModalStep('PAYMENT');
+  };
+
+  const handleCopyToClipboard = (text, label) => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(text);
+      showNotification(`${label} copied to clipboard!`, 'info');
+    }
+  };
+
+  const handleProofUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      showNotification('Payment screenshot must be smaller than 5MB', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => setProofPreview(reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  const priceDifference = selectedUpgrade ? Math.max(0, selectedUpgrade.price - (currentPackage?.price || 0)) : 0;
+  const addedKBP = selectedUpgrade ? Math.max(0, selectedUpgrade.kbp - (currentPackage?.kbp || 0)) : 0;
+
+  const handleCompleteUpgrade = async () => {
     if (!selectedUpgrade) return;
+
+    if (!utrNumber.trim()) {
+      showNotification('Please enter the 12-digit UTR / Reference ID from your UPI payment.', 'warning');
+      return;
+    }
+
+    if (!proofPreview && paymentMethod === 'UPI_GATEWAY') {
+      showNotification('Please upload your payment confirmation screenshot.', 'warning');
+      return;
+    }
 
     setProcessing(true);
     try {
-      const upgradePriceDifference = selectedUpgrade.price - (currentPackage?.price || 0);
+      const payload = {
+        packageId: selectedUpgrade._id,
+        paymentMethod,
+        transactionId: utrNumber.trim(),
+        paymentProof: proofPreview
+      };
 
-      const res = await api.post('/api/payment/create-order', {
-        packageId: selectedUpgrade.id,
-        packageType: selectedUpgrade.type,
-        amount: upgradePriceDifference,
-        kbp: selectedUpgrade.kbp - (currentPackage?.kbp || 0),
-        isUpgrade: true
-      });
+      const res = await api.post('/api/package-purchases/upgrade', payload);
 
       if (res.data?.success) {
-        showNotification('Redirecting to payment gateway for upgrade checkout...', 'success');
-        if (res.data.data?.paymentUrl) {
-          window.location.href = res.data.data.paymentUrl;
-          return;
-        }
-        if (res.data.data?.redirectUrl) {
-          window.location.href = res.data.data.redirectUrl;
-          return;
-        }
-        showNotification(`Upgrade order initialized for ₹${upgradePriceDifference.toLocaleString()}`, 'success');
-        setSelectedUpgrade(null);
+        showNotification(res.data.message || 'Upgrade request submitted for admin approval!', 'info');
+        setSuccessReceipt({ ...res.data.data, priceDifference, targetName: selectedUpgrade.name });
+        setModalStep('SUCCESS');
+      } else {
+        showNotification(res.data?.message || 'Unable to submit upgrade request.', 'error');
       }
     } catch (err) {
-      showNotification(err.response?.data?.message || 'Upgrade payment initialization failed', 'error');
+      showNotification(err.response?.data?.message || 'Failed to submit upgrade payment details. Please try again.', 'error');
     } finally {
       setProcessing(false);
     }
   };
+
+  const handleCloseModal = () => {
+    if (modalStep === 'SUCCESS') {
+      navigate('/member/dashboard');
+    }
+    setModalStep(null);
+    setSelectedUpgrade(null);
+    setUtrNumber('');
+    setProofPreview('');
+  };
+
+  const upiUri = selectedUpgrade
+    ? `upi://pay?pa=${COMPANY_PAYMENT_INFO.upiId}&pn=${encodeURIComponent(COMPANY_PAYMENT_INFO.merchantName)}&am=${priceDifference}&cu=INR&tn=${encodeURIComponent(`KUWIFR-UPGRADE-${selectedUpgrade.name}-${user?.memberId || 'MEMBER'}`)}`
+    : '';
+
+  const dynamicQrUrl = selectedUpgrade
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(upiUri)}`
+    : '';
 
   if (loading) {
     return (
@@ -158,7 +213,36 @@ const UpgradePackagePage = () => {
     );
   }
 
-  const isMaxTierAchieved = currentPackage?.level >= 5;
+  // Only an already-ACTIVE member has a "current package" to upgrade from —
+  // send anyone else to Buy Package to activate for the first time.
+  if (memberStatus !== 'ACTIVE' || !currentPackage) {
+    return (
+      <div className={styles.upgradeContainer}>
+        <header className={styles.pageHeader}>
+          <span className={styles.headerTag}>🚀 Flexible Tier Elevation</span>
+          <h1 className={styles.pageTitle}>Upgrade Membership Package</h1>
+        </header>
+
+        <div className={styles.notActiveCard}>
+          <div className={styles.notActiveIcon}>📦</div>
+          <h2>No Active Package Yet</h2>
+          <p>
+            Upgrades are only available to members who already hold an active package.
+            Activate your first package from Buy Package to get started.
+          </p>
+          <button
+            type="button"
+            className={styles.goToBuyBtn}
+            onClick={() => navigate('/member/packages')}
+          >
+            Go to Buy Package →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const isMaxTierAchieved = currentPackage.level >= packages.length;
 
   return (
     <div className={styles.upgradeContainer}>
@@ -172,46 +256,44 @@ const UpgradePackagePage = () => {
       </header>
 
       {/* Active Package Banner */}
-      {currentPackage && (
-        <section className={styles.activeBanner}>
-          <div className={styles.bannerLeft}>
-            <span className={styles.activeBadge}>CURRENT ACTIVE PACKAGE</span>
-            <h2>{currentPackage.name}</h2>
-            <div className={styles.activeMeta}>
-              <span>Value: <strong>₹{currentPackage.price.toLocaleString()}</strong></span>
-              <span>•</span>
-              <span>Points: <strong>{currentPackage.kbp.toLocaleString()} KBP</strong></span>
-              <span>•</span>
-              <span>Daily Cap: <strong>₹{currentPackage.dailyCap.toLocaleString()} / Day</strong></span>
-            </div>
+      <section className={styles.activeBanner}>
+        <div className={styles.bannerLeft}>
+          <span className={styles.activeBadge}>CURRENT ACTIVE PACKAGE</span>
+          <h2>{currentPackage.name}</h2>
+          <div className={styles.activeMeta}>
+            <span>Value: <strong>₹{currentPackage.price.toLocaleString()}</strong></span>
+            <span>•</span>
+            <span>Points: <strong>{currentPackage.kbp.toLocaleString()} KBP</strong></span>
+            <span>•</span>
+            <span>Daily Cap: <strong>₹{currentPackage.dailyCap.toLocaleString()} / Day</strong></span>
           </div>
-          <div className={styles.bannerRight}>
-            {isMaxTierAchieved ? (
-              <span className={styles.maxTierBadge}>👑 Pinnacle Tier Reached</span>
-            ) : (
-              <span className={styles.tierShield}>🛡️ {currentPackage.badge} Active</span>
-            )}
-          </div>
-        </section>
-      )}
+        </div>
+        <div className={styles.bannerRight}>
+          {isMaxTierAchieved ? (
+            <span className={styles.maxTierBadge}>👑 Pinnacle Tier Reached</span>
+          ) : (
+            <span className={styles.tierShield}>🛡️ {currentPackage.badge} Active</span>
+          )}
+        </div>
+      </section>
 
-      {/* 5 Upgrade Cards Grid */}
+      {/* Upgrade Ladder Grid */}
       <div className={styles.upgradeGrid}>
-        {ALL_5_PACKAGES.map((pkg) => {
-          const isCurrent = currentPackage?.type === pkg.type;
-          const isPrevious = pkg.level < (currentPackage?.level || 1);
-          const isEligibleUpgrade = pkg.level > (currentPackage?.level || 1);
+        {packages.map((pkg) => {
+          const isCurrent = currentPackage.type === pkg.type;
+          const isPrevious = pkg.level < currentPackage.level;
+          const isEligibleUpgrade = pkg.level > currentPackage.level;
 
-          const priceDifference = Math.max(0, pkg.price - (currentPackage?.price || 0));
-          const addedKBP = Math.max(0, pkg.kbp - (currentPackage?.kbp || 0));
+          const diff = Math.max(0, pkg.price - currentPackage.price);
+          const kbpDiff = Math.max(0, pkg.kbp - currentPackage.kbp);
 
           return (
             <article
-              key={pkg.id}
+              key={pkg._id}
               className={`
-                ${styles.pkgUpgradeCard} 
-                ${isCurrent ? styles.currentCard : ''} 
-                ${isPrevious ? styles.previousLockedCard : ''} 
+                ${styles.pkgUpgradeCard}
+                ${isCurrent ? styles.currentCard : ''}
+                ${isPrevious ? styles.previousLockedCard : ''}
                 ${isEligibleUpgrade ? styles.eligibleCard : ''}
               `}
               style={{ borderTopColor: isEligibleUpgrade ? pkg.color : (isCurrent ? '#008080' : '#d4d4d4') }}
@@ -222,16 +304,9 @@ const UpgradePackagePage = () => {
                     {pkg.badge}
                   </span>
 
-                  {/* Status Indicator */}
-                  {isCurrent && (
-                    <span className={styles.currentChip}>● Current Plan</span>
-                  )}
-                  {isPrevious && (
-                    <span className={styles.lockedChip}>🔒 Lower Tier (Locked)</span>
-                  )}
-                  {isEligibleUpgrade && (
-                    <span className={styles.eligibleChip}>⚡ Upgrade Available</span>
-                  )}
+                  {isCurrent && <span className={styles.currentChip}>● Current Plan</span>}
+                  {isPrevious && <span className={styles.lockedChip}>🔒 Lower Tier (Locked)</span>}
+                  {isEligibleUpgrade && <span className={styles.eligibleChip}>⚡ Upgrade Available</span>}
                 </div>
 
                 <h3 className={styles.pkgTitle}>{pkg.name}</h3>
@@ -241,7 +316,7 @@ const UpgradePackagePage = () => {
                     <div>
                       <small className={styles.diffLabel}>Upgrade Price Difference:</small>
                       <div className={styles.diffAmount}>
-                        ₹{priceDifference.toLocaleString()}
+                        ₹{diff.toLocaleString()}
                         <span className={styles.fullPrice}> (Total: ₹{pkg.price.toLocaleString()})</span>
                       </div>
                     </div>
@@ -254,7 +329,6 @@ const UpgradePackagePage = () => {
                 </div>
               </div>
 
-              {/* Financial Specs */}
               <div className={styles.specsList}>
                 <div className={styles.specItem}>
                   <span>Total KBP Valuation</span>
@@ -264,7 +338,7 @@ const UpgradePackagePage = () => {
                 {isEligibleUpgrade && (
                   <div className={styles.specItem}>
                     <span>Additional KBP Credited</span>
-                    <strong style={{ color: '#c2660a' }}>+{addedKBP.toLocaleString()} KBP</strong>
+                    <strong style={{ color: '#c2660a' }}>+{kbpDiff.toLocaleString()} KBP</strong>
                   </div>
                 )}
 
@@ -284,7 +358,6 @@ const UpgradePackagePage = () => {
                 </div>
               </div>
 
-              {/* Action Button */}
               <div className={styles.cardAction}>
                 {isCurrent && (
                   <button type="button" className={styles.currentBtn} disabled>
@@ -304,7 +377,7 @@ const UpgradePackagePage = () => {
                     className={styles.upgradeBtn}
                     onClick={() => handleInitiateUpgrade(pkg)}
                   >
-                    Upgrade to {pkg.name} (Pay ₹{priceDifference.toLocaleString()}) →
+                    Upgrade to {pkg.name} (Pay ₹{diff.toLocaleString()}) →
                   </button>
                 )}
               </div>
@@ -313,81 +386,273 @@ const UpgradePackagePage = () => {
         })}
       </div>
 
-      {/* ================= CONFIRM UPGRADE MODAL ================= */}
-      {selectedUpgrade && (
-        <div className={styles.modalOverlay} onClick={() => !processing && setSelectedUpgrade(null)}>
+      {/* ================= MULTI-STEP UPGRADE CHECKOUT MODAL ================= */}
+      {modalStep && selectedUpgrade && (
+        <div className={styles.modalOverlay} onClick={() => !processing && handleCloseModal()}>
           <div className={styles.modalContainer} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <div>
-                <span className={styles.modalTag}>Tier Elevation</span>
-                <h2>Confirm Package Upgrade</h2>
+
+            {/* STEP 1: CONFIRM UPGRADE */}
+            {modalStep === 'CONFIRM' && (
+              <>
+                <div className={styles.modalHeader}>
+                  <div>
+                    <span className={styles.modalTag}>Tier Elevation</span>
+                    <h2>Confirm Package Upgrade</h2>
+                  </div>
+                  <button type="button" className={styles.closeBtn} onClick={handleCloseModal}>✕</button>
+                </div>
+
+                <div className={styles.modalBody}>
+                  <div className={styles.upgradeVisual}>
+                    <div className={styles.visualNode}>
+                      <small>From Current</small>
+                      <strong>{currentPackage.name}</strong>
+                      <span>₹{currentPackage.price.toLocaleString()}</span>
+                    </div>
+                    <span className={styles.visualArrow}>➔</span>
+                    <div className={styles.visualNode} style={{ borderColor: selectedUpgrade.color, background: 'rgba(0, 128, 128, 0.05)' }}>
+                      <small>Upgrading To</small>
+                      <strong style={{ color: selectedUpgrade.color }}>{selectedUpgrade.name}</strong>
+                      <span>₹{selectedUpgrade.price.toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  <div className={styles.summaryTable}>
+                    <div className={styles.summaryRow}>
+                      <span>Upgrade Amount Payable</span>
+                      <strong className={styles.payableAmount}>₹{priceDifference.toLocaleString()}</strong>
+                    </div>
+                    <div className={styles.summaryRow}>
+                      <span>Additional KBP Points</span>
+                      <strong style={{ color: '#c2660a' }}>+{addedKBP.toLocaleString()} KBP</strong>
+                    </div>
+                    <div className={styles.summaryRow}>
+                      <span>New Daily Binary Cap</span>
+                      <strong style={{ color: '#16a34a' }}>₹{selectedUpgrade.dailyCap.toLocaleString()} / Day</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.modalFooter}>
+                  <button type="button" className={styles.cancelBtn} onClick={handleCloseModal}>Cancel</button>
+                  <button type="button" className={styles.confirmBtn} onClick={handleProceedToPayment}>
+                    Proceed to Payment (₹{priceDifference.toLocaleString()}) →
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* STEP 2: PAYMENT METHOD & QR / UTR / PROOF UPLOAD */}
+            {modalStep === 'PAYMENT' && (
+              <>
+                <div className={styles.modalHeader}>
+                  <div>
+                    <span className={styles.modalTag}>SBI Payments QR</span>
+                    <h2>Scan & Pay to Upgrade</h2>
+                  </div>
+                  <button type="button" className={styles.closeBtn} onClick={handleCloseModal} disabled={processing}>✕</button>
+                </div>
+
+                <div className={styles.modalBody}>
+                  <div className={styles.paymentMethodList}>
+                    <label className={`${styles.paymentOption} ${paymentMethod === 'UPI_GATEWAY' ? styles.paySelected : ''}`}>
+                      <input
+                        type="radio"
+                        name="upgradePaymentMethod"
+                        checked={paymentMethod === 'UPI_GATEWAY'}
+                        onChange={() => setPaymentMethod('UPI_GATEWAY')}
+                      />
+                      <div className={styles.paymentOptionDetails}>
+                        <strong>SBI Payments UPI QR (PhonePe / GPay / Paytm)</strong>
+                        <span>Instant scan with pre-filled upgrade amount</span>
+                      </div>
+                      <span className={styles.payIcon}>📱</span>
+                    </label>
+
+                    <label className={`${styles.paymentOption} ${paymentMethod === 'BANK_TRANSFER' ? styles.paySelected : ''}`}>
+                      <input
+                        type="radio"
+                        name="upgradePaymentMethod"
+                        checked={paymentMethod === 'BANK_TRANSFER'}
+                        onChange={() => setPaymentMethod('BANK_TRANSFER')}
+                      />
+                      <div className={styles.paymentOptionDetails}>
+                        <strong>Direct Bank Transfer (IMPS / NEFT / RTGS)</strong>
+                        <span>Company State Bank of India Current Account</span>
+                      </div>
+                      <span className={styles.payIcon}>🏦</span>
+                    </label>
+                  </div>
+
+                  {paymentMethod === 'UPI_GATEWAY' && (
+                    <div className={styles.qrPaymentContainer}>
+                      <div className={styles.qrBox}>
+                        <img
+                          src={qrViewMode === 'DYNAMIC' ? dynamicQrUrl : '/images/kuwifr-upi-standee.jpeg'}
+                          alt="KUWIFR SBI Dynamic UPI QR"
+                          className={styles.qrImage}
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = dynamicQrUrl;
+                          }}
+                        />
+                        <span className={styles.qrScanHint}>Scan with PhonePe, GPay or Paytm</span>
+                        <button
+                          type="button"
+                          onClick={() => setQrViewMode(qrViewMode === 'DYNAMIC' ? 'STANDEE' : 'DYNAMIC')}
+                          className={styles.qrToggleBtn}
+                        >
+                          {qrViewMode === 'DYNAMIC' ? '📷 View Standee Photo' : '⚡ Auto-Amount QR'}
+                        </button>
+                      </div>
+
+                      <div className={styles.upiInfoCard}>
+                        <div className={styles.infoRow}>
+                          <span>Merchant UPI ID</span>
+                          <div className={styles.copyRow}>
+                            <strong className={styles.monoFont}>{COMPANY_PAYMENT_INFO.upiId}</strong>
+                            <button type="button" onClick={() => handleCopyToClipboard(COMPANY_PAYMENT_INFO.upiId, 'UPI ID')} className={styles.copyBtn}>
+                              Copy
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className={styles.infoRow}>
+                          <span>Merchant Name</span>
+                          <strong>{COMPANY_PAYMENT_INFO.merchantName}</strong>
+                        </div>
+
+                        <div className={styles.infoRow}>
+                          <span>Exact Payable Amount</span>
+                          <strong className={styles.highlightAmount}>₹{priceDifference.toLocaleString('en-IN')}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {paymentMethod === 'BANK_TRANSFER' && (
+                    <div className={styles.bankDetailsContainer}>
+                      <div className={styles.bankDetailRow}>
+                        <span>Bank Name:</span>
+                        <strong>{COMPANY_PAYMENT_INFO.bankName}</strong>
+                      </div>
+                      <div className={styles.bankDetailRow}>
+                        <span>Account Name:</span>
+                        <strong>{COMPANY_PAYMENT_INFO.accountName}</strong>
+                      </div>
+                      <div className={styles.bankDetailRow}>
+                        <span>Account Number:</span>
+                        <div className={styles.copyRow}>
+                          <strong className={styles.monoFont}>{COMPANY_PAYMENT_INFO.accountNumber}</strong>
+                          <button type="button" onClick={() => handleCopyToClipboard(COMPANY_PAYMENT_INFO.accountNumber, 'Account Number')} className={styles.copyBtn}>
+                            Copy
+                          </button>
+                        </div>
+                      </div>
+                      <div className={styles.bankDetailRow}>
+                        <span>IFSC Code:</span>
+                        <div className={styles.copyRow}>
+                          <strong className={styles.monoFont}>{COMPANY_PAYMENT_INFO.ifscCode}</strong>
+                          <button type="button" onClick={() => handleCopyToClipboard(COMPANY_PAYMENT_INFO.ifscCode, 'IFSC Code')} className={styles.copyBtn}>
+                            Copy
+                          </button>
+                        </div>
+                      </div>
+                      <div className={styles.bankDetailRow}>
+                        <span>Branch:</span>
+                        <strong>{COMPANY_PAYMENT_INFO.branch}</strong>
+                      </div>
+                      <div className={styles.bankDetailRow}>
+                        <span>Exact Payable Amount:</span>
+                        <strong className={styles.highlightAmount}>₹{priceDifference.toLocaleString('en-IN')}</strong>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className={styles.verificationInputBlock}>
+                    <label className={styles.inputLabel}>
+                      Enter 12-Digit UPI Reference / UTR Number <span className={styles.requiredStar}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 423589123456"
+                      value={utrNumber}
+                      onChange={(e) => setUtrNumber(e.target.value)}
+                      className={styles.utrInputField}
+                      maxLength={30}
+                    />
+
+                    <label className={styles.inputLabel} style={{ marginTop: '10px' }}>
+                      Upload Payment Screenshot <span className={styles.requiredStar}>*</span>
+                    </label>
+                    <div className={styles.uploadZone}>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleProofUpload}
+                        id="upgradeProofUpload"
+                        className={styles.fileInputHidden}
+                      />
+                      <label htmlFor="upgradeProofUpload" className={styles.uploadTriggerBtn}>
+                        📷 Choose Screenshot
+                      </label>
+                      {proofPreview ? (
+                        <div className={styles.proofPreviewWrap}>
+                          <img src={proofPreview} alt="Payment Proof Preview" className={styles.proofThumb} />
+                          <span className={styles.proofAttachedLabel}>✓ Proof Attached</span>
+                        </div>
+                      ) : (
+                        <span className={styles.uploadHint}>Attach screenshot showing UTR and paid amount</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.modalFooter}>
+                  <button type="button" className={styles.cancelBtn} onClick={() => setModalStep('CONFIRM')} disabled={processing}>
+                    ← Back
+                  </button>
+                  <button type="button" className={styles.confirmBtn} onClick={handleCompleteUpgrade} disabled={processing}>
+                    {processing ? 'Submitting Payment Proof...' : `Submit Payment Proof (₹${priceDifference.toLocaleString()})`}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* STEP 3: PENDING VERIFICATION RECEIPT */}
+            {modalStep === 'SUCCESS' && (
+              <div className={styles.successScreenWrapper}>
+                <div className={styles.pendingHourglassIcon}>⏳</div>
+                <h2 className={styles.successTitle}>Upgrade Payment Submitted</h2>
+                <p className={styles.successSubtitle}>
+                  Thank you <strong>{user?.fullName || 'Member'}</strong>! Your upgrade payment details and screenshot proof have been forwarded to our accounts team.
+                  Your package will switch to <span className={styles.activeTag}>{successReceipt?.targetName}</span> once verified by admin.
+                </p>
+
+                <div className={styles.receiptBox}>
+                  <div className={styles.receiptRow}>
+                    <span>Upgrading To:</span>
+                    <strong>{successReceipt?.targetName}</strong>
+                  </div>
+                  <div className={styles.receiptRow}>
+                    <span>Submitted UTR / Ref:</span>
+                    <strong className={styles.monoFont}>{successReceipt?.transactionId}</strong>
+                  </div>
+                  <div className={styles.receiptRow}>
+                    <span>Amount Payable:</span>
+                    <strong>₹{(successReceipt?.priceDifference || 0).toLocaleString('en-IN')}</strong>
+                  </div>
+                  <div className={styles.receiptRow}>
+                    <span>Status:</span>
+                    <strong className={styles.pendingStatusText}>● PENDING ADMIN APPROVAL</strong>
+                  </div>
+                </div>
+
+                <button type="button" className={styles.dashboardRedirectBtn} onClick={handleCloseModal}>
+                  Return to Member Dashboard →
+                </button>
               </div>
-              <button
-                type="button"
-                className={styles.closeBtn}
-                onClick={() => setSelectedUpgrade(null)}
-                disabled={processing}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className={styles.modalBody}>
-              <div className={styles.upgradeVisual}>
-                <div className={styles.visualNode}>
-                  <small>From Current</small>
-                  <strong>{currentPackage?.name}</strong>
-                  <span>₹{currentPackage?.price.toLocaleString()}</span>
-                </div>
-                <span className={styles.visualArrow}>➔</span>
-                <div className={styles.visualNode} style={{ borderColor: selectedUpgrade.color, background: 'rgba(0, 128, 128, 0.05)' }}>
-                  <small>Upgrading To</small>
-                  <strong style={{ color: selectedUpgrade.color }}>{selectedUpgrade.name}</strong>
-                  <span>₹{selectedUpgrade.price.toLocaleString()}</span>
-                </div>
-              </div>
-
-              <div className={styles.summaryTable}>
-                <div className={styles.summaryRow}>
-                  <span>Upgrade Amount Payable</span>
-                  <strong className={styles.payableAmount}>
-                    ₹{(selectedUpgrade.price - (currentPackage?.price || 0)).toLocaleString()}
-                  </strong>
-                </div>
-                <div className={styles.summaryRow}>
-                  <span>Additional KBP Points</span>
-                  <strong style={{ color: '#c2660a' }}>
-                    +{(selectedUpgrade.kbp - (currentPackage?.kbp || 0)).toLocaleString()} KBP
-                  </strong>
-                </div>
-                <div className={styles.summaryRow}>
-                  <span>New Daily Binary Cap</span>
-                  <strong style={{ color: '#16a34a' }}>
-                    ₹{selectedUpgrade.dailyCap.toLocaleString()} / Day
-                  </strong>
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.modalFooter}>
-              <button
-                type="button"
-                className={styles.cancelBtn}
-                onClick={() => setSelectedUpgrade(null)}
-                disabled={processing}
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                className={styles.confirmBtn}
-                onClick={handleProceedToPayment}
-                disabled={processing}
-              >
-                {processing ? 'Connecting Gateway...' : `Proceed to Payment (₹${(selectedUpgrade.price - (currentPackage?.price || 0)).toLocaleString()}) →`}
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}

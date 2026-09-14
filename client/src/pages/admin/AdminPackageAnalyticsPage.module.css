@@ -282,6 +282,42 @@
   white-space: nowrap;
 }
 
+.upgradeCell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.upgradeTag {
+  font-size: 10px;
+  font-weight: 800;
+  background: rgba(253, 153, 17, 0.14);
+  color: #c2660a;
+  border: 1px solid rgba(253, 153, 17, 0.3);
+  padding: 1px 6px;
+  border-radius: 5px;
+  width: fit-content;
+  letter-spacing: 0.2px;
+}
+
+.upgradePath {
+  font-size: 11.5px;
+  color: #737373;
+  white-space: nowrap;
+}
+
+.upgradePath strong {
+  color: #123332;
+}
+
+.amountSubNote {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: #a3a3a3;
+  white-space: nowrap;
+}
+
 .productNameText {
   font-size: 12px;
   color: #737373;

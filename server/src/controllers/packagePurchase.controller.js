@@ -34,6 +34,17 @@ exports.completePackagePurchase = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Member not found' });
     }
 
+    // An already-ACTIVE member must go through the Upgrade Package flow
+    // (which pays only the price difference) instead of submitting another
+    // fresh activation here — the client now hides this option for them,
+    // but this guard covers a direct API call bypassing that UI.
+    if (user.status === 'ACTIVE' && user.activePackageId) {
+      return res.status(400).json({
+        success: false,
+        message: 'You already have an active package. Please use Upgrade Package to move to a higher tier.'
+      });
+    }
+
     // Prevent duplicate pending requests for the same transaction
     const existingTxn = await PackagePurchase.findOne({ transactionId: transactionId.trim() });
     if (existingTxn) {
@@ -69,6 +80,92 @@ exports.completePackagePurchase = async (req, res) => {
   } catch (err) {
     console.error('Package Purchase Error:', err);
     res.status(500).json({ success: false, message: err.message || 'Server error processing request' });
+  }
+};
+
+// 1b. Member: Submit Package UPGRADE Request (existing ACTIVE members only —
+// requires Admin/Payment Approval, same as a fresh purchase). The member
+// only pays the price difference between their current and target package;
+// the target package must be strictly more expensive than what they hold.
+exports.completePackageUpgrade = async (req, res) => {
+  try {
+    const { packageId, transactionId, paymentProof, paymentMethod } = req.body;
+
+    if (!transactionId || transactionId.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide the transaction reference / UTR number for verification.'
+      });
+    }
+
+    const user = await User.findById(req.user._id || req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Member not found' });
+    }
+
+    if (user.status !== 'ACTIVE' || !user.activePackageId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Only active members with an existing package can request an upgrade. Please activate a package first.'
+      });
+    }
+
+    const currentPkg = await Package.findById(user.activePackageId);
+    if (!currentPkg) {
+      return res.status(404).json({ success: false, message: 'Your current package could not be resolved. Please contact support.' });
+    }
+
+    const targetPkg = await Package.findById(packageId);
+    if (!targetPkg) {
+      return res.status(404).json({ success: false, message: 'Selected upgrade package not found.' });
+    }
+
+    if (targetPkg.price <= currentPkg.price) {
+      return res.status(400).json({
+        success: false,
+        message: 'You can only upgrade to a package priced higher than your current package.'
+      });
+    }
+
+    const existingTxn = await PackagePurchase.findOne({ transactionId: transactionId.trim() });
+    if (existingTxn) {
+      return res.status(400).json({
+        success: false,
+        message: 'This Transaction ID / UTR has already been submitted.'
+      });
+    }
+
+    const priceDifference = targetPkg.price - currentPkg.price;
+    const kbpDifference = Math.max(0, (targetPkg.kbp || 0) - (currentPkg.kbp || 0));
+
+    const newPurchase = await PackagePurchase.create({
+      user: user._id,
+      memberId: user.memberId,
+      memberName: user.fullName,
+      packageId: String(targetPkg._id),
+      packageName: targetPkg.name,
+      packagePrice: priceDifference,
+      targetPackagePrice: targetPkg.price,
+      kbpPoints: kbpDifference,
+      dailyBinaryCap: targetPkg.dailyCap,
+      purchaseType: 'UPGRADE',
+      previousPackageId: String(currentPkg._id),
+      previousPackageName: currentPkg.name,
+      previousPackagePrice: currentPkg.price,
+      paymentMethod: paymentMethod || 'UPI_GATEWAY',
+      transactionId: transactionId.trim(),
+      paymentStatus: 'PENDING_VERIFICATION',
+      paymentProof: paymentProof || ''
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Upgrade request submitted! Your package will be upgraded once payment is verified by admin.',
+      data: newPurchase
+    });
+  } catch (err) {
+    console.error('Package Upgrade Error:', err);
+    res.status(500).json({ success: false, message: err.message || 'Server error processing upgrade request' });
   }
 };
 
@@ -113,6 +210,8 @@ exports.approvePackagePurchase = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Member associated with this purchase not found' });
     }
 
+    const isUpgrade = purchase.purchaseType === 'UPGRADE';
+
     // The check above only looks at THIS purchase record. A member can
     // submit a second purchase request (a new transaction ID) while an
     // earlier one was already approved, or an admin may have separately
@@ -120,12 +219,24 @@ exports.approvePackagePurchase = async (req, res) => {
     // approving this record too would create another Order and re-run the
     // full income engine, double-crediting the sponsor's referral and
     // matching income for what is really one activation. Block it here too.
-    if (user.status === 'ACTIVE' && user.activePackageId) {
+    // This guard only applies to fresh NEW activations — an UPGRADE request
+    // is expected (required, in fact) to come from a member who is already
+    // ACTIVE, so it has its own guard further below instead.
+    if (!isUpgrade && user.status === 'ACTIVE' && user.activePackageId) {
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({
         success: false,
         message: `${user.memberId} is already ACTIVE with a package (activated elsewhere). Approving this purchase too would double-credit referral and matching income — this has been blocked. Reject this request instead if it is a duplicate.`
+      });
+    }
+
+    if (isUpgrade && (user.status !== 'ACTIVE' || !user.activePackageId)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: `${user.memberId} is not currently an active member, so there is nothing to upgrade. Reject this request and have them submit a fresh package purchase instead.`
       });
     }
 
@@ -159,6 +270,61 @@ exports.approvePackagePurchase = async (req, res) => {
     const authoritativePrice = resolvedPackage.price || purchase.packagePrice;
     const authoritativeKbp = resolvedPackage.kbp || purchase.kbpPoints || 0;
     const dailyCap = resolvedPackage.dailyCap || purchase.dailyBinaryCap || 0;
+
+    // 🚀 UPGRADE path: member is already ACTIVE — just raise their tier/cap.
+    // No new Order/IncomeService run here: per business rules the upgrade
+    // difference does not generate fresh referral or binary matching income,
+    // it only elevates the member's package and daily capping ceiling.
+    if (isUpgrade) {
+      // Re-validate against the member's CURRENT authoritative package price
+      // (not the price captured when they submitted the request) — guards
+      // against two upgrade requests being approved out of order, which
+      // would otherwise silently downgrade them back down.
+      if (authoritativePrice <= (user.packagePrice || 0)) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          success: false,
+          message: `${user.memberId} is already on a package worth ₹${user.packagePrice || 0}, which is the same or higher than this upgrade target (₹${authoritativePrice}). Approving would downgrade them — this has been blocked. Reject this request if it is stale/duplicate.`
+        });
+      }
+
+      purchase.paymentStatus = 'COMPLETED';
+      purchase.activationDate = new Date();
+      await purchase.save({ session });
+
+      const previousPackageName = user.currentPackage;
+      user.currentPackage = resolvedPackage.name;
+      user.packagePrice = authoritativePrice;
+      user.dailyBinaryCap = dailyCap;
+      user.activePackageId = resolvedPackage._id;
+      await user.save({ session });
+
+      await session.commitTransaction();
+      session.endSession();
+
+      try {
+        await Notification.create({
+          userId: user._id,
+          type: 'FINANCIAL',
+          priority: 'HIGH',
+          title: 'Package Upgraded! 🚀',
+          message: `Your package has been upgraded from ${previousPackageName || 'your previous plan'} to ${resolvedPackage.name}. Your daily binary cap is now ₹${dailyCap.toLocaleString('en-IN')}/day.`,
+          icon: '🚀',
+          color: '#16a34a',
+          action: '/member/dashboard',
+          actionLabel: 'Go to Dashboard'
+        });
+      } catch (notifErr) {
+        console.error(`Notification failed for approved upgrade ${purchase._id}:`, notifErr.message);
+      }
+
+      return res.json({
+        success: true,
+        message: `Member ${user.memberId} successfully upgraded to ${resolvedPackage.name}!`,
+        data: { purchase }
+      });
+    }
 
     // 🚀 Activate Member & Bind Package Capping
     purchase.paymentStatus = 'COMPLETED';

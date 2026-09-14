@@ -175,6 +175,9 @@ const PackagesPage = () => {
   const [selectedProductMap, setSelectedProductMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [memberStatus, setMemberStatus] = useState(null);
+  const [activePackageInfo, setActivePackageInfo] = useState(null);
+  const [statusLoading, setStatusLoading] = useState(true);
 
   // 3-Step Modal State: 'REVIEW' | 'PAYMENT' | 'SUCCESS' | null
   const [modalStep, setModalStep] = useState(null);
@@ -252,6 +255,30 @@ const PackagesPage = () => {
   useEffect(() => {
     fetchLivePackages();
   }, [fetchLivePackages]);
+
+  // A member who already holds an active package must go through
+  // "Upgrade Package" to move to a higher tier — this page previously let
+  // anyone submit a brand-new activation purchase regardless of their
+  // current status, so an already-ACTIVE member could "buy" the Starter
+  // Package again with no indication that Buy Package was the wrong place.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setStatusLoading(true);
+        const res = await api.get('/api/users/profile');
+        if (cancelled) return;
+        const profile = res.data?.data?.user;
+        setMemberStatus(profile?.status || 'INACTIVE');
+        setActivePackageInfo(profile?.activePackageId || null);
+      } catch {
+        if (!cancelled) setMemberStatus('INACTIVE');
+      } finally {
+        if (!cancelled) setStatusLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSelectProduct = (pkgKey, product) => {
     setSelectedProductMap((prev) => ({
@@ -379,11 +406,44 @@ const PackagesPage = () => {
     ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(upiUri)}`
     : '';
 
-  if (loading) {
+  if (loading || statusLoading) {
     return (
       <div className={styles.loading}>
         <div className={styles.spinner}></div>
         <p>Loading Membership Packages...</p>
+      </div>
+    );
+  }
+
+  // Already-active members can't re-buy a starter/base package from here —
+  // send them to Upgrade Package instead, which handles moving to a higher
+  // tier and paying only the difference.
+  if (memberStatus === 'ACTIVE') {
+    return (
+      <div className={styles.packagesContainer}>
+        <header className={styles.pageHeader}>
+          <div className={styles.headerTitleWrap}>
+            <span className={styles.headerTag}>🚀 Activation & Upgrades</span>
+            <h1 className={styles.pageTitle}>Membership Packages</h1>
+          </div>
+        </header>
+
+        <div className={styles.alreadyActiveCard}>
+          <div className={styles.alreadyActiveIcon}>✅</div>
+          <h2>You're Already an Active Member</h2>
+          <p>
+            Your ID is currently active on <strong>{activePackageInfo?.name || 'your current package'}</strong>.
+            The Buy Package flow is only for first-time activation — to move to a higher-value package,
+            use Upgrade Package and pay just the difference.
+          </p>
+          <button
+            type="button"
+            className={styles.goToUpgradeBtn}
+            onClick={() => navigate('/member/packages/upgrade')}
+          >
+            Go to Upgrade Package →
+          </button>
+        </div>
       </div>
     );
   }

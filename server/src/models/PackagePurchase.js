@@ -82,6 +82,20 @@ const packagePurchaseSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
+    // Distinguishes a fresh activation from a tier upgrade on an already-ACTIVE
+    // member. Upgrades reuse this same pending-verification/admin-approval
+    // pipeline, but `packagePrice` holds the AMOUNT PAYABLE (the price
+    // difference), not the target package's full price — see
+    // `targetPackagePrice` for that.
+    purchaseType: {
+      type: String,
+      enum: ['NEW', 'UPGRADE'],
+      default: 'NEW'
+    },
+    previousPackageId: { type: String },
+    previousPackageName: { type: String },
+    previousPackagePrice: { type: Number },
+    targetPackagePrice: { type: Number },
     activationDate: {
       type: Date,
       default: Date.now

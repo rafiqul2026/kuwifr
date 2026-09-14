@@ -15,6 +15,7 @@ const adminAuth =
 
 // Member Purchase Request
 router.post('/activate', auth, packagePurchaseController.completePackagePurchase);
+router.post('/upgrade', auth, packagePurchaseController.completePackageUpgrade);
 
 // Admin Management & Analytics
 router.get('/admin-analytics', auth, adminAuth, packagePurchaseController.getAdminPackageAnalytics);
