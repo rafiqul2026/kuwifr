@@ -322,6 +322,88 @@ router.post('/income/reconcile-matching-underpaid', async (req, res, next) => {
   }
 });
 
+// One-time retroactive correction for package Orders whose stored
+// kbpGenerated snapshot no longer matches their Package's CURRENT kbp
+// value — e.g. the Growth Package was misconfigured at 4000 KBP (instead
+// of its correct business-rule value of 5000 KBP) for every activation
+// made before Admin > Package Management was corrected. order.kbpGenerated
+// is normally treated as an immutable point-in-time snapshot (see
+// IncomeService's own comments on why processReferralIncome/matching use
+// it instead of a live catalog lookup) — but that immutability assumes the
+// package's own config was RIGHT at the time the snapshot was taken. When
+// it wasn't, every downstream KBP-based figure for that order (referral,
+// matching, leadership income; turnover/TTO reports; rank volume) has been
+// wrong since day one, for every member in that order's upline — not just
+// the direct sponsor. This brings each affected order's kbpGenerated (and
+// its own products[].kbp line items) up to its package's CURRENT kbp.
+// Run this FIRST, then run POST /income/reconcile-referral-underpaid,
+// POST /income/reconcile-matching, and POST /income/reconcile-matching-
+// underpaid (in that order) — each of those already reads ONLY the order's
+// own kbpGenerated (never the live catalog) and will detect and pay out
+// the resulting shortfall as normal, separately-labeled correction
+// transactions once this snapshot itself is correct. Only touches orders
+// whose recorded kbpGenerated differs from their package's current kbp —
+// idempotent, a second run finds nothing left to fix.
+router.post('/orders/fix-kbp-snapshot', async (req, res, next) => {
+  try {
+    const Order = require('../models/Order');
+    const Package = require('../models/Package');
+
+    const packages = await Package.find({}).select('_id type name kbp').lean();
+    const kbpByPackageId = new Map(packages.map((p) => [String(p._id), p.kbp]));
+
+    const orders = await Order.find({
+      orderType: 'PACKAGE',
+      packageId: { $in: packages.map((p) => p._id) }
+    }).select('orderNumber packageId packageName kbpGenerated products');
+
+    let checked = 0;
+    let corrected = 0;
+    let alreadyCorrect = 0;
+    let skippedNoPackage = 0;
+    const corrections = [];
+
+    for (const order of orders) {
+      checked++;
+      const correctKbp = kbpByPackageId.get(String(order.packageId));
+
+      if (correctKbp === undefined) {
+        skippedNoPackage++;
+        continue;
+      }
+
+      if (Number(order.kbpGenerated) === Number(correctKbp)) {
+        alreadyCorrect++;
+        continue;
+      }
+
+      const previousKbp = order.kbpGenerated;
+      order.kbpGenerated = correctKbp;
+      order.products.forEach((p) => {
+        p.kbp = correctKbp;
+      });
+      order.markModified('products');
+      await order.save();
+
+      corrected++;
+      corrections.push({
+        orderNumber: order.orderNumber,
+        packageName: order.packageName,
+        previousKbp,
+        correctedKbp: correctKbp
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `KBP snapshot correction complete. ${corrected} order(s) corrected across ${checked} package order(s) checked, ${alreadyCorrect} already correct.`,
+      data: { checked, corrected, alreadyCorrect, skippedNoPackage, corrections }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Full, filterable income transaction history for the Admin panel — per the
 // user's explicit request: "PLEASE ADD ALL THE TRANSCTION HISTORY IN ADMIN
 // PANEL. ADMIN SHOULD KNOW WHICH MEMBER GET REFERRAL INCOME FROM WHICH
