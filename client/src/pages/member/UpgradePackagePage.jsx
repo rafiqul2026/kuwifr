@@ -383,6 +383,26 @@ const UpgradePackagePage = () => {
                 </div>
               </div>
 
+              <div className={styles.productsPreviewSection}>
+                <div className={styles.productsPreviewHeader}>
+                  <span>📦 Products Included</span>
+                  <span className={styles.productsPreviewNote}>
+                    {getSelectionMode(pkg.type) === 'ALL' ? 'Member gets both' : 'Member selects 1'}
+                  </span>
+                </div>
+                <ul className={styles.productsPreviewList}>
+                  {getProductsForPackage(pkg).map((product) => (
+                    <li key={product.id}>✅ {product.name}</li>
+                  ))}
+                </ul>
+                <p className={styles.productsPreviewFootnote}>
+                  {getSelectionMode(pkg.type) === 'ALL'
+                    ? 'Both products above are bundled automatically with this package.'
+                    : 'Member can select only one product from the above.'}
+                  {' '}At the time of upgrade, the member receives the product(s) for the package upgraded to.
+                </p>
+              </div>
+
               <div className={styles.cardAction}>
                 {isCurrent && (
                   <button type="button" className={styles.currentBtn} disabled>
