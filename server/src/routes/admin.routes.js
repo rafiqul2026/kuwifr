@@ -663,6 +663,14 @@ router.get('/system/backup', async (req, res, next) => {
   }
 });
 
+// A few member-scoped models key their owner by a field other than
+// `userId` — PackagePurchase uses `user`. Every other model in
+// MEMBER_SCOPED_COLLECTIONS uses `userId` (confirmed against each model
+// file), so this map only needs the exceptions.
+const USER_FIELD_BY_MODEL = {
+  PackagePurchase: 'user'
+};
+
 router.post('/system/factory-reset', async (req, res, next) => {
   try {
     if (req.body?.confirm !== 'DELETE ALL MEMBER DATA') {
@@ -675,12 +683,30 @@ router.post('/system/factory-reset', async (req, res, next) => {
 
     const User = require('../models/User');
     const Campaign = require('../models/Campaign');
+    const BinaryNode = require('../models/BinaryNode');
+
+    // Optional: memberIds to keep instead of deleting — e.g. the one
+    // company/root member (User.isSystemRoot) created before a pre-launch
+    // wipe so every future registration still has a sponsor to register
+    // under. Everything else about these accounts (their own Order/Wallet/
+    // IncomeTransaction/etc. rows) is preserved right along with them.
+    const preserveMemberIds = Array.isArray(req.body?.preserveMemberIds)
+      ? req.body.preserveMemberIds.filter((id) => typeof id === 'string' && id.trim()).map((id) => id.trim().toUpperCase())
+      : [];
+
+    const preserveUsers = preserveMemberIds.length
+      ? await User.find({ memberId: { $in: preserveMemberIds } }).select('_id memberId').lean()
+      : [];
+    const preserveIds = preserveUsers.map((u) => u._id);
+    const preserveIdStrings = new Set(preserveIds.map((id) => String(id)));
 
     const deleted = {};
 
     for (const name of MEMBER_SCOPED_COLLECTIONS) {
       const Model = require(`../models/${name}`);
-      const result = await Model.deleteMany({});
+      const field = USER_FIELD_BY_MODEL[name] || 'userId';
+      const filter = preserveIds.length ? { [field]: { $nin: preserveIds } } : {};
+      const result = await Model.deleteMany(filter);
       deleted[name] = result.deletedCount || 0;
     }
 
@@ -699,8 +725,32 @@ router.post('/system/factory-reset', async (req, res, next) => {
     );
     deleted.CampaignParticipantsCleared = campaignReset.modifiedCount || 0;
 
-    const memberResult = await User.deleteMany({ role: 'MEMBER' });
+    const memberFilter = preserveMemberIds.length
+      ? { role: 'MEMBER', memberId: { $nin: preserveMemberIds } }
+      : { role: 'MEMBER' };
+    const memberResult = await User.deleteMany(memberFilter);
     deleted.User = memberResult.deletedCount || 0;
+
+    // A preserved account's own BinaryNode survives the wipe above (its
+    // userId is in preserveIds), but if it had EXISTING children/parent
+    // that just got deleted (not a concern for a brand-new root with no
+    // downline yet, but kept general-purpose), those links would now point
+    // at nothing. Null out any child/parent reference that no longer
+    // resolves to a preserved account so the tree stays clean.
+    if (preserveIds.length) {
+      for (const id of preserveIds) {
+        const ownNode = await BinaryNode.findOne({ userId: id });
+        if (!ownNode) continue;
+        const updates = {};
+        if (ownNode.parentId && !preserveIdStrings.has(String(ownNode.parentId))) updates.parentId = null;
+        if (ownNode.leftChildId && !preserveIdStrings.has(String(ownNode.leftChildId))) updates.leftChildId = null;
+        if (ownNode.rightChildId && !preserveIdStrings.has(String(ownNode.rightChildId))) updates.rightChildId = null;
+        if (Object.keys(updates).length) {
+          await BinaryNode.updateOne({ _id: ownNode._id }, { $set: updates });
+        }
+      }
+      deleted.preservedMemberIds = preserveUsers.map((u) => u.memberId);
+    }
 
     // Clear the 5-minute dashboard-stats cache so admin dashboard numbers
     // reflect the reset immediately instead of showing stale pre-wipe data
@@ -715,7 +765,8 @@ router.post('/system/factory-reset', async (req, res, next) => {
 
     res.json({
       success: true,
-      message: `Factory reset complete. ${deleted.User} member account(s) and all their related data removed. ` +
+      message: `Factory reset complete. ${deleted.User} member account(s) and all their related data removed` +
+        (preserveUsers.length ? `, ${preserveUsers.length} preserved (${preserveUsers.map((u) => u.memberId).join(', ')}). ` : '. ') +
         'ADMIN/SUPER_ADMIN accounts and Package/Product/Rank/Rule/Setting/Offer/Bonanza/Fund configuration were left untouched.',
       data: deleted
     });

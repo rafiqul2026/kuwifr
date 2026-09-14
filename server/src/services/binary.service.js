@@ -406,6 +406,21 @@ class BinaryService {
       const matchedVolume = matchingUnits * UNIT;
       const grossAmount = matchedVolume * matchingCfg.rate;
 
+      // The company/system-root account (User.isSystemRoot — the account
+      // every new member's registration ultimately traces back to as the
+      // top of the tree) must never itself earn: it deliberately has no
+      // activePackageId, and applyCaps() treats "no package" as UNCAPPED
+      // (see its own comment) rather than zero — so without this guard a
+      // pair completing at the root's own node would silently pay it
+      // real, uncapped money forever. Volume/pairCount bookkeeping above
+      // (node.save()) still runs normally so downline pairing math stays
+      // correct; only the credit (and the rank check it would otherwise
+      // trigger) is skipped here.
+      if (user.isSystemRoot) {
+        console.log(`   Matching pair completed at system-root node ${node._id} — root does not earn; skipping credit.`);
+        return node;
+      }
+
       // Route through the shared income engine so this respects the SAME
       // daily/weekly/monthly package caps as referral/leadership income (not
       // just a bare dailyCap check against this one payout), and so it is

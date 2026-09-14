@@ -107,6 +107,18 @@ class IncomeService {
       return null;
     }
 
+    // The company/system-root account (see User.isSystemRoot) never earns.
+    // It deliberately has no activePackageId so it can sponsor registrations
+    // with no package requirement of its own — but applyCaps() treats "no
+    // package" as UNCAPPED (see that method's own comment), so without this
+    // check every first-level member who registers under it would silently
+    // hand it real, uncapped referral income forever. This account is only
+    // ever a placement anchor, never a payee.
+    if (sponsor.isSystemRoot) {
+      console.log('   Sponsor is the system-root account — it does not earn. Referral income skipped.');
+      return null;
+    }
+
     // KBP Resolution — use the order's OWN recorded kbpGenerated first.
     //
     // CRITICAL FIX: this used to always re-fetch Package.findById(order.packageId)

@@ -79,6 +79,22 @@ const UserSchema = new mongoose.Schema(
       ref: 'User',
       default: null
     },
+    // Marks the one company/root member account every new registration
+    // ultimately traces back to as the top of the binary/referral tree
+    // (registered with no sponsor of its own — see auth.controller.js's
+    // register(), which already places any no-sponsor signup at binary
+    // position 'root'). This flag exists purely so the income engine can
+    // recognize that account and refuse to ever credit it: see
+    // income.service.js#processReferralIncome and
+    // binary.service.js#calculateMatching, both of which check it before
+    // crediting REFERRAL_INCOME / MATCHING_INCOME. Deliberately does NOT
+    // change registration, login, or any other behavior for this account —
+    // it is a normal MEMBER in every other respect.
+    isSystemRoot: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
     referralCode: {
       type: String,
       unique: true,
