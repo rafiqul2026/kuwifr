@@ -523,6 +523,115 @@
   border-radius: 8px;
 }
 
+/* Approve / Reject Confirmation Modal — replaces native window.confirm() /
+   window.prompt(), which return false/null immediately (making the
+   buttons look unresponsive) in many embedded browsers, PWA contexts, and
+   browser-automation tools. */
+.confirmModalBody {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.confirmModalBody p {
+  margin: 0;
+  font-size: 13.5px;
+  color: #1c2a2a;
+  line-height: 1.5;
+}
+
+.confirmModalNote {
+  font-size: 12px !important;
+  color: #737373 !important;
+  background: #fdfaf5;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.confirmModalTextarea {
+  width: 100%;
+  border: 1px solid #d4d4d4;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #1c2a2a;
+  resize: vertical;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.confirmModalTextarea:focus {
+  border-color: #008080;
+  box-shadow: 0 0 0 3px rgba(0, 128, 128, 0.12);
+}
+
+.confirmModalFooter {
+  display: flex;
+  gap: 10px;
+  padding: 14px 20px 20px;
+  border-top: 1px solid #f3f3f3;
+}
+
+.confirmModalCancelBtn {
+  flex: 1;
+  height: 42px;
+  background: #f3f3f3;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #404040;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.confirmModalCancelBtn:hover {
+  background: #e5e5e5;
+}
+
+.confirmModalCancelBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.confirmModalApproveBtn,
+.confirmModalRejectBtn {
+  flex: 1.6;
+  height: 42px;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.confirmModalApproveBtn {
+  background: #059669;
+}
+
+.confirmModalApproveBtn:hover {
+  background: #047857;
+}
+
+.confirmModalRejectBtn {
+  background: #ef4444;
+}
+
+.confirmModalRejectBtn:hover {
+  background: #dc2626;
+}
+
+.confirmModalApproveBtn:disabled,
+.confirmModalRejectBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Loading & Error States */
 .loadingWrapper,
 .errorWrapper {

@@ -1,9 +1,11 @@
 // client/src/pages/admin/AdminPackageAnalyticsPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
+import { useNotification } from '../../hooks/useNotification';
 import styles from './AdminPackageAnalyticsPage.module.css';
 
 const AdminPackageAnalyticsPage = () => {
+  const { showNotification } = useNotification();
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -11,6 +13,14 @@ const AdminPackageAnalyticsPage = () => {
   const [selectedFilter, setSelectedFilter] = useState('ALL');
   const [proofModalUrl, setProofModalUrl] = useState(null);
   const [actionLoadingId, setActionLoadingId] = useState(null);
+  // Native window.confirm()/window.prompt()/alert() were the previous
+  // implementation — these are silently blocked or auto-dismissed in many
+  // embedded browsers, PWA contexts, and browser-automation tools (a
+  // blocked confirm() returns false immediately, making Approve/Reject
+  // look completely unresponsive with no error shown). Replaced with
+  // proper in-app modals that can never be silently suppressed.
+  const [pendingAction, setPendingAction] = useState(null); // { type: 'APPROVE' | 'REJECT', item }
+  const [rejectReason, setRejectReason] = useState('');
 
   const fetchAnalytics = useCallback(async () => {
     try {
@@ -41,44 +51,60 @@ const AdminPackageAnalyticsPage = () => {
       maximumFractionDigits: 0
     }).format(Number(val) || 0);
 
-  // Admin Verification Handlers
-  const handleApprove = async (id, memberId, pkgName, purchaseType) => {
-    const confirmed = window.confirm(
-      purchaseType === 'UPGRADE'
-        ? `Verify and UPGRADE Member ${memberId} to ${pkgName}?\n\nThis will raise their package tier and daily binary cap (member paid the full package price). No referral/matching income or extra KBP is credited for an upgrade.`
-        : `Verify and ACTIVATE Member ${memberId} with ${pkgName}?\n\nThis will mark their account ACTIVE, allocate their KBP, and apply their daily binary cap.`
-    );
-    if (!confirmed) return;
+  // Admin Verification Handlers — open an in-app confirmation modal instead
+  // of a native dialog (see note above on why window.confirm/prompt failed
+  // silently for some admins).
+  const openApproveConfirm = (item) => setPendingAction({ type: 'APPROVE', item });
+  const openRejectConfirm = (item) => {
+    setRejectReason('');
+    setPendingAction({ type: 'REJECT', item });
+  };
+  const closePendingAction = () => {
+    if (actionLoadingId) return; // don't let the backdrop dismiss mid-request
+    setPendingAction(null);
+    setRejectReason('');
+  };
 
-    setActionLoadingId(id);
+  const executeApprove = async () => {
+    const item = pendingAction?.item;
+    if (!item) return;
+
+    setActionLoadingId(item._id);
     try {
-      const res = await api.patch(`/api/package-purchases/approve/${id}`);
+      const res = await api.patch(`/api/package-purchases/approve/${item._id}`);
       if (res.data?.success) {
-        alert(res.data.message || 'Member account activated successfully!');
+        showNotification(res.data.message || 'Member account activated successfully!', 'success');
+        setPendingAction(null);
         fetchAnalytics();
+      } else {
+        showNotification(res.data?.message || 'Failed to approve purchase.', 'error');
       }
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to approve purchase.');
+      showNotification(err.response?.data?.message || 'Failed to approve purchase.', 'error');
     } finally {
       setActionLoadingId(null);
     }
   };
 
-  const handleReject = async (id, memberId) => {
-    const reason = window.prompt(`Enter rejection reason for Member ${memberId}:`);
-    if (reason === null) return;
+  const executeReject = async () => {
+    const item = pendingAction?.item;
+    if (!item) return;
 
-    setActionLoadingId(id);
+    setActionLoadingId(item._id);
     try {
-      const res = await api.patch(`/api/package-purchases/reject/${id}`, {
-        reason: reason.trim() || 'Payment could not be verified in company statement.'
+      const res = await api.patch(`/api/package-purchases/reject/${item._id}`, {
+        reason: rejectReason.trim() || 'Payment could not be verified in company statement.'
       });
       if (res.data?.success) {
-        alert(res.data.message || 'Payment request marked as rejected.');
+        showNotification(res.data.message || 'Payment request marked as rejected.', 'success');
+        setPendingAction(null);
+        setRejectReason('');
         fetchAnalytics();
+      } else {
+        showNotification(res.data?.message || 'Failed to reject purchase.', 'error');
       }
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to reject purchase.');
+      showNotification(err.response?.data?.message || 'Failed to reject purchase.', 'error');
     } finally {
       setActionLoadingId(null);
     }
@@ -307,7 +333,7 @@ const AdminPackageAnalyticsPage = () => {
                         <div className={styles.actionBtnGroup}>
                           <button
                             type="button"
-                            onClick={() => handleApprove(item._id, item.memberId, item.packageName, item.purchaseType)}
+                            onClick={() => openApproveConfirm(item)}
                             disabled={actionLoadingId === item._id}
                             className={styles.approveBtn}
                             title="Confirm payment and activate member account"
@@ -316,7 +342,7 @@ const AdminPackageAnalyticsPage = () => {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleReject(item._id, item.memberId)}
+                            onClick={() => openRejectConfirm(item)}
                             disabled={actionLoadingId === item._id}
                             className={styles.rejectBtn}
                             title="Reject payment request"
@@ -350,6 +376,76 @@ const AdminPackageAnalyticsPage = () => {
             </div>
             <div className={styles.proofModalImgWrap}>
               <img src={proofModalUrl} alt="Member Payment Proof" className={styles.proofModalImg} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approve / Reject Confirmation Modal */}
+      {pendingAction && (
+        <div className={styles.proofModalBackdrop} onClick={closePendingAction}>
+          <div className={styles.proofModalBox} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.proofModalHeader}>
+              <h3>
+                {pendingAction.type === 'APPROVE' ? 'Confirm Activation' : 'Reject Payment Request'}
+              </h3>
+              <button onClick={closePendingAction} className={styles.proofModalClose} disabled={!!actionLoadingId}>
+                ✕
+              </button>
+            </div>
+
+            <div className={styles.confirmModalBody}>
+              {pendingAction.type === 'APPROVE' ? (
+                <>
+                  <p>
+                    {pendingAction.item.purchaseType === 'UPGRADE' ? (
+                      <>Verify and <strong>UPGRADE</strong> Member <strong>{pendingAction.item.memberId}</strong> to <strong>{pendingAction.item.packageName}</strong>?</>
+                    ) : (
+                      <>Verify and <strong>ACTIVATE</strong> Member <strong>{pendingAction.item.memberId}</strong> with <strong>{pendingAction.item.packageName}</strong>?</>
+                    )}
+                  </p>
+                  <p className={styles.confirmModalNote}>
+                    {pendingAction.item.purchaseType === 'UPGRADE'
+                      ? 'This raises their package tier and daily/weekly/monthly binary cap (they paid the full package price). No referral/matching income or extra KBP is credited for an upgrade.'
+                      : 'This marks their account ACTIVE, allocates their KBP, and applies their daily binary cap.'}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p>
+                    Enter a rejection reason for Member <strong>{pendingAction.item.memberId}</strong>:
+                  </p>
+                  <textarea
+                    className={styles.confirmModalTextarea}
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    placeholder="e.g. UTR does not match any transaction in the company bank statement."
+                    rows={4}
+                    autoFocus
+                  />
+                </>
+              )}
+            </div>
+
+            <div className={styles.confirmModalFooter}>
+              <button
+                type="button"
+                className={styles.confirmModalCancelBtn}
+                onClick={closePendingAction}
+                disabled={!!actionLoadingId}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={pendingAction.type === 'APPROVE' ? styles.confirmModalApproveBtn : styles.confirmModalRejectBtn}
+                onClick={pendingAction.type === 'APPROVE' ? executeApprove : executeReject}
+                disabled={!!actionLoadingId}
+              >
+                {actionLoadingId
+                  ? 'Processing...'
+                  : pendingAction.type === 'APPROVE' ? 'Confirm & Approve' : 'Confirm Rejection'}
+              </button>
             </div>
           </div>
         </div>
