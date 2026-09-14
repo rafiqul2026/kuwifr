@@ -47,10 +47,17 @@ const WithdrawalsPage = () => {
   const { user } = useAuth();
   const { showNotification } = useNotification();
 
-  const [availableBalance, setAvailableBalance] = useState(1600);
+  const [availableBalance, setAvailableBalance] = useState(0);
   const [withdrawals, setWithdrawals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  // Live, admin-configurable withdrawal rules (Admin Settings > Commission &
+  // Withdrawal Setup) — previously hardcoded here (500 / 5% / 5%) while the
+  // backend read these dynamically, so an admin changing them had no effect
+  // on what the member actually saw or could submit. Defaults below match
+  // the business rule and only apply until the real settings load.
+  const [withdrawalConfig, setWithdrawalConfig] = useState({ minAmount: 500, adminChargeRate: 0.05, tdsRate: 0.05 });
 
   // Form state initialized to minimum ₹500
   const [amount, setAmount] = useState('500');
@@ -70,23 +77,39 @@ const WithdrawalsPage = () => {
     try {
       setLoading(true);
 
-      const [profileRes, statsRes, historyRes] = await Promise.all([
+      const [profileRes, statsRes, historyRes, settingsRes] = await Promise.all([
         api.get('/api/users/profile').catch(() => null),
         api.get('/api/users/dashboard-stats').catch(() => null),
-        api.get('/api/withdrawals/my-requests').catch(() => null)
+        api.get('/api/withdrawals/my-requests').catch(() => null),
+        api.get('/api/settings').catch(() => null)
       ]);
+
+      const liveWithdrawalConfig = settingsRes?.data?.data?.compensation?.withdrawal;
+      if (liveWithdrawalConfig) {
+        setWithdrawalConfig({
+          minAmount: Number(liveWithdrawalConfig.minAmount ?? 500),
+          adminChargeRate: Number(liveWithdrawalConfig.adminChargeRate ?? 0.05),
+          tdsRate: Number(liveWithdrawalConfig.tdsRate ?? 0.05)
+        });
+      }
 
       const historyList = historyRes?.data?.data || [];
       const safeHistory = Array.isArray(historyList) ? historyList : historyList.withdrawals || [];
 
-      // Restore 1600 if history is empty or use actual balance
+      // Every member's real wallet.incomeBalance, straight from
+      // dashboard-stats — this used to be overwritten with a hardcoded
+      // ₹1,600 "demo" fallback whenever the member had no withdrawal
+      // history yet, so every first-time withdrawer saw the same fake
+      // balance (and could submit a withdrawal request against money they
+      // never earned). No fallback to any nonzero placeholder now — 0 when
+      // genuinely unavailable.
       const rawBalance = statsRes?.data?.data?.walletBalance ?? user?.walletBalance;
-      if (safeHistory.length === 0) {
-        setAvailableBalance(1600);
-      } else {
-        setAvailableBalance(Number(rawBalance ?? 1600));
-      }
+      setAvailableBalance(Number(rawBalance) || 0);
       setWithdrawals(safeHistory);
+
+      if (!statsRes) {
+        showNotification('Could not load your wallet balance. Please refresh.', 'error');
+      }
 
       // Auto-populate bank details into form state
       const profileUser = profileRes?.data?.data?.user || profileRes?.data?.data || user;
@@ -94,7 +117,7 @@ const WithdrawalsPage = () => {
       const kyc = profileUser?.kyc || {};
 
       setFormData({
-        accountHolderName: bank.accountHolderName || bank.accountName || bank.accountHolder || profileUser?.fullName || 'Rubul islam',
+        accountHolderName: bank.accountHolderName || bank.accountName || bank.accountHolder || profileUser?.fullName || '',
         accountNumber: bank.accountNumber || '',
         bankName: bank.bankName || '',
         ifscCode: (bank.ifscCode || '').toUpperCase(),
@@ -112,10 +135,11 @@ const WithdrawalsPage = () => {
     fetchWalletAndProfile();
   }, [fetchWalletAndProfile]);
 
-  // Exact MLM Deductions: 5% TDS + 5% Admin Handling
+  // Deductions computed from the live admin-configured rates (defaults:
+  // 5% TDS + 5% Admin Handling = 10% total, 90% net).
   const numericAmount = Number(amount) || 0;
-  const tdsAmount = Math.round(numericAmount * 0.05);         // 5% TDS
-  const adminCharge = Math.round(numericAmount * 0.05);       // 5% Admin Handling
+  const tdsAmount = Math.round(numericAmount * withdrawalConfig.tdsRate);
+  const adminCharge = Math.round(numericAmount * withdrawalConfig.adminChargeRate);
   const netPayable = Math.max(0, numericAmount - (tdsAmount + adminCharge));
 
   // Real, derived-only summary numbers for the KPI strip — every figure
@@ -144,12 +168,12 @@ const WithdrawalsPage = () => {
     }
   };
 
-  // Validation: Minimum ₹500
+  // Validation: Minimum amount per the live admin-configured setting
   const validateForm = () => {
     const errs = {};
 
-    if (!amount || isNaN(numericAmount) || numericAmount < 500) {
-      errs.amount = 'Minimum withdrawal amount is ₹500';
+    if (!amount || isNaN(numericAmount) || numericAmount < withdrawalConfig.minAmount) {
+      errs.amount = `Minimum withdrawal amount is ₹${withdrawalConfig.minAmount.toLocaleString('en-IN')}`;
     } else if (numericAmount > availableBalance) {
       errs.amount = `Amount exceeds available balance (₹${availableBalance.toLocaleString('en-IN')})`;
     }
@@ -185,7 +209,7 @@ const WithdrawalsPage = () => {
     e.preventDefault();
 
     if (!validateForm()) {
-      showNotification('Please enter at least ₹500 and verify required bank details.', 'warning');
+      showNotification(`Please enter at least ₹${withdrawalConfig.minAmount.toLocaleString('en-IN')} and verify required bank details.`, 'warning');
       return;
     }
 
@@ -307,7 +331,7 @@ const WithdrawalsPage = () => {
                   Withdrawal Amount (₹) <span className={styles.reqStar}>*</span>
                 </label>
                 <span className={styles.rangeHint}>
-                  Min: ₹500 | Max: ₹{availableBalance.toLocaleString('en-IN')}
+                  Min: ₹{withdrawalConfig.minAmount.toLocaleString('en-IN')} | Max: ₹{availableBalance.toLocaleString('en-IN')}
                 </span>
               </div>
 
@@ -362,11 +386,11 @@ const WithdrawalsPage = () => {
                 <strong>₹{numericAmount.toLocaleString('en-IN')}</strong>
               </div>
               <div className={styles.breakdownRow}>
-                <span>TDS Deduction (5%):</span>
+                <span>TDS Deduction ({Math.round(withdrawalConfig.tdsRate * 100)}%):</span>
                 <span className={styles.deductText}>- ₹{tdsAmount.toLocaleString('en-IN')}</span>
               </div>
               <div className={styles.breakdownRow}>
-                <span>Admin Handling (5%):</span>
+                <span>Admin Handling ({Math.round(withdrawalConfig.adminChargeRate * 100)}%):</span>
                 <span className={styles.deductText}>- ₹{adminCharge.toLocaleString('en-IN')}</span>
               </div>
               <div className={styles.breakdownDivider}></div>
@@ -475,7 +499,7 @@ const WithdrawalsPage = () => {
             {/* Submit Action */}
             <button
               type="submit"
-              disabled={submitting || availableBalance < 500}
+              disabled={submitting || availableBalance < withdrawalConfig.minAmount}
               className={styles.submitBtn}
             >
               {submitting ? 'Submitting Request...' : `Submit Request for ₹${numericAmount.toLocaleString('en-IN')}`}

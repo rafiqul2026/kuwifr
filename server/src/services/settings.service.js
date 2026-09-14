@@ -16,7 +16,7 @@ const DEFAULT_COMPENSATION = {
     levelRates: [0.15, 0.10, 0.07, 0.06, 0.05, 0.04, 0.03, 0.02, 0.015, 0.01, 0.005, 0.005, 0.005, 0.005, 0.005],
     unlockLevelsByDirects: [2, 4, 6, 8, 10, 12, 14, 15]
   },
-  withdrawal: { minAmount: 100, adminChargeRate: 0.05, serviceChargeRate: 0.05, tdsRate: 0.05, stopWithdrawals: false, stopWithdrawalsMessage: 'Withdrawals are temporarily paused. Please check back later.' },
+  withdrawal: { minAmount: 500, adminChargeRate: 0.05, serviceChargeRate: 0.05, tdsRate: 0.05, stopWithdrawals: false, stopWithdrawalsMessage: 'Withdrawals are temporarily paused. Please check back later.' },
   franchise: { kspRate: 0.10, kbpLifetimeRate: 0.01 }
 };
 

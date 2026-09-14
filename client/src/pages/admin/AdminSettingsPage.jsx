@@ -37,7 +37,7 @@ const COMPENSATION_DEFAULTS = {
     unlockLevelsByDirects: [2, 4, 6, 8, 10, 12, 14, 15]
   },
   withdrawal: {
-    minAmount: 100,
+    minAmount: 500,
     adminChargeRate: 0.05,
     serviceChargeRate: 0.05,
     tdsRate: 0.05,

@@ -107,7 +107,7 @@ const settingSchema = new mongoose.Schema(
 
       // Withdrawal deductions, applied to the gross amount requested.
       withdrawal: {
-        minAmount: { type: Number, default: 100, min: 0 },
+        minAmount: { type: Number, default: 500, min: 0 },
         adminChargeRate: { type: Number, default: 0.05, min: 0, max: 1 },
         serviceChargeRate: { type: Number, default: 0.05, min: 0, max: 1 },
         tdsRate: { type: Number, default: 0.05, min: 0, max: 1 },

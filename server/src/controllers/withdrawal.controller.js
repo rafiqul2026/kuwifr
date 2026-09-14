@@ -53,8 +53,9 @@ const seedWithdrawalsIfEmpty = async () => {
 
 /**
  * Member: Request Payout / Withdrawal
- * Minimum limit: ₹500
- * Deductions: 5% TDS + 5% Admin Handling Charge
+ * Minimum limit and deduction rates are read live from admin-configurable
+ * settings (SettingsService.getWithdrawal) — defaults: ₹500 minimum,
+ * 5% TDS + 5% Admin Handling Charge (10% total, 90% net to the member).
  */
 const createWithdrawal = async (req, res, next) => {
   try {
@@ -135,27 +136,17 @@ const createWithdrawal = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Please enter a valid IFSC code.' });
     }
 
-    // 3. Verify Wallet Balance
-    let currentBalance = Number(
+    // 3. Verify Wallet Balance — the real, actually-earned balance. This
+    // used to be force-overwritten to a fake ₹1,600 for any member's first
+    // withdrawal request when their real balance was under that amount
+    // (silently writing that fabricated number into wallet.incomeBalance
+    // and user.walletBalance too) — a real member could submit and get
+    // approved for a payout against money they never earned. Removed
+    // entirely; the requested amount is now checked against the member's
+    // genuine balance with no fabrication in either direction.
+    const currentBalance = Number(
       wallet?.incomeBalance ?? wallet?.balance ?? user?.walletBalance ?? 0
     );
-
-    const existingCount = await Withdrawal.countDocuments({
-      $or: [{ userId }, { user: userId }],
-      status: { $in: ['PENDING', 'APPROVED', 'PROCESSED'] }
-    });
-
-    if (existingCount === 0 && currentBalance < 1600) {
-      currentBalance = 1600;
-      if (wallet) {
-        wallet.incomeBalance = 1600;
-        await wallet.save();
-      }
-      if (user) {
-        user.walletBalance = 1600;
-        await user.save();
-      }
-    }
 
     if (currentBalance < requestedAmount) {
       return res.status(400).json({
@@ -164,9 +155,16 @@ const createWithdrawal = async (req, res, next) => {
       });
     }
 
-    // 4. Exact Calculations: 5% TDS + 5% Admin Handling
-    const tdsAmount = Math.round(requestedAmount * 0.05);       // 5% TDS
-    const adminCharge = Math.round(requestedAmount * 0.05);     // 5% Admin Handling
+    // 4. Deductions read live from admin-configurable settings (same
+    // pattern as minAmount above) instead of a hardcoded 5%/5% — this used
+    // to ignore the Admin Settings "Commission & Withdrawal Setup" sliders
+    // entirely, so changing them there silently did nothing to real
+    // withdrawals. Defaults still produce exactly 10% total (5% admin + 5%
+    // TDS), 90% net to the member, matching the business rule.
+    const adminChargeRate = Number(withdrawalSettings.adminChargeRate ?? 0.05);
+    const tdsRate = Number(withdrawalSettings.tdsRate ?? 0.05);
+    const tdsAmount = Math.round(requestedAmount * tdsRate);
+    const adminCharge = Math.round(requestedAmount * adminChargeRate);
     const netAmount = requestedAmount - (tdsAmount + adminCharge);
     const uniqueTxn = `WTH-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 900 + 100)}`;
 
