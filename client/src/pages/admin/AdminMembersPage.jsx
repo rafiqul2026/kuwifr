@@ -17,6 +17,17 @@ const AdminMembersPage = () => {
   const [updatingId, setUpdatingId] = useState(null);
   const [copiedField, setCopiedField] = useState(null);
 
+  // Permanent member deletion — a typed-confirmation modal (must type the
+  // member's exact ID) instead of a plain Yes/No, since this destroys real
+  // wallet/income/order/KYC data with no undo. The backend independently
+  // refuses to run unless the member has zero downline (a direct referral
+  // or a binary-tree child) — deleting a member with an active downline
+  // would corrupt other members' tree placement and income history.
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteError, setDeleteError] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
   const notificationHook = useNotification ? useNotification() : null;
   const notify = (msg, type = 'info') => {
     if (notificationHook && typeof notificationHook.showNotification === 'function') {
@@ -91,6 +102,54 @@ const AdminMembersPage = () => {
       notify(err.response?.data?.message || 'Failed to update member status', 'error');
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const openDeleteConfirm = (member) => {
+    setDeleteTarget(member);
+    setDeleteConfirmText('');
+    setDeleteError(null);
+  };
+
+  const closeDeleteConfirm = () => {
+    if (deleting) return; // don't let the backdrop dismiss mid-request
+    setDeleteTarget(null);
+    setDeleteConfirmText('');
+    setDeleteError(null);
+  };
+
+  const handleDeleteMember = async () => {
+    if (!deleteTarget) return;
+
+    if (deleteConfirmText.trim().toUpperCase() !== String(deleteTarget.memberId || '').toUpperCase()) {
+      setDeleteError(`Type the member's exact ID ("${deleteTarget.memberId}") to confirm.`);
+      return;
+    }
+
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await api.delete(`/api/admin/members/${deleteTarget._id}`, {
+        data: { confirmMemberId: deleteConfirmText.trim() }
+      });
+      if (res.data?.success) {
+        notify(res.data.message || `Member ${deleteTarget.memberId} deleted.`, 'success');
+        setMembers((prev) => prev.filter((m) => m._id !== deleteTarget._id));
+        if (selectedMember && selectedMember._id === deleteTarget._id) {
+          setSelectedMember(null);
+        }
+        setDeleteTarget(null);
+        setDeleteConfirmText('');
+      } else {
+        setDeleteError(res.data?.message || 'Failed to delete member.');
+      }
+    } catch (err) {
+      // The backend's downline-block message (and any other refusal reason)
+      // lands here — shown inline in the modal, not just as a toast, so it
+      // doesn't disappear before the admin has read the full explanation.
+      setDeleteError(err.response?.data?.message || 'Failed to delete member.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -265,6 +324,13 @@ const AdminMembersPage = () => {
                             <option value="SUSPENDED">Suspend</option>
                             <option value="DEACTIVATED">Deactivate</option>
                           </select>
+                          <button
+                            onClick={() => openDeleteConfirm(member)}
+                            className={styles.deleteBtn}
+                            title="Permanently delete this member"
+                          >
+                            🗑️ Delete
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -333,6 +399,13 @@ const AdminMembersPage = () => {
                       <option value="SUSPENDED">Suspend</option>
                       <option value="DEACTIVATED">Deactivate</option>
                     </select>
+                    <button
+                      onClick={() => openDeleteConfirm(member)}
+                      className={styles.deleteBtn}
+                      title="Permanently delete this member"
+                    >
+                      🗑️
+                    </button>
                   </div>
                 </div>
               ))}
@@ -503,11 +576,84 @@ const AdminMembersPage = () => {
                 </select>
               </div>
 
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => openDeleteConfirm(selectedMember)}
+                  className={styles.deleteBtn}
+                  title="Permanently delete this member"
+                >
+                  🗑️ Delete Member
+                </button>
+                <button
+                  onClick={() => setSelectedMember(null)}
+                  className={styles.closeModalBtn}
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal — typed member-ID confirmation, not just
+          Yes/No, since this permanently erases wallet/income/order/KYC data
+          with no undo. */}
+      {deleteTarget && (
+        <div className={styles.modalOverlay} onClick={closeDeleteConfirm}>
+          <div className={styles.deleteModalContent} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div className={styles.modalHeaderInfo}>
+                <div className={styles.avatarLarge} style={{ background: '#fee2e2', color: '#dc2626' }}>
+                  ⚠️
+                </div>
+                <div>
+                  <h2 className={styles.modalName}>Delete {deleteTarget.fullName || 'Member'}?</h2>
+                  <span className={styles.memberIdBadge}>{deleteTarget.memberId}</span>
+                </div>
+              </div>
+              <button onClick={closeDeleteConfirm} className={styles.closeBtn} disabled={deleting}>
+                ✕
+              </button>
+            </div>
+
+            <div className={styles.deleteModalBody}>
+              <p className={styles.deleteWarningText}>
+                This permanently erases this member's wallet, income history, orders, package purchases,
+                withdrawals, KYC documents, and notifications. <strong>This cannot be undone.</strong>
+              </p>
+              <p className={styles.deleteWarningText}>
+                If this member has any downline (a direct referral or a binary-tree child), the deletion
+                will be refused — reassign or remove their downline first, or use <strong>Deactivate</strong> instead
+                if the account just needs to be disabled.
+              </p>
+
+              <label className={styles.deleteConfirmLabel}>
+                Type <strong>{deleteTarget.memberId}</strong> to confirm:
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder={deleteTarget.memberId}
+                className={styles.deleteConfirmInput}
+                autoFocus
+                disabled={deleting}
+              />
+
+              {deleteError && <div className={styles.deleteErrorBox}>{deleteError}</div>}
+            </div>
+
+            <div className={styles.modalFooter}>
+              <button onClick={closeDeleteConfirm} className={styles.closeModalBtn} disabled={deleting}>
+                Cancel
+              </button>
               <button
-                onClick={() => setSelectedMember(null)}
-                className={styles.closeModalBtn}
+                onClick={handleDeleteMember}
+                className={styles.confirmDeleteBtn}
+                disabled={deleting || deleteConfirmText.trim().toUpperCase() !== String(deleteTarget.memberId || '').toUpperCase()}
               >
-                Done
+                {deleting ? 'Deleting...' : 'Permanently Delete'}
               </button>
             </div>
           </div>

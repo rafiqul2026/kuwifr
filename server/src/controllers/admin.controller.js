@@ -1,4 +1,5 @@
 // server/src/controllers/admin.controller.js
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const Order = require('../models/Order');
 const Wallet = require('../models/Wallet');
@@ -8,6 +9,8 @@ const Fund = require('../models/Fund');
 const IncomeService = require('../services/income.service');
 const BinaryService = require('../services/binary.service');
 const BinaryNode = require('../models/BinaryNode');
+const { getFullDownline } = require('../services/downline.service');
+const { logAdminAction } = require('../utils/auditLogger');
 
 /**
  * Get Admin Dashboard Overview Statistics (With Frontend Aliases)
@@ -449,6 +452,184 @@ const getUserById = async (req, res, next) => {
   }
 };
 
+// A member-scoped collection to permanently wipe when a single member is
+// deleted, mirrored from the factory-reset route's MEMBER_SCOPED_COLLECTIONS
+// list (server/src/routes/admin.routes.js) — the same set of collections,
+// keyed by the field that actually points at the User being deleted.
+// PackagePurchase is the one exception that uses `user` instead of `userId`.
+const MEMBER_SCOPED_MODEL_FIELDS = {
+  BinaryNode: 'userId',
+  Franchise: 'userId',
+  FundQualification: 'userId',
+  IncomeTransaction: 'userId',
+  KuwiStar: 'userId',
+  Notification: 'userId',
+  Order: 'userId',
+  PackagePurchase: 'user',
+  RankAchievement: 'userId',
+  Referral: 'userId',
+  SalaryLog: 'userId',
+  TTORecord: 'userId',
+  Ticket: 'userId',
+  Wallet: 'userId',
+  WalletTransaction: 'userId',
+  Withdrawal: 'userId'
+};
+
+/**
+ * DELETE /api/admin/members/:id  (also mounted as /api/admin/users/:id)
+ *
+ * Permanently deletes a member and every collection scoped to them (wallet,
+ * income history, orders, package purchases, KYC — embedded in the User doc
+ * itself — withdrawals, notifications, tickets, franchise/rank/fund/KuwiStar/
+ * salary/TTO records, and their own binary-tree node). This is IRREVERSIBLE.
+ *
+ * Deliberately refuses to run if the member has ANY downline — a direct
+ * referral (someone whose sponsorId points at them), a deeper sponsor-chain
+ * descendant (per downline.service.js#getFullDownline, the same authoritative
+ * check the Inspect panel already shows as "downlineCount"), or a left/right
+ * child in the binary tree. No "promote a child to replace a deleted parent"
+ * logic exists anywhere in this codebase (binary.service.js has repair/
+ * misplacement-fix tools, but nothing that safely removes a live node with
+ * descendants) — allowing that here would silently orphan other members'
+ * binary-tree pointers and corrupt their accumulated matching-income volume.
+ * The admin must reassign/clear the downline first, or use Deactivate/Block
+ * instead for a member who still has an active downline business under them.
+ *
+ * Also requires the request body to include `confirmMemberId` matching the
+ * target's exact memberId (e.g. "KFR471341") — a deliberate typed
+ * confirmation (same pattern as /system/factory-reset's typed phrase) so a
+ * stray click or retried request can never fire this by accident.
+ */
+const deleteMember = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { id } = req.params;
+    const { confirmMemberId } = req.body;
+
+    const user = await User.findById(id).session(session);
+    if (!user) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ success: false, message: 'Member not found' });
+    }
+
+    if (user.role !== 'MEMBER') {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(403).json({ success: false, message: 'Admin/Super Admin accounts cannot be deleted from this panel.' });
+    }
+
+    if (user.isSystemRoot) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(403).json({
+        success: false,
+        message: 'The system root account cannot be deleted — every member\'s tree ultimately traces back to it.'
+      });
+    }
+
+    if (!confirmMemberId || confirmMemberId.trim().toUpperCase() !== String(user.memberId || '').toUpperCase()) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: `Refusing to delete: type the member's exact ID ("${user.memberId}") to confirm.`
+      });
+    }
+
+    // Downline guard — checked three ways for defense in depth: the
+    // authoritative sponsor-chain graph (same computation the Inspect panel
+    // shows), direct referrals by sponsorId, and binary-tree children.
+    const [fullDownline, directReferralCount, ownBinaryNode] = await Promise.all([
+      getFullDownline(user._id),
+      User.countDocuments({ sponsorId: user._id }).session(session),
+      BinaryNode.findOne({ userId: user._id }).session(session)
+    ]);
+
+    const hasBinaryChildren = !!(ownBinaryNode && (ownBinaryNode.leftChildId || ownBinaryNode.rightChildId));
+
+    if (fullDownline.length > 0 || directReferralCount > 0 || hasBinaryChildren) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: `${user.memberId} has ${fullDownline.length} member(s) in their downline` +
+          (hasBinaryChildren ? ' and a binary-tree child' : '') +
+          '. Deleting a member with an active downline would corrupt other members\' tree placement and income history — this has been blocked. ' +
+          'Reassign or remove their downline first, or use Deactivate/Block instead if the account just needs to be disabled.'
+      });
+    }
+
+    const previousData = {
+      memberId: user.memberId,
+      fullName: user.fullName,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      status: user.status,
+      sponsorId: user.sponsorId ? String(user.sponsorId) : null
+    };
+
+    const deletedCounts = {};
+    for (const [modelName, field] of Object.entries(MEMBER_SCOPED_MODEL_FIELDS)) {
+      const Model = require(`../models/${modelName}`);
+      const result = await Model.deleteMany({ [field]: user._id }).session(session);
+      deletedCounts[modelName] = result.deletedCount || 0;
+    }
+
+    // Reopen this member's slot on their binary parent (so a future member
+    // can be placed there) — never touch the parent's accumulated
+    // left/rightVolume, that reflects real, already-credited historical
+    // income and must not be retroactively rewritten.
+    if (user.binaryParentId) {
+      const parentNode = await BinaryNode.findOne({ userId: user.binaryParentId }).session(session);
+      if (parentNode) {
+        const updates = {};
+        if (String(parentNode.leftChildId) === String(user._id)) updates.leftChildId = null;
+        if (String(parentNode.rightChildId) === String(user._id)) updates.rightChildId = null;
+        if (Object.keys(updates).length) {
+          await BinaryNode.updateOne({ _id: parentNode._id }, { $set: updates }).session(session);
+        }
+      }
+    }
+
+    // Decrement the sponsor's denormalized direct-referral count.
+    if (user.sponsorId) {
+      await User.updateOne(
+        { _id: user.sponsorId, directReferrals: { $gt: 0 } },
+        { $inc: { directReferrals: -1 } }
+      ).session(session);
+    }
+
+    await User.deleteOne({ _id: user._id }).session(session);
+
+    await session.commitTransaction();
+    session.endSession();
+
+    logAdminAction({
+      req,
+      action: 'DELETE_MEMBER',
+      module: 'Members',
+      targetId: user._id,
+      previousData,
+      newData: { deletedCounts },
+      status: 'SUCCESS'
+    }).catch((err) => console.error('Audit log failed for member delete:', err.message));
+
+    res.json({
+      success: true,
+      message: `Member ${previousData.memberId} and all related data have been permanently deleted.`,
+      data: { deletedCounts }
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    next(error);
+  }
+};
+
 const initializeSystem = async (req, res, next) => {
   try {
     res.json({
@@ -466,6 +647,7 @@ module.exports = {
   getUserById,
   searchMembersForActivation,
   updateUserStatus,
+  deleteMember,
   activateMemberWithPackage,
   getPendingKYC,
   reviewKYC,

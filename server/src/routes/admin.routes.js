@@ -35,6 +35,13 @@ router.get('/users/:id', adminController.getUserById);
 router.put('/users/:id/status', adminController.updateUserStatus);
 router.put('/members/:id/status', adminController.updateUserStatus);
 
+// Permanent, irreversible member deletion — refuses to run unless the
+// member has zero downline (see adminController.deleteMember for the full
+// safety rationale) and the request body's confirmMemberId matches their
+// exact memberId.
+router.delete('/members/:id', adminController.deleteMember);
+router.delete('/users/:id', adminController.deleteMember);
+
 router.post('/members/:id/activate-package', adminController.activateMemberWithPackage);
 router.post('/package-activations', orderController.activateCashPackage);
 
