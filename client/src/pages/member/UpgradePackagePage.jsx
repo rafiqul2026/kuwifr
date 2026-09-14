@@ -40,7 +40,12 @@ const UpgradePackagePage = () => {
   const [memberStatus, setMemberStatus] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Multi-step modal: 'CONFIRM' | 'PRODUCT' | 'PAYMENT' | 'SUCCESS' | null
+  // Product selection now happens directly on each ladder card (mirrors Buy
+  // Package) — keyed by package id, one entry per card. "Upgrade Package"
+  // only becomes clickable-to-checkout once a product is chosen.
+  const [selectedProductMap, setSelectedProductMap] = useState({});
+
+  // Multi-step modal: 'CONFIRM' | 'PAYMENT' | 'SUCCESS' | null
   const [modalStep, setModalStep] = useState(null);
   const [selectedUpgrade, setSelectedUpgrade] = useState(null);
   const [selectedProducts, setSelectedProducts] = useState([]);
@@ -110,35 +115,53 @@ const UpgradePackagePage = () => {
     fetchUpgradeData();
   }, [fetchUpgradeData]);
 
+  // Life Safe Elite bundles BOTH of its products automatically (no "choose
+  // 1" note in its spec) — pre-fill the selection map for it as soon as the
+  // live catalog loads, so its card renders as "already selected".
+  useEffect(() => {
+    if (packages.length === 0) return;
+    setSelectedProductMap((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      packages.forEach((pkg) => {
+        if (getSelectionMode(pkg.type) === 'ALL' && !next[pkg._id]) {
+          next[pkg._id] = getProductsForPackage(pkg);
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [packages]);
+
+  const handleSelectProductOnCard = (pkgId, pkgType, product) => {
+    if (getSelectionMode(pkgType) === 'ALL') return; // not user-selectable, both are bundled
+    setSelectedProductMap((prev) => ({ ...prev, [pkgId]: [product] }));
+  };
+
+  // Member selects a product on the card first, then clicks "Upgrade
+  // Package" — mirrors Buy Package's flow exactly, rather than asking for
+  // the product choice inside a separate modal step after the fact.
   const handleInitiateUpgrade = (targetPkg) => {
     if (!currentPackage || targetPkg.level <= currentPackage.level) {
       showNotification(`You are already on or above ${targetPkg.name}. Lower tiers cannot be selected.`, 'warning');
       return;
     }
+
+    const chosenProducts = selectedProductMap[targetPkg._id] || [];
+    if (chosenProducts.length === 0) {
+      showNotification(`Please select 1 product for ${targetPkg.name} before upgrading.`, 'warning');
+      return;
+    }
+
     setSelectedUpgrade(targetPkg);
-    // Life Safe Elite bundles both of its products automatically — pre-fill
-    // so its PRODUCT step opens already-selected with nothing to click.
-    setSelectedProducts(getSelectionMode(targetPkg.type) === 'ALL' ? getProductsForPackage(targetPkg) : []);
+    setSelectedProducts(chosenProducts);
     setUtrNumber('');
     setProofPreview('');
     setQrViewMode('DYNAMIC');
     setModalStep('CONFIRM');
   };
 
-  const handleProceedToProductStep = () => {
-    setModalStep('PRODUCT');
-  };
-
-  const handleSelectProduct = (product) => {
-    if (getSelectionMode(selectedUpgrade?.type) === 'ALL') return; // not user-selectable
-    setSelectedProducts([product]);
-  };
-
   const handleProceedToPayment = () => {
-    if (selectedProducts.length === 0) {
-      showNotification('Please select 1 product included with this package.', 'warning');
-      return;
-    }
     setModalStep('PAYMENT');
   };
 
@@ -277,7 +300,6 @@ const UpgradePackagePage = () => {
   }
 
   const isMaxTierAchieved = currentPackage.level >= packages.length;
-  const productStepSelectionMode = selectedUpgrade ? getSelectionMode(selectedUpgrade.type) : 'ONE';
 
   return (
     <div className={styles.upgradeContainer}>
@@ -319,6 +341,9 @@ const UpgradePackagePage = () => {
           const isCurrent = currentPackage.type === pkg.type;
           const isPrevious = pkg.level < currentPackage.level;
           const isEligibleUpgrade = pkg.level > currentPackage.level;
+          const selectionMode = getSelectionMode(pkg.type);
+          const cardSelectedProducts = selectedProductMap[pkg._id] || [];
+          const hasSelection = cardSelectedProducts.length > 0;
 
           return (
             <article
@@ -386,20 +411,46 @@ const UpgradePackagePage = () => {
               <div className={styles.productsPreviewSection}>
                 <div className={styles.productsPreviewHeader}>
                   <span>📦 Products Included</span>
-                  <span className={styles.productsPreviewNote}>
-                    {getSelectionMode(pkg.type) === 'ALL' ? 'Member gets both' : 'Member selects 1'}
-                  </span>
+                  {selectionMode === 'ALL' ? (
+                    <span className={styles.selectedOk}>✓ Both Included</span>
+                  ) : hasSelection ? (
+                    <span className={styles.selectedOk}>✓ 1 Selected</span>
+                  ) : (
+                    <span className={styles.selectedRequired}>* Choose 1</span>
+                  )}
                 </div>
-                <ul className={styles.productsPreviewList}>
-                  {getProductsForPackage(pkg).map((product) => (
-                    <li key={product.id}>✅ {product.name}</li>
-                  ))}
-                </ul>
+
+                <div className={styles.productList}>
+                  {getProductsForPackage(pkg).map((product) => {
+                    const isChecked = selectionMode === 'ALL' || cardSelectedProducts.some((p) => p.id === product.id);
+                    return (
+                      <div
+                        key={product.id}
+                        className={`${styles.productItemCard} ${isChecked ? styles.productItemChecked : ''} ${selectionMode === 'ALL' ? styles.productItemStatic : ''}`}
+                        onClick={() => handleSelectProductOnCard(pkg._id, pkg.type, product)}
+                      >
+                        <input
+                          type={selectionMode === 'ALL' ? 'checkbox' : 'radio'}
+                          name={`upgrade-product-${pkg._id}`}
+                          checked={isChecked}
+                          readOnly={selectionMode === 'ALL'}
+                          onChange={() => handleSelectProductOnCard(pkg._id, pkg.type, product)}
+                          className={styles.radioBtn}
+                        />
+                        <div className={styles.productItemInfo}>
+                          <span className={styles.itemCat}>{product.category}</span>
+                          <h4 className={styles.itemTitle}>{product.name}</h4>
+                        </div>
+                        <div className={styles.selectionCircle}>{isChecked ? '✓' : ''}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+
                 <p className={styles.productsPreviewFootnote}>
-                  {getSelectionMode(pkg.type) === 'ALL'
+                  {selectionMode === 'ALL'
                     ? 'Both products above are bundled automatically with this package.'
-                    : 'Member can select only one product from the above.'}
-                  {' '}At the time of upgrade, the member receives the product(s) for the package upgraded to.
+                    : 'Select 1 product first, then click Upgrade Package below.'}
                 </p>
               </div>
 
@@ -419,10 +470,14 @@ const UpgradePackagePage = () => {
                 {isEligibleUpgrade && (
                   <button
                     type="button"
-                    className={styles.upgradeBtn}
+                    className={`${styles.upgradeBtn} ${!hasSelection ? styles.upgradeBtnDisabled : ''}`}
                     onClick={() => handleInitiateUpgrade(pkg)}
                   >
-                    Upgrade to {pkg.name} (Pay ₹{pkg.price.toLocaleString()}) →
+                    {hasSelection ? (
+                      <span>Upgrade to {pkg.name} (Pay ₹{pkg.price.toLocaleString()}) →</span>
+                    ) : (
+                      <span>Select 1 Product to Upgrade</span>
+                    )}
                   </button>
                 )}
               </div>
@@ -436,12 +491,12 @@ const UpgradePackagePage = () => {
         <div className={styles.modalOverlay} onClick={() => !processing && handleCloseModal()}>
           <div className={styles.modalContainer} onClick={(e) => e.stopPropagation()}>
 
-            {/* STEP 1: CONFIRM UPGRADE */}
+            {/* STEP 1: CONFIRM UPGRADE (product was already chosen on the card) */}
             {modalStep === 'CONFIRM' && (
               <>
                 <div className={styles.modalHeader}>
                   <div>
-                    <span className={styles.modalTag}>Step 1 of 4 · Tier Elevation</span>
+                    <span className={styles.modalTag}>Step 1 of 3 · Tier Elevation</span>
                     <h2>Confirm Package Upgrade</h2>
                   </div>
                   <button type="button" className={styles.closeBtn} onClick={handleCloseModal}>✕</button>
@@ -460,6 +515,29 @@ const UpgradePackagePage = () => {
                       <strong style={{ color: selectedUpgrade.color }}>{selectedUpgrade.name}</strong>
                       <span>₹{selectedUpgrade.price.toLocaleString()}</span>
                     </div>
+                  </div>
+
+                  <div className={styles.chosenProductCard}>
+                    <span className={styles.chosenCardBadge}>
+                      📦 {selectedProducts.length > 1 ? 'Products Included in Package' : 'Selected Product Included in Package'}
+                    </span>
+                    {selectedProducts.map((product, idx) => (
+                      <div
+                        className={styles.chosenProductContent}
+                        style={idx > 0 ? { marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #e5e5e5' } : undefined}
+                        key={product.id || idx}
+                      >
+                        <img src={product.image} alt={product.name} className={styles.chosenProductImg} />
+                        <div className={styles.chosenProductDetails}>
+                          <span className={styles.chosenCat}>{product.category}</span>
+                          <h3 className={styles.chosenTitle}>{product.name}</h3>
+                          <div className={styles.chosenPrices}>
+                            <span><strong>KSP Price:</strong> ₹{product.ksp?.toLocaleString()}</span>
+                            {product.mrp && <span className={styles.chosenMrp}>(MRP: ₹{product.mrp?.toLocaleString()})</span>}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
 
                   <div className={styles.summaryTable}>
@@ -484,99 +562,20 @@ const UpgradePackagePage = () => {
                 </div>
 
                 <div className={styles.modalFooter}>
-                  <button type="button" className={styles.cancelBtn} onClick={handleCloseModal}>Cancel</button>
-                  <button type="button" className={styles.confirmBtn} onClick={handleProceedToProductStep}>
-                    Continue: Choose Product →
-                  </button>
-                </div>
-              </>
-            )}
-
-            {/* STEP 2: CHOOSE INCLUDED PRODUCT(S) (per target package tier) */}
-            {modalStep === 'PRODUCT' && (
-              <>
-                <div className={styles.modalHeader}>
-                  <div>
-                    <span className={styles.modalTag}>Step 2 of 4 · Included Product</span>
-                    <h2>
-                      {productStepSelectionMode === 'ALL'
-                        ? `Both Products Included for ${selectedUpgrade.name}`
-                        : `Select 1 Product for ${selectedUpgrade.name}`}
-                    </h2>
-                  </div>
-                  <button type="button" className={styles.closeBtn} onClick={handleCloseModal}>✕</button>
-                </div>
-
-                <div className={styles.modalBody}>
-                  <div className={styles.productSelectionSection}>
-                    <div className={styles.selectionPromptRow}>
-                      <label className={styles.selectionPromptLabel}>
-                        {productStepSelectionMode === 'ALL'
-                          ? 'Both Products Included (No Selection Needed):'
-                          : 'Select 1 Product (Included in Package):'}
-                      </label>
-                      {productStepSelectionMode === 'ALL' ? (
-                        <span className={styles.selectedOk}>✓ Both Included</span>
-                      ) : selectedProducts.length > 0 ? (
-                        <span className={styles.selectedOk}>✓ 1 Selected</span>
-                      ) : (
-                        <span className={styles.selectedRequired}>* Choose 1</span>
-                      )}
-                    </div>
-
-                    <div className={styles.productList}>
-                      {getProductsForPackage(selectedUpgrade).map((product) => {
-                        const isChecked = productStepSelectionMode === 'ALL' || selectedProducts.some((p) => p.id === product.id);
-                        return (
-                          <div
-                            key={product.id}
-                            className={`${styles.productItemCard} ${isChecked ? styles.productItemChecked : ''} ${productStepSelectionMode === 'ALL' ? styles.productItemStatic : ''}`}
-                            onClick={() => handleSelectProduct(product)}
-                          >
-                            <input
-                              type={productStepSelectionMode === 'ALL' ? 'checkbox' : 'radio'}
-                              name="upgrade-product"
-                              checked={isChecked}
-                              readOnly={productStepSelectionMode === 'ALL'}
-                              onChange={() => handleSelectProduct(product)}
-                              className={styles.radioBtn}
-                            />
-                            <div className={styles.productThumbnail}>
-                              <img src={product.image} alt={product.name} />
-                            </div>
-                            <div className={styles.productItemInfo}>
-                              <span className={styles.itemCat}>{product.category}</span>
-                              <h4 className={styles.itemTitle}>{product.name}</h4>
-                              <div className={styles.itemPrices}>
-                                <span className={styles.kspPrice}>KSP: ₹{product.ksp?.toLocaleString()}</span>
-                                {product.mrp && <span className={styles.mrpPrice}>MRP: ₹{product.mrp?.toLocaleString()}</span>}
-                              </div>
-                            </div>
-                            <div className={styles.selectionCircle}>{isChecked ? '✓' : ''}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                <div className={styles.modalFooter}>
-                  <button type="button" className={styles.cancelBtn} onClick={() => setModalStep('CONFIRM')} disabled={processing}>
-                    ← Back
-                  </button>
+                  <button type="button" className={styles.cancelBtn} onClick={handleCloseModal}>Cancel & Change Product</button>
                   <button type="button" className={styles.confirmBtn} onClick={handleProceedToPayment}>
-                    Proceed to Payment (₹{amountPayable.toLocaleString()}) →
+                    Confirm & Proceed to Pay (₹{amountPayable.toLocaleString()}) →
                   </button>
                 </div>
               </>
             )}
 
-            {/* STEP 3: PAYMENT METHOD & QR / UTR / PROOF UPLOAD */}
+            {/* STEP 2: PAYMENT METHOD & QR / UTR / PROOF UPLOAD */}
             {modalStep === 'PAYMENT' && (
               <>
                 <div className={styles.modalHeader}>
                   <div>
-                    <span className={styles.modalTag}>Step 3 of 4 · SBI Payments QR</span>
+                    <span className={styles.modalTag}>Step 2 of 3 · SBI Payments QR</span>
                     <h2>Scan & Pay to Upgrade</h2>
                   </div>
                   <button type="button" className={styles.closeBtn} onClick={handleCloseModal} disabled={processing}>✕</button>
@@ -738,7 +737,7 @@ const UpgradePackagePage = () => {
                 </div>
 
                 <div className={styles.modalFooter}>
-                  <button type="button" className={styles.cancelBtn} onClick={() => setModalStep('PRODUCT')} disabled={processing}>
+                  <button type="button" className={styles.cancelBtn} onClick={() => setModalStep('CONFIRM')} disabled={processing}>
                     ← Back
                   </button>
                   <button type="button" className={styles.confirmBtn} onClick={handleCompleteUpgrade} disabled={processing}>
@@ -748,7 +747,7 @@ const UpgradePackagePage = () => {
               </>
             )}
 
-            {/* STEP 4: PENDING VERIFICATION RECEIPT */}
+            {/* STEP 3: PENDING VERIFICATION RECEIPT */}
             {modalStep === 'SUCCESS' && (
               <div className={styles.successScreenWrapper}>
                 <div className={styles.pendingHourglassIcon}>⏳</div>

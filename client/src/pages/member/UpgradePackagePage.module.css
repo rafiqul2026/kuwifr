@@ -547,6 +547,18 @@
   background: #e2870a;
 }
 
+/* Needs a product selection first — muted, still clickable (nudges the
+   member to pick a product on the card, mirrors Buy Package). */
+.upgradeBtnDisabled {
+  background: #a3a3a3;
+}
+
+.upgradeBtnDisabled:hover {
+  transform: none;
+  opacity: 0.92;
+  background: #a3a3a3;
+}
+
 .currentBtn,
 .lockedBtn {
   width: 100%;
@@ -652,6 +664,75 @@
   padding: 12px 16px;
   border-radius: 12px;
   border: 1px solid #e5e5e5;
+}
+
+/* Chosen Product Review Card (Step 1) — shows the product(s) the member
+   already selected on the card, same treatment as Buy Package's review. */
+.chosenProductCard {
+  background: #fdfaf5;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.chosenCardBadge {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #008080;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 8px;
+}
+
+.chosenProductContent {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chosenProductImg {
+  width: 58px;
+  height: 58px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+}
+
+.chosenProductDetails {
+  flex: 1;
+  min-width: 0;
+}
+
+.chosenCat {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #737373;
+  text-transform: uppercase;
+}
+
+.chosenTitle {
+  margin: 2px 0 4px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1c2a2a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chosenPrices {
+  font-size: 12.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chosenMrp {
+  color: #a3a3a3;
+  text-decoration: line-through;
+  font-size: 11px;
 }
 
 .visualNode {
