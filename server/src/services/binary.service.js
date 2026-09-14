@@ -459,37 +459,23 @@ class BinaryService {
       } else if (grossAmount > 0) {
         // A REAL pair just matched (node.matchingVolume/pairCount above were
         // already saved) but the member's daily/weekly/monthly package cap
-        // left zero room to actually pay it — previously this branch simply
-        // did nothing, so a member's "Total KBP Match" could grow for real
-        // while their income stayed ₹0 forever with NO record anywhere of
-        // why. Record it as a FAILED (₹0-credited) IncomeTransaction with
-        // the cap breakdown attached, so this is now auditable from the
-        // Admin Income Report instead of invisible.
-        try {
-          const IncomeTransaction = require('../models/IncomeTransaction');
-          const WalletService = require('./wallet.service');
-          const fallbackWallet = await WalletService.getOrCreateWallet(user._id);
-          await IncomeTransaction.create({
-            userId: user._id,
-            transactionId: `MATCH-CAPPED-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`.toUpperCase(),
-            type: 'MATCHING_INCOME',
-            sourceId: node._id,
-            sourceModel: 'BinaryNode',
-            kbp: matchedVolume,
-            rate: matchingCfg.rate,
-            grossAmount,
-            capAdjustment: grossAmount,
-            creditedAmount: 0,
-            walletType: 'INCOME',
-            walletId: fallbackWallet._id,
-            status: 'FAILED',
-            processedAt: new Date(),
-            capBreakdown: cappedResult.capBreakdown,
-            metadata: { pairCount: matchingUnits, unitValue: UNIT, failureReason: 'CAPPED_TO_ZERO — daily/weekly/monthly package cap already exhausted', ...triggerMeta }
-          });
-        } catch (logError) {
-          console.error('   Failed to record capped-to-zero matching income:', logError.message);
-        }
+        // left zero room to actually pay it — record it as a FAILED
+        // (₹0-credited) IncomeTransaction with the cap breakdown attached,
+        // so this is auditable from the Admin Income Report instead of
+        // invisible. Same helper every other income type (referral,
+        // franchise overrides, leadership bonus) now uses for this exact
+        // case — see IncomeService.recordCappedToZero for the full history.
+        await IncomeService.recordCappedToZero(
+          user._id,
+          'MATCHING_INCOME',
+          node._id,
+          'BinaryNode',
+          matchedVolume,
+          matchingCfg.rate,
+          grossAmount,
+          cappedResult.capBreakdown,
+          { pairCount: matchingUnits, unitValue: UNIT, ...triggerMeta }
+        );
       }
 
       // Rank & Reward starts from 1st Pair Matching only — re-evaluate through

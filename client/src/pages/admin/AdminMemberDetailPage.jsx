@@ -169,7 +169,7 @@ const AdminMemberDetailPage = () => {
           <dl className={styles.detailList}>
             <div><dt>Sponsor</dt><dd>{user.sponsorId ? `${user.sponsorId.fullName} (${user.sponsorId.memberId})` : '—'}</dd></div>
             <div><dt>Active Package</dt><dd>{user.activePackageId ? user.activePackageId.name : 'No active package'}</dd></div>
-            <div><dt>Total KBP</dt><dd>{(user.totalKBP || 0).toLocaleString('en-IN')}</dd></div>
+            <div><dt>Total KBP</dt><dd>{(binaryNode?.totalKBP || user.totalKBP || 0).toLocaleString('en-IN')}</dd></div>
             <div><dt>Binary Side</dt><dd>{user.binarySide || '—'}</dd></div>
             <div><dt>Joined</dt><dd>{formatDate(user.createdAt)}</dd></div>
             <div><dt>Email Verified</dt><dd>{user.isEmailVerified ? 'Yes' : 'No'}</dd></div>

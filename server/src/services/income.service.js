@@ -195,6 +195,46 @@ class IncomeService {
     // Apply caps
     const cappedResult = await this.applyCaps(sponsor._id, grossAmount);
 
+    const referralMetadata = {
+      sponsoredUserId: userId,
+      sponsoredEmail: user.email,
+      sponsoredMemberId: user.memberId,
+      sponsoredFullName: user.fullName,
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      packageId: order.packageId,
+      packageName: order.packageName
+    };
+
+    // A real referral event happened (grossAmount > 0) but the sponsor's own
+    // daily/weekly/monthly package cap left zero room to pay it — record a
+    // FAILED (₹0-credited) transaction instead of silently doing nothing, so
+    // this is auditable rather than a referral that just vanishes with no
+    // trace (this was the exact bug: a sponsor's highest-value referral
+    // credit could disappear entirely while smaller ones earlier the same
+    // day still paid out).
+    if (cappedResult.allowedAmount <= 0) {
+      await this.recordCappedToZero(
+        sponsor._id,
+        'REFERRAL_INCOME',
+        order._id,
+        'Order',
+        effectiveKbp,
+        rate,
+        grossAmount,
+        cappedResult.capBreakdown,
+        referralMetadata
+      );
+
+      return {
+        type: 'REFERRAL_INCOME',
+        sponsorId: sponsor._id,
+        grossAmount,
+        allowedAmount: 0,
+        excess: cappedResult.excess
+      };
+    }
+
     // Credit to wallet
     //
     // TRANSACTION HISTORY DETAIL: per the user's explicit request ("ADMIN
@@ -215,23 +255,14 @@ class IncomeService {
       'Order',
       effectiveKbp,
       rate,
-      {
-        sponsoredUserId: userId,
-        sponsoredEmail: user.email,
-        sponsoredMemberId: user.memberId,
-        sponsoredFullName: user.fullName,
-        orderId: order._id,
-        orderNumber: order.orderNumber,
-        packageId: order.packageId,
-        packageName: order.packageName
-      }
+      referralMetadata
     );
 
     // Store cap breakdown & correct gross amounts
     if (creditResult && creditResult.transaction) {
       await IncomeTransaction.findByIdAndUpdate(
         creditResult.transaction._id,
-        { 
+        {
           capBreakdown: cappedResult.capBreakdown,
           grossAmount: grossAmount,
           capAdjustment: grossAmount - cappedResult.allowedAmount
@@ -397,17 +428,24 @@ class IncomeService {
       if (!alreadyActivated && rates.kspRate > 0) {
         const grossActivation = kbp * rates.kspRate;
         const cappedActivation = await this.applyCaps(franchise.userId, grossActivation);
-        const activationCredit = await this.creditIncome(
-          franchise.userId,
-          cappedActivation.allowedAmount,
-          'FRANCHISE_ACTIVATION_OVERRIDE',
-          order._id,
-          'Order',
-          kbp,
-          rates.kspRate,
-          { territoryUserId: userId, orderId: order._id }
-        );
-        if (activationCredit) results.push({ type: 'FRANCHISE_ACTIVATION_OVERRIDE', franchiseId: franchise.userId, grossAmount: grossActivation, allowedAmount: cappedActivation.allowedAmount });
+        if (cappedActivation.allowedAmount > 0) {
+          const activationCredit = await this.creditIncome(
+            franchise.userId,
+            cappedActivation.allowedAmount,
+            'FRANCHISE_ACTIVATION_OVERRIDE',
+            order._id,
+            'Order',
+            kbp,
+            rates.kspRate,
+            { territoryUserId: userId, orderId: order._id }
+          );
+          if (activationCredit) results.push({ type: 'FRANCHISE_ACTIVATION_OVERRIDE', franchiseId: franchise.userId, grossAmount: grossActivation, allowedAmount: cappedActivation.allowedAmount });
+        } else {
+          await this.recordCappedToZero(
+            franchise.userId, 'FRANCHISE_ACTIVATION_OVERRIDE', order._id, 'Order', kbp, rates.kspRate,
+            grossActivation, cappedActivation.capBreakdown, { territoryUserId: userId, orderId: order._id }
+          );
+        }
       }
 
       // Ongoing per-order KBP override — guarded against the same order
@@ -422,17 +460,24 @@ class IncomeService {
       if (!alreadyCreditedForOrder && rates.kbpLifetimeRate > 0) {
         const grossKbp = kbp * rates.kbpLifetimeRate;
         const cappedKbp = await this.applyCaps(franchise.userId, grossKbp);
-        const kbpCredit = await this.creditIncome(
-          franchise.userId,
-          cappedKbp.allowedAmount,
-          'FRANCHISE_KBP_OVERRIDE',
-          order._id,
-          'Order',
-          kbp,
-          rates.kbpLifetimeRate,
-          { territoryUserId: userId, orderId: order._id }
-        );
-        if (kbpCredit) results.push({ type: 'FRANCHISE_KBP_OVERRIDE', franchiseId: franchise.userId, grossAmount: grossKbp, allowedAmount: cappedKbp.allowedAmount });
+        if (cappedKbp.allowedAmount > 0) {
+          const kbpCredit = await this.creditIncome(
+            franchise.userId,
+            cappedKbp.allowedAmount,
+            'FRANCHISE_KBP_OVERRIDE',
+            order._id,
+            'Order',
+            kbp,
+            rates.kbpLifetimeRate,
+            { territoryUserId: userId, orderId: order._id }
+          );
+          if (kbpCredit) results.push({ type: 'FRANCHISE_KBP_OVERRIDE', franchiseId: franchise.userId, grossAmount: grossKbp, allowedAmount: cappedKbp.allowedAmount });
+        } else {
+          await this.recordCappedToZero(
+            franchise.userId, 'FRANCHISE_KBP_OVERRIDE', order._id, 'Order', kbp, rates.kbpLifetimeRate,
+            grossKbp, cappedKbp.capBreakdown, { territoryUserId: userId, orderId: order._id }
+          );
+        }
       }
 
       return results.length > 0 ? { type: 'FRANCHISE_OVERRIDE', franchiseId: franchise.userId, entries: results } : null;
@@ -535,6 +580,11 @@ class IncomeService {
             }
 
             results.push({ type: `LEADERSHIP_INCOME_L${level}`, userId: sponsor._id, level, grossAmount, allowedAmount: cappedResult.allowedAmount });
+          } else {
+            await this.recordCappedToZero(
+              sponsor._id, `LEADERSHIP_INCOME_L${level}`, sourceNodeId, 'BinaryNode', matchingAmount, rate,
+              grossAmount, cappedResult.capBreakdown, { sourceUserId: leaderUserId, level }
+            );
           }
         }
       }
@@ -635,6 +685,48 @@ class IncomeService {
     const day = d.getDay();
     const diff = d.getDate() - day + (day === 0 ? -6 : 1);
     return new Date(d.setDate(diff));
+  }
+
+  /**
+   * Records a ₹0-credited FAILED IncomeTransaction when a real income event
+   * (a referral, a franchise override, a leadership bonus — matching income
+   * already had its own copy of this exact logic in
+   * binary.service.js#calculateMatching) was fully absorbed by the
+   * recipient's daily/weekly/monthly package cap. Previously every type
+   * EXCEPT matching income just silently dropped this case: the event was
+   * real (a referral/override genuinely happened) but paid ₹0 with no
+   * record anywhere explaining why — a sponsor's Income Stream history
+   * could show 4 referral credits when a 5th one genuinely happened and
+   * vanished without a trace, and no admin report could ever explain the
+   * gap. Call this whenever applyCaps() returns allowedAmount 0 for a
+   * nonzero grossAmount, right where the caller would otherwise have
+   * called creditIncome() with a 0.
+   */
+  async recordCappedToZero(userId, type, sourceId, sourceModel, kbp, rate, grossAmount, capBreakdown, metadata = {}) {
+    if (!grossAmount || grossAmount <= 0) return; // nothing was actually earned — no event to record
+    try {
+      const fallbackWallet = await WalletService.getOrCreateWallet(userId);
+      await IncomeTransaction.create({
+        userId,
+        transactionId: this.generateTransactionId(),
+        type,
+        sourceId,
+        sourceModel,
+        kbp,
+        rate,
+        grossAmount,
+        capAdjustment: grossAmount,
+        creditedAmount: 0,
+        walletType: ['REFERRAL_INCOME', 'MATCHING_INCOME', 'LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3', 'FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE'].includes(type) ? 'INCOME' : 'REPURCHASE',
+        walletId: fallbackWallet._id,
+        status: 'FAILED',
+        processedAt: new Date(),
+        capBreakdown,
+        metadata: { ...metadata, failureReason: 'CAPPED_TO_ZERO — daily/weekly/monthly package cap already exhausted' }
+      });
+    } catch (logError) {
+      console.error(`   ❌ Failed to record capped-to-zero ${type} transaction:`, logError.message);
+    }
   }
 
   // ============ INCOME CREDITING ============

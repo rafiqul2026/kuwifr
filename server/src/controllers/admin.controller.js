@@ -84,11 +84,35 @@ const getAllUsers = async (req, res, next) => {
       User.countDocuments(query)
     ]);
 
+    // The "Total KBP" / "Lifetime Income" columns this list renders were
+    // previously read straight off User.totalKBP/User.lifetimeIncome —
+    // fields that either no live activation path ever writes (totalKBP,
+    // stuck at its registration-time default of 0 for essentially every
+    // real member) or that duplicate a value already reliably tracked
+    // elsewhere and can drift out of sync (lifetimeIncome vs the wallet).
+    // Join in the actual authoritative source for each instead: Wallet
+    // .totalIncome (every real income credit increments this, nothing
+    // else does) and BinaryNode.totalKBP (incremented on every KBP-
+    // generating order that reaches this member's own node).
+    const userIds = users.map((u) => u._id);
+    const [wallets, binaryNodes] = await Promise.all([
+      Wallet.find({ userId: { $in: userIds } }).select('userId totalIncome').lean(),
+      BinaryNode.find({ userId: { $in: userIds } }).select('userId totalKBP').lean()
+    ]);
+    const incomeByUser = new Map(wallets.map((w) => [String(w.userId), w.totalIncome || 0]));
+    const kbpByUser = new Map(binaryNodes.map((n) => [String(n.userId), n.totalKBP || 0]));
+
+    const enrichedUsers = users.map((u) => ({
+      ...u,
+      lifetimeIncome: incomeByUser.get(String(u._id)) ?? 0,
+      totalKBP: kbpByUser.get(String(u._id)) ?? 0
+    }));
+
     res.json({
       success: true,
       data: {
-        members: users || [],
-        users: users || [],
+        members: enrichedUsers,
+        users: enrichedUsers,
         pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) || 1 }
       }
     });
