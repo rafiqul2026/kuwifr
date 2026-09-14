@@ -192,9 +192,6 @@ class IncomeService {
       return null;
     }
 
-    // Apply caps
-    const cappedResult = await this.applyCaps(sponsor._id, grossAmount);
-
     const referralMetadata = {
       sponsoredUserId: userId,
       sponsoredEmail: user.email,
@@ -206,50 +203,18 @@ class IncomeService {
       packageName: order.packageName
     };
 
-    // A real referral event happened (grossAmount > 0) but the sponsor's own
-    // daily/weekly/monthly package cap left zero room to pay it — record a
-    // FAILED (₹0-credited) transaction instead of silently doing nothing, so
-    // this is auditable rather than a referral that just vanishes with no
-    // trace (this was the exact bug: a sponsor's highest-value referral
-    // credit could disappear entirely while smaller ones earlier the same
-    // day still paid out).
-    if (cappedResult.allowedAmount <= 0) {
-      await this.recordCappedToZero(
-        sponsor._id,
-        'REFERRAL_INCOME',
-        order._id,
-        'Order',
-        effectiveKbp,
-        rate,
-        grossAmount,
-        cappedResult.capBreakdown,
-        referralMetadata
-      );
-
-      return {
-        type: 'REFERRAL_INCOME',
-        sponsorId: sponsor._id,
-        grossAmount,
-        allowedAmount: 0,
-        excess: cappedResult.excess
-      };
-    }
-
-    // Credit to wallet
-    //
-    // TRANSACTION HISTORY DETAIL: per the user's explicit request ("ADMIN
-    // SHOULD KNOW WHICH MEMBER GET REFERRAL INCOME FROM WHICH MEMBER WITH
-    // DATE AND TIME"), this metadata is what both the member-facing Income
-    // Stream history and the Admin Income History view read to show WHO
-    // generated this credit, on WHICH package, at WHAT KBP value — sourced
-    // from `order.packageName`/`order.orderNumber`, the same kind of
-    // immutable order-time snapshot as `order.kbpGenerated` above (never a
-    // live/mutable lookup, for the same reason effectiveKbp isn't one).
-    // `createdAt` (when this credit happened) is already a standard
-    // IncomeTransaction timestamp field — no separate date/time field needed.
+    // Direct Referral Income is UNLIMITED — explicit business rule ("Direct
+    // Referral Income will get Unlimited, There is no limit to earn Direct
+    // Referral Income"). No applyCaps() call here at all: this used to be
+    // capped against the sponsor's own package daily/weekly/monthly ceiling,
+    // pooled together with matching/leadership income, which is exactly
+    // what silently dropped a sponsor's highest-value referral credit with
+    // zero trace once their cap for the day was already exhausted by
+    // matching income. Matching income (and only matching income) keeps its
+    // own package-tier cap — see BinaryService.calculateMatching.
     const creditResult = await this.creditIncome(
       sponsor._id,
-      cappedResult.allowedAmount,
+      grossAmount,
       'REFERRAL_INCOME',
       order._id,
       'Order',
@@ -258,24 +223,12 @@ class IncomeService {
       referralMetadata
     );
 
-    // Store cap breakdown & correct gross amounts
-    if (creditResult && creditResult.transaction) {
-      await IncomeTransaction.findByIdAndUpdate(
-        creditResult.transaction._id,
-        {
-          capBreakdown: cappedResult.capBreakdown,
-          grossAmount: grossAmount,
-          capAdjustment: grossAmount - cappedResult.allowedAmount
-        }
-      );
-    }
-
     return {
       type: 'REFERRAL_INCOME',
       sponsorId: sponsor._id,
       grossAmount,
-      allowedAmount: cappedResult.allowedAmount,
-      excess: cappedResult.excess
+      allowedAmount: creditResult ? grossAmount : 0,
+      excess: 0
     };
   }
 
@@ -427,7 +380,10 @@ class IncomeService {
 
       if (!alreadyActivated && rates.kspRate > 0) {
         const grossActivation = kbp * rates.kspRate;
-        const cappedActivation = await this.applyCaps(franchise.userId, grossActivation);
+        // Isolated cap bucket, shared between the two franchise override
+        // types only — never pooled with the recipient's own (unlimited)
+        // referral income or their matching income cap room.
+        const cappedActivation = await this.applyCaps(franchise.userId, grossActivation, ['FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE']);
         if (cappedActivation.allowedAmount > 0) {
           const activationCredit = await this.creditIncome(
             franchise.userId,
@@ -459,7 +415,7 @@ class IncomeService {
 
       if (!alreadyCreditedForOrder && rates.kbpLifetimeRate > 0) {
         const grossKbp = kbp * rates.kbpLifetimeRate;
-        const cappedKbp = await this.applyCaps(franchise.userId, grossKbp);
+        const cappedKbp = await this.applyCaps(franchise.userId, grossKbp, ['FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE']);
         if (cappedKbp.allowedAmount > 0) {
           const kbpCredit = await this.creditIncome(
             franchise.userId,
@@ -558,7 +514,10 @@ class IncomeService {
         const sponsorRank = await RankService.getCurrentRank(sponsor._id);
         if (sponsorRank && sponsorRank.level >= minRank.level) {
           const grossAmount = matchingAmount * rate;
-          const cappedResult = await this.applyCaps(sponsor._id, grossAmount);
+          // Isolated cap bucket shared across all 3 leadership levels — not
+          // pooled with the recipient's own (unlimited) referral income or
+          // their matching income cap room.
+          const cappedResult = await this.applyCaps(sponsor._id, grossAmount, ['LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3']);
 
           if (cappedResult.allowedAmount > 0) {
             const creditResult = await this.creditIncome(
@@ -634,7 +593,25 @@ class IncomeService {
 
   // ============ CAPPING ENGINE ============
 
-  async applyCaps(userId, income) {
+  /**
+   * Daily/weekly/monthly capping against the recipient's own active
+   * package's dailyCap/weeklyCap/monthlyCap.
+   *
+   * `types` (array of IncomeTransaction.type values, e.g. ['MATCHING_INCOME'])
+   * scopes what counts as "already consumed" toward this cap to ONLY that
+   * bucket of income types — each capped income category (matching,
+   * leadership, franchise overrides) gets its own isolated cap room, rather
+   * than every type competing for one shared pool. This matters a lot now
+   * that Direct Referral Income is explicitly UNLIMITED (per business rule:
+   * "Direct Referral Income will get Unlimited, There is no limit to earn
+   * Direct Referral Income" — processReferralIncome no longer calls this
+   * method at all) — if referral still shared a blended "any type" bucket
+   * with capped types, a member's own (now-unlimited) referral earnings
+   * would spuriously eat into their matching/leadership/franchise cap room,
+   * which is exactly backwards from the stated rule. Omit `types` only for
+   * legacy callers not yet migrated to an isolated bucket.
+   */
+  async applyCaps(userId, income, types = null) {
     const user = await User.findById(userId);
     if (!user || !user.activePackageId) {
       return { allowedAmount: income, excess: 0, capBreakdown: { daily: { consumed: 0, remaining: Infinity, cap: Infinity }, weekly: { consumed: 0, remaining: Infinity, cap: Infinity }, monthly: { consumed: 0, remaining: Infinity, cap: Infinity } } };
@@ -650,9 +627,9 @@ class IncomeService {
     const weekStart = this.getWeekStart(now);
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const dailyConsumed = await this.getConsumedIncome(userId, today, now);
-    const weeklyConsumed = await this.getConsumedIncome(userId, weekStart, now);
-    const monthlyConsumed = await this.getConsumedIncome(userId, monthStart, now);
+    const dailyConsumed = await this.getConsumedIncome(userId, today, now, types);
+    const weeklyConsumed = await this.getConsumedIncome(userId, weekStart, now, types);
+    const monthlyConsumed = await this.getConsumedIncome(userId, monthStart, now, types);
 
     const dailyRemaining = Math.max(0, pkg.dailyCap - dailyConsumed);
     const weeklyRemaining = Math.max(0, pkg.weeklyCap - weeklyConsumed);
@@ -672,9 +649,13 @@ class IncomeService {
     };
   }
 
-  async getConsumedIncome(userId, startDate, endDate) {
+  async getConsumedIncome(userId, startDate, endDate, types = null) {
+    const match = { userId: userId, status: 'CREDITED', createdAt: { $gte: startDate, $lte: endDate } };
+    if (Array.isArray(types) && types.length > 0) {
+      match.type = { $in: types };
+    }
     const result = await IncomeTransaction.aggregate([
-      { $match: { userId: userId, status: 'CREDITED', createdAt: { $gte: startDate, $lte: endDate } } },
+      { $match: match },
       { $group: { _id: null, total: { $sum: '$creditedAmount' } } }
     ]);
     return result.length > 0 ? result[0].total : 0;
@@ -1083,16 +1064,14 @@ class IncomeService {
           continue;
         }
 
-        const cappedResult = await this.applyCaps(tx.userId, shortfall);
-        if (cappedResult.allowedAmount <= 0) {
-          // Genuinely nothing payable right now (cap exhausted) — not an
-          // error, just not payable today. Leave it for a future run.
-          continue;
-        }
-
+        // Direct Referral Income is UNLIMITED — no applyCaps() call here,
+        // same as the live processReferralIncome path. This correction used
+        // to be capped like every other income type, which would have left
+        // a referral top-up stuck "not payable" against a cap that no
+        // longer applies to referral income at all.
         const creditResult = await this.creditIncome(
           tx.userId,
-          cappedResult.allowedAmount,
+          shortfall,
           'REFERRAL_INCOME',
           order._id,
           'Order',
@@ -1115,7 +1094,7 @@ class IncomeService {
             originalTransactionId: tx.transactionId,
             originalAmount: tx.grossAmount,
             correctAmount: correctGross,
-            topUpCredited: cappedResult.allowedAmount
+            topUpCredited: shortfall
           });
         }
       } catch (err) {
@@ -1226,10 +1205,21 @@ class IncomeService {
           continue;
         }
 
-        // Re-check against the CURRENT cap state (today's, not the day the
-        // original transaction was capped) — this is what makes it a
-        // rollover instead of a one-time fix.
-        const cappedResult = await this.applyCaps(root.userId, remaining);
+        // Direct Referral Income is UNLIMITED — pay the full remaining
+        // amount with no cap check at all. Every other capped type is
+        // re-checked against the CURRENT cap state (today's, not the day
+        // the original transaction was capped) — this is what makes it a
+        // rollover instead of a one-time fix — scoped to its own isolated
+        // bucket (never pooled with referral or with each other).
+        let cappedResult;
+        if (root.type === 'REFERRAL_INCOME') {
+          cappedResult = { allowedAmount: remaining, excess: 0, capBreakdown: null };
+        } else {
+          const bucket = root.type === 'MATCHING_INCOME'
+            ? ['MATCHING_INCOME']
+            : ['LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3'];
+          cappedResult = await this.applyCaps(root.userId, remaining, bucket);
+        }
 
         if (cappedResult.allowedAmount <= 0) {
           // Genuinely no room today — not an error, just not payable yet.

@@ -421,14 +421,18 @@ class BinaryService {
         return node;
       }
 
-      // Route through the shared income engine so this respects the SAME
-      // daily/weekly/monthly package caps as referral/leadership income (not
-      // just a bare dailyCap check against this one payout), and so it is
-      // recorded as an IncomeTransaction (income history/reports/admin
-      // reports previously never saw binary matching income at all, since it
-      // was credited by mutating wallet fields directly).
+      // Route through the shared income engine so this respects the
+      // member's own package daily/weekly/monthly cap (not just a bare
+      // dailyCap check against this one payout), and so it is recorded as
+      // an IncomeTransaction (income history/reports/admin reports
+      // previously never saw binary matching income at all, since it was
+      // credited by mutating wallet fields directly). Scoped to
+      // ['MATCHING_INCOME'] only — Direct Referral Income is explicitly
+      // UNLIMITED (see processReferralIncome) and must never compete with
+      // matching income for the same cap room; matching income is the only
+      // income type actually capped by the member's own package tier.
       const IncomeService = require('./income.service');
-      const cappedResult = await IncomeService.applyCaps(user._id, grossAmount);
+      const cappedResult = await IncomeService.applyCaps(user._id, grossAmount, ['MATCHING_INCOME']);
 
       if (cappedResult.allowedAmount > 0) {
         const creditResult = await IncomeService.creditIncome(
@@ -1004,7 +1008,7 @@ class BinaryService {
         const shortfallKbp = shortfallUnits * UNIT;
         const grossAmount = shortfallKbp * matchingCfg.rate;
 
-        const cappedResult = await IncomeService.applyCaps(node.userId, grossAmount);
+        const cappedResult = await IncomeService.applyCaps(node.userId, grossAmount, ['MATCHING_INCOME']);
 
         let creditResult = null;
         if (cappedResult.allowedAmount > 0) {
