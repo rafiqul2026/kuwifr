@@ -89,12 +89,19 @@ exports.completePackagePurchase = async (req, res) => {
 // the target package must be strictly more expensive than what they hold.
 exports.completePackageUpgrade = async (req, res) => {
   try {
-    const { packageId, transactionId, paymentProof, paymentMethod } = req.body;
+    const { packageId, transactionId, paymentProof, paymentMethod, selectedProduct } = req.body;
 
     if (!transactionId || transactionId.trim() === '') {
       return res.status(400).json({
         success: false,
         message: 'Please provide the transaction reference / UTR number for verification.'
+      });
+    }
+
+    if (!selectedProduct || !selectedProduct.name) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please select 1 product included with the upgrade package.'
       });
     }
 
@@ -148,6 +155,7 @@ exports.completePackageUpgrade = async (req, res) => {
       targetPackagePrice: targetPkg.price,
       kbpPoints: kbpDifference,
       dailyBinaryCap: targetPkg.dailyCap,
+      selectedProduct,
       purchaseType: 'UPGRADE',
       previousPackageId: String(currentPkg._id),
       previousPackageName: currentPkg.name,

@@ -265,6 +265,150 @@
   border: 1px solid #e5e5e5;
 }
 
+/* Product Selection Step (in the upgrade checkout modal) — mirrors the
+   included-product picker used on the Buy Package cards. */
+.productSelectionSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.selectionPromptRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.selectionPromptLabel {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #1c2a2a;
+}
+
+.selectedRequired {
+  font-size: 11px;
+  font-weight: 700;
+  color: #dc2626;
+}
+
+.selectedOk {
+  font-size: 11px;
+  font-weight: 700;
+  color: #16a34a;
+}
+
+.productList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.productItemCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.productItemCard:hover {
+  border-color: #d4d4d4;
+}
+
+.productItemChecked {
+  border-color: #008080;
+  background: rgba(0, 128, 128, 0.05);
+  box-shadow: 0 0 0 2px rgba(0, 128, 128, 0.12);
+}
+
+.radioBtn {
+  cursor: pointer;
+  accent-color: #008080;
+}
+
+.productThumbnail {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f3f3f3;
+  flex-shrink: 0;
+}
+
+.productThumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.productItemInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemCat {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  color: #737373;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.itemTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1c2a2a;
+  margin: 1px 0 2px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemPrices {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kspPrice {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1c2a2a;
+}
+
+.mrpPrice {
+  font-size: 11px;
+  color: #a3a3a3;
+  text-decoration: line-through;
+}
+
+.selectionCircle {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid #d4d4d4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.productItemChecked .selectionCircle {
+  background: #008080;
+  border-color: #008080;
+}
+
 .diffLabel {
   display: block;
   font-size: 10px;

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
+import { getProductsForPackage } from './packageProductCatalog';
 import styles from './UpgradePackagePage.module.css';
 
 // Per-tier accent colors, matches the palette used on the Buy Package page.
@@ -39,9 +40,10 @@ const UpgradePackagePage = () => {
   const [memberStatus, setMemberStatus] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Multi-step modal: 'CONFIRM' | 'PAYMENT' | 'SUCCESS' | null
+  // Multi-step modal: 'CONFIRM' | 'PRODUCT' | 'PAYMENT' | 'SUCCESS' | null
   const [modalStep, setModalStep] = useState(null);
   const [selectedUpgrade, setSelectedUpgrade] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('UPI_GATEWAY');
   const [qrViewMode, setQrViewMode] = useState('DYNAMIC');
   const [utrNumber, setUtrNumber] = useState('');
@@ -114,13 +116,26 @@ const UpgradePackagePage = () => {
       return;
     }
     setSelectedUpgrade(targetPkg);
+    setSelectedProduct(null);
     setUtrNumber('');
     setProofPreview('');
     setQrViewMode('DYNAMIC');
     setModalStep('CONFIRM');
   };
 
+  const handleProceedToProductStep = () => {
+    setModalStep('PRODUCT');
+  };
+
+  const handleSelectProduct = (product) => {
+    setSelectedProduct(product);
+  };
+
   const handleProceedToPayment = () => {
+    if (!selectedProduct) {
+      showNotification('Please select 1 product included with this package.', 'warning');
+      return;
+    }
     setModalStep('PAYMENT');
   };
 
@@ -165,6 +180,13 @@ const UpgradePackagePage = () => {
     try {
       const payload = {
         packageId: selectedUpgrade._id,
+        selectedProduct: {
+          productId: selectedProduct.id,
+          name: selectedProduct.name,
+          category: selectedProduct.category,
+          price: selectedProduct.ksp,
+          image: selectedProduct.image
+        },
         paymentMethod,
         transactionId: utrNumber.trim(),
         paymentProof: proofPreview
@@ -174,7 +196,7 @@ const UpgradePackagePage = () => {
 
       if (res.data?.success) {
         showNotification(res.data.message || 'Upgrade request submitted for admin approval!', 'info');
-        setSuccessReceipt({ ...res.data.data, priceDifference, targetName: selectedUpgrade.name });
+        setSuccessReceipt({ ...res.data.data, priceDifference, targetName: selectedUpgrade.name, productName: selectedProduct.name });
         setModalStep('SUCCESS');
       } else {
         showNotification(res.data?.message || 'Unable to submit upgrade request.', 'error');
@@ -192,6 +214,7 @@ const UpgradePackagePage = () => {
     }
     setModalStep(null);
     setSelectedUpgrade(null);
+    setSelectedProduct(null);
     setUtrNumber('');
     setProofPreview('');
   };
@@ -396,7 +419,7 @@ const UpgradePackagePage = () => {
               <>
                 <div className={styles.modalHeader}>
                   <div>
-                    <span className={styles.modalTag}>Tier Elevation</span>
+                    <span className={styles.modalTag}>Step 1 of 4 · Tier Elevation</span>
                     <h2>Confirm Package Upgrade</h2>
                   </div>
                   <button type="button" className={styles.closeBtn} onClick={handleCloseModal}>✕</button>
@@ -435,6 +458,76 @@ const UpgradePackagePage = () => {
 
                 <div className={styles.modalFooter}>
                   <button type="button" className={styles.cancelBtn} onClick={handleCloseModal}>Cancel</button>
+                  <button type="button" className={styles.confirmBtn} onClick={handleProceedToProductStep}>
+                    Continue: Choose Product →
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* STEP 2: CHOOSE INCLUDED PRODUCT (per target package tier) */}
+            {modalStep === 'PRODUCT' && (
+              <>
+                <div className={styles.modalHeader}>
+                  <div>
+                    <span className={styles.modalTag}>Step 2 of 4 · Included Product</span>
+                    <h2>Select 1 Product for {selectedUpgrade.name}</h2>
+                  </div>
+                  <button type="button" className={styles.closeBtn} onClick={handleCloseModal}>✕</button>
+                </div>
+
+                <div className={styles.modalBody}>
+                  <div className={styles.productSelectionSection}>
+                    <div className={styles.selectionPromptRow}>
+                      <label className={styles.selectionPromptLabel}>
+                        Select 1 Product (Included in Package):
+                      </label>
+                      {selectedProduct ? (
+                        <span className={styles.selectedOk}>✓ 1 Selected</span>
+                      ) : (
+                        <span className={styles.selectedRequired}>* Choose 1</span>
+                      )}
+                    </div>
+
+                    <div className={styles.productList}>
+                      {getProductsForPackage(selectedUpgrade).map((product) => {
+                        const isChecked = selectedProduct?.id === product.id;
+                        return (
+                          <div
+                            key={product.id}
+                            className={`${styles.productItemCard} ${isChecked ? styles.productItemChecked : ''}`}
+                            onClick={() => handleSelectProduct(product)}
+                          >
+                            <input
+                              type="radio"
+                              name="upgrade-product"
+                              checked={isChecked}
+                              onChange={() => handleSelectProduct(product)}
+                              className={styles.radioBtn}
+                            />
+                            <div className={styles.productThumbnail}>
+                              <img src={product.image} alt={product.name} />
+                            </div>
+                            <div className={styles.productItemInfo}>
+                              <span className={styles.itemCat}>{product.category}</span>
+                              <h4 className={styles.itemTitle}>{product.name}</h4>
+                              <div className={styles.itemPrices}>
+                                <span className={styles.kspPrice}>KSP: ₹{product.ksp?.toLocaleString()}</span>
+                                {product.mrp && <span className={styles.mrpPrice}>MRP: ₹{product.mrp?.toLocaleString()}</span>}
+                              </div>
+                            </div>
+                            <div className={styles.selectionCircle}>{isChecked ? '✓' : ''}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.modalFooter}>
+                  <button type="button" className={styles.cancelBtn} onClick={() => setModalStep('CONFIRM')} disabled={processing}>
+                    ← Back
+                  </button>
                   <button type="button" className={styles.confirmBtn} onClick={handleProceedToPayment}>
                     Proceed to Payment (₹{priceDifference.toLocaleString()}) →
                   </button>
@@ -442,12 +535,12 @@ const UpgradePackagePage = () => {
               </>
             )}
 
-            {/* STEP 2: PAYMENT METHOD & QR / UTR / PROOF UPLOAD */}
+            {/* STEP 3: PAYMENT METHOD & QR / UTR / PROOF UPLOAD */}
             {modalStep === 'PAYMENT' && (
               <>
                 <div className={styles.modalHeader}>
                   <div>
-                    <span className={styles.modalTag}>SBI Payments QR</span>
+                    <span className={styles.modalTag}>Step 3 of 4 · SBI Payments QR</span>
                     <h2>Scan & Pay to Upgrade</h2>
                   </div>
                   <button type="button" className={styles.closeBtn} onClick={handleCloseModal} disabled={processing}>✕</button>
@@ -609,7 +702,7 @@ const UpgradePackagePage = () => {
                 </div>
 
                 <div className={styles.modalFooter}>
-                  <button type="button" className={styles.cancelBtn} onClick={() => setModalStep('CONFIRM')} disabled={processing}>
+                  <button type="button" className={styles.cancelBtn} onClick={() => setModalStep('PRODUCT')} disabled={processing}>
                     ← Back
                   </button>
                   <button type="button" className={styles.confirmBtn} onClick={handleCompleteUpgrade} disabled={processing}>
@@ -619,7 +712,7 @@ const UpgradePackagePage = () => {
               </>
             )}
 
-            {/* STEP 3: PENDING VERIFICATION RECEIPT */}
+            {/* STEP 4: PENDING VERIFICATION RECEIPT */}
             {modalStep === 'SUCCESS' && (
               <div className={styles.successScreenWrapper}>
                 <div className={styles.pendingHourglassIcon}>⏳</div>
@@ -633,6 +726,10 @@ const UpgradePackagePage = () => {
                   <div className={styles.receiptRow}>
                     <span>Upgrading To:</span>
                     <strong>{successReceipt?.targetName}</strong>
+                  </div>
+                  <div className={styles.receiptRow}>
+                    <span>Bundled Product:</span>
+                    <strong>{successReceipt?.productName}</strong>
                   </div>
                   <div className={styles.receiptRow}>
                     <span>Submitted UTR / Ref:</span>

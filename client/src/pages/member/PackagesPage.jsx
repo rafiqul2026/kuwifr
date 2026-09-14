@@ -4,149 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
+import { getProductsForPackage } from './packageProductCatalog';
 import styles from './PackagesPage.module.css';
-
-// Catalog of products allocated per price tier
-const PRODUCT_TIERS = {
-  STARTER: [
-    {
-      id: 'sp-1',
-      name: 'Instant Magic Hair Color Shampoo',
-      mrp: 1999,
-      ksp: 1500,
-      category: 'Hair Care',
-      image: 'https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?w=500&auto=format&fit=crop&q=80'
-    },
-    {
-      id: 'sp-2',
-      name: 'Kuwi Gold Magic Black Hair Oil',
-      mrp: 2100,
-      ksp: 1500,
-      category: 'Hair Care',
-      image: 'https://images.unsplash.com/photo-1608248597359-3221946894c2?w=500&auto=format&fit=crop&q=80'
-    },
-    {
-      id: 'sp-3',
-      name: 'Modern Saree (Ready Made Wear)',
-      mrp: 2499,
-      ksp: 1500,
-      category: 'Apparel',
-      image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=500&auto=format&fit=crop&q=80'
-    },
-    {
-      id: 'sp-4',
-      name: 'Kuwi Pro+ Protein Powder (500gm)',
-      mrp: 3130,
-      ksp: 1500,
-      category: 'Health & Nutrition',
-      image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=500&auto=format&fit=crop&q=80'
-    },
-    {
-      id: 'sp-5',
-      name: 'Kuwimul 77 Multi Vitamin',
-      mrp: 1860,
-      ksp: 1500,
-      category: 'Health & Nutrition',
-      image: 'https://images.unsplash.com/photo-1550572017-ed200f5e5a43?w=500&auto=format&fit=crop&q=80'
-    }
-  ],
-  GROWTH: [
-    {
-      id: 'gp-1',
-      name: 'Kuwi Shilajit 99 (Pure Himalayan Extract)',
-      mrp: 5910,
-      ksp: 5000,
-      category: 'Wellness',
-      image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=500&auto=format&fit=crop&q=80'
-    },
-    {
-      id: 'gp-2',
-      name: 'Kuwi Living Sea Buckthorn Juice (Pack of 3)',
-      mrp: 5997,
-      ksp: 5000,
-      category: 'Health & Beverages',
-      image: 'https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=500&auto=format&fit=crop&q=80'
-    },
-    {
-      id: 'gp-3',
-      name: 'Festival Wear Premium Modern Saree',
-      mrp: 7250,
-      ksp: 5000,
-      category: 'Apparel',
-      image: 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?w=500&auto=format&fit=crop&q=80'
-    },
-    {
-      id: 'gp-4',
-      name: 'Kuwi Pro+ Protein Powder (1KG)',
-      mrp: 5750,
-      ksp: 5000,
-      category: 'Health & Nutrition',
-      image: 'https://images.unsplash.com/photo-1579722821273-0f6c7d44362f?w=500&auto=format&fit=crop&q=80'
-    },
-    {
-      id: 'gp-5',
-      name: 'Gents Premium Clothes Combo',
-      mrp: 6500,
-      ksp: 5000,
-      category: 'Apparel',
-      image: 'https://images.unsplash.com/photo-1593030761757-71fae45fa0e7?w=500&auto=format&fit=crop&q=80'
-    },
-    {
-      id: 'gp-6',
-      name: 'Alkaline Jug Filter Care Device',
-      mrp: 5450,
-      ksp: 5000,
-      category: 'Home & Kitchen',
-      image: 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=500&auto=format&fit=crop&q=80'
-    }
-  ],
-  LIFE_SAFE: [
-    {
-      id: 'ls-1',
-      name: 'Alkaline Water Device (15k Ltr Capacity)',
-      mrp: 13000,
-      ksp: 10000,
-      category: 'Appliances',
-      image: 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=500&auto=format&fit=crop&q=80'
-    },
-    {
-      id: 'ls-2',
-      name: 'Alkaline Mobile Water Device',
-      mrp: 13300,
-      ksp: 10000,
-      category: 'Appliances',
-      image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=500&auto=format&fit=crop&q=80'
-    }
-  ],
-  LIFE_SAFE_ELITE: [
-    {
-      id: 'lse-1',
-      name: 'Alkaline Water Device Premium (30k Ltr Capacity)',
-      mrp: 18000,
-      ksp: 15000,
-      category: 'Appliances',
-      image: 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=500&auto=format&fit=crop&q=80'
-    },
-    {
-      id: 'lse-2',
-      name: 'Alkaline Water Device with Copper Jar Container',
-      mrp: 18500,
-      ksp: 15000,
-      category: 'Appliances',
-      image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=500&auto=format&fit=crop&q=80'
-    }
-  ],
-  TITANIUM: [
-    {
-      id: 'tit-1',
-      name: 'KUWIFR Electric Scooty (Executive Mobility Edition)',
-      mrp: 120500,
-      ksp: 110000,
-      category: 'Automotive / EV',
-      image: 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=500&auto=format&fit=crop&q=80'
-    }
-  ]
-};
 
 // PBW Foundation token palette — teal primary, orange accent, plus the
 // documented chart hues (green/blue/indigo) used elsewhere in the redesign
@@ -205,17 +64,7 @@ const PackagesPage = () => {
 
           let products = dbPkg.availableProducts || dbPkg.products;
           if (!products || products.length === 0) {
-            if (typeUpper.includes('STARTER') || dbPkg.price <= 3000) {
-              products = PRODUCT_TIERS.STARTER;
-            } else if (typeUpper.includes('GROWTH') || dbPkg.price <= 8000) {
-              products = PRODUCT_TIERS.GROWTH;
-            } else if (typeUpper.includes('ELITE') || dbPkg.price === 15000) {
-              products = PRODUCT_TIERS.LIFE_SAFE_ELITE;
-            } else if (typeUpper.includes('TITANIUM') || dbPkg.price >= 50000) {
-              products = PRODUCT_TIERS.TITANIUM;
-            } else {
-              products = PRODUCT_TIERS.LIFE_SAFE;
-            }
+            products = getProductsForPackage(dbPkg);
           }
 
           const isPopular = !!dbPkg.isPopular;
@@ -588,7 +437,7 @@ const PackagesPage = () => {
               <>
                 <div className={styles.modalHeader}>
                   <div>
-                    <span className={styles.modalTag}>Checkout Review</span>
+                    <span className={styles.modalTag}>Step 1 of 3 · Checkout Review</span>
                     <h2>Confirm Package Purchase</h2>
                   </div>
                   <button
@@ -663,7 +512,7 @@ const PackagesPage = () => {
               <>
                 <div className={styles.modalHeader}>
                   <div>
-                    <span className={styles.modalTag}>SBI Payments QR</span>
+                    <span className={styles.modalTag}>Step 2 of 3 · SBI Payments QR</span>
                     <h2>Scan & Pay to Activate</h2>
                   </div>
                   <button
