@@ -152,6 +152,19 @@ export const PRODUCT_TIERS = {
   ]
 };
 
+// Every tier requires choosing exactly 1 product EXCEPT Life Safe Elite,
+// whose spec has no "one product any one of the above" note — both of its
+// products are bundled automatically with no choice to make.
+export const SELECTION_MODE = {
+  STARTER: 'ONE',
+  GROWTH: 'ONE',
+  LIFE_SAFE: 'ONE',
+  LIFE_SAFE_ELITE: 'ALL',
+  TITANIUM: 'ONE'
+};
+
+export const getSelectionMode = (type) => SELECTION_MODE[(type || '').toUpperCase()] || 'ONE';
+
 // Resolves the right tier's product list off a package's `type` (falling
 // back to a price-bracket guess for packages whose type doesn't match one
 // of the 5 known enum values, matching the original inline heuristic).

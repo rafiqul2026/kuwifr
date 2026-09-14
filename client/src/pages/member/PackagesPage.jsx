@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
-import { getProductsForPackage } from './packageProductCatalog';
+import { getProductsForPackage, getSelectionMode } from './packageProductCatalog';
 import styles from './PackagesPage.module.css';
 
 // PBW Foundation token palette — teal primary, orange accent, plus the
@@ -41,7 +41,7 @@ const PackagesPage = () => {
   // 3-Step Modal State: 'REVIEW' | 'PAYMENT' | 'SUCCESS' | null
   const [modalStep, setModalStep] = useState(null);
   const [activePkg, setActivePkg] = useState(null);
-  const [activeProduct, setActiveProduct] = useState(null);
+  const [activeProducts, setActiveProducts] = useState([]);
   const [paymentMethod, setPaymentMethod] = useState('UPI_GATEWAY');
   const [qrViewMode, setQrViewMode] = useState('DYNAMIC'); // 'DYNAMIC' | 'STANDEE'
   const [utrNumber, setUtrNumber] = useState('');
@@ -105,6 +105,26 @@ const PackagesPage = () => {
     fetchLivePackages();
   }, [fetchLivePackages]);
 
+  // Life Safe Elite bundles BOTH of its products automatically (its spec has
+  // no "choose 1" note, unlike every other tier) — pre-fill the selection
+  // map for any such package as soon as the live catalog loads, so its card
+  // renders as "already selected" with no click needed.
+  useEffect(() => {
+    if (packages.length === 0) return;
+    setSelectedProductMap((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      packages.forEach((pkg) => {
+        const key = pkg._id || pkg.id;
+        if (getSelectionMode(pkg.type) === 'ALL' && !next[key]) {
+          next[key] = pkg.availableProducts || [];
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [packages]);
+
   // A member who already holds an active package must go through
   // "Upgrade Package" to move to a higher tier — this page previously let
   // anyone submit a brand-new activation purchase regardless of their
@@ -129,25 +149,26 @@ const PackagesPage = () => {
     return () => { cancelled = true; };
   }, []);
 
-  const handleSelectProduct = (pkgKey, product) => {
+  const handleSelectProduct = (pkgKey, pkgType, product) => {
+    if (getSelectionMode(pkgType) === 'ALL') return; // not user-selectable, both are bundled
     setSelectedProductMap((prev) => ({
       ...prev,
-      [pkgKey]: product
+      [pkgKey]: [product]
     }));
   };
 
   // Step 1: Open Review Modal
   const handleInitiatePurchase = (pkg) => {
     const key = pkg._id || pkg.id;
-    const chosenProduct = selectedProductMap[key];
+    const chosenProducts = selectedProductMap[key];
 
-    if (!chosenProduct && pkg.availableProducts?.length > 0) {
+    if ((!chosenProducts || chosenProducts.length === 0) && pkg.availableProducts?.length > 0) {
       showNotification(`Please select 1 product for ${pkg.name} before purchasing.`, 'warning');
       return;
     }
 
     setActivePkg(pkg);
-    setActiveProduct(chosenProduct || { name: 'Direct Activation', ksp: pkg.price, mrp: pkg.price, category: 'Membership' });
+    setActiveProducts(chosenProducts?.length > 0 ? chosenProducts : [{ name: 'Direct Activation', ksp: pkg.price, mrp: pkg.price, category: 'Membership' }]);
     setUtrNumber('');
     setProofPreview('');
     setQrViewMode('DYNAMIC');
@@ -186,7 +207,7 @@ const PackagesPage = () => {
 
   // Step 3: Submit Verification Request to Admin
   const handleCompleteActivation = async () => {
-    if (!activePkg || !activeProduct) return;
+    if (!activePkg || activeProducts.length === 0) return;
 
     if (!utrNumber.trim()) {
       showNotification('Please enter the 12-digit UTR / Reference ID from your UPI payment.', 'warning');
@@ -206,13 +227,13 @@ const PackagesPage = () => {
         packagePrice: activePkg.price,
         kbpPoints: activePkg.kbp,
         dailyBinaryCap: activePkg.dailyCap,
-        selectedProduct: {
-          productId: activeProduct.id,
-          name: activeProduct.name,
-          category: activeProduct.category,
-          price: activeProduct.ksp,
-          image: activeProduct.image
-        },
+        selectedProducts: activeProducts.map((p) => ({
+          productId: p.id,
+          name: p.name,
+          category: p.category,
+          price: p.ksp,
+          image: p.image
+        })),
         paymentMethod,
         transactionId: utrNumber.trim(),
         paymentProof: proofPreview
@@ -241,7 +262,7 @@ const PackagesPage = () => {
     }
     setModalStep(null);
     setActivePkg(null);
-    setActiveProduct(null);
+    setActiveProducts([]);
     setUtrNumber('');
     setProofPreview('');
   };
@@ -312,7 +333,9 @@ const PackagesPage = () => {
       <div className={styles.packagesGrid}>
         {packages.map((pkg) => {
           const pkgKey = pkg._id || pkg.id;
-          const selectedProduct = selectedProductMap[pkgKey];
+          const selectionMode = getSelectionMode(pkg.type);
+          const selectedProducts = selectedProductMap[pkgKey] || [];
+          const hasSelection = selectedProducts.length > 0;
 
           return (
             <article
@@ -346,9 +369,13 @@ const PackagesPage = () => {
               <div className={styles.productSelectionSection}>
                 <div className={styles.selectionPromptRow}>
                   <label className={styles.selectionPromptLabel}>
-                    Select 1 Product (Included in Package):
+                    {selectionMode === 'ALL'
+                      ? 'Both Products Included (No Selection Needed):'
+                      : 'Select 1 Product (Included in Package):'}
                   </label>
-                  {selectedProduct ? (
+                  {selectionMode === 'ALL' ? (
+                    <span className={styles.selectedOk}>✓ Both Included</span>
+                  ) : hasSelection ? (
                     <span className={styles.selectedOk}>✓ 1 Selected</span>
                   ) : (
                     <span className={styles.selectedRequired}>* Choose 1</span>
@@ -357,19 +384,20 @@ const PackagesPage = () => {
 
                 <div className={styles.productList}>
                   {pkg.availableProducts?.map((product) => {
-                    const isChecked = selectedProduct?.id === product.id;
+                    const isChecked = selectionMode === 'ALL' || selectedProducts.some((p) => p.id === product.id);
 
                     return (
                       <div
                         key={product.id}
-                        className={`${styles.productItemCard} ${isChecked ? styles.productItemChecked : ''}`}
-                        onClick={() => handleSelectProduct(pkgKey, product)}
+                        className={`${styles.productItemCard} ${isChecked ? styles.productItemChecked : ''} ${selectionMode === 'ALL' ? styles.productItemStatic : ''}`}
+                        onClick={() => handleSelectProduct(pkgKey, pkg.type, product)}
                       >
                         <input
-                          type="radio"
+                          type={selectionMode === 'ALL' ? 'checkbox' : 'radio'}
                           name={`package-product-${pkgKey}`}
                           checked={isChecked}
-                          onChange={() => handleSelectProduct(pkgKey, product)}
+                          readOnly={selectionMode === 'ALL'}
+                          onChange={() => handleSelectProduct(pkgKey, pkg.type, product)}
                           className={styles.radioBtn}
                         />
 
@@ -412,10 +440,10 @@ const PackagesPage = () => {
               <div className={styles.cardActionWrap}>
                 <button
                   type="button"
-                  className={`${styles.purchaseBtn} ${selectedProduct ? styles.purchaseBtnActive : styles.purchaseBtnDisabled}`}
+                  className={`${styles.purchaseBtn} ${hasSelection ? styles.purchaseBtnActive : styles.purchaseBtnDisabled}`}
                   onClick={() => handleInitiatePurchase(pkg)}
                 >
-                  {selectedProduct ? (
+                  {hasSelection ? (
                     <span>Purchase {pkg.name} (₹{pkg.price?.toLocaleString()}) →</span>
                   ) : (
                     <span>Select 1 Product to Purchase</span>
@@ -451,22 +479,30 @@ const PackagesPage = () => {
 
                 <div className={styles.modalBody}>
                   <div className={styles.chosenProductCard}>
-                    <span className={styles.chosenCardBadge}>📦 Selected Product Included in Package</span>
-                    <div className={styles.chosenProductContent}>
-                      <img
-                        src={activeProduct.image}
-                        alt={activeProduct.name}
-                        className={styles.chosenProductImg}
-                      />
-                      <div className={styles.chosenProductDetails}>
-                        <span className={styles.chosenCat}>{activeProduct.category}</span>
-                        <h3 className={styles.chosenTitle}>{activeProduct.name}</h3>
-                        <div className={styles.chosenPrices}>
-                          <span><strong>KSP Price:</strong> ₹{activeProduct.ksp?.toLocaleString()}</span>
-                          {activeProduct.mrp && <span className={styles.chosenMrp}>(MRP: ₹{activeProduct.mrp?.toLocaleString()})</span>}
+                    <span className={styles.chosenCardBadge}>
+                      📦 {activeProducts.length > 1 ? 'Both Products Included in Package' : 'Selected Product Included in Package'}
+                    </span>
+                    {activeProducts.map((product, idx) => (
+                      <div
+                        className={styles.chosenProductContent}
+                        style={idx > 0 ? { marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #e5e5e5' } : undefined}
+                        key={product.id || idx}
+                      >
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className={styles.chosenProductImg}
+                        />
+                        <div className={styles.chosenProductDetails}>
+                          <span className={styles.chosenCat}>{product.category}</span>
+                          <h3 className={styles.chosenTitle}>{product.name}</h3>
+                          <div className={styles.chosenPrices}>
+                            <span><strong>KSP Price:</strong> ₹{product.ksp?.toLocaleString()}</span>
+                            {product.mrp && <span className={styles.chosenMrp}>(MRP: ₹{product.mrp?.toLocaleString()})</span>}
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    ))}
                   </div>
 
                   <div className={styles.metricsGrid}>
@@ -778,8 +814,8 @@ const PackagesPage = () => {
                     <strong>{successReceipt?.packageName}</strong>
                   </div>
                   <div className={styles.receiptRow}>
-                    <span>Bundled Product:</span>
-                    <strong>{successReceipt?.selectedProduct?.name}</strong>
+                    <span>Bundled Product{successReceipt?.selectedProducts?.length > 1 ? 's' : ''}:</span>
+                    <strong>{successReceipt?.selectedProducts?.map((p) => p.name).join(' + ') || successReceipt?.selectedProduct?.name}</strong>
                   </div>
                   <div className={styles.receiptRow}>
                     <span>Submitted UTR / Ref:</span>

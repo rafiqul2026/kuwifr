@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
-import { getProductsForPackage } from './packageProductCatalog';
+import { getProductsForPackage, getSelectionMode } from './packageProductCatalog';
 import styles from './UpgradePackagePage.module.css';
 
 // Per-tier accent colors, matches the palette used on the Buy Package page.
@@ -43,7 +43,7 @@ const UpgradePackagePage = () => {
   // Multi-step modal: 'CONFIRM' | 'PRODUCT' | 'PAYMENT' | 'SUCCESS' | null
   const [modalStep, setModalStep] = useState(null);
   const [selectedUpgrade, setSelectedUpgrade] = useState(null);
-  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedProducts, setSelectedProducts] = useState([]);
   const [paymentMethod, setPaymentMethod] = useState('UPI_GATEWAY');
   const [qrViewMode, setQrViewMode] = useState('DYNAMIC');
   const [utrNumber, setUtrNumber] = useState('');
@@ -116,7 +116,9 @@ const UpgradePackagePage = () => {
       return;
     }
     setSelectedUpgrade(targetPkg);
-    setSelectedProduct(null);
+    // Life Safe Elite bundles both of its products automatically — pre-fill
+    // so its PRODUCT step opens already-selected with nothing to click.
+    setSelectedProducts(getSelectionMode(targetPkg.type) === 'ALL' ? getProductsForPackage(targetPkg) : []);
     setUtrNumber('');
     setProofPreview('');
     setQrViewMode('DYNAMIC');
@@ -128,11 +130,12 @@ const UpgradePackagePage = () => {
   };
 
   const handleSelectProduct = (product) => {
-    setSelectedProduct(product);
+    if (getSelectionMode(selectedUpgrade?.type) === 'ALL') return; // not user-selectable
+    setSelectedProducts([product]);
   };
 
   const handleProceedToPayment = () => {
-    if (!selectedProduct) {
+    if (selectedProducts.length === 0) {
       showNotification('Please select 1 product included with this package.', 'warning');
       return;
     }
@@ -160,8 +163,11 @@ const UpgradePackagePage = () => {
     reader.readAsDataURL(file);
   };
 
-  const priceDifference = selectedUpgrade ? Math.max(0, selectedUpgrade.price - (currentPackage?.price || 0)) : 0;
-  const addedKBP = selectedUpgrade ? Math.max(0, selectedUpgrade.kbp - (currentPackage?.kbp || 0)) : 0;
+  // Business rule: an upgrade costs the FULL price of the target package —
+  // there is no "pay just the difference" discount — and credits 0 KBP.
+  // The member only receives the higher capping ceiling and the target
+  // tier's bundled product(s); no fresh referral/binary income is generated.
+  const amountPayable = selectedUpgrade?.price || 0;
 
   const handleCompleteUpgrade = async () => {
     if (!selectedUpgrade) return;
@@ -180,13 +186,13 @@ const UpgradePackagePage = () => {
     try {
       const payload = {
         packageId: selectedUpgrade._id,
-        selectedProduct: {
-          productId: selectedProduct.id,
-          name: selectedProduct.name,
-          category: selectedProduct.category,
-          price: selectedProduct.ksp,
-          image: selectedProduct.image
-        },
+        selectedProducts: selectedProducts.map((p) => ({
+          productId: p.id,
+          name: p.name,
+          category: p.category,
+          price: p.ksp,
+          image: p.image
+        })),
         paymentMethod,
         transactionId: utrNumber.trim(),
         paymentProof: proofPreview
@@ -196,7 +202,12 @@ const UpgradePackagePage = () => {
 
       if (res.data?.success) {
         showNotification(res.data.message || 'Upgrade request submitted for admin approval!', 'info');
-        setSuccessReceipt({ ...res.data.data, priceDifference, targetName: selectedUpgrade.name, productName: selectedProduct.name });
+        setSuccessReceipt({
+          ...res.data.data,
+          amountPayable,
+          targetName: selectedUpgrade.name,
+          productNames: selectedProducts.map((p) => p.name).join(' + ')
+        });
         setModalStep('SUCCESS');
       } else {
         showNotification(res.data?.message || 'Unable to submit upgrade request.', 'error');
@@ -214,13 +225,13 @@ const UpgradePackagePage = () => {
     }
     setModalStep(null);
     setSelectedUpgrade(null);
-    setSelectedProduct(null);
+    setSelectedProducts([]);
     setUtrNumber('');
     setProofPreview('');
   };
 
   const upiUri = selectedUpgrade
-    ? `upi://pay?pa=${COMPANY_PAYMENT_INFO.upiId}&pn=${encodeURIComponent(COMPANY_PAYMENT_INFO.merchantName)}&am=${priceDifference}&cu=INR&tn=${encodeURIComponent(`KUWIFR-UPGRADE-${selectedUpgrade.name}-${user?.memberId || 'MEMBER'}`)}`
+    ? `upi://pay?pa=${COMPANY_PAYMENT_INFO.upiId}&pn=${encodeURIComponent(COMPANY_PAYMENT_INFO.merchantName)}&am=${amountPayable}&cu=INR&tn=${encodeURIComponent(`KUWIFR-UPGRADE-${selectedUpgrade.name}-${user?.memberId || 'MEMBER'}`)}`
     : '';
 
   const dynamicQrUrl = selectedUpgrade
@@ -266,6 +277,7 @@ const UpgradePackagePage = () => {
   }
 
   const isMaxTierAchieved = currentPackage.level >= packages.length;
+  const productStepSelectionMode = selectedUpgrade ? getSelectionMode(selectedUpgrade.type) : 'ONE';
 
   return (
     <div className={styles.upgradeContainer}>
@@ -274,7 +286,8 @@ const UpgradePackagePage = () => {
         <span className={styles.headerTag}>🚀 Flexible Tier Elevation</span>
         <h1 className={styles.pageTitle}>Upgrade Membership Package</h1>
         <p className={styles.pageSubtitle}>
-          Upgrade directly from your current package to <strong>any higher tier</strong>. Pay only the difference amount.
+          Upgrade from your current package to <strong>any higher tier</strong> by paying that tier's full package price.
+          Upgrades raise your capping ceiling and hand over the new tier's product(s) — no extra KBP or income is generated.
         </p>
       </header>
 
@@ -307,9 +320,6 @@ const UpgradePackagePage = () => {
           const isPrevious = pkg.level < currentPackage.level;
           const isEligibleUpgrade = pkg.level > currentPackage.level;
 
-          const diff = Math.max(0, pkg.price - currentPackage.price);
-          const kbpDiff = Math.max(0, pkg.kbp - currentPackage.kbp);
-
           return (
             <article
               key={pkg._id}
@@ -335,33 +345,25 @@ const UpgradePackagePage = () => {
                 <h3 className={styles.pkgTitle}>{pkg.name}</h3>
 
                 <div className={styles.pricingBox}>
-                  {isEligibleUpgrade ? (
-                    <div>
-                      <small className={styles.diffLabel}>Upgrade Price Difference:</small>
-                      <div className={styles.diffAmount}>
-                        ₹{diff.toLocaleString()}
-                        <span className={styles.fullPrice}> (Total: ₹{pkg.price.toLocaleString()})</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <small className={styles.diffLabel}>Standard Package Cost:</small>
-                      <div className={styles.staticPrice}>₹{pkg.price.toLocaleString()}</div>
-                    </div>
-                  )}
+                  <small className={styles.diffLabel}>
+                    {isEligibleUpgrade ? 'Upgrade Package Price (Full Amount):' : 'Standard Package Cost:'}
+                  </small>
+                  <div className={isEligibleUpgrade ? styles.diffAmount : styles.staticPrice}>
+                    ₹{pkg.price.toLocaleString()}
+                  </div>
                 </div>
               </div>
 
               <div className={styles.specsList}>
-                <div className={styles.specItem}>
-                  <span>Total KBP Valuation</span>
-                  <strong>{pkg.kbp.toLocaleString()} KBP</strong>
-                </div>
-
-                {isEligibleUpgrade && (
+                {isEligibleUpgrade ? (
                   <div className={styles.specItem}>
-                    <span>Additional KBP Credited</span>
-                    <strong style={{ color: '#c2660a' }}>+{kbpDiff.toLocaleString()} KBP</strong>
+                    <span>KBP Credited on Upgrade</span>
+                    <strong style={{ color: '#a3a3a3' }}>0 KBP (capping only)</strong>
+                  </div>
+                ) : (
+                  <div className={styles.specItem}>
+                    <span>Total KBP Valuation</span>
+                    <strong>{pkg.kbp.toLocaleString()} KBP</strong>
                   </div>
                 )}
 
@@ -400,7 +402,7 @@ const UpgradePackagePage = () => {
                     className={styles.upgradeBtn}
                     onClick={() => handleInitiateUpgrade(pkg)}
                   >
-                    Upgrade to {pkg.name} (Pay ₹{diff.toLocaleString()}) →
+                    Upgrade to {pkg.name} (Pay ₹{pkg.price.toLocaleString()}) →
                   </button>
                 )}
               </div>
@@ -442,18 +444,23 @@ const UpgradePackagePage = () => {
 
                   <div className={styles.summaryTable}>
                     <div className={styles.summaryRow}>
-                      <span>Upgrade Amount Payable</span>
-                      <strong className={styles.payableAmount}>₹{priceDifference.toLocaleString()}</strong>
+                      <span>Upgrade Amount Payable (Full Package Price)</span>
+                      <strong className={styles.payableAmount}>₹{amountPayable.toLocaleString()}</strong>
                     </div>
                     <div className={styles.summaryRow}>
-                      <span>Additional KBP Points</span>
-                      <strong style={{ color: '#c2660a' }}>+{addedKBP.toLocaleString()} KBP</strong>
+                      <span>KBP Credited</span>
+                      <strong style={{ color: '#a3a3a3' }}>0 KBP</strong>
                     </div>
                     <div className={styles.summaryRow}>
                       <span>New Daily Binary Cap</span>
                       <strong style={{ color: '#16a34a' }}>₹{selectedUpgrade.dailyCap.toLocaleString()} / Day</strong>
                     </div>
                   </div>
+
+                  <p className={styles.upgradeNote}>
+                    ℹ️ Upgrades raise your capping ceiling and hand over {selectedUpgrade.name}'s product(s) only.
+                    No referral or binary income is generated by an upgrade — that only happens on a fresh package activation.
+                  </p>
                 </div>
 
                 <div className={styles.modalFooter}>
@@ -465,13 +472,17 @@ const UpgradePackagePage = () => {
               </>
             )}
 
-            {/* STEP 2: CHOOSE INCLUDED PRODUCT (per target package tier) */}
+            {/* STEP 2: CHOOSE INCLUDED PRODUCT(S) (per target package tier) */}
             {modalStep === 'PRODUCT' && (
               <>
                 <div className={styles.modalHeader}>
                   <div>
                     <span className={styles.modalTag}>Step 2 of 4 · Included Product</span>
-                    <h2>Select 1 Product for {selectedUpgrade.name}</h2>
+                    <h2>
+                      {productStepSelectionMode === 'ALL'
+                        ? `Both Products Included for ${selectedUpgrade.name}`
+                        : `Select 1 Product for ${selectedUpgrade.name}`}
+                    </h2>
                   </div>
                   <button type="button" className={styles.closeBtn} onClick={handleCloseModal}>✕</button>
                 </div>
@@ -480,9 +491,13 @@ const UpgradePackagePage = () => {
                   <div className={styles.productSelectionSection}>
                     <div className={styles.selectionPromptRow}>
                       <label className={styles.selectionPromptLabel}>
-                        Select 1 Product (Included in Package):
+                        {productStepSelectionMode === 'ALL'
+                          ? 'Both Products Included (No Selection Needed):'
+                          : 'Select 1 Product (Included in Package):'}
                       </label>
-                      {selectedProduct ? (
+                      {productStepSelectionMode === 'ALL' ? (
+                        <span className={styles.selectedOk}>✓ Both Included</span>
+                      ) : selectedProducts.length > 0 ? (
                         <span className={styles.selectedOk}>✓ 1 Selected</span>
                       ) : (
                         <span className={styles.selectedRequired}>* Choose 1</span>
@@ -491,17 +506,18 @@ const UpgradePackagePage = () => {
 
                     <div className={styles.productList}>
                       {getProductsForPackage(selectedUpgrade).map((product) => {
-                        const isChecked = selectedProduct?.id === product.id;
+                        const isChecked = productStepSelectionMode === 'ALL' || selectedProducts.some((p) => p.id === product.id);
                         return (
                           <div
                             key={product.id}
-                            className={`${styles.productItemCard} ${isChecked ? styles.productItemChecked : ''}`}
+                            className={`${styles.productItemCard} ${isChecked ? styles.productItemChecked : ''} ${productStepSelectionMode === 'ALL' ? styles.productItemStatic : ''}`}
                             onClick={() => handleSelectProduct(product)}
                           >
                             <input
-                              type="radio"
+                              type={productStepSelectionMode === 'ALL' ? 'checkbox' : 'radio'}
                               name="upgrade-product"
                               checked={isChecked}
+                              readOnly={productStepSelectionMode === 'ALL'}
                               onChange={() => handleSelectProduct(product)}
                               className={styles.radioBtn}
                             />
@@ -529,7 +545,7 @@ const UpgradePackagePage = () => {
                     ← Back
                   </button>
                   <button type="button" className={styles.confirmBtn} onClick={handleProceedToPayment}>
-                    Proceed to Payment (₹{priceDifference.toLocaleString()}) →
+                    Proceed to Payment (₹{amountPayable.toLocaleString()}) →
                   </button>
                 </div>
               </>
@@ -617,7 +633,7 @@ const UpgradePackagePage = () => {
 
                         <div className={styles.infoRow}>
                           <span>Exact Payable Amount</span>
-                          <strong className={styles.highlightAmount}>₹{priceDifference.toLocaleString('en-IN')}</strong>
+                          <strong className={styles.highlightAmount}>₹{amountPayable.toLocaleString('en-IN')}</strong>
                         </div>
                       </div>
                     </div>
@@ -657,7 +673,7 @@ const UpgradePackagePage = () => {
                       </div>
                       <div className={styles.bankDetailRow}>
                         <span>Exact Payable Amount:</span>
-                        <strong className={styles.highlightAmount}>₹{priceDifference.toLocaleString('en-IN')}</strong>
+                        <strong className={styles.highlightAmount}>₹{amountPayable.toLocaleString('en-IN')}</strong>
                       </div>
                     </div>
                   )}
@@ -706,7 +722,7 @@ const UpgradePackagePage = () => {
                     ← Back
                   </button>
                   <button type="button" className={styles.confirmBtn} onClick={handleCompleteUpgrade} disabled={processing}>
-                    {processing ? 'Submitting Payment Proof...' : `Submit Payment Proof (₹${priceDifference.toLocaleString()})`}
+                    {processing ? 'Submitting Payment Proof...' : `Submit Payment Proof (₹${amountPayable.toLocaleString()})`}
                   </button>
                 </div>
               </>
@@ -728,8 +744,8 @@ const UpgradePackagePage = () => {
                     <strong>{successReceipt?.targetName}</strong>
                   </div>
                   <div className={styles.receiptRow}>
-                    <span>Bundled Product:</span>
-                    <strong>{successReceipt?.productName}</strong>
+                    <span>Bundled Product{successReceipt?.productNames?.includes('+') ? 's' : ''}:</span>
+                    <strong>{successReceipt?.productNames}</strong>
                   </div>
                   <div className={styles.receiptRow}>
                     <span>Submitted UTR / Ref:</span>
@@ -737,7 +753,11 @@ const UpgradePackagePage = () => {
                   </div>
                   <div className={styles.receiptRow}>
                     <span>Amount Payable:</span>
-                    <strong>₹{(successReceipt?.priceDifference || 0).toLocaleString('en-IN')}</strong>
+                    <strong>₹{(successReceipt?.amountPayable || 0).toLocaleString('en-IN')}</strong>
+                  </div>
+                  <div className={styles.receiptRow}>
+                    <span>KBP Credited:</span>
+                    <strong style={{ color: '#a3a3a3' }}>0 KBP</strong>
                   </div>
                   <div className={styles.receiptRow}>
                     <span>Status:</span>

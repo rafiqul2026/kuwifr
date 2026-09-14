@@ -45,7 +45,7 @@ const AdminPackageAnalyticsPage = () => {
   const handleApprove = async (id, memberId, pkgName, purchaseType) => {
     const confirmed = window.confirm(
       purchaseType === 'UPGRADE'
-        ? `Verify and UPGRADE Member ${memberId} to ${pkgName}?\n\nThis will raise their package tier and daily binary cap. No extra referral/matching income is paid on the upgrade difference.`
+        ? `Verify and UPGRADE Member ${memberId} to ${pkgName}?\n\nThis will raise their package tier and daily binary cap (member paid the full package price). No referral/matching income or extra KBP is credited for an upgrade.`
         : `Verify and ACTIVATE Member ${memberId} with ${pkgName}?\n\nThis will mark their account ACTIVE, allocate their KBP, and apply their daily binary cap.`
     );
     if (!confirmed) return;
@@ -255,14 +255,21 @@ const AdminPackageAnalyticsPage = () => {
                       )}
                     </td>
                     <td>
-                      <span className={styles.productNameText} title={item.selectedProduct?.name}>
-                        {item.selectedProduct?.name || 'Direct Package'}
-                      </span>
+                      {(() => {
+                        const productLabel = item.selectedProducts?.length > 0
+                          ? item.selectedProducts.map((p) => p.name).join(' + ')
+                          : (item.selectedProduct?.name || 'Direct Package');
+                        return (
+                          <span className={styles.productNameText} title={productLabel}>
+                            {productLabel}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td>
                       <strong className={styles.amountCol}>{formatINR(item.packagePrice)}</strong>
                       {item.purchaseType === 'UPGRADE' && (
-                        <small className={styles.amountSubNote}>upgrade difference</small>
+                        <small className={styles.amountSubNote}>full upgrade price, 0 KBP</small>
                       )}
                     </td>
                     <td>
