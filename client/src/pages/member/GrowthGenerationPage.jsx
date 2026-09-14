@@ -377,8 +377,8 @@ const GrowthGenerationPage = () => {
           </div>
 
           <div className={styles.legendLeft}>
-            <strong>Matched Pairs : </strong>
-            <span>{rootNode?.pairCount || 0}</span>
+            <strong>KBP Matched : </strong>
+            <span>{formatKBP(rootNode?.matchingVolume || 0)}</span>
           </div>
         </div>
 
