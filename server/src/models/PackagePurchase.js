@@ -74,6 +74,14 @@ const packagePurchaseSchema = new mongoose.Schema(
     receiptNumber: {
       type: String
     },
+    paymentProof: {
+      // Base64 UPI/bank-transfer screenshot the member uploads at submission
+      // time. The controller has always written this field, but it was
+      // missing from the schema so Mongoose silently dropped it on save —
+      // the admin "View Proof" button had nothing to show.
+      type: String,
+      default: ''
+    },
     activationDate: {
       type: Date,
       default: Date.now

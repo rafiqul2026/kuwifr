@@ -142,6 +142,21 @@
   color: #1c2a2a;
 }
 
+.navBadge {
+  margin-left: auto;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .navLinkActive {
   background: #f3f3f3;
   color: #008080;

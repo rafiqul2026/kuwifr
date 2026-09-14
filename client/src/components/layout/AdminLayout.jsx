@@ -9,6 +9,7 @@ import styles from './AdminLayout.module.css';
 const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
+  const [pendingPayments, setPendingPayments] = useState(0);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { showNotification } = useNotification ? useNotification() : { showNotification: () => {} };
@@ -33,11 +34,12 @@ const AdminLayout = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [accountMenuOpen]);
 
-  // Navigation Items for Admin Suite (Replaced Package Sales & Activations with Package Sales Report)
+  // Navigation Items for Admin Suite
   const navItems = [
     { label: 'Dashboard', path: '/admin/dashboard', icon: '📊' },
     { label: 'Members', path: '/admin/members', icon: '👥' },
     { label: 'Packages', path: '/admin/packages', icon: '📦' },
+    { label: 'Payment Verification', path: '/admin/package-sales', icon: '✅' },
     { label: 'Package Sales Report', path: '/admin/package-sales-report', icon: '📈' },
     { label: 'Products', path: '/admin/products', icon: '🛍️' },
     { label: 'Orders', path: '/admin/orders', icon: '🛒' },
@@ -75,6 +77,25 @@ const AdminLayout = () => {
     const interval = setInterval(fetchUnreadAlerts, 60000);
     return () => clearInterval(interval);
   }, [fetchUnreadAlerts]);
+
+  // Pending manual-UPI payment verifications — surfaced as a sidebar badge
+  // so admins notice new submissions without having to open the page.
+  const fetchPendingPayments = useCallback(async () => {
+    try {
+      const res = await api.get('/api/package-purchases/admin-analytics');
+      if (res.data?.success) {
+        setPendingPayments(res.data.data?.pendingCount || 0);
+      }
+    } catch (err) {
+      // Non-critical — badge just stays at its last known count.
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPendingPayments();
+    const interval = setInterval(fetchPendingPayments, 60000);
+    return () => clearInterval(interval);
+  }, [fetchPendingPayments]);
 
   const handleLogout = async () => {
     await logout();
@@ -192,6 +213,9 @@ const AdminLayout = () => {
             >
               <span className={styles.navIcon}>{item.icon}</span>
               <span className={styles.navLabel}>{item.label}</span>
+              {item.path === '/admin/package-sales' && pendingPayments > 0 && (
+                <span className={styles.navBadge}>{pendingPayments > 9 ? '9+' : pendingPayments}</span>
+              )}
             </NavLink>
           ))}
         </nav>

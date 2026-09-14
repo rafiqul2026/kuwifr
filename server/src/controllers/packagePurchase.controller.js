@@ -4,6 +4,7 @@ const PackagePurchase = require('../models/PackagePurchase');
 const User = require('../models/User');
 const Package = require('../models/Package');
 const Order = require('../models/Order');
+const Notification = require('../models/Notification');
 const IncomeService = require('../services/income.service');
 
 // 1. Member: Submit Package Purchase Request (Requires Admin/Payment Approval)
@@ -217,6 +218,22 @@ exports.approvePackagePurchase = async (req, res) => {
       console.error(`Income processing failed for approved purchase ${purchase._id}:`, incomeErr.message);
     }
 
+    try {
+      await Notification.create({
+        userId: user._id,
+        type: 'FINANCIAL',
+        priority: 'HIGH',
+        title: 'Your ID is now ACTIVE! 🎉',
+        message: `Your payment of ₹${authoritativePrice} for ${resolvedPackage.name} has been verified. Your account is now ACTIVE.`,
+        icon: '✅',
+        color: '#16a34a',
+        action: '/member/dashboard',
+        actionLabel: 'Go to Dashboard'
+      });
+    } catch (notifErr) {
+      console.error(`Notification failed for approved purchase ${purchase._id}:`, notifErr.message);
+    }
+
     res.json({
       success: true,
       message: `Member ${user.memberId} successfully activated with ${purchase.packageName}! Income distributed.`,
@@ -244,6 +261,22 @@ exports.rejectPackagePurchase = async (req, res) => {
     purchase.paymentStatus = 'FAILED';
     purchase.adminRemarks = reason || 'Payment could not be verified.';
     await purchase.save();
+
+    try {
+      await Notification.create({
+        userId: purchase.user,
+        type: 'FINANCIAL',
+        priority: 'HIGH',
+        title: 'Payment verification failed',
+        message: `Your payment submission for ${purchase.packageName} could not be verified. Reason: ${purchase.adminRemarks}. Please resubmit with correct details.`,
+        icon: '⚠️',
+        color: '#dc2626',
+        action: '/member/packages',
+        actionLabel: 'Resubmit Payment'
+      });
+    } catch (notifErr) {
+      console.error(`Notification failed for rejected purchase ${purchase._id}:`, notifErr.message);
+    }
 
     res.json({
       success: true,
