@@ -581,4 +581,147 @@ router.post('/funds/process-maintenance', fundController.processFundMaintenance)
 router.post('/funds/process-all-tto', fundController.processAllTTO);
 router.post('/system/initialize', adminController.initializeSystem);
 
+// ==================== SYSTEM: FACTORY RESET (PRE-LAUNCH DATA WIPE) ====================
+// Requested by the product owner to clear out all test/demo members before
+// the public launch: wipes every MEMBER account and every collection that
+// is scoped to members (orders, wallets, income, referrals, binary tree
+// placement, KYC, support tickets, franchise applications, KuwiStar,
+// notifications, salary logs, TTO records, rank achievements, package
+// purchases, dashboard-stats cache) so the platform goes live with a
+// completely clean slate.
+//
+// Deliberately LEFT UNTOUCHED:
+//   - ADMIN / SUPER_ADMIN accounts (role !== 'MEMBER')
+//   - Package / Product / Rank / Rule / Setting / Offer / Bonanza / Fund —
+//     business configuration, not member data
+//   - Campaign documents themselves — only their per-member
+//     participants/excludeUsers lists are cleared, the campaign config stays
+//   - AuditLog — an admin-action compliance trail, not member data
+//
+// GET  /system/backup          — read-only export of every member-scoped
+//   collection as one JSON document. Call this FIRST and save the result
+//   before ever calling factory-reset; there is no undo without it.
+// POST /system/factory-reset   — IRREVERSIBLE. Refuses to run unless the
+//   request body contains the exact phrase
+//   { "confirm": "DELETE ALL MEMBER DATA" } — this is a deliberate typed
+//   confirmation, not just the admin-auth check every other route here
+//   already has, so it can never fire from a stray click or a retried
+//   request.
+const MEMBER_SCOPED_COLLECTIONS = [
+  'BinaryNode',
+  'Franchise',
+  'FundQualification',
+  'IncomeTransaction',
+  'KuwiStar',
+  'Notification',
+  'Order',
+  'PackagePurchase',
+  'RankAchievement',
+  'Referral',
+  'SalaryLog',
+  'TTORecord',
+  'Ticket',
+  'Wallet',
+  'WalletTransaction',
+  'Withdrawal'
+];
+
+router.get('/system/backup', async (req, res, next) => {
+  try {
+    const User = require('../models/User');
+    const Campaign = require('../models/Campaign');
+
+    const backup = {
+      exportedAt: new Date().toISOString(),
+      members: await User.find({ role: 'MEMBER' }).select('+password').lean()
+    };
+
+    for (const name of MEMBER_SCOPED_COLLECTIONS) {
+      const Model = require(`../models/${name}`);
+      backup[name] = await Model.find({}).lean();
+    }
+
+    // Only the per-member fields, not the campaign configuration itself.
+    backup.CampaignParticipants = await Campaign.find({})
+      .select('_id name participants excludeUsers')
+      .lean();
+
+    const counts = { members: backup.members.length };
+    for (const name of MEMBER_SCOPED_COLLECTIONS) counts[name] = backup[name].length;
+    counts.campaignsWithParticipants = backup.CampaignParticipants.filter(
+      (c) => (c.participants || []).length > 0 || (c.excludeUsers || []).length > 0
+    ).length;
+
+    res.json({
+      success: true,
+      message: 'Backup generated. Save this response before running /system/factory-reset.',
+      counts,
+      data: backup
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/system/factory-reset', async (req, res, next) => {
+  try {
+    if (req.body?.confirm !== 'DELETE ALL MEMBER DATA') {
+      return res.status(400).json({
+        success: false,
+        message: 'Refusing to run: request body must include { "confirm": "DELETE ALL MEMBER DATA" }. ' +
+          'Call GET /api/admin/system/backup first and save the result — this action is irreversible.'
+      });
+    }
+
+    const User = require('../models/User');
+    const Campaign = require('../models/Campaign');
+
+    const deleted = {};
+
+    for (const name of MEMBER_SCOPED_COLLECTIONS) {
+      const Model = require(`../models/${name}`);
+      const result = await Model.deleteMany({});
+      deleted[name] = result.deletedCount || 0;
+    }
+
+    const campaignReset = await Campaign.updateMany(
+      {},
+      {
+        $set: {
+          participants: [],
+          excludeUsers: [],
+          'progress.totalParticipants': 0,
+          'progress.achievedParticipants': 0,
+          'progress.totalAchieved': 0,
+          'progress.percentageComplete': 0
+        }
+      }
+    );
+    deleted.CampaignParticipantsCleared = campaignReset.modifiedCount || 0;
+
+    const memberResult = await User.deleteMany({ role: 'MEMBER' });
+    deleted.User = memberResult.deletedCount || 0;
+
+    // Clear the 5-minute dashboard-stats cache so admin dashboard numbers
+    // reflect the reset immediately instead of showing stale pre-wipe data
+    // until the TTL expires.
+    try {
+      const DashboardStats = require('../models/DashboardStats');
+      const statsResult = await DashboardStats.deleteMany({});
+      deleted.DashboardStats = statsResult.deletedCount || 0;
+    } catch (e) {
+      deleted.DashboardStats = 'skipped: ' + e.message;
+    }
+
+    res.json({
+      success: true,
+      message: `Factory reset complete. ${deleted.User} member account(s) and all their related data removed. ` +
+        'ADMIN/SUPER_ADMIN accounts and Package/Product/Rank/Rule/Setting/Offer/Bonanza/Fund configuration were left untouched.',
+      data: deleted
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;
