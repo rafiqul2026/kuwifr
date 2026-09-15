@@ -310,10 +310,18 @@ class BinaryService {
   }
 
   /**
-   * Binary Matching Calculation:
-   * 1. First Pair: 2:1 or 1:2 (Requires 2 Directs: 1 Left + 1 Right)
-   * 2. Kuwi Star Rank: Requires 3 Direct Sponsors across both sides
-   * 3. Subsequent Pairs: 1:1 Matching to Unlimited Depth
+   * Binary Matching Calculation — pure 1:1 against live totals:
+   *   Matched (lifetime) = min(leftVolume, rightVolume), always. No
+   *   first-pair 2:1/1:2 discount, no rounding down to fixed-size UNITs —
+   *   confirmed business rule (Sofiya/KFR782349: Left 61,000 / Right
+   *   11,500 must pay 10% of the full 11,500 = ₹1,150, not ₹1,100 from the
+   *   old 2:1-discounted, UNIT-floored calculation). Eligibility to earn AT
+   *   ALL still requires 1 direct sponsee on each side (2 total directs,
+   *   configurable) — a separate anti-abuse gate, not the discount rule
+   *   being removed here. Income is paid INCREMENTALLY: each call pays only
+   *   the delta between the new min(L,R) and the node's own previously-paid
+   *   matchingVolume, so calling this repeatedly (once per order, as
+   *   updateVolumes does) never double-pays already-credited volume.
    */
   async calculateMatching(node, trigger = null) {
     const user = await User.findById(node.userId).populate('activePackageId');
@@ -345,65 +353,56 @@ class BinaryService {
 
     const SettingsService = require('./settings.service');
     const matchingCfg = await SettingsService.getMatching();
-
-    const leftAvail = node.availableLeftVolume || 0;
-    const rightAvail = node.availableRightVolume || 0;
-
-    const directLeftCount = await User.countDocuments({ sponsorId: user._id, binarySide: 'left', status: 'ACTIVE' });
-    const directRightCount = await User.countDocuments({ sponsorId: user._id, binarySide: 'right', status: 'ACTIVE' });
-    const totalDirectCount = directLeftCount + directRightCount;
-
     const UNIT = matchingCfg.unitValue;
-    const SMALL = matchingCfg.firstPairSmallUnits;
-    const LARGE = matchingCfg.firstPairLargeUnits;
-    const pairCount = node.pairCount || 0;
 
-    let matchingUnits = 0; // counted in UNIT-sized pairs (1 pair = 1 matched UNIT of volume on the smaller leg)
-    let leftDeduct = 0;
-    let rightDeduct = 0;
-
-    // 1. FIRST PAIR MATCHING (2:1 or 1:2 by default, both configurable)
-    if (pairCount === 0) {
-      const hasFirstPairDirects = directLeftCount >= 1 && directRightCount >= 1 && totalDirectCount >= matchingCfg.firstPairMinDirects;
-      const canMatchLeftHeavy = leftAvail >= LARGE * UNIT && rightAvail >= SMALL * UNIT;
-      const canMatchRightHeavy = leftAvail >= SMALL * UNIT && rightAvail >= LARGE * UNIT;
-
-      if (hasFirstPairDirects && (canMatchLeftHeavy || canMatchRightHeavy)) {
-        if (canMatchLeftHeavy) {
-          leftDeduct = LARGE * UNIT;
-          rightDeduct = SMALL * UNIT;
-        } else {
-          leftDeduct = SMALL * UNIT;
-          rightDeduct = LARGE * UNIT;
-        }
-
-        matchingUnits = SMALL; // the smaller leg's units are what "matched" — the income unit
-        node.pairCount = 1;
-      }
-    }
-    // 2. NEXT PAIRS (1:1 TO UNLIMITED DEPTH)
-    else {
-      const possiblePairs = Math.min(Math.floor(leftAvail / UNIT), Math.floor(rightAvail / UNIT));
-
-      if (possiblePairs > 0) {
-        leftDeduct = possiblePairs * UNIT;
-        rightDeduct = possiblePairs * UNIT;
-        matchingUnits = possiblePairs;
-        node.pairCount += possiblePairs;
-      }
+    // Eligibility (1 direct each side, 2 directs total, configurable) only
+    // gates whether a node can start earning at all — once it has matched
+    // anything before, it stays eligible from here on, exactly like the
+    // previous first-pair-only gate did, so a downline member's status
+    // later flipping inactive can't claw back an already-qualified node's
+    // matching income.
+    const alreadyQualified = (node.matchingVolume || 0) > 0 || (node.pairCount || 0) > 0;
+    let isEligible = alreadyQualified;
+    if (!isEligible) {
+      const directLeftCount = await User.countDocuments({ sponsorId: user._id, binarySide: 'left', status: 'ACTIVE' });
+      const directRightCount = await User.countDocuments({ sponsorId: user._id, binarySide: 'right', status: 'ACTIVE' });
+      const totalDirectCount = directLeftCount + directRightCount;
+      isEligible = directLeftCount >= 1 && directRightCount >= 1 && totalDirectCount >= matchingCfg.firstPairMinDirects;
     }
 
-    if (matchingUnits > 0) {
-      node.availableLeftVolume = Math.max(0, node.availableLeftVolume - leftDeduct);
-      node.availableRightVolume = Math.max(0, node.availableRightVolume - rightDeduct);
-      node.matchingVolume = (node.matchingVolume || 0) + matchingUnits * UNIT;
-      await node.save();
+    if (!isEligible) {
+      // Volume can sit on both legs before a member has qualified (1 direct
+      // each side) — it isn't lost, it just isn't payable as income yet.
+      // Once they qualify, the very next trigger pays the FULL min(L,R) at
+      // that point (previousMatched is still 0), not just what arrives after.
+      return node;
+    }
 
+    const L = node.leftVolume || 0;
+    const R = node.rightVolume || 0;
+    const newMatchedTotal = Math.min(L, R);
+    const previousMatchedTotal = node.matchingVolume || 0;
+    const matchedVolume = newMatchedTotal - previousMatchedTotal; // this event's incremental KBP
+
+    // Keep availableLeftVolume/availableRightVolume as the live carry-forward
+    // balance (exactly the "Carry Forward Business" card's own formula) —
+    // still useful bookkeeping/reporting fields even though matching no
+    // longer consumes them in discrete UNIT-sized steps. Always persisted
+    // (even when matchedVolume is 0) so these stay accurate whenever either
+    // leg's total changes, not only on a new-match event.
+    node.availableLeftVolume = Math.max(0, L - newMatchedTotal);
+    node.availableRightVolume = Math.max(0, R - newMatchedTotal);
+    node.matchingVolume = newMatchedTotal;
+    // Informational only now (no longer gates matching) — kept for the
+    // Admin "Matched Pairs" stat.
+    node.pairCount = UNIT > 0 ? Math.floor(newMatchedTotal / UNIT) : node.pairCount;
+    await node.save();
+
+    if (matchedVolume > 0) {
       // Matching Income = matchingCfg.rate (business plan default 10%) of the
       // matched KBP volume — NOT the full matched volume itself. Paying 100%
       // of matched volume here previously blew straight through the daily cap
       // on a single pair and paid ~10x what the plan specifies.
-      const matchedVolume = matchingUnits * UNIT;
       const grossAmount = matchedVolume * matchingCfg.rate;
 
       // The company/system-root account (User.isSystemRoot — the account
@@ -443,7 +442,7 @@ class BinaryService {
           'BinaryNode',
           matchedVolume,
           matchingCfg.rate,
-          { pairCount: matchingUnits, unitValue: UNIT, ...triggerMeta }
+          { matchedKbp: matchedVolume, unitValue: UNIT, ...triggerMeta }
         );
 
         if (creditResult && creditResult.transaction) {
@@ -478,7 +477,7 @@ class BinaryService {
           matchingCfg.rate,
           grossAmount,
           cappedResult.capBreakdown,
-          { pairCount: matchingUnits, unitValue: UNIT, ...triggerMeta }
+          { matchedKbp: matchedVolume, unitValue: UNIT, ...triggerMeta }
         );
       }
 
@@ -855,9 +854,9 @@ class BinaryService {
    * only ever increases by exactly the kbp amount passed into a successful
    * updateVolumes() call. Any shortfall means that much KBP was never
    * propagated to their upline, so it re-runs updateVolumes() for exactly
-   * the missing amount — through the real matching engine, so first-pair
-   * 2:1 rules, capping, leadership bonus triggers, and rank re-evaluation
-   * all fire normally, exactly as if that KBP had propagated the first time.
+   * the missing amount — through the real matching engine, so matching,
+   * capping, leadership bonus triggers, and rank re-evaluation all fire
+   * normally, exactly as if that KBP had propagated the first time.
    *
    * Safe to run any time, repeatedly: totalKBP only ever grows by what this
    * method itself just topped it up with, so a second run always computes a
@@ -917,44 +916,29 @@ class BinaryService {
 
   /**
    * Non-destructive top-up for Matching Income that is LESS than it should
-   * be — different from reconcileMissingVolume() above, which fixes KBP that
-   * never even reached a node's leftVolume/rightVolume totals. This fixes a
-   * separate, subtler bug: even once leftVolume/rightVolume ARE fully
-   * correct, the total income calculateMatching() has actually paid out can
-   * still be short, because the "first pair" 2:1 rule burns 2 UNITs from
-   * whichever side happens to be numerically heavier AT THE MOMENT the first
-   * pair triggers — not necessarily whichever side ends up being the larger
-   * total. If volume arrives (or, as here, gets REPLAYED by
-   * reconcileMissingVolume(), which applies each member's total shortfall as
-   * one lump per member in User.createdAt order — not necessarily the real
-   * chronological order their original orders happened in) such that the
-   * eventually-SMALLER leg is briefly the heavier one when the first pair
-   * fires, the engine wastes an extra UNIT of the scarce leg on the 2:1
-   * ratio instead of paying it out at full 1:1 value — silently underpaying
-   * by exactly one UNIT's worth of income (UNIT * rate).
+   * be under the current pure-1:1 rule — different from
+   * reconcileMissingVolume() above, which fixes KBP that never even reached
+   * a node's leftVolume/rightVolume totals. This fixes a separate bug: even
+   * once leftVolume/rightVolume ARE fully correct, a node's own stored
+   * matchingVolume only advances when calculateMatching() is re-triggered by
+   * a NEW order — so any node whose two legs' totals moved (or whose
+   * matching-formula changed, as happened when the old first-pair 2:1
+   * discount + UNIT-flooring was replaced with plain
+   * min(leftVolume, rightVolume)) without a fresh trigger since can be
+   * sitting on a real, currently-true shortfall.
    *
-   * Real, confirmed case: RAFIQUL Test (KFR441197) — Left leg 15,500 KBP,
-   * Right leg 11,000 KBP. The mathematically correct lifetime matching total
-   * for ANY node, independent of history/ordering, is simply
-   * floor(min(leftVolume, rightVolume) / UNIT) * UNIT * rate — the first
-   * pair's extra UNIT is only ever "wasted" off the LARGER leg if the engine
-   * chooses correctly, so income is always exactly 10 (or 11, etc.) whole
-   * UNITs of the smaller leg's total, never dependent on arrival order. For
-   * RAFIQUL that's floor(11000/1000)*1000*0.10 = ₹1,100 — he had only been
-   * paid ₹1,000 (one UNIT / ₹100 short) because the reconciliation replay
-   * above happened to burn the extra first-pair UNIT off his (eventually)
-   * smaller Right leg instead of his larger Left leg.
-   *
-   * This method computes that authoritative target directly from each
-   * node's own (correct) leftVolume/rightVolume — never replays history, so
-   * it can't repeat the same ordering mistake — and tops up ONLY the
-   * shortfall vs. the node's current pairCount, as a new, separately-labeled
-   * correction transaction (append-only; never edits or deletes a prior
-   * credit). It also corrects the node's own pairCount/matchingVolume/
-   * availableLeftVolume/availableRightVolume to the same authoritative
-   * target state, so future volume increments compute correctly from here
-   * on. Idempotent: a second run always finds a shortfall of 0 for anyone
-   * already at their correct target.
+   * The authoritative target for ANY node, independent of history, is
+   * simply min(leftVolume, rightVolume) — no rounding, no first-pair
+   * discount (confirmed business rule; see calculateMatching()'s own doc
+   * comment for the worked Sofiya/KFR782349 example). This method computes
+   * that target directly from each node's own current leftVolume/
+   * rightVolume, and tops up ONLY the shortfall vs. the node's current
+   * matchingVolume, as a new, separately-labeled correction transaction
+   * (append-only; never edits or deletes a prior credit). It also brings the
+   * node's own matchingVolume/availableLeftVolume/availableRightVolume/
+   * pairCount up to that same target state, so future volume increments
+   * compute correctly from here on. Idempotent: a second run always finds a
+   * shortfall of 0 for anyone already at their correct target.
    */
   async reconcileUnderpaidMatchingIncome() {
     const SettingsService = require('./settings.service');
@@ -962,10 +946,12 @@ class BinaryService {
     const RankService = require('./rank.service');
     const matchingCfg = await SettingsService.getMatching();
     const UNIT = matchingCfg.unitValue;
-    const SMALL = matchingCfg.firstPairSmallUnits;
-    const LARGE = matchingCfg.firstPairLargeUnits;
 
     const nodes = await BinaryNode.find({ leftVolume: { $gt: 0 }, rightVolume: { $gt: 0 } });
+    // The system-root account never earns (see calculateMatching's own
+    // isSystemRoot guard) — excluded here too so a future root node with
+    // volume on both legs can't get accidentally credited by this.
+    const rootUserIds = new Set((await User.find({ isSystemRoot: true }).select('_id').lean()).map((u) => String(u._id)));
 
     const summary = {
       totalNodesChecked: nodes.length,
@@ -977,19 +963,21 @@ class BinaryService {
 
     for (const node of nodes) {
       try {
+        if (rootUserIds.has(String(node.userId))) continue;
+
         const L = node.leftVolume || 0;
         const R = node.rightVolume || 0;
-        const currentPairCount = node.pairCount || 0;
+        const currentMatched = node.matchingVolume || 0;
 
-        let eligible = currentPairCount > 0;
+        // Same eligibility gate as calculateMatching(): once a node has
+        // matched anything before, it stays eligible; otherwise it needs 1
+        // direct on each side (2 total, configurable).
+        let eligible = currentMatched > 0 || (node.pairCount || 0) > 0;
         if (!eligible) {
           const directLeftCount = await User.countDocuments({ sponsorId: node.userId, binarySide: 'left', status: 'ACTIVE' });
           const directRightCount = await User.countDocuments({ sponsorId: node.userId, binarySide: 'right', status: 'ACTIVE' });
           const totalDirectCount = directLeftCount + directRightCount;
-          const hasFirstPairDirects = directLeftCount >= 1 && directRightCount >= 1 && totalDirectCount >= matchingCfg.firstPairMinDirects;
-          const canMatchLeftHeavy = L >= LARGE * UNIT && R >= SMALL * UNIT;
-          const canMatchRightHeavy = L >= SMALL * UNIT && R >= LARGE * UNIT;
-          eligible = hasFirstPairDirects && (canMatchLeftHeavy || canMatchRightHeavy);
+          eligible = directLeftCount >= 1 && directRightCount >= 1 && totalDirectCount >= matchingCfg.firstPairMinDirects;
         }
 
         if (!eligible) {
@@ -997,15 +985,14 @@ class BinaryService {
           continue;
         }
 
-        const targetUnits = Math.floor(Math.min(L, R) / UNIT);
-        const shortfallUnits = targetUnits - currentPairCount;
+        const targetMatched = Math.min(L, R);
+        const shortfallKbp = targetMatched - currentMatched;
 
-        if (shortfallUnits <= 0) {
+        if (shortfallKbp <= 0) {
           summary.alreadyCorrect += 1;
           continue;
         }
 
-        const shortfallKbp = shortfallUnits * UNIT;
         const grossAmount = shortfallKbp * matchingCfg.rate;
 
         const cappedResult = await IncomeService.applyCaps(node.userId, grossAmount, ['MATCHING_INCOME']);
@@ -1021,11 +1008,11 @@ class BinaryService {
             shortfallKbp,
             matchingCfg.rate,
             {
-              pairCount: shortfallUnits,
+              matchedKbp: shortfallKbp,
               unitValue: UNIT,
-              correctionReason: 'matching_first_pair_side_correction',
-              previousPairCount: currentPairCount,
-              correctedTargetPairCount: targetUnits
+              correctionReason: 'matching_pure_1to1_rule_correction',
+              previousMatchingVolume: currentMatched,
+              correctedTargetMatchingVolume: targetMatched
             }
           );
           if (creditResult && creditResult.transaction) {
@@ -1062,9 +1049,9 @@ class BinaryService {
               processedAt: new Date(),
               capBreakdown: cappedResult.capBreakdown,
               metadata: {
-                pairCount: shortfallUnits,
+                matchedKbp: shortfallKbp,
                 unitValue: UNIT,
-                correctionReason: 'matching_first_pair_side_correction',
+                correctionReason: 'matching_pure_1to1_rule_correction',
                 failureReason: 'CAPPED_TO_ZERO — daily/weekly/monthly package cap already exhausted'
               }
             });
@@ -1073,27 +1060,13 @@ class BinaryService {
           }
         }
 
-        // Correct the node's own state to the authoritative target — the
-        // SAME leg-assignment logic that produces the correct target income
-        // above (heavier total leg absorbs the first pair's extra UNIT), so
-        // any future volume increment for this node starts from a
-        // consistent, correct base rather than repeating this shortfall.
-        const heavyIsLeft = L >= R;
-        const heavyTotal = heavyIsLeft ? L : R;
-        const lightTotal = heavyIsLeft ? R : L;
-        let consumedHeavy = 0;
-        let consumedLight = 0;
-        if (targetUnits > 0) {
-          consumedHeavy = Math.min(heavyTotal, LARGE * UNIT + Math.max(0, targetUnits - SMALL) * UNIT);
-          consumedLight = Math.min(lightTotal, SMALL * UNIT + Math.max(0, targetUnits - SMALL) * UNIT);
-        }
-        const correctedHeavyAvail = Math.max(0, heavyTotal - consumedHeavy);
-        const correctedLightAvail = Math.max(0, lightTotal - consumedLight);
-
-        node.availableLeftVolume = heavyIsLeft ? correctedHeavyAvail : correctedLightAvail;
-        node.availableRightVolume = heavyIsLeft ? correctedLightAvail : correctedHeavyAvail;
-        node.pairCount = targetUnits;
-        node.matchingVolume = targetUnits * UNIT;
+        // Correct the node's own state to the authoritative target so any
+        // future volume increment for this node starts from a consistent,
+        // correct base rather than repeating this shortfall.
+        node.availableLeftVolume = Math.max(0, L - targetMatched);
+        node.availableRightVolume = Math.max(0, R - targetMatched);
+        node.pairCount = UNIT > 0 ? Math.floor(targetMatched / UNIT) : node.pairCount;
+        node.matchingVolume = targetMatched;
         await node.save();
 
         if (creditResult && creditResult.success) {
@@ -1111,9 +1084,8 @@ class BinaryService {
           userId: node.userId,
           memberId: user?.memberId,
           fullName: user?.fullName,
-          previousPairCount: currentPairCount,
-          correctedPairCount: targetUnits,
-          shortfallUnits,
+          previousMatchingVolume: currentMatched,
+          correctedMatchingVolume: targetMatched,
           shortfallKbp,
           creditedAmount: cappedResult.allowedAmount || 0
         });

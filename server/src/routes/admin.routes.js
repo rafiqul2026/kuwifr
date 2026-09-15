@@ -283,8 +283,8 @@ router.post('/income/reconcile-referral-underpaid', async (req, res, next) => {
 // could each independently skip this). Compares each member's real
 // completed-order KBP total against what actually reached their own
 // BinaryNode.totalKBP and replays exactly the shortfall through the real
-// matching engine — so first-pair 2:1 rules, caps, leadership bonus, and
-// rank re-evaluation all fire normally. Safe to run repeatedly: a second run
+// matching engine — so matching, caps, leadership bonus, and rank
+// re-evaluation all fire normally. Safe to run repeatedly: a second run
 // always finds a shortfall of 0 for anyone already reconciled.
 router.post('/income/reconcile-matching', async (req, res, next) => {
   try {
@@ -303,15 +303,13 @@ router.post('/income/reconcile-matching', async (req, res, next) => {
 // Non-destructive top-up for Matching Income that is LESS than it should be
 // — run this AFTER "Reconcile Matching Income / Leg KBP" above, not instead
 // of it. That tool fixes KBP that never reached a member's leftVolume/
-// rightVolume totals at all; THIS tool fixes a separate bug where even
-// correct totals can underpay: the first-pair 2:1 rule burns an extra UNIT
-// from whichever leg happens to be heavier at the moment it fires, which for
-// a REPLAYED reconciliation (applied per-member, not in true chronological
-// order) can be the wrong (eventually smaller) leg — silently short-paying
-// by exactly one UNIT of income. See
-// BinaryService.reconcileUnderpaidMatchingIncome for the full explanation,
-// including the real confirmed case (RAFIQUL Test / KFR441197: ₹1,000 paid
-// vs. ₹1,100 correct). Computes each node's target directly from its own
+// rightVolume totals at all; THIS tool fixes a separate case where even
+// correct totals can underpay: a node's own stored matchingVolume only
+// advances on the next order that re-triggers the matching engine, so it can
+// sit behind the true target (min(leftVolume, rightVolume), the confirmed
+// pure-1:1 matching rule — see BinaryService.calculateMatching) for a long
+// time otherwise. See BinaryService.reconcileUnderpaidMatchingIncome for the
+// full explanation. Computes each node's target directly from its own
 // (correct) leftVolume/rightVolume — never replays history — and tops up
 // only the shortfall as a new, separately-labeled correction transaction.
 // Idempotent: safe to run any time, repeatedly.
