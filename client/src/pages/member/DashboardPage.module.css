@@ -247,6 +247,50 @@
   border-radius: 5px;
 }
 
+/* Live IST clock pill — sits directly left of the Refresh button in the
+   dashboard header. Pure display widget (see DashboardPage.jsx for why
+   this isn't a business-date calculation). */
+.istClockPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  padding: 7px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.istClockDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #16a34a;
+  flex-shrink: 0;
+  animation: istClockPulse 2s ease-in-out infinite;
+}
+
+@keyframes istClockPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.istClockLabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: #a3a3a3;
+}
+
+.istClockValue {
+  font-weight: 700;
+  color: #1c2a2a;
+  font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  min-width: 82px;
+}
+
 .refreshButton {
   display: inline-flex;
   align-items: center;

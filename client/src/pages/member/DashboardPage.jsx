@@ -39,6 +39,31 @@ const addDismissedId = (id) => {
   }
 };
 
+// Live IST (Asia/Kolkata) clock for the dashboard header — a pure display
+// widget driven by the visitor's own system clock via Intl's timeZone
+// conversion (accurate regardless of the visitor's own local timezone).
+// This is NOT a business-date boundary calculation (those all live
+// server-side in server/src/utils/businessDate.js, which remains the sole
+// authority for what "Today"/"This Week"/"This Month" means for any
+// figure on this page) — purely "what time is it in India right now".
+// formatToParts (rather than a plain toLocaleTimeString) avoids any
+// locale/ICU quirk in how AM/PM gets rendered ("am", "a.m.", etc.) so the
+// output is always exactly "HH:MM:SS AM/PM".
+const IST_CLOCK_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Kolkata',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: true
+});
+
+const formatISTClock = (date) => {
+  const parts = IST_CLOCK_FORMATTER.formatToParts(date);
+  const get = (type) => parts.find((p) => p.type === type)?.value || '';
+  const dayPeriod = get('dayPeriod').toUpperCase().replace(/\./g, '');
+  return `${get('hour')}:${get('minute')}:${get('second')} ${dayPeriod}`;
+};
+
 /**
  * ============================================================================
  * 📊 MEMBER DASHBOARD COMPONENT (STANDARDIZED COMPACT CARDS)
@@ -51,6 +76,13 @@ const DashboardPage = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [istClock, setIstClock] = useState(() => formatISTClock(new Date()));
+
+  useEffect(() => {
+    const tick = () => setIstClock(formatISTClock(new Date()));
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, []);
   const [copiedSide, setCopiedSide] = useState(null);
   const [copiedMemberId, setCopiedMemberId] = useState(false);
 
@@ -311,6 +343,11 @@ const DashboardPage = () => {
           </div>
 
           <div className={styles.headerActions}>
+            <div className={styles.istClockPill} title="Current time in India (Asia/Kolkata)">
+              <span className={styles.istClockDot}></span>
+              <span className={styles.istClockLabel}>IST</span>
+              <span className={styles.istClockValue}>{istClock}</span>
+            </div>
             <button
               type="button"
               className={styles.refreshButton}
