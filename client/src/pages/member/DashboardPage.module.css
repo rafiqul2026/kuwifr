@@ -101,6 +101,15 @@
   min-width: 260px;
 }
 
+/* Was previously an unstyled bare <div> — the IST clock pill and Refresh
+   button had zero gap between them, sitting flush against each other. */
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .greetingBadge {
   display: inline-flex;
   align-items: center;
