@@ -263,7 +263,17 @@ const getDashboardStats = async (req, res, next) => {
     // week" figure, even though Weekly KBP/Weekly KBP Match right next to it
     // are both week-scoped. Same CREDITED-only, same userId, just widened to
     // the [weekStart, now) window used everywhere else on this page.
-    const [weeklyIncomeAgg, currentRemunerationAgg, pensionIncomeAgg] = await Promise.all([
+    const [todayIncomeAgg, weeklyIncomeAgg, currentRemunerationAgg, pensionIncomeAgg] = await Promise.all([
+      // Today's Income card — previously read wallet.todayIncome, a field
+      // that doesn't exist anywhere in the Wallet schema and is never
+      // written by any code path, so it was always undefined -> always
+      // showed ₹0 regardless of real income credited today. Same
+      // CREDITED-only aggregation as weeklyIncome below, just scoped to
+      // [todayStart, now) instead of [weekStart, now).
+      IncomeTransaction.aggregate([
+        { $match: { userId: leadershipUserId, status: 'CREDITED', createdAt: { $gte: todayStart } } },
+        { $group: { _id: null, total: { $sum: '$creditedAmount' } } }
+      ]),
       IncomeTransaction.aggregate([
         { $match: { userId: leadershipUserId, status: 'CREDITED', createdAt: { $gte: weekStart } } },
         { $group: { _id: null, total: { $sum: '$creditedAmount' } } }
@@ -282,6 +292,7 @@ const getDashboardStats = async (req, res, next) => {
         { $group: { _id: null, total: { $sum: '$creditedAmount' } } }
       ])
     ]);
+    const todayIncome = todayIncomeAgg[0]?.total || 0;
     const weeklyIncome = weeklyIncomeAgg[0]?.total || 0;
     const currentRemuneration = currentRemunerationAgg[0]?.total || 0;
     const pensionIncome = pensionIncomeAgg[0]?.total || 0;
@@ -398,7 +409,7 @@ const getDashboardStats = async (req, res, next) => {
     res.json({
       success: true,
       data: {
-        todayIncome: wallet?.todayIncome || 0,
+        todayIncome,
         weeklyIncome,
         totalIncome: wallet?.totalIncome || 0,
         totalWithdrawal: wallet?.totalWithdrawn || 0,
