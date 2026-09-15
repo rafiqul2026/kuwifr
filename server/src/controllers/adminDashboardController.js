@@ -6,6 +6,7 @@ const Wallet = require('../models/Wallet');
 const Rank = require('../models/Rank');
 const Package = require('../models/Package');
 const Fund = require('../models/Fund');
+const { getBusinessDayStart, getBusinessMonthStart } = require('../utils/businessDate');
 
 /**
  * Get Comprehensive Admin Dashboard Telemetry
@@ -16,10 +17,15 @@ const getDashboardTelemetry = async (req, res, next) => {
     const range = req.query.range || '30d';
 
     const now = new Date();
+    // IST business-day boundary (see utils/businessDate.js) — the 7d/1y/30d
+    // branches are rolling "N days/years back from now" windows where the
+    // exact time-of-day doesn't matter, but 'today' and the dedicated
+    // todayStart/thisMonthStart below are actual calendar-boundary
+    // filters and must anchor to IST midnight, not server-local time.
     let startDate = new Date();
 
     if (range === 'today') {
-      startDate.setHours(0, 0, 0, 0);
+      startDate = getBusinessDayStart(now);
     } else if (range === '7d') {
       startDate.setDate(now.getDate() - 7);
     } else if (range === '1y') {
@@ -29,10 +35,8 @@ const getDashboardTelemetry = async (req, res, next) => {
       startDate.setDate(now.getDate() - 30);
     }
 
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-
-    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const todayStart = getBusinessDayStart(now);
+    const thisMonthStart = getBusinessMonthStart(now);
 
     // 1. Members Breakdown
     const [totalUsers, activeUsers, newTodayUsers, recentRegistrations] = await Promise.all([

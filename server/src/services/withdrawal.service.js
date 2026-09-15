@@ -2,6 +2,7 @@ const Withdrawal = require('../models/Withdrawal');
 const User = require('../models/User');
 const WalletService = require('./wallet.service');
 const SettingsService = require('./settings.service');
+const { getBusinessDayStart } = require('../utils/businessDate');
 
 /**
  * Withdrawal Service - Handles all withdrawal operations
@@ -313,9 +314,8 @@ class WithdrawalService {
       }
     ]);
 
-    // Get today's withdrawals
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Get today's withdrawals — IST business day, not server-local.
+    const today = getBusinessDayStart();
     const todayWithdrawals = await Withdrawal.countDocuments({
       createdAt: { $gte: today },
       status: 'PROCESSED'

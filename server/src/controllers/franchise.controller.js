@@ -7,6 +7,7 @@ const IncomeTransaction = require('../models/IncomeTransaction');
 const Notification = require('../models/Notification');
 const DownlineService = require('../services/downline.service');
 const SettingsService = require('../services/settings.service');
+const { getBusinessDayStart } = require('../utils/businessDate');
 
 // ============ MEMBER-SIDE ============
 
@@ -88,8 +89,7 @@ const getMyFranchiseDashboard = async (req, res, next) => {
     const territoryActive = territory.filter((m) => String(m.status).toUpperCase() === 'ACTIVE').length;
     const territoryKbp = territory.reduce((sum, m) => sum + (Number(m.totalKBP) || 0), 0);
 
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    const todayStart = getBusinessDayStart();
 
     const [todayAgg, totalAgg] = await Promise.all([
       IncomeTransaction.aggregate([
@@ -398,7 +398,7 @@ const getFranchiseOverviewAdmin = async (req, res, next) => {
         { $group: { _id: null, total: { $sum: '$creditedAmount' } } }
       ]),
       IncomeTransaction.aggregate([
-        { $match: { userId: targetUserId, type: { $in: ['FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE'] }, status: 'CREDITED', createdAt: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) } } },
+        { $match: { userId: targetUserId, type: { $in: ['FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE'] }, status: 'CREDITED', createdAt: { $gte: getBusinessDayStart() } } },
         { $group: { _id: null, total: { $sum: '$creditedAmount' } } }
       ])
     ]);

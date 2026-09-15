@@ -4,6 +4,7 @@ const FundQualification = require('../models/FundQualification');
 const BinaryNode = require('../models/BinaryNode');
 const User = require('../models/User');
 const Order = require('../models/Order');
+const { getBusinessMonthStart, getBusinessMonthEnd, getBusinessMonthString } = require('../utils/businessDate');
 
 const FUND_PLANS = [
   {
@@ -127,9 +128,13 @@ class FundService {
     }
   }
 
-  /** Format the current calendar month as "YYYY-MM". */
+  /** Format the current calendar month as "YYYY-MM", IST-anchored (see
+   *  utils/businessDate.js) — previously used the server's local
+   *  getFullYear()/getMonth(), which near a month boundary could file a
+   *  qualification/distribution under the wrong month on a UTC-timezoned
+   *  server. */
   static currentPeriodKey(date = new Date()) {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    return getBusinessMonthString(date);
   }
 
   /**
@@ -298,8 +303,9 @@ class FundService {
     // 'COMPLETED', and all of them also set the generic `status` field to
     // 'COMPLETED'. Match all three so a real completed order — created via
     // any of those paths — is never missed here.
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    // IST calendar month (see utils/businessDate.js), not server-local.
+    const startOfMonth = getBusinessMonthStart(now);
+    const endOfMonth = getBusinessMonthEnd(now);
 
     const monthlyOrders = await Order.aggregate([
       {

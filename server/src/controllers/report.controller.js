@@ -5,6 +5,7 @@ const Order = require('../models/Order');
 const Withdrawal = require('../models/Withdrawal');
 const Wallet = require('../models/Wallet');
 const IncomeTransaction = require('../models/IncomeTransaction');
+const { getBusinessDayStart, getBusinessMonthStart } = require('../utils/businessDate');
 
 /**
  * Helper: Parse date range queries with safe 30-day defaults
@@ -73,10 +74,14 @@ const getAdminDashboard = async (req, res, next) => {
   try {
     const range = req.query.range || '30d';
 
+    // IST business-day boundary (see utils/businessDate.js) — 'today' and
+    // the dedicated todayStart/thisMonthStart below are actual
+    // calendar-boundary filters and must anchor to IST midnight, not
+    // server-local time (UTC on Vercel).
     const now = new Date();
-    const startDate = new Date();
+    let startDate = new Date();
     if (range === 'today') {
-      startDate.setHours(0, 0, 0, 0);
+      startDate = getBusinessDayStart(now);
     } else if (range === '7d') {
       startDate.setDate(now.getDate() - 7);
     } else if (range === '1y') {
@@ -85,9 +90,8 @@ const getAdminDashboard = async (req, res, next) => {
       startDate.setDate(now.getDate() - 30);
     }
 
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const todayStart = getBusinessDayStart(now);
+    const thisMonthStart = getBusinessMonthStart(now);
 
     // Real member roles per User.js: MEMBER / ADMIN / SUPER_ADMIN — exclude
     // both admin roles from every "member" count, not just ADMIN.

@@ -13,6 +13,7 @@ const BinaryService = require('../services/binary.service');
 const SalaryService = require('../services/salary.service');
 const DownlineService = require('../services/downline.service');
 const cloudinary = require('../config/cloudinary');
+const { getBusinessDayStart, getBusinessWeekStart, getBusinessMonthStart } = require('../utils/businessDate');
 
 // ============================================================
 // 📦 5-TIER OFFICIAL PACKAGE KBP RESOLUTION
@@ -98,17 +99,15 @@ const evaluateMemberRank = async (user) => {
 const getDashboardStats = async (req, res, next) => {
   try {
     const userId = req.userId;
+    // IST business-day/week/month boundaries — see utils/businessDate.js.
+    // Previously built from the Node process's own local time, which rolls
+    // "today" over at UTC midnight (05:30 IST) on Vercel instead of actual
+    // midnight in India — every "Today"/"Activated Today"/"Today Business"
+    // card on this dashboard depends on this being correct.
     const now = new Date();
-
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-
-    const dayOfWeek = now.getDay();
-    const diffToMonday = (dayOfWeek + 6) % 7;
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - diffToMonday);
-    weekStart.setHours(0, 0, 0, 0);
-
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const todayStart = getBusinessDayStart(now);
+    const weekStart = getBusinessWeekStart(now);
+    const monthStart = getBusinessMonthStart(now);
 
     const [user, wallet, binaryNode, fundSummary, salaryProgress] = await Promise.all([
       User.findById(userId)

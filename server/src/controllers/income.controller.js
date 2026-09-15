@@ -3,6 +3,7 @@ const Order = require('../models/Order');
 const User = require('../models/User');
 const BinaryNode = require('../models/BinaryNode');
 const IncomeTransaction = require('../models/IncomeTransaction');
+const { getBusinessDayStart, getBusinessDateString } = require('../utils/businessDate');
 
 // ============ INCOME STREAM DROPDOWN (Problem 6) ============
 // Maps the member-facing "Income Stream" categories (see the dropdown on
@@ -143,9 +144,8 @@ const getCapStatus = async (req, res, next) => {
 const getTodayIncome = async (req, res, next) => {
   try {
     const userId = req.userId;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
     const now = new Date();
+    const today = getBusinessDayStart(now); // IST business day, not server-local
 
     const result = await IncomeTransaction.aggregate([
       { $match: { userId: userId, status: 'CREDITED', createdAt: { $gte: today, $lte: now } } },
@@ -155,7 +155,7 @@ const getTodayIncome = async (req, res, next) => {
     res.json({
       success: true,
       data: {
-        today: today.toISOString().split('T')[0],
+        today: getBusinessDateString(now),
         total: result.length > 0 ? result[0].total : 0,
         count: result.length > 0 ? result[0].count : 0
       }
@@ -286,8 +286,7 @@ const processAllRankSalaries = async (req, res, next) => {
 const getIncomeStreamBreakdown = async (req, res, next) => {
   try {
     const userId = req.userId;
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    const todayStart = getBusinessDayStart(); // IST business day, not server-local
 
     const categoryKeys = Object.keys(INCOME_STREAM_CATEGORIES);
     const streams = await Promise.all(categoryKeys.map(async (key) => {

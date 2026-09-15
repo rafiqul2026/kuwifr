@@ -6,6 +6,7 @@ const Referral = require('../models/Referral');
 const Order = require('../models/Order');
 const WalletService = require('./wallet.service');
 const BinaryService = require('./binary.service');
+const { getBusinessDayStart, getBusinessWeekStart, getBusinessMonthStart } = require('../utils/businessDate');
 
 /**
  * Income Service - Handles all income calculations
@@ -622,10 +623,14 @@ class IncomeService {
       return { allowedAmount: income, excess: 0, capBreakdown: { daily: { consumed: 0, remaining: Infinity, cap: Infinity }, weekly: { consumed: 0, remaining: Infinity, cap: Infinity }, monthly: { consumed: 0, remaining: Infinity, cap: Infinity } } };
     }
 
+    // IST business-day/week/month boundaries — NOT server-local time. On
+    // Vercel the Node process runs in UTC, so the old `new Date(now.getFullYear(),
+    // now.getMonth(), now.getDate())` construction rolled "today" over at
+    // UTC midnight (05:30 IST), not actual midnight in India.
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekStart = this.getWeekStart(now);
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const today = getBusinessDayStart(now);
+    const weekStart = getBusinessWeekStart(now);
+    const monthStart = getBusinessMonthStart(now);
 
     const dailyConsumed = await this.getConsumedIncome(userId, today, now, types);
     const weeklyConsumed = await this.getConsumedIncome(userId, weekStart, now, types);
@@ -661,11 +666,13 @@ class IncomeService {
     return result.length > 0 ? result[0].total : 0;
   }
 
+  /** @deprecated kept as a thin wrapper for any external caller not yet
+   *  migrated — internally this class now calls getBusinessWeekStart()
+   *  from utils/businessDate directly. Previously computed the Monday-start
+   *  week boundary in server-local time; now IST-anchored like everything
+   *  else in this file. */
   getWeekStart(date) {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    return new Date(d.setDate(diff));
+    return getBusinessWeekStart(date);
   }
 
   /**
@@ -864,9 +871,9 @@ class IncomeService {
     if (!pkg) return { hasPackage: false, message: 'Package not found' };
 
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekStart = this.getWeekStart(now);
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const today = getBusinessDayStart(now);
+    const weekStart = getBusinessWeekStart(now);
+    const monthStart = getBusinessMonthStart(now);
 
     const dailyConsumed = await this.getConsumedIncome(userId, today, now);
     const weeklyConsumed = await this.getConsumedIncome(userId, weekStart, now);

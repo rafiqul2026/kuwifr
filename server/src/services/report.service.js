@@ -6,6 +6,7 @@ const Wallet = require('../models/Wallet');
 const RankAchievement = require('../models/RankAchievement');
 const FundQualification = require('../models/FundQualification');
 const BinaryNode = require('../models/BinaryNode');
+const { getBusinessDayStart, getBusinessWeekStart, getBusinessMonthStart } = require('../utils/businessDate');
 
 /**
  * Report Service - Handles all reporting and analytics
@@ -18,9 +19,9 @@ class ReportService {
    */
   async getAdminDashboard() {
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfWeek = this.getWeekStart(now);
+    const today = getBusinessDayStart(now);
+    const startOfMonth = getBusinessMonthStart(now);
+    const startOfWeek = getBusinessWeekStart(now);
 
     // Member Statistics
     const totalMembers = await User.countDocuments();
@@ -392,14 +393,10 @@ class ReportService {
 
   // ============ UTILITY METHODS ============
 
-  /**
-   * Get week start (Monday)
-   */
+  /** @deprecated thin wrapper — see utils/businessDate.js#getBusinessWeekStart.
+   *  Previously a server-local-time Monday-start calculation; now IST-anchored. */
   getWeekStart(date) {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    return new Date(d.setDate(diff));
+    return getBusinessWeekStart(date);
   }
 
   /**

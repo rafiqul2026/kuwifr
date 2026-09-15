@@ -7,6 +7,7 @@ const TTORecord = require('../models/TTORecord');
 const WalletService = require('./wallet.service');
 const BinaryNode = require('../models/BinaryNode');
 const Order = require('../models/Order');
+const { getBusinessMonthString, getPreviousBusinessMonthStart } = require('../utils/businessDate');
 
 // "Real, completed order" — this codebase writes two different completion
 // signals depending on which checkout path created the order (see
@@ -190,13 +191,13 @@ const REQUIRED_BALANCE_RATIO = 0.5;
 const SALARY_PERCENTAGE = 1; // 1% of TTO
 
 /**
- * Format a Date as "YYYY-MM".
+ * Format a Date as "YYYY-MM", IST-anchored (see utils/businessDate.js) —
+ * previously used the server's local getFullYear()/getMonth(), which near
+ * a month boundary could key a salary/TTO record to the wrong month on a
+ * UTC-timezoned server.
  */
 function getMonthString(date = new Date()) {
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  return `${year}-${month}`;
+  return getBusinessMonthString(date);
 }
 
 /**
@@ -504,8 +505,7 @@ async function processMonthlySalaryPayout(userId, targetMonth) {
  * always settles the month that just completed).
  */
 function getPreviousMonthMarker() {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return getPreviousBusinessMonthStart();
 }
 
 module.exports = {
