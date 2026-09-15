@@ -229,7 +229,7 @@ const OrdersPage = () => {
                             </div>
                           </td>
                           <td className={styles.tdKbp}>
-                            <span className={styles.kbpBadge}>⭐ {ord.kbp?.toLocaleString() || 1000} KBP</span>
+                            <span className={styles.kbpBadge}>⭐ {(ord.kbpGenerated ?? ord.products?.[0]?.kbp ?? 0).toLocaleString()} KBP</span>
                           </td>
                           <td className={styles.tdAmount}>
                             <strong className={styles.amountText}>₹{(ord.price || ord.totalAmount)?.toLocaleString()}</strong>
@@ -464,7 +464,7 @@ const OrdersPage = () => {
                           </div>
                         </td>
                         <td>Activation / 9983</td>
-                        <td style={{ textAlign: 'center' }}><strong>⭐ {selectedInvoice.kbp?.toLocaleString() || 1000} KBP</strong></td>
+                        <td style={{ textAlign: 'center' }}><strong>⭐ {(selectedInvoice.kbpGenerated ?? selectedInvoice.products?.[0]?.kbp ?? 0).toLocaleString()} KBP</strong></td>
                         <td style={{ textAlign: 'center' }}>1</td>
                         <td style={{ textAlign: 'right' }}>₹{(selectedInvoice.price || selectedInvoice.totalAmount)?.toLocaleString()}</td>
                         <td style={{ textAlign: 'right' }}><strong>₹{(selectedInvoice.price || selectedInvoice.totalAmount)?.toLocaleString()}</strong></td>
