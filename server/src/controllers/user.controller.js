@@ -143,16 +143,27 @@ const getDashboardStats = async (req, res, next) => {
 
     const totalKbpLeft = Number(binaryNode?.leftVolume || 0);
     const totalKbpRight = Number(binaryNode?.rightVolume || 0);
-    const totalKbpMatch = Number(binaryNode?.matchingVolume || Math.min(totalKbpLeft, totalKbpRight));
 
-    // Carry Forward Business: the running UNMATCHED balance on each leg.
-    // BinaryService.calculateMatching() deducts matched units from these on
-    // every match and never resets them otherwise, which IS the "today's
-    // excess carries forward" rule from the business plan — surfaced here
-    // (Problem 2) rather than reimplemented.
+    // Total KBP Match / Carry Forward Business: the node's OWN stored
+    // matchingVolume/availableLeftVolume/availableRightVolume only get
+    // updated when BinaryService.calculateMatching() is re-triggered by a
+    // NEW order — it does not "catch up" on already-possible further pairs
+    // by itself, so those stored fields can sit stale for a long time after
+    // a lopsided first pair (real case: Sofiya/KFR782349 — Left 10,000/
+    // Right 7,500 stored only 1,000 KBP matched when 7,000 was already
+    // true). getAuthoritativeMatchState recomputes the true current state
+    // live, directly from leftVolume/rightVolume, using the exact same
+    // formula the income engine's own reconciliation uses to decide what's
+    // owed — so these two cards are always correct without needing another
+    // order or a reconciliation run first. Read-only: does not touch the
+    // node or credit any income.
+    const matchState = binaryNode
+      ? await BinaryService.getAuthoritativeMatchState(binaryNode)
+      : { matchedKbp: 0, availableLeft: 0, availableRight: 0 };
+    const totalKbpMatch = matchState.matchedKbp;
     const carryForwardBusiness = {
-      left: Number(binaryNode?.availableLeftVolume || 0),
-      right: Number(binaryNode?.availableRightVolume || 0)
+      left: matchState.availableLeft,
+      right: matchState.availableRight
     };
 
     // "Today"/"Weekly" Business must reflect KBP generated anywhere in the
