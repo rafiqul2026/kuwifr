@@ -569,6 +569,23 @@
 
   .searchForm {
     max-width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .searchLabel {
+    white-space: normal;
+  }
+
+  .searchInput {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .searchBtn {
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .legendSummaryRow {
