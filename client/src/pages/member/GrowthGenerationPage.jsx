@@ -378,7 +378,14 @@ const GrowthGenerationPage = () => {
 
           <div className={styles.legendLeft}>
             <strong>KBP Matched : </strong>
-            <span>{formatKBP(rootNode?.matchingVolume || 0)}</span>
+            {/* Business rule (confirmed): KBP Matched is always the smaller
+                of KBP Left / KBP Right shown right above it — plain 1:1
+                against the two legs' live totals. Deriving it from those
+                same two numbers (rather than the BinaryNode's own stored
+                matchingVolume, which only updates when another order
+                re-triggers the matching engine and can lag behind) keeps
+                this always consistent with what's already on screen. */}
+            <span>{formatKBP(Math.min(rootNode?.leftKbp || 0, rootNode?.rightKbp || 0))}</span>
           </div>
         </div>
 
