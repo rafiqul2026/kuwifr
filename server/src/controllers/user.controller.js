@@ -144,26 +144,23 @@ const getDashboardStats = async (req, res, next) => {
     const totalKbpLeft = Number(binaryNode?.leftVolume || 0);
     const totalKbpRight = Number(binaryNode?.rightVolume || 0);
 
-    // Total KBP Match / Carry Forward Business: the node's OWN stored
-    // matchingVolume/availableLeftVolume/availableRightVolume only get
-    // updated when BinaryService.calculateMatching() is re-triggered by a
-    // NEW order — it does not "catch up" on already-possible further pairs
-    // by itself, so those stored fields can sit stale for a long time after
-    // a lopsided first pair (real case: Sofiya/KFR782349 — Left 10,000/
-    // Right 7,500 stored only 1,000 KBP matched when 7,000 was already
-    // true). getAuthoritativeMatchState recomputes the true current state
-    // live, directly from leftVolume/rightVolume, using the exact same
-    // formula the income engine's own reconciliation uses to decide what's
-    // owed — so these two cards are always correct without needing another
-    // order or a reconciliation run first. Read-only: does not touch the
-    // node or credit any income.
-    const matchState = binaryNode
-      ? await BinaryService.getAuthoritativeMatchState(binaryNode)
-      : { matchedKbp: 0, availableLeft: 0, availableRight: 0 };
-    const totalKbpMatch = matchState.matchedKbp;
+    // Total KBP Match / Carry Forward Business — explicit business rule
+    // (confirmed twice, with worked examples, after the node's own stored
+    // matchingVolume/availableLeftVolume/availableRightVolume — which
+    // additionally lag behind leftVolume/rightVolume until another order
+    // re-triggers BinaryService.calculateMatching — was shown to disagree
+    // with it): for THESE TWO DISPLAY CARDS, matching is always plain 1:1
+    // against the two legs' live totals, with no first-pair discount. Total
+    // KBP Match = the smaller leg's full total; Carry Forward = the excess
+    // sitting on the larger leg, 0 on the smaller. Computed directly from
+    // leftVolume/rightVolume every load, so it is always correct with no
+    // dependency on another order or a reconciliation run first. Display
+    // only — does not change the real matching-income engine, which still
+    // applies its own first-pair 2:1 rule when actually paying out.
+    const totalKbpMatch = Math.min(totalKbpLeft, totalKbpRight);
     const carryForwardBusiness = {
-      left: matchState.availableLeft,
-      right: matchState.availableRight
+      left: Math.max(totalKbpLeft - totalKbpRight, 0),
+      right: Math.max(totalKbpRight - totalKbpLeft, 0)
     };
 
     // "Today"/"Weekly" Business must reflect KBP generated anywhere in the
