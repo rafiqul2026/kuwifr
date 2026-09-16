@@ -616,8 +616,17 @@ const getBinaryTree = async (req, res, next) => {
     // Cap the requested depth: the frontend re-roots on node click to walk
     // deeper (unlimited overall depth via that navigation), so one response
     // only needs a handful of generations to stay fast and lightweight.
+    // Default lowered 6 -> 4 (business request, referencing the Sisparivar
+    // genealogy page as the target look): a 6-generation tree renders up to
+    // 64 leaf-column slots, forcing heavy zoom-out and horizontal scrolling
+    // just to see the root — no longer "one page." 4 generations (root +
+    // 3, up to 8 leaf slots) stays compact and readable at 100% zoom, while
+    // "View More" / click-to-re-root (already built) still reaches any
+    // depth beyond that, exactly like Sisparivar's own pattern of showing a
+    // shallow view and drilling into a specific member's own ID for the
+    // rest of their tree.
     const requestedDepth = parseInt(req.query.depth, 10);
-    const depth = Number.isFinite(requestedDepth) ? Math.min(Math.max(requestedDepth, 2), 10) : 6;
+    const depth = Number.isFinite(requestedDepth) ? Math.min(Math.max(requestedDepth, 2), 10) : 4;
 
     const rawTree = await BinaryService.getTree(rootUser._id, depth);
     if (!rawTree) {

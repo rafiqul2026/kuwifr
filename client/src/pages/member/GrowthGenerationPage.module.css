@@ -12,6 +12,11 @@
   box-sizing: border-box;
   font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   color: #1c2a2a;
+  /* Defensive backstop: a wide tree render must never be able to push this
+     page (and with it, the fixed member sidebar it sits next to in
+     MemberLayout) into horizontal overflow — .stageViewport below is the
+     ONE designated horizontal-scroll boundary for the tree itself. */
+  overflow-x: hidden;
 }
 
 /* ============================================================
