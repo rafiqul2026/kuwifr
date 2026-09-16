@@ -173,6 +173,16 @@ const TeamPage = () => {
 
   const totalVisibleMembers = filteredLevels.reduce((sum, lvl) => sum + lvl.members.length, 0);
 
+  // Total Members / Total Network Size (business rule, confirmed with a
+  // worked example: Saiful/KFR146495, Left 6 + Right 8 = 14): must equal
+  // the member's real, unlimited-depth BINARY downline (Total Downline
+  // Left + Total Downline Right — the same leftCount/rightCount already
+  // shown just below), not the sponsor-tree ("who personally referred
+  // whom") downline count. Spillover placement routinely puts a member's
+  // binary downline several people larger than their sponsor-tree one, so
+  // these two counts are NOT interchangeable.
+  const totalBinaryDownline = (stats.leftCount || 0) + (stats.rightCount || 0);
+
   return (
     <div className={styles.pageContainer}>
       {/* Top Header Section with Sponsor & Team Size */}
@@ -202,11 +212,7 @@ const TeamPage = () => {
           <div className={styles.totalTeamCard}>
             <div className={styles.totalTeamLabel}>Total Network Size</div>
             <div className={styles.totalTeamCount}>
-              {/* Defense in depth: never show a network size smaller than the
-                  Direct Referrals card just to its left — see the backend
-                  comment on getTeamStats' totalTeam for why these two could
-                  otherwise disagree. */}
-              {Math.max(stats.totalTeam || 0, genTotals.totalTeam || 0, stats.directReferrals || 0)}
+              {totalBinaryDownline}
               <span className={styles.unitText}>Members</span>
             </div>
           </div>
@@ -280,7 +286,7 @@ const TeamPage = () => {
           <div className={styles.kpiContent}>
             <span className={styles.kpiTitle}>Total Members</span>
             <div className={styles.kpiValueWrapper}>
-              <h3 className={styles.kpiNumber}>{networkSnapshot.totalMembers}</h3>
+              <h3 className={styles.kpiNumber}>{totalBinaryDownline}</h3>
               <span className={styles.kpiSub}>Full Downline Network</span>
             </div>
           </div>
