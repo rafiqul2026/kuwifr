@@ -570,6 +570,7 @@ const toDisplayNode = (node, isRoot = false) => {
     repurchaseKbp: node.repurchaseKbp || 0,
     sponsorId: node.sponsorId,
     sponsorName: node.sponsorName || '',
+    placementMemberId: node.placementMemberId || null,
     side: node.side,
     binaryLevel: node.binaryLevel,
     leftKbp: node.leftVolume || 0,

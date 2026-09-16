@@ -546,6 +546,26 @@ class BinaryService {
 
     const sponsorCode = user?.sponsorId?.memberId || user?.sponsorId?.referralCode || 'Direct Root';
 
+    // Placement ID: WHO this member's binary node actually sits under in the
+    // tree (BinaryNode.parentId — a User _id, not a BinaryNode _id, per the
+    // rest of this file), as opposed to Sponsor ID (who personally referred
+    // them, User.sponsorId). Extreme-leg spillover placement (see
+    // findPlacement above) routinely puts a member several levels below
+    // their real sponsor once that sponsor's own leg already has depth — so
+    // these two can legitimately differ, and only Placement ID reflects
+    // where the member is actually positioned on THIS tree.
+    let placementMemberId = null;
+    if (rootNode.parentId) {
+      if (String(rootNode.parentId) === String(user?.sponsorId?._id)) {
+        // Common case: placed directly under their own sponsor — reuse the
+        // sponsor lookup already done above instead of a second query.
+        placementMemberId = sponsorCode;
+      } else {
+        const placementParent = await User.findById(rootNode.parentId).select('memberId').lean();
+        placementMemberId = placementParent?.memberId || null;
+      }
+    }
+
     const tree = {
       userId: rootNode.userId,
       memberId: user?.memberId || 'KFR------',
@@ -553,6 +573,7 @@ class BinaryService {
       email: user ? user.email : 'N/A',
       sponsorId: sponsorCode,
       sponsorName: user?.sponsorId?.fullName || '',
+      placementMemberId,
       referralLevel,
       // Was previously defaulting to the fake 'Starter Package' label for
       // ANY member with no activePackageId — including genuinely INACTIVE

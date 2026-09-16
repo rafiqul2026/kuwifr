@@ -454,6 +454,10 @@ const GrowthGenerationPage = () => {
               <strong className={styles.monoId}>{hoveredNode.sponsorId || 'ROOT'}</strong>
             </div>
             <div className={styles.tooltipRow}>
+              <span>Placement ID:</span>
+              <strong className={styles.monoId}>{hoveredNode.placementMemberId || 'ROOT'}</strong>
+            </div>
+            <div className={styles.tooltipRow}>
               <span>Package:</span>
               <strong>{hoveredNode.currentPackage || 'No Active Package'}</strong>
             </div>
