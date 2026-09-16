@@ -66,7 +66,15 @@ class RepurchaseService {
           buyer._id,
           selfIncomeAmount,
           'REPURCHASE_SELF',
-          orderRef || null,
+          // WalletTransaction.reference is a real Mongoose ObjectId
+          // (refPath'd to Order/IncomeTransaction/Withdrawal/User) — orderRef
+          // here is just a human-readable label string ("ORD-REP-<ts>"), not
+          // a document _id, so passing it through was a guaranteed ObjectId
+          // cast failure (surfaces as the generic "Validation Error" toast)
+          // on every single repurchase checkout. There's no real Order
+          // document for a repurchase to reference, so pass null; the label
+          // is already preserved in metadata.orderRef below.
+          null,
           { description: `Self Repurchase Cashback (${(selfRate * 100).toFixed(0)}%)`, orderRef },
           session
         );
@@ -123,7 +131,10 @@ class RepurchaseService {
             sponsor._id,
             commission,
             'REPURCHASE_DOWNLINE',
-            orderRef || null,
+            // See the self-cashback credit() call above — orderRef is a
+            // label string, not a real document _id; the ObjectId
+            // `reference` field must stay null here.
+            null,
             { description: `Downline Repurchase Income (Level ${level})`, sourceUserId: buyer._id, level, orderRef },
             session
           );
