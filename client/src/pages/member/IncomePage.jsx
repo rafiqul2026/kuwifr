@@ -253,17 +253,28 @@ const IncomePage = () => {
                         })}
                       </span>
                       {/* Which member generated this credit, on which package, at
-                          what KBP value — per user request. Only Direct/Referral
-                          and Matching Income carry a source member; other income
-                          types (rank salary, funds, repurchase) show nothing extra
-                          here since they aren't "from" another member. */}
+                          what KBP value — per user request. Direct/Referral and
+                          Matching Income carry a source member; Leadership Income
+                          additionally shows WHICH downline "leader" earned the
+                          underlying matching income this override was paid as a %
+                          of, and at which override level (1st/2nd/3rd = 50/30/20%)
+                          — per the user's explicit request to see this. Other
+                          income types (rank salary, funds, repurchase) show
+                          nothing extra here since they aren't "from" another
+                          member. */}
                       {tx.sourceMemberName && (
                         <span className={styles.streamTxSource}>
                           From: <strong>{tx.sourceMemberName}</strong>
                           {tx.sourceMemberId ? ` (${tx.sourceMemberId})` : ''}
                           {tx.packageName ? ` · ${tx.packageName}` : ''}
-                          {typeof tx.kbp === 'number' ? ` · ${tx.kbp} KBP` : ''}
+                          {typeof tx.kbp === 'number' && !tx.type?.startsWith('LEADERSHIP_INCOME')
+                            ? ` · ${tx.kbp} KBP`
+                            : ''}
+                          {typeof tx.kbp === 'number' && tx.type?.startsWith('LEADERSHIP_INCOME')
+                            ? ` · ₹${tx.kbp.toLocaleString('en-IN')} matching income`
+                            : ''}
                           {tx.triggeredByLeg ? ` · ${tx.triggeredByLeg} leg` : ''}
+                          {tx.leadershipLevel ? ` · Level ${tx.leadershipLevel} (${Math.round((tx.rate || 0) * 100)}%)` : ''}
                         </span>
                       )}
                       {!tx.sourceMemberName && tx.sourceAttributionNote && (

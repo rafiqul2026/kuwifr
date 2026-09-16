@@ -239,27 +239,34 @@ class IncomeService {
    * and the Admin panel's income history view (admin.routes.js GET
    * /income/history). Per the user's explicit request ("ADMIN SHOULD KNOW
    * WHICH MEMBER GET REFERRAL INCOME FROM WHICH MEMBER WITH DATE AND TIME"),
-   * this attaches, for every REFERRAL_INCOME / MATCHING_INCOME transaction:
+   * this attaches, for every REFERRAL_INCOME / MATCHING_INCOME /
+   * LEADERSHIP_INCOME_L1/L2/L3 transaction:
    *   - sourceMemberId / sourceMemberName / sourceMemberEmail — WHICH member
    *     generated this credit (the sponsored downline for referral income;
    *     the immediate contributing downline for matching income — see
    *     binary.service.js#calculateMatching's trigger comment for why that's
    *     "which activity caused this," not a claim of sole authorship of 100%
-   *     of a matched pair's pooled volume).
+   *     of a matched pair's pooled volume; for leadership income, the
+   *     downline "leader" whose OWN matching income this override was paid
+   *     as a % of).
    *   - packageName / orderNumber — WHICH package (referral income only;
-   *     matching income isn't tied to one single order).
+   *     matching/leadership income isn't tied to one single order).
+   *   - leadershipLevel — WHICH override level (1/2/3, i.e. 50%/30%/20%)
+   *     this credit was paid at (leadership income only).
    *   - kbp / rate / creditedAmount / createdAt — already plain top-level
    *     IncomeTransaction fields (kbp value, date & time), untouched here.
    *
    * New transactions (created after this fix shipped) already carry all of
-   * this directly in their own `metadata` — see processReferralIncome above
-   * and calculateMatching's `triggerMeta`. For OLDER transactions credited
-   * before this fix, metadata is missing these fields; this method fills in
-   * what it safely still CAN via a batched live lookup (who the sponsored
-   * member / source order actually is) for referral income. Matching income
-   * has no such fallback — which downline contributed a pre-fix match was
-   * simply never recorded at the time, so those older rows are marked with
-   * `sourceAttributionNote` instead of a guess.
+   * this directly in their own `metadata` — see processReferralIncome above,
+   * calculateMatching's `triggerMeta`, and processLeadershipBonusForMatch's
+   * `sourceMeta`. For OLDER transactions credited before the relevant fix,
+   * metadata is missing these fields; this method fills in what it safely
+   * still CAN via a batched live lookup (who the sponsored member / source
+   * order / leadership-earning member actually is) for referral and
+   * leadership income. Matching income has no such fallback — which
+   * downline contributed a pre-fix match was simply never recorded at the
+   * time, so those older rows are marked with `sourceAttributionNote`
+   * instead of a guess.
    *
    * Accepts and returns plain (lean) transaction objects; never mutates the
    * database, and batches its lookups so displaying a page of history never
@@ -270,6 +277,7 @@ class IncomeService {
 
     const missingReferralUserIds = new Set();
     const missingOrderIds = new Set();
+    const missingLeadershipUserIds = new Set();
 
     for (const tx of transactions) {
       const meta = tx.metadata || {};
@@ -281,19 +289,27 @@ class IncomeService {
           const orderId = meta.orderId || tx.sourceId;
           if (orderId) missingOrderIds.add(String(orderId));
         }
+      } else if (String(tx.type || '').startsWith('LEADERSHIP_INCOME')) {
+        if ((!meta.sourceMemberId || !meta.sourceMemberName) && meta.sourceUserId) {
+          missingLeadershipUserIds.add(String(meta.sourceUserId));
+        }
       }
     }
 
-    const [userDocs, orderDocs] = await Promise.all([
+    const [userDocs, orderDocs, leadershipUserDocs] = await Promise.all([
       missingReferralUserIds.size
         ? User.find({ _id: { $in: [...missingReferralUserIds] } }).select('memberId fullName email').lean()
         : Promise.resolve([]),
       missingOrderIds.size
         ? Order.find({ _id: { $in: [...missingOrderIds] } }).select('packageName orderNumber').lean()
+        : Promise.resolve([]),
+      missingLeadershipUserIds.size
+        ? User.find({ _id: { $in: [...missingLeadershipUserIds] } }).select('memberId fullName email').lean()
         : Promise.resolve([])
     ]);
     const userMap = new Map(userDocs.map((u) => [String(u._id), u]));
     const orderMap = new Map(orderDocs.map((o) => [String(o._id), o]));
+    const leadershipUserMap = new Map(leadershipUserDocs.map((u) => [String(u._id), u]));
 
     return transactions.map((tx) => {
       const meta = tx.metadata || {};
@@ -316,6 +332,16 @@ class IncomeService {
         enriched.triggeredByLeg = meta.triggeredByLeg || null;
         if (!enriched.sourceMemberId) {
           enriched.sourceAttributionNote = 'Matched before per-member attribution was tracked for this transaction — source member not recorded.';
+        }
+      } else if (String(tx.type || '').startsWith('LEADERSHIP_INCOME')) {
+        const fallbackLeader = meta.sourceUserId ? leadershipUserMap.get(String(meta.sourceUserId)) : null;
+
+        enriched.sourceMemberId = meta.sourceMemberId || fallbackLeader?.memberId || null;
+        enriched.sourceMemberName = meta.sourceMemberName || fallbackLeader?.fullName || null;
+        enriched.sourceMemberEmail = meta.sourceMemberEmail || fallbackLeader?.email || null;
+        enriched.leadershipLevel = meta.level || null;
+        if (!enriched.sourceMemberId) {
+          enriched.sourceAttributionNote = 'Earned before per-member attribution was tracked for this transaction — source member not recorded.';
         }
       }
 
@@ -500,6 +526,21 @@ class IncomeService {
     const leaderRank = await RankService.getCurrentRank(leaderUserId);
     if (!leaderRank || leaderRank.level < minRank.level) return null;
 
+    // TRANSACTION HISTORY DETAIL: resolve the earning member's display info
+    // ONCE here, so every level's IncomeTransaction can embed WHICH member
+    // (with member ID) actually earned the matching income this override is
+    // paid from — per the user's explicit request ("Leadership Income...
+    // like leadership get from which member with member ID"). Same pattern
+    // already used for referral/matching income — see
+    // enrichTransactionHistory's fallback below for transactions credited
+    // before this existed.
+    const leaderUser = await User.findById(leaderUserId).select('memberId fullName email');
+    const sourceMeta = {
+      sourceMemberId: leaderUser?.memberId,
+      sourceMemberName: leaderUser?.fullName,
+      sourceMemberEmail: leaderUser?.email
+    };
+
     const results = [];
     let currentUserId = leaderUserId;
 
@@ -529,7 +570,7 @@ class IncomeService {
               'BinaryNode',
               matchingAmount,
               rate,
-              { sourceUserId: leaderUserId, level }
+              { sourceUserId: leaderUserId, level, ...sourceMeta }
             );
 
             if (creditResult && creditResult.transaction) {
@@ -543,7 +584,7 @@ class IncomeService {
           } else {
             await this.recordCappedToZero(
               sponsor._id, `LEADERSHIP_INCOME_L${level}`, sourceNodeId, 'BinaryNode', matchingAmount, rate,
-              grossAmount, cappedResult.capBreakdown, { sourceUserId: leaderUserId, level }
+              grossAmount, cappedResult.capBreakdown, { sourceUserId: leaderUserId, level, ...sourceMeta }
             );
           }
         }
