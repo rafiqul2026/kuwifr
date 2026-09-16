@@ -26,8 +26,6 @@ import MemberRoutes from './routes/MemberRoutes';
 import AdminRoutes from './routes/AdminRoutes';
 import ProtectedRoute from './routes/ProtectedRoute';
 
-import GrowthGenerationPage from './pages/member/GrowthGenerationPage';
-
 import './App.css';
 
 /**
@@ -101,19 +99,6 @@ function App() {
                   <Route path="/portal" element={<DashboardRedirector />} />
                   <Route path="/member" element={<Navigate to="/member/dashboard" replace />} />
                   <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
-
-                  {/* Direct Growth Generation Mapping */}
-                  <Route
-                    path="/member/growth-generation"
-                    element={
-                      <ProtectedRoute requiredRole="MEMBER">
-                        <GrowthGenerationPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route path="/member/growth-map" element={<Navigate to="/member/growth-generation" replace />} />
-                  <Route path="/member/binary" element={<Navigate to="/member/growth-generation" replace />} />
-                  <Route path="/member/genealogy" element={<Navigate to="/member/growth-generation" replace />} />
 
                   {/* Member Portal Sub-Routes */}
                   <Route 

@@ -210,7 +210,14 @@
   overflow-y: hidden;
   min-height: 500px;
   display: flex;
-  justify-content: center;
+  /* NOT "center": when the tree is wider than the viewport, a centered flex
+     container splits the overflow evenly on both sides — but native
+     scrolling only ever reaches scrollLeft 0 at minimum, so the LEFT half
+     of that overflow becomes permanently unreachable/clipped (the exact
+     "left-side nodes not showing" bug). "safe center" centers when the
+     content fits and falls back to flex-start (nothing clipped) once it
+     doesn't — the standard fix for this exact scroll-container pitfall. */
+  justify-content: safe center;
   background: #fdfaf5;
   -webkit-overflow-scrolling: touch;
 }
