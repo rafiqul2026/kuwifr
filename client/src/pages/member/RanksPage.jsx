@@ -174,6 +174,8 @@ const RanksPage = () => {
     currentStars: 0,
     currentLeftStars: 0,
     currentRightStars: 0,
+    carryForwardLeftStars: 0,
+    carryForwardRightStars: 0,
     totalRanks: 0,
     achievements: []
   });
@@ -233,6 +235,8 @@ const RanksPage = () => {
           currentStars: typeof d.currentStars === 'number' ? d.currentStars : 0,
           currentLeftStars: typeof d.currentLeftStars === 'number' ? d.currentLeftStars : 0,
           currentRightStars: typeof d.currentRightStars === 'number' ? d.currentRightStars : 0,
+          carryForwardLeftStars: typeof d.carryForwardLeftStars === 'number' ? d.carryForwardLeftStars : 0,
+          carryForwardRightStars: typeof d.carryForwardRightStars === 'number' ? d.carryForwardRightStars : 0,
           totalRanks: d.totalRanks || (Array.isArray(d.achievements) ? d.achievements.length : 0),
           achievements: Array.isArray(d.achievements) ? d.achievements : []
         });
@@ -242,6 +246,8 @@ const RanksPage = () => {
           currentStars: 0,
           currentLeftStars: 0,
           currentRightStars: 0,
+          carryForwardLeftStars: 0,
+          carryForwardRightStars: 0,
           totalRanks: 0,
           achievements: []
         });
@@ -475,14 +481,14 @@ const RanksPage = () => {
 
           <div className={styles.snapshotCard}>
             <div className={styles.snapshotCardHeader}>
-              <span className={styles.snapshotCardTitle}>MONTHLY STAR</span>
+              <span className={styles.snapshotCardTitle}>CARRY FORWARD STAR</span>
               <div className={styles.snapshotIconBox}>🌟</div>
             </div>
             <div className={styles.snapshotDualBox}>
-              <span className={styles.snapshotDualLeft}>Left: <strong>{rankSnapshot?.monthlyStar?.left || 0}</strong></span>
-              <span className={styles.snapshotDualRight}>Right: <strong>{rankSnapshot?.monthlyStar?.right || 0}</strong></span>
+              <span className={styles.snapshotDualLeft}>Left: <strong>{rankSnapshot?.carryForwardStar?.left || 0}</strong></span>
+              <span className={styles.snapshotDualRight}>Right: <strong>{rankSnapshot?.carryForwardStar?.right || 0}</strong></span>
             </div>
-            <span className={styles.snapshotSub}>Qualified This Month</span>
+            <span className={styles.snapshotSub}>Leftover after your last achieved rank</span>
           </div>
 
           <div className={styles.snapshotCard}>
@@ -523,7 +529,7 @@ const RanksPage = () => {
               <h3 className={styles.snapshotValueText}>Max Rank Achieved</h3>
             )}
             <span className={styles.snapshotSub}>
-              {rankSnapshot?.starForNextRank?.rankName ? `Required Per Leg for ${rankSnapshot.starForNextRank.rankName}` : 'All Ranks Completed'}
+              {rankSnapshot?.starForNextRank?.rankName ? `Still Needed Per Leg for ${rankSnapshot.starForNextRank.rankName}` : 'All Ranks Completed'}
             </span>
           </div>
         </div>
@@ -583,7 +589,14 @@ const RanksPage = () => {
             const requiredPerLeg = typeof rank.requiredPerLeg === 'number'
               ? rank.requiredPerLeg
               : (rank.starsRequired > 0 ? Math.ceil(rank.starsRequired / 2) : 0);
-            const limitingLegStars = Math.min(myRanks.currentLeftStars || 0, myRanks.currentRightStars || 0);
+            // Carry Forward Star business rule: the highest ACHIEVED rank's
+            // own requiredPerLeg is locked in at that rank — progress toward
+            // the next tier is measured against the CARRY FORWARD leftover,
+            // not the raw lifetime star count (which would double-count
+            // stars already locked into a rank already achieved).
+            const carryForwardLeft = myRanks.carryForwardLeftStars || 0;
+            const carryForwardRight = myRanks.carryForwardRightStars || 0;
+            const limitingLegStars = Math.min(carryForwardLeft, carryForwardRight);
             const progress = requiredPerLeg > 0
               ? Math.min(100, Math.round((limitingLegStars / requiredPerLeg) * 100))
               : rank.level === 1 ? (isAchieved ? 100 : 0) : 0;
@@ -670,7 +683,7 @@ const RanksPage = () => {
                       </div>
                       <div className={styles.progressTextRow}>
                         <span>
-                          L: {(myRanks.currentLeftStars || 0).toLocaleString()} / R: {(myRanks.currentRightStars || 0).toLocaleString()}
+                          L: {carryForwardLeft.toLocaleString()} / R: {carryForwardRight.toLocaleString()}
                           {' '}(need {requiredPerLeg.toLocaleString()} on each leg)
                         </span>
                         <strong>{progress}% Complete</strong>
@@ -717,8 +730,8 @@ const RanksPage = () => {
                   {isNext && (
                     <div className={styles.nextInfo}>
                       <span>
-                        Need <strong>{Math.max(0, requiredPerLeg - (myRanks.currentLeftStars || 0)).toLocaleString()}</strong> more on Left
-                        {' '}and <strong>{Math.max(0, requiredPerLeg - (myRanks.currentRightStars || 0)).toLocaleString()}</strong> more on Right
+                        Need <strong>{Math.max(0, requiredPerLeg - carryForwardLeft).toLocaleString()}</strong> more on Left
+                        {' '}and <strong>{Math.max(0, requiredPerLeg - carryForwardRight).toLocaleString()}</strong> more on Right
                         {' '}to unlock {rank.name}
                       </span>
                     </div>

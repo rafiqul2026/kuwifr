@@ -86,13 +86,14 @@ const countSubtreeKuwiStars = async (downlineIds, sinceDate = null) => {
 /** Delegates to RankService — the persisted, official rank for this user. */
 const evaluateMemberRank = async (user) => {
   const rank = await RankService.getCurrentRank(user._id);
-  if (!rank) return { name: 'Not Achieved', code: 'NONE', level: 0, reward: null, rewardValue: 0 };
+  if (!rank) return { name: 'Not Achieved', code: 'NONE', level: 0, reward: null, rewardValue: 0, starsRequired: 0 };
   return {
     name: rank.name,
     code: rank.code || 'RANK',
     level: rank.level || 1,
     reward: rank.reward || null,
-    rewardValue: rank.rewardValue || 0
+    rewardValue: rank.rewardValue || 0,
+    starsRequired: rank.starsRequired || 0
   };
 };
 
@@ -305,23 +306,31 @@ const getDashboardStats = async (req, res, next) => {
     const currentRemuneration = currentRemunerationAgg[0]?.total || 0;
     const pensionIncome = pensionIncomeAgg[0]?.total || 0;
 
-    // Star for Next Rank (Problem 2) — how many more per-leg Kuwi Stars are
-    // needed to reach the NEXT unachieved rank tier, mirroring the balanced
-    // Left:Right qualification rule from the "Uncommon Ranks and Rewards"
-    // spec (requiredPerLeg = ceil(starsRequired / 2), same formula
-    // RanksPage.jsx already renders member-side).
+    // Star for Next Rank / Carry Forward Star (business rule): once a rank
+    // is achieved, that rank's own required-per-leg star count is locked in
+    // at that rank — only the REMAINDER carries forward toward the next
+    // tier. "Star For Next Rank" is therefore the next tier's own
+    // requiredPerLeg MINUS what's already carried forward (not the flat
+    // requirement on its own), and "Carry Forward Star" surfaces that
+    // leftover directly. Both derive from the same
+    // RankService.getRankProgression() carry-forward figures, so they can
+    // never disagree with the Rank & Rewards page's own ladder progress,
+    // which uses the identical computation.
     const rankProgression = await RankService.getRankProgression(userId).catch(() => null);
     const nextRank = rankProgression?.next || null;
+    const carryForwardStar = {
+      left: rankProgression?.carryForwardLeftStars || 0,
+      right: rankProgression?.carryForwardRightStars || 0
+    };
     const starForNextRank = nextRank
       ? {
           rankName: nextRank.name,
-          left: Math.ceil((nextRank.starsRequired || 0) / 2),
-          right: Math.ceil((nextRank.starsRequired || 0) / 2)
+          left: Math.max(0, Math.ceil((nextRank.starsRequired || 0) / 2) - carryForwardStar.left),
+          right: Math.max(0, Math.ceil((nextRank.starsRequired || 0) / 2) - carryForwardStar.right)
         }
       : { rankName: null, left: 0, right: 0 };
 
     const todayStars = await countSubtreeKuwiStars(downlineIds, todayStart);
-    const monthlyStars = await countSubtreeKuwiStars(downlineIds, monthStart);
 
     // Lifetime "Total Star" must match the LIVE Left/Right count already
     // shown on the Remuneration (Gold Star progress) card — both need to be
@@ -461,10 +470,7 @@ const getDashboardStats = async (req, res, next) => {
           left: todayStars.leftStars,
           right: todayStars.rightStars
         },
-        monthlyStar: {
-          left: monthlyStars.leftStars,
-          right: monthlyStars.rightStars
-        },
+        carryForwardStar,
         totalStar: {
           left: lifetimeStars.leftStars,
           right: lifetimeStars.rightStars

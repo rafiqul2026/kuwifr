@@ -615,11 +615,28 @@ class RankService {
         SalaryService.countVerifiedSubtreeStars(userId),
       ]);
 
+    // Carry Forward Star (business rule): once a rank is achieved, that
+    // rank's OWN required-per-leg star count is "locked in" at that rank —
+    // only the REMAINDER beyond it carries forward toward the next rank.
+    // E.g. Bronze Star requires 6 stars (3 Left : 3 Right); a member with
+    // 4 Left / 3 Right total has 3:3 locked into Bronze and only 1 Left : 0
+    // Right left over to count toward Silver Star (10:10). Raw lifetime
+    // leftStars/rightStars above are UNCHANGED (still the true lifetime
+    // total for "Kuwi Stars Earned"/"Total Star") — this is a separate
+    // figure used only for progress-toward-next-rank displays.
+    const lockedPerLeg = currentRank?.starsRequired
+      ? Math.ceil(currentRank.starsRequired / 2)
+      : 0;
+    const carryForwardLeftStars = Math.max(0, leftStars - lockedPerLeg);
+    const carryForwardRightStars = Math.max(0, rightStars - lockedPerLeg);
+
     return {
       current: currentRank,
       currentStars: leftStars + rightStars,
       currentLeftStars: leftStars,
       currentRightStars: rightStars,
+      carryForwardLeftStars,
+      carryForwardRightStars,
       achievements: achievements,
       totalRanks: achievements.length,
     };
@@ -649,18 +666,36 @@ class RankService {
       achievement.rankId.toString(),
     );
 
+    // Carry Forward Star (same business rule as getUserRanks above): the
+    // highest ACHIEVED rank's own required-per-leg star count is locked in
+    // at that rank — only the remainder carries forward toward the NEXT
+    // tier's own (also raw, non-cumulative) requiredPerLeg. allRanks is
+    // sorted by level ascending, so the last matching entry is the highest.
+    const highestAchievedRank = allRanks
+      .filter((r) => achievedIds.includes(r._id.toString()))
+      .pop();
+    const lockedPerLeg = highestAchievedRank?.starsRequired
+      ? Math.ceil(highestAchievedRank.starsRequired / 2)
+      : 0;
+    const carryForwardLeftStars = Math.max(0, leftStars - lockedPerLeg);
+    const carryForwardRightStars = Math.max(0, rightStars - lockedPerLeg);
+
     // Progress toward each tier is measured against that tier's OWN raw
     // starsRequired (halved per leg) — NOT a cumulative sum across prior
     // tiers (see isBalancedRankQualified's docstring for why that was
-    // reverted) — and against the smaller (limiting) leg, matching what
-    // actually gates achievement in checkAndAwardRanks, not the combined
-    // total, which would read misleadingly high for a lopsided downline.
-    const limitingLegStars = Math.min(leftStars, rightStars);
+    // reverted) — and against the smaller (limiting) leg of the CARRY
+    // FORWARD stars (post rank-lock), matching what actually gates
+    // achievement in checkAndAwardRanks, not the raw combined total, which
+    // would read misleadingly high for a lopsided downline or double-count
+    // stars already locked into a previously-achieved rank.
+    const limitingLegStars = Math.min(carryForwardLeftStars, carryForwardRightStars);
 
     const progression = {
       currentStars,
       currentLeftStars: leftStars,
       currentRightStars: rightStars,
+      carryForwardLeftStars,
+      carryForwardRightStars,
       achieved: [],
       next: null,
       all: [],

@@ -9,9 +9,17 @@ const SalaryProgressCard = ({ data }) => {
   // the backend — that mismatch previously made this whole card render its
   // zero defaults regardless of the member's real live data.
   const salary = data?.salaryQualification || {};
-  const currentStars = salary.currentTotalStar || 0;
-  const leftStars = salary.currentLeftStar || 0;
-  const rightStars = salary.currentRightStar || 0;
+  // Carry Forward Star business rule: this card's "progress toward Gold
+  // Star Rank" must use the SAME carry-forward stars (raw lifetime stars
+  // minus whatever's already locked into the member's highest achieved
+  // rank) as the rest of the Rank & Rewards page — not the raw lifetime
+  // total, which double-counts stars already locked into a lower rank
+  // already achieved. The actual Gold Star salary QUALIFICATION check
+  // (isCurrentlyQualified/isGoldStarAchieved below) is unaffected — it
+  // still evaluates against the real, authoritative threshold server-side.
+  const leftStars = data?.carryForwardStar?.left || 0;
+  const rightStars = data?.carryForwardStar?.right || 0;
+  const currentStars = Math.min(leftStars, rightStars);
   const starsNeeded = salary.requiredMinStar !== undefined ? salary.requiredMinStar : 200;
   const progressPercentage = starsNeeded > 0
     ? Math.max(0, Math.min(100, Math.round((currentStars / starsNeeded) * 100)))
