@@ -1,8 +1,26 @@
 // client/src/pages/member/RepurchasePage.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './RepurchasePage.module.css';
+// Reuses the exact same manual-UPI QR / UTR / screenshot checkout modal
+// already proven for Buy Package (PackagesPage.jsx) — same look, same
+// verification flow, just fed from this page's cart instead of a package.
+import checkoutStyles from './PackagesPage.module.css';
+
+// Official Company Receiving Account — kept in sync manually with
+// PackagesPage.jsx/UpgradePackagePage.jsx since there is no shared config
+// module for this yet.
+const COMPANY_PAYMENT_INFO = {
+  upiId: 'SBIBHIM.INSTANT13112874693574880@sbipay',
+  merchantName: 'SB214110 (KUWIFR SERVICES PVT LTD)',
+  accountName: 'KUWIFR SERVICES PRIVATE LIMITED',
+  bankName: 'State Bank of India',
+  accountNumber: '44708235535',
+  ifscCode: 'SBIN0011617',
+  branch: 'BARPETA BAZAR, ASSAM'
+};
 
 // Mirrors server/src/services/settings.service.js DEFAULT_COMPENSATION.repurchase
 // — used here only for the client-side cart/estimate preview shown before
@@ -96,6 +114,7 @@ const getBenefitText = (fundObj) => {
 // ============ MAIN COMPONENT ============
 
 const RepurchasePage = () => {
+  const { user } = useAuth();
   const { showNotification } = useNotification();
   const [activeTab, setActiveTab] = useState('funds'); // 'store' | 'levels' | 'funds'
   const [products, setProducts] = useState([]);
@@ -120,6 +139,16 @@ const RepurchasePage = () => {
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [searchFilter, setSearchFilter] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
+
+  // Checkout modal: 'PAYMENT' | 'SUCCESS' | null — mirrors Buy Package's
+  // manual-UPI verification flow (member pays via QR/bank transfer, submits
+  // UTR + screenshot, admin verifies before anything is credited).
+  const [checkoutStep, setCheckoutStep] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('UPI_GATEWAY');
+  const [qrViewMode, setQrViewMode] = useState('DYNAMIC');
+  const [utrNumber, setUtrNumber] = useState('');
+  const [proofPreview, setProofPreview] = useState('');
+  const [successReceipt, setSuccessReceipt] = useState(null);
 
   useEffect(() => {
     fetchInitialData();
@@ -192,26 +221,88 @@ const RepurchasePage = () => {
     };
   }, [cart, products]);
 
-  const handleCheckout = async () => {
+  // Step 1: open the manual-UPI checkout modal (was previously an instant,
+  // no-payment-step API call — see submitRepurchasePurchase's doc comment
+  // server-side for why that changed: no QR, no UTR, no admin review at all).
+  const handleOpenCheckout = () => {
     const items = Object.keys(cart).map((id) => ({ productId: id, quantity: cart[id] }));
     if (items.length === 0) {
       showNotification('Your cart is empty. Please select products to buy.', 'warning');
       return;
     }
+    setUtrNumber('');
+    setProofPreview('');
+    setQrViewMode('DYNAMIC');
+    setCheckoutStep('PAYMENT');
+  };
+
+  const handleCopyToClipboard = (text, label) => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(text);
+      showNotification(`${label} copied to clipboard!`, 'info');
+    }
+  };
+
+  const handleProofUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      showNotification('Payment screenshot must be smaller than 5MB', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProofPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Step 2: submit the transaction reference + screenshot for admin
+  // verification. Self Cashback / downline commissions / the actual Order
+  // are only created once an admin approves this (approveRepurchasePurchase).
+  const handleSubmitPayment = async () => {
+    if (!utrNumber.trim()) {
+      showNotification('Please enter the 12-digit UTR / Reference ID from your UPI payment.', 'warning');
+      return;
+    }
+    if (!proofPreview && paymentMethod === 'UPI_GATEWAY') {
+      showNotification('Please upload your payment confirmation screenshot.', 'warning');
+      return;
+    }
+
+    const items = Object.keys(cart).map((id) => ({ productId: id, quantity: cart[id] }));
 
     setPurchasing(true);
     try {
-      const res = await api.post('/api/repurchase/purchase', { items });
+      const res = await api.post('/api/repurchase/submit', {
+        items,
+        paymentMethod,
+        transactionId: utrNumber.trim(),
+        paymentProof: proofPreview
+      });
       if (res.data?.success) {
-        showNotification(res.data.message, 'success');
+        showNotification(res.data.message || 'Payment submitted for admin approval!', 'info');
+        setSuccessReceipt(res.data.data);
+        setCheckoutStep('SUCCESS');
         setCart({});
-        fetchInitialData();
+      } else {
+        showNotification(res.data?.message || 'Unable to submit payment request.', 'error');
       }
     } catch (err) {
-      showNotification(err.response?.data?.message || 'Purchase transaction failed', 'error');
+      showNotification(err.response?.data?.message || 'Failed to submit payment details. Please try again.', 'error');
     } finally {
       setPurchasing(false);
     }
+  };
+
+  const handleCloseCheckoutModal = () => {
+    setCheckoutStep(null);
+    setUtrNumber('');
+    setProofPreview('');
+    setSuccessReceipt(null);
+    if (successReceipt) fetchInitialData();
   };
 
   const handleProcessQualification = async () => {
@@ -243,6 +334,15 @@ const RepurchasePage = () => {
       return matchesCategory && matchesSearch;
     });
   }, [products, selectedCategory, searchFilter]);
+
+  // Dynamic UPI URI targeting the official SBI Merchant account with the
+  // exact cart total — same pattern as PackagesPage.jsx.
+  const upiUri = checkoutStep
+    ? `upi://pay?pa=${COMPANY_PAYMENT_INFO.upiId}&pn=${encodeURIComponent(COMPANY_PAYMENT_INFO.merchantName)}&am=${calculateCartTotals.totalKSP}&cu=INR&tn=${encodeURIComponent(`KUWIFR-REPURCHASE-${user?.memberId || 'MEMBER'}`)}`
+    : '';
+  const dynamicQrUrl = checkoutStep
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(upiUri)}`
+    : '';
 
   if (loading) {
     return (
@@ -460,7 +560,7 @@ const RepurchasePage = () => {
                 <h3>🛒 Order Summary</h3>
                 <span className={styles.cartCountPill}>{calculateCartTotals.itemCount} items</span>
               </div>
-              <p className={styles.unlimitedNotice}>Unlimited repurchase • {Math.round(SELF_REPURCHASE_RATE * 100)}% instant KBP credit</p>
+              <p className={styles.unlimitedNotice}>Unlimited repurchase • {Math.round(SELF_REPURCHASE_RATE * 100)}% Self Cashback after payment verification</p>
 
               <div className={styles.summaryBreakdown}>
                 <div className={styles.summaryItem}>
@@ -478,21 +578,17 @@ const RepurchasePage = () => {
                     <span>🎁 Self Repurchase Cashback ({Math.round(SELF_REPURCHASE_RATE * 100)}%)</span>
                     <strong className={styles.cashbackAmount}>+ ₹{calculateCartTotals.selfIncome.toLocaleString()}</strong>
                   </div>
-                  <small>Credited directly to your Repurchase Wallet upon checkout</small>
+                  <small>Credited to your Repurchase Wallet once admin verifies your payment</small>
                 </div>
               </div>
 
               <button
                 type="button"
                 className={styles.checkoutButton}
-                onClick={handleCheckout}
+                onClick={handleOpenCheckout}
                 disabled={purchasing || calculateCartTotals.totalKSP === 0}
               >
-                {purchasing ? (
-                  <span className={styles.btnLoader}>Processing Order...</span>
-                ) : (
-                  <span>Pay ₹{calculateCartTotals.totalKSP.toLocaleString()}</span>
-                )}
+                <span>Pay ₹{calculateCartTotals.totalKSP.toLocaleString()}</span>
               </button>
             </div>
           </aside>
@@ -815,6 +911,275 @@ const RepurchasePage = () => {
             })}
           </div>
         </section>
+      )}
+
+      {/* ================= MANUAL-UPI CHECKOUT MODAL ================= */}
+      {checkoutStep && (
+        <div className={checkoutStyles.modalOverlay} onClick={() => !purchasing && handleCloseCheckoutModal()}>
+          <div className={checkoutStyles.modalContainer} onClick={(e) => e.stopPropagation()}>
+
+            {checkoutStep === 'PAYMENT' && (
+              <>
+                <div className={checkoutStyles.modalHeader}>
+                  <div>
+                    <span className={checkoutStyles.modalTag}>SBI Payments QR</span>
+                    <h2>Scan & Pay to Confirm Order</h2>
+                  </div>
+                  <button
+                    type="button"
+                    className={checkoutStyles.closeBtn}
+                    onClick={handleCloseCheckoutModal}
+                    disabled={purchasing}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className={checkoutStyles.modalBody}>
+                  <div className={checkoutStyles.paymentMethodList}>
+                    <label className={`${checkoutStyles.paymentOption} ${paymentMethod === 'UPI_GATEWAY' ? checkoutStyles.paySelected : ''}`}>
+                      <input
+                        type="radio"
+                        name="repurchasePaymentMethod"
+                        checked={paymentMethod === 'UPI_GATEWAY'}
+                        onChange={() => setPaymentMethod('UPI_GATEWAY')}
+                      />
+                      <div className={checkoutStyles.paymentOptionDetails}>
+                        <strong>SBI Payments UPI QR (PhonePe / GPay / Paytm)</strong>
+                        <span>Instant scan with pre-filled cart amount</span>
+                      </div>
+                      <span className={checkoutStyles.payIcon}>📱</span>
+                    </label>
+
+                    <label className={`${checkoutStyles.paymentOption} ${paymentMethod === 'BANK_TRANSFER' ? checkoutStyles.paySelected : ''}`}>
+                      <input
+                        type="radio"
+                        name="repurchasePaymentMethod"
+                        checked={paymentMethod === 'BANK_TRANSFER'}
+                        onChange={() => setPaymentMethod('BANK_TRANSFER')}
+                      />
+                      <div className={checkoutStyles.paymentOptionDetails}>
+                        <strong>Direct Bank Transfer (IMPS / NEFT / RTGS)</strong>
+                        <span>Company State Bank of India Current Account</span>
+                      </div>
+                      <span className={checkoutStyles.payIcon}>🏦</span>
+                    </label>
+                  </div>
+
+                  {paymentMethod === 'UPI_GATEWAY' && (
+                    <div className={checkoutStyles.qrPaymentContainer}>
+                      <div className={checkoutStyles.qrBox}>
+                        <img
+                          src={qrViewMode === 'DYNAMIC' ? dynamicQrUrl : '/images/kuwifr-upi-standee.jpeg'}
+                          alt="KUWIFR SBI Dynamic UPI QR"
+                          className={checkoutStyles.qrImage}
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = dynamicQrUrl;
+                          }}
+                        />
+                        <span className={checkoutStyles.qrScanHint}>Scan with PhonePe, GPay or Paytm</span>
+                        <button
+                          type="button"
+                          onClick={() => setQrViewMode(qrViewMode === 'DYNAMIC' ? 'STANDEE' : 'DYNAMIC')}
+                          style={{
+                            marginTop: '8px', fontSize: '11px', padding: '3px 10px', borderRadius: '6px',
+                            background: 'rgba(0, 128, 128, 0.08)', border: '1px solid rgba(0, 128, 128, 0.25)',
+                            color: '#008080', cursor: 'pointer', fontWeight: 700
+                          }}
+                        >
+                          {qrViewMode === 'DYNAMIC' ? '📷 View Standee Photo' : '⚡ Auto-Amount QR'}
+                        </button>
+                      </div>
+
+                      <div className={checkoutStyles.upiInfoCard}>
+                        <div className={checkoutStyles.infoRow}>
+                          <span>Merchant UPI ID</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
+                            <strong className={checkoutStyles.monoFont} style={{ fontSize: '11px', wordBreak: 'break-all' }}>
+                              {COMPANY_PAYMENT_INFO.upiId}
+                            </strong>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyToClipboard(COMPANY_PAYMENT_INFO.upiId, 'UPI ID')}
+                              style={{
+                                padding: '2px 8px', fontSize: '10px', fontWeight: 800,
+                                background: 'rgba(0, 128, 128, 0.08)', border: '1px solid rgba(0, 128, 128, 0.25)',
+                                color: '#008080', borderRadius: '5px', cursor: 'pointer', flexShrink: 0
+                              }}
+                            >
+                              Copy
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className={checkoutStyles.infoRow} style={{ marginTop: '6px' }}>
+                          <span>Merchant Name</span>
+                          <strong>{COMPANY_PAYMENT_INFO.merchantName}</strong>
+                        </div>
+
+                        <div className={checkoutStyles.infoRow} style={{ marginTop: '6px' }}>
+                          <span>Exact Payable Amount</span>
+                          <strong className={checkoutStyles.highlightAmount}>
+                            ₹{calculateCartTotals.totalKSP.toLocaleString('en-IN')}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {paymentMethod === 'BANK_TRANSFER' && (
+                    <div className={checkoutStyles.bankDetailsContainer}>
+                      <div className={checkoutStyles.bankDetailRow}>
+                        <span>Bank Name:</span>
+                        <strong>{COMPANY_PAYMENT_INFO.bankName}</strong>
+                      </div>
+                      <div className={checkoutStyles.bankDetailRow}>
+                        <span>Account Name:</span>
+                        <strong>{COMPANY_PAYMENT_INFO.accountName}</strong>
+                      </div>
+                      <div className={checkoutStyles.bankDetailRow}>
+                        <span>Account Number:</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <strong className={checkoutStyles.monoFont}>{COMPANY_PAYMENT_INFO.accountNumber}</strong>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyToClipboard(COMPANY_PAYMENT_INFO.accountNumber, 'Account Number')}
+                            style={{
+                              padding: '2px 6px', fontSize: '10px', fontWeight: 700,
+                              background: 'rgba(0, 128, 128, 0.08)', border: '1px solid rgba(0, 128, 128, 0.25)',
+                              color: '#008080', borderRadius: '4px', cursor: 'pointer'
+                            }}
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      </div>
+                      <div className={checkoutStyles.bankDetailRow}>
+                        <span>IFSC Code:</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <strong className={checkoutStyles.monoFont}>{COMPANY_PAYMENT_INFO.ifscCode}</strong>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyToClipboard(COMPANY_PAYMENT_INFO.ifscCode, 'IFSC Code')}
+                            style={{
+                              padding: '2px 6px', fontSize: '10px', fontWeight: 700,
+                              background: 'rgba(0, 128, 128, 0.08)', border: '1px solid rgba(0, 128, 128, 0.25)',
+                              color: '#008080', borderRadius: '4px', cursor: 'pointer'
+                            }}
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      </div>
+                      <div className={checkoutStyles.bankDetailRow}>
+                        <span>Branch:</span>
+                        <strong>{COMPANY_PAYMENT_INFO.branch}</strong>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className={checkoutStyles.verificationInputBlock}>
+                    <label className={checkoutStyles.inputLabel}>
+                      Enter 12-Digit UPI Reference / UTR Number <span className={checkoutStyles.requiredStar}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 423589123456"
+                      value={utrNumber}
+                      onChange={(e) => setUtrNumber(e.target.value)}
+                      className={checkoutStyles.utrInputField}
+                      maxLength={30}
+                    />
+
+                    <label className={checkoutStyles.inputLabel} style={{ marginTop: '10px' }}>
+                      Upload Payment Screenshot <span className={checkoutStyles.requiredStar}>*</span>
+                    </label>
+                    <div className={checkoutStyles.uploadZone}>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleProofUpload}
+                        id="repurchaseProofUpload"
+                        className={checkoutStyles.fileInputHidden}
+                      />
+                      <label htmlFor="repurchaseProofUpload" className={checkoutStyles.uploadTriggerBtn}>
+                        📷 Choose Screenshot
+                      </label>
+                      {proofPreview ? (
+                        <div className={checkoutStyles.proofPreviewWrap}>
+                          <img src={proofPreview} alt="Payment Proof Preview" className={checkoutStyles.proofThumb} />
+                          <span className={checkoutStyles.proofAttachedLabel}>✓ Proof Attached</span>
+                        </div>
+                      ) : (
+                        <span className={checkoutStyles.uploadHint}>Attach screenshot showing UTR and paid amount</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className={checkoutStyles.modalFooter}>
+                  <button
+                    type="button"
+                    className={checkoutStyles.cancelBtn}
+                    onClick={handleCloseCheckoutModal}
+                    disabled={purchasing}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    className={checkoutStyles.confirmBtn}
+                    onClick={handleSubmitPayment}
+                    disabled={purchasing}
+                  >
+                    {purchasing ? 'Submitting Payment Proof...' : `Submit Payment Proof (₹${calculateCartTotals.totalKSP.toLocaleString()})`}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {checkoutStep === 'SUCCESS' && (
+              <div className={checkoutStyles.successScreenWrapper}>
+                <div className={checkoutStyles.pendingHourglassIcon}>⏳</div>
+                <h2 className={checkoutStyles.successTitle}>Payment Submitted for Verification</h2>
+                <p className={checkoutStyles.successSubtitle}>
+                  Thank you <strong>{user?.fullName || 'Member'}</strong>! Your payment transaction details and screenshot proof have been forwarded to our accounts team.
+                  Your order will be processed and Self Cashback credited to your <span className={checkoutStyles.activeTag}>Repurchase Wallet</span> once verified by admin.
+                </p>
+
+                <div className={checkoutStyles.receiptBox}>
+                  <div className={checkoutStyles.receiptRow}>
+                    <span>Items:</span>
+                    <strong>{successReceipt?.items?.length || 0} product(s)</strong>
+                  </div>
+                  <div className={checkoutStyles.receiptRow}>
+                    <span>Submitted UTR / Ref:</span>
+                    <strong className={checkoutStyles.monoFont}>{successReceipt?.transactionId}</strong>
+                  </div>
+                  <div className={checkoutStyles.receiptRow}>
+                    <span>Amount Payable:</span>
+                    <strong>₹{successReceipt?.totalKSP?.toLocaleString('en-IN')}</strong>
+                  </div>
+                  <div className={checkoutStyles.receiptRow}>
+                    <span>Order Status:</span>
+                    <strong className={checkoutStyles.pendingStatusText}>● PENDING ADMIN APPROVAL</strong>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className={checkoutStyles.dashboardRedirectBtn}
+                  onClick={handleCloseCheckoutModal}
+                >
+                  Back to Repurchase Store →
+                </button>
+              </div>
+            )}
+
+          </div>
+        </div>
       )}
     </div>
   );

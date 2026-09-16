@@ -10,6 +10,7 @@ const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   const [pendingPayments, setPendingPayments] = useState(0);
+  const [pendingRepurchasePayments, setPendingRepurchasePayments] = useState(0);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { showNotification } = useNotification ? useNotification() : { showNotification: () => {} };
@@ -41,6 +42,7 @@ const AdminLayout = () => {
     { label: 'Packages', path: '/admin/packages', icon: '📦' },
     { label: 'Payment Verification', path: '/admin/package-sales', icon: '✅' },
     { label: 'Package Sales Report', path: '/admin/package-sales-report', icon: '📈' },
+    { label: 'Repurchase Verification', path: '/admin/repurchase-sales', icon: '🛍️' },
     { label: 'Products', path: '/admin/products', icon: '🛍️' },
     { label: 'Orders', path: '/admin/orders', icon: '🛒' },
     { label: 'Transactions', path: '/admin/transactions', icon: '💳' },
@@ -96,6 +98,24 @@ const AdminLayout = () => {
     const interval = setInterval(fetchPendingPayments, 60000);
     return () => clearInterval(interval);
   }, [fetchPendingPayments]);
+
+  // Same badge pattern for pending Repurchase Store payment verifications.
+  const fetchPendingRepurchasePayments = useCallback(async () => {
+    try {
+      const res = await api.get('/api/repurchase/admin-analytics');
+      if (res.data?.success) {
+        setPendingRepurchasePayments(res.data.data?.pendingCount || 0);
+      }
+    } catch (err) {
+      // Non-critical — badge just stays at its last known count.
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPendingRepurchasePayments();
+    const interval = setInterval(fetchPendingRepurchasePayments, 60000);
+    return () => clearInterval(interval);
+  }, [fetchPendingRepurchasePayments]);
 
   const handleLogout = async () => {
     await logout();
@@ -215,6 +235,9 @@ const AdminLayout = () => {
               <span className={styles.navLabel}>{item.label}</span>
               {item.path === '/admin/package-sales' && pendingPayments > 0 && (
                 <span className={styles.navBadge}>{pendingPayments > 9 ? '9+' : pendingPayments}</span>
+              )}
+              {item.path === '/admin/repurchase-sales' && pendingRepurchasePayments > 0 && (
+                <span className={styles.navBadge}>{pendingRepurchasePayments > 9 ? '9+' : pendingRepurchasePayments}</span>
               )}
             </NavLink>
           ))}

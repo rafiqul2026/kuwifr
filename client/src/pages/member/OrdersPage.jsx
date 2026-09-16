@@ -273,7 +273,7 @@ const OrdersPage = () => {
           {repurchaseOrders.length === 0 ? (
             <div className={styles.centerBox}>
               <h4 className={styles.emptyTitle}>No Repurchase Orders Found</h4>
-              <p className={styles.emptyDesc}>Browse the Repurchase Store to purchase products with 25% instant cashback.</p>
+              <p className={styles.emptyDesc}>Browse the Repurchase Store to purchase products with 20% Self Cashback.</p>
             </div>
           ) : (
             <div className={styles.tableCard}>
@@ -284,7 +284,7 @@ const OrdersPage = () => {
                       <th className={styles.thOrder}>ORDER</th>
                       <th className={styles.thProduct}>ITEMS PURCHASED</th>
                       <th className={styles.thKbp}>TOTAL VOLUME</th>
-                      <th className={styles.thAmount}>CASHBACK (25%)</th>
+                      <th className={styles.thAmount}>SELF CASHBACK</th>
                       <th className={styles.thAmount}>TOTAL PAID</th>
                       <th className={styles.thJoined}>DATE</th>
                       <th className={styles.thStatus}>STATUS</th>
@@ -308,15 +308,15 @@ const OrdersPage = () => {
                           </td>
                           <td className={styles.tdProduct}>
                             <div className={styles.itemsSummary}>
-                              <strong>{ord.items?.length || 1} Item(s)</strong>
-                              <small>{ord.items?.map((i) => i.name).join(', ').slice(0, 32)}...</small>
+                              <strong>{ord.products?.length || 1} Item(s)</strong>
+                              <small>{ord.products?.map((i) => i.name).join(', ').slice(0, 32)}...</small>
                             </div>
                           </td>
                           <td className={styles.tdKbp}>
-                            <span className={styles.kbpBadge}>⭐ {ord.totalKBP?.toLocaleString()} KBP</span>
+                            <span className={styles.kbpBadge}>⭐ {(ord.kbpGenerated || 0).toLocaleString()} KBP</span>
                           </td>
                           <td className={styles.tdAmount}>
-                            <span className={styles.cashbackChip}>+₹{(ord.selfCashback || ord.totalKBP * 0.25)?.toLocaleString()}</span>
+                            <span className={styles.cashbackChip}>+₹{(ord.selfCashback || 0).toLocaleString()}</span>
                           </td>
                           <td className={styles.tdAmount}>
                             <strong className={styles.amountText}>₹{ord.totalAmount?.toLocaleString()}</strong>
@@ -470,18 +470,17 @@ const OrdersPage = () => {
                         <td style={{ textAlign: 'right' }}><strong>₹{(selectedInvoice.price || selectedInvoice.totalAmount)?.toLocaleString()}</strong></td>
                       </tr>
                     ) : (
-                      selectedInvoice.items?.map((it, idx) => (
+                      selectedInvoice.products?.map((it, idx) => (
                         <tr key={idx}>
                           <td>{idx + 1}</td>
                           <td>
                             <div className={styles.itemNameMain}>{it.name}</div>
-                            <div className={styles.itemSubDesc}>MRP: ₹{it.mrp?.toLocaleString()} (KSP Applied)</div>
                           </td>
-                          <td>{it.category || 'General'}</td>
+                          <td>Repurchase</td>
                           <td style={{ textAlign: 'center' }}><strong>⭐ {it.kbp?.toLocaleString()} KBP</strong></td>
-                          <td style={{ textAlign: 'center' }}>{it.qty || 1}</td>
-                          <td style={{ textAlign: 'right' }}>₹{it.ksp?.toLocaleString()}</td>
-                          <td style={{ textAlign: 'right' }}><strong>₹{(it.subtotal || it.ksp * (it.qty || 1))?.toLocaleString()}</strong></td>
+                          <td style={{ textAlign: 'center' }}>{it.quantity || 1}</td>
+                          <td style={{ textAlign: 'right' }}>₹{it.price?.toLocaleString()}</td>
+                          <td style={{ textAlign: 'right' }}><strong>₹{(it.price * (it.quantity || 1))?.toLocaleString()}</strong></td>
                         </tr>
                       ))
                     )}
@@ -498,7 +497,7 @@ const OrdersPage = () => {
                     <li>Points (KBP) are credited instantly to upline binary networks for binary matching and Life Tension Free target funds.</li>
                     {selectedInvoice.invoiceType === 'REPURCHASE' && (
                       <li style={{ color: '#15803d', fontWeight: '700' }}>
-                        25% Self Repurchase Cashback (₹{(selectedInvoice.selfCashback || selectedInvoice.totalKBP * 0.25)?.toLocaleString()}) credited to your active wallet.
+                        Self Repurchase Cashback (₹{(selectedInvoice.selfCashback || 0).toLocaleString()}) credited to your Repurchase Wallet.
                       </li>
                     )}
                   </ul>

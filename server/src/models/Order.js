@@ -17,10 +17,13 @@ const OrderSchema = new mongoose.Schema({
   },
 
   // Package Information
+  // NOT required — a Repurchase Store order (orderType: 'REPURCHASE') has no
+  // backing Package document at all, only a cart of REPURCHASE_PRODUCTS
+  // catalog items (see repurchase.controller.js). Package-activation orders
+  // still always set this.
   packageId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Package',
-    required: true
+    ref: 'Package'
   },
   packageName: {
     type: String,
@@ -96,6 +99,15 @@ const OrderSchema = new mongoose.Schema({
   kbpBreakdown: {
     type: Map,
     of: Number
+  },
+  // Repurchase Store orders only: the Self Repurchase Cashback (admin-
+  // configurable %, business default 20%) actually credited to the buyer's
+  // Repurchase Wallet for this order — stored here (rather than recomputed
+  // client-side against a possibly-stale hardcoded rate) so the Orders page
+  // and invoice always show the real, already-credited amount.
+  selfCashback: {
+    type: Number,
+    default: 0
   },
 
   // Payment Information

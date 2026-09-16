@@ -6,6 +6,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import AdminLayout from '../components/layout/AdminLayout';
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage';
 import AdminPackageAnalyticsPage from '../pages/admin/AdminPackageAnalyticsPage';
+import AdminRepurchaseVerificationPage from '../pages/admin/AdminRepurchaseVerificationPage';
 
 // Import remaining admin management pages (adjust to your project files)
 import AdminMembersPage from '../pages/admin/AdminMembersPage';
@@ -48,6 +49,9 @@ const AdminRoutes = () => {
 
         {/* 📦 Package Sales & Member Activations Analytics */}
         <Route path="package-sales" element={<AdminPackageAnalyticsPage />} />
+
+        {/* 🛍️ Repurchase Store Payment Verification */}
+        <Route path="repurchase-sales" element={<AdminRepurchaseVerificationPage />} />
 
         {/* Core Administrative Pages */}
         <Route path="members" element={<AdminMembersPage />} />
