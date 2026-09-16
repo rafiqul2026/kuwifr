@@ -330,6 +330,21 @@ const getDashboardStats = async (req, res, next) => {
         }
       : { rankName: null, left: 0, right: 0 };
 
+    // Monthly Remuneration Wallet (1% TTO, "Gold Star Rank Required")
+    // business rule: this card's progress only becomes meaningful once
+    // Platinum Star (Level 4 — the rank immediately before Gold Star,
+    // Level 5) has actually been achieved. Before that, carryForwardStar is
+    // carrying toward whatever EARLIER rank is actually next in the ladder
+    // (e.g. Silver Star for a Bronze Star member) — showing that number
+    // here would misrepresent it as progress toward Gold Star specifically,
+    // when it isn't yet.
+    const highestAchievedLevel = Array.isArray(rankProgression?.achieved) && rankProgression.achieved.length > 0
+      ? (rankProgression.achieved[rankProgression.achieved.length - 1].level || 0)
+      : 0;
+    const goldStarCarryForward = highestAchievedLevel >= 4
+      ? carryForwardStar
+      : { left: 0, right: 0 };
+
     const todayStars = await countSubtreeKuwiStars(downlineIds, todayStart);
 
     // Lifetime "Total Star" must match the LIVE Left/Right count already
@@ -500,6 +515,7 @@ const getDashboardStats = async (req, res, next) => {
         salaryBalance: wallet?.salaryBalance || 0,
         totalSalaryEarned: wallet?.totalSalaryEarned || 0,
         salaryQualification: salaryProgress,
+        goldStarCarryForward,
         walletBalance: wallet?.incomeBalance || 0,
         repurchaseWallet: wallet?.repurchaseBalance || 0,
         selfRepurchaseIncome: wallet?.selfRepurchaseIncome || 0,

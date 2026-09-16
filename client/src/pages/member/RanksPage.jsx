@@ -481,18 +481,6 @@ const RanksPage = () => {
 
           <div className={styles.snapshotCard}>
             <div className={styles.snapshotCardHeader}>
-              <span className={styles.snapshotCardTitle}>CARRY FORWARD STAR</span>
-              <div className={styles.snapshotIconBox}>🌟</div>
-            </div>
-            <div className={styles.snapshotDualBox}>
-              <span className={styles.snapshotDualLeft}>Left: <strong>{rankSnapshot?.carryForwardStar?.left || 0}</strong></span>
-              <span className={styles.snapshotDualRight}>Right: <strong>{rankSnapshot?.carryForwardStar?.right || 0}</strong></span>
-            </div>
-            <span className={styles.snapshotSub}>Leftover after your last achieved rank</span>
-          </div>
-
-          <div className={styles.snapshotCard}>
-            <div className={styles.snapshotCardHeader}>
               <span className={styles.snapshotCardTitle}>TODAY STAR</span>
               <div className={styles.snapshotIconBox}>⭐</div>
             </div>
@@ -513,6 +501,18 @@ const RanksPage = () => {
               <span className={styles.snapshotDualRight}>Right: <strong>{rankSnapshot?.totalStar?.right || 0}</strong></span>
             </div>
             <span className={styles.snapshotSub}>Lifetime Stars</span>
+          </div>
+
+          <div className={styles.snapshotCard}>
+            <div className={styles.snapshotCardHeader}>
+              <span className={styles.snapshotCardTitle}>CARRY FORWARD STAR</span>
+              <div className={styles.snapshotIconBox}>🌟</div>
+            </div>
+            <div className={styles.snapshotDualBox}>
+              <span className={styles.snapshotDualLeft}>Left: <strong>{rankSnapshot?.carryForwardStar?.left || 0}</strong></span>
+              <span className={styles.snapshotDualRight}>Right: <strong>{rankSnapshot?.carryForwardStar?.right || 0}</strong></span>
+            </div>
+            <span className={styles.snapshotSub}>Leftover after your last achieved rank</span>
           </div>
 
           <div className={styles.snapshotCard}>
