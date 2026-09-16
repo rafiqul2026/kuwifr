@@ -505,14 +505,14 @@ const RanksPage = () => {
 
           <div className={styles.snapshotCard}>
             <div className={styles.snapshotCardHeader}>
-              <span className={styles.snapshotCardTitle}>CARRY FORWARD STAR</span>
+              <span className={styles.snapshotCardTitle}>MONTHLY STAR ACHIEVED</span>
               <div className={styles.snapshotIconBox}>🌟</div>
             </div>
             <div className={styles.snapshotDualBox}>
               <span className={styles.snapshotDualLeft}>Left: <strong>{rankSnapshot?.carryForwardStar?.left || 0}</strong></span>
               <span className={styles.snapshotDualRight}>Right: <strong>{rankSnapshot?.carryForwardStar?.right || 0}</strong></span>
             </div>
-            <span className={styles.snapshotSub}>Leftover after your last achieved rank</span>
+            <span className={styles.snapshotSub}>Qualify both legs to unlock your next Star Rank</span>
           </div>
 
           <div className={styles.snapshotCard}>
@@ -529,7 +529,7 @@ const RanksPage = () => {
               <h3 className={styles.snapshotValueText}>Max Rank Achieved</h3>
             )}
             <span className={styles.snapshotSub}>
-              {rankSnapshot?.starForNextRank?.rankName ? `Still Needed Per Leg for ${rankSnapshot.starForNextRank.rankName}` : 'All Ranks Completed'}
+              {rankSnapshot?.starForNextRank?.rankName ? `Required Per Leg for ${rankSnapshot.starForNextRank.rankName}` : 'All Ranks Completed'}
             </span>
           </div>
         </div>

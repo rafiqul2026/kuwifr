@@ -306,13 +306,17 @@ const getDashboardStats = async (req, res, next) => {
     const currentRemuneration = currentRemunerationAgg[0]?.total || 0;
     const pensionIncome = pensionIncomeAgg[0]?.total || 0;
 
-    // Star for Next Rank / Carry Forward Star (business rule): once a rank
-    // is achieved, that rank's own required-per-leg star count is locked in
-    // at that rank — only the REMAINDER carries forward toward the next
-    // tier. "Star For Next Rank" is therefore the next tier's own
-    // requiredPerLeg MINUS what's already carried forward (not the flat
-    // requirement on its own), and "Carry Forward Star" surfaces that
-    // leftover directly. Both derive from the same
+    // Star For Next Rank / Monthly Star Achieved (business rule, confirmed):
+    // these are a "goal" and "current progress toward that goal" pair.
+    // "Star For Next Rank" is the next tier's own flat requiredPerLeg (e.g.
+    // Silver Star = 10 Left : 10 Right, always) — NOT reduced by anything
+    // already carried forward. "Monthly Star Achieved" is the carry-forward
+    // figure itself (once a rank is achieved, that rank's own
+    // required-per-leg is locked in at that rank — only the REMAINDER
+    // carries forward toward the next tier), i.e. progress accumulated so
+    // far toward the flat goal above. Once Monthly Star Achieved reaches
+    // the SAME Left/Right values as Star For Next Rank, the member
+    // qualifies for that next rank. Both derive from the same
     // RankService.getRankProgression() carry-forward figures, so they can
     // never disagree with the Rank & Rewards page's own ladder progress,
     // which uses the identical computation.
@@ -325,8 +329,8 @@ const getDashboardStats = async (req, res, next) => {
     const starForNextRank = nextRank
       ? {
           rankName: nextRank.name,
-          left: Math.max(0, Math.ceil((nextRank.starsRequired || 0) / 2) - carryForwardStar.left),
-          right: Math.max(0, Math.ceil((nextRank.starsRequired || 0) / 2) - carryForwardStar.right)
+          left: Math.ceil((nextRank.starsRequired || 0) / 2),
+          right: Math.ceil((nextRank.starsRequired || 0) / 2)
         }
       : { rankName: null, left: 0, right: 0 };
 
