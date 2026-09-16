@@ -541,6 +541,7 @@ const toDisplayNode = (node, isRoot = false) => {
     status: node.status,
     currentPackage: node.packageName,
     personalKbp: node.personalKbp || 0,
+    repurchaseKbp: node.repurchaseKbp || 0,
     sponsorId: node.sponsorId,
     sponsorName: node.sponsorName || '',
     side: node.side,

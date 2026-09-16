@@ -518,6 +518,20 @@ class BinaryService {
       ? Number(user.activePackageId?.kbp) || 0
       : 0;
 
+    // This member's OWN Repurchase Store KBP (their personal product
+    // repurchases, not what their downline generated) — separate from
+    // personalKbp above, which is only the one-time package-activation KBP.
+    // An Order for a repurchase only ever exists (created at admin-approval
+    // time — see repurchase.controller.js#approveRepurchasePurchase) already
+    // fully COMPLETED, so no status filter is needed beyond orderType.
+    const repurchaseKbpAgg = user
+      ? await Order.aggregate([
+          { $match: { userId: user._id, orderType: 'REPURCHASE' } },
+          { $group: { _id: null, total: { $sum: '$kbpGenerated' } } }
+        ])
+      : [];
+    const repurchaseKbp = repurchaseKbpAgg[0]?.total || 0;
+
     let referralLevel = 1;
     if (String(userId) === String(actualRootId)) {
       referralLevel = 0;
@@ -540,8 +554,14 @@ class BinaryService {
       sponsorId: sponsorCode,
       sponsorName: user?.sponsorId?.fullName || '',
       referralLevel,
-      packageName: user?.activePackageId?.name || 'Starter Package',
+      // Was previously defaulting to the fake 'Starter Package' label for
+      // ANY member with no activePackageId — including genuinely INACTIVE
+      // members who never bought anything, so an inactive member's own
+      // status pill (● INACTIVE) and their Package field visibly
+      // contradicted each other on the same tooltip.
+      packageName: user?.activePackageId?.name || 'No Active Package',
       personalKbp,
+      repurchaseKbp,
       status: user?.status || 'ACTIVE',
       side: user ? user.binarySide || 'root' : 'root',
       binaryLevel: rootNode.level || 1,

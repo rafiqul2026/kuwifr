@@ -455,11 +455,15 @@ const GrowthGenerationPage = () => {
             </div>
             <div className={styles.tooltipRow}>
               <span>Package:</span>
-              <strong>{hoveredNode.currentPackage || 'Starter Package'}</strong>
+              <strong>{hoveredNode.currentPackage || 'No Active Package'}</strong>
             </div>
             <div className={styles.tooltipRow}>
               <span>Personal KBP:</span>
               <strong>{formatKBP(hoveredNode.personalKbp || 0)}</strong>
+            </div>
+            <div className={styles.tooltipRow}>
+              <span>Repurchase KBP:</span>
+              <strong>{formatKBP(hoveredNode.repurchaseKbp || 0)}</strong>
             </div>
             <div className={styles.tooltipRow}>
               <span>Left Volume:</span>
