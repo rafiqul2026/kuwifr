@@ -152,14 +152,13 @@ export const PRODUCT_TIERS = {
   ]
 };
 
-// Every tier requires choosing exactly 1 product EXCEPT Life Safe Elite,
-// whose spec has no "one product any one of the above" note — both of its
-// products are bundled automatically with no choice to make.
+// Every tier — including Life Safe Elite — requires choosing exactly 1
+// product from its list; no tier bundles both automatically.
 export const SELECTION_MODE = {
   STARTER: 'ONE',
   GROWTH: 'ONE',
   LIFE_SAFE: 'ONE',
-  LIFE_SAFE_ELITE: 'ALL',
+  LIFE_SAFE_ELITE: 'ONE',
   TITANIUM: 'ONE'
 };
 
