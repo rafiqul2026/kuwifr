@@ -149,6 +149,11 @@ const getDashboardStats = async (req, res, next) => {
     const todayActiveMembers = fullDownline.filter(
       (m) => String(m.status).toUpperCase() === 'ACTIVE' && new Date(m.createdAt) >= todayStart
     ).length;
+    // Same fix for the Dashboard's "Growth Snapshot" THIS WEEK / THIS MONTH
+    // tiles — previously `sponsorId: userId` (direct-only), same bug as
+    // todayAddMembers above.
+    const weeklyAddMembers = fullDownline.filter((m) => new Date(m.createdAt) >= weekStart).length;
+    const monthlyAddMembers = fullDownline.filter((m) => new Date(m.createdAt) >= monthStart).length;
 
     const totalTeamCount = Math.max(fullDownline.length, totalDirects);
     const totalActiveTeamCount = fullDownline.filter((m) => String(m.status).toUpperCase() === 'ACTIVE').length;
@@ -394,9 +399,7 @@ const getDashboardStats = async (req, res, next) => {
     //   Recently Added         -> most recently joined downline members
     // ------------------------------------------------------------------
 
-    const [weeklyAddMembers, monthlyAddMembers, leftActiveCount, rightActiveCount, withdrawalAgg, orderAgg] = await Promise.all([
-      User.countDocuments({ sponsorId: userId, createdAt: { $gte: weekStart } }),
-      User.countDocuments({ sponsorId: userId, createdAt: { $gte: monthStart } }),
+    const [leftActiveCount, rightActiveCount, withdrawalAgg, orderAgg] = await Promise.all([
       User.countDocuments({ _id: { $in: leftSubtreeIds }, status: 'ACTIVE' }),
       User.countDocuments({ _id: { $in: rightSubtreeIds }, status: 'ACTIVE' }),
       Withdrawal.aggregate([
