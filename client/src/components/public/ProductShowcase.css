@@ -408,9 +408,22 @@
   .kuwifr-controls-bar {
     flex-direction: column;
     align-items: stretch;
+    min-width: 0;
   }
   .kuwifr-search-wrapper {
     width: 100%;
+  }
+  /* Explicitly cap this row to the viewport width. Without it, a flex item
+     holding flex-shrink:0 children can size itself to its full (unshrunk)
+     content width instead of the parent's width — the row then silently
+     grows past the screen edge and gets clipped by the page's
+     overflow-x:hidden (App.css) rather than becoming its own scrollable
+     area, which is exactly why the extra category chips were unreachable
+     no matter how far right you swiped. */
+  .kuwifr-category-tabs {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 }
 
