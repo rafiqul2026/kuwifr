@@ -6,7 +6,14 @@ import { useShop } from '../../context/ShopContext';
 import ProductModal from './ProductModal';
 import OrderTrackingModal from './OrderTrackingModal';
 
-const ProductShowcase = () => {
+// `showHeader` defaults to true (ShopPage, where this is the page's own
+// primary heading). HomePage passes false: it already renders its own
+// "Featured Products" section heading immediately above this component, so
+// the two headings back-to-back were pure duplication — same message
+// twice, plus the extra heading's own margin/padding compounded into a
+// large empty gap on mobile between the two (see the mobile screenshot
+// this was reported from).
+const ProductShowcase = ({ showHeader = true }) => {
   const {
     activeCategoryFilter,
     setActiveCategoryFilter,
@@ -43,12 +50,14 @@ const ProductShowcase = () => {
     <section className="kuwifr-store-section" id="products">
       <div className="kuwifr-store-container">
         {/* Header */}
-        <div className="kuwifr-store-header">
-          <div>
-            <span className="kuwifr-badge-pill">Official Online Store</span>
-            <h2 className="kuwifr-store-title">Explore Our Catalog</h2>
-            <p className="kuwifr-store-subtitle">Handpicked premium wellness, lifestyle, and clean tech essentials.</p>
-          </div>
+        <div className="kuwifr-store-header" style={!showHeader ? { justifyContent: 'flex-end' } : undefined}>
+          {showHeader && (
+            <div>
+              <span className="kuwifr-badge-pill">Official Online Store</span>
+              <h2 className="kuwifr-store-title">Explore Our Catalog</h2>
+              <p className="kuwifr-store-subtitle">Handpicked premium wellness, lifestyle, and clean tech essentials.</p>
+            </div>
+          )}
           <button className="kuwifr-track-btn" onClick={() => setShowTracker(true)}>
             📦 Track Order
           </button>

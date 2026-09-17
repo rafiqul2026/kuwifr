@@ -259,8 +259,10 @@ const HomePage = () => {
             </p>
           </div>
         </div>
-        {/* Preserves your existing component & connected shopping cart logic */}
-        <ProductShowcase />
+        {/* Preserves your existing component & connected shopping cart logic.
+            showHeader=false: this section already has its own "Featured
+            Products" heading above — see ProductShowcase.jsx's comment. */}
+        <ProductShowcase showHeader={false} />
       </section>
 
       {/* 5. PROMOTIONAL LIFESTYLE BANNER */}

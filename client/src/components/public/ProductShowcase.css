@@ -434,13 +434,18 @@
   }
 
   /* Category chips scroll horizontally in one row instead of wrapping into
-     a multi-row cloud — the standard mobile shopping-app pattern. */
+     a multi-row cloud — the standard mobile shopping-app pattern. A right-
+     edge fade signals there's more to scroll to instead of the row just
+     abruptly cutting a chip in half at the screen edge. */
   .kuwifr-category-tabs {
     flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     padding-bottom: 2px;
+    padding-right: 28px;
+    mask-image: linear-gradient(to right, black calc(100% - 32px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent 100%);
   }
   .kuwifr-category-tabs::-webkit-scrollbar {
     display: none;
@@ -448,6 +453,9 @@
   .kuwifr-tab-btn {
     flex-shrink: 0;
     white-space: nowrap;
+    padding: 0.5rem 0.9rem;
+    font-size: 0.82rem;
+    border-radius: 999px;
   }
 
   .kuwifr-products-grid {
