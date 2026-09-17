@@ -493,7 +493,18 @@ exports.rejectPackagePurchase = async (req, res) => {
 // 4. Admin: Get Sales Analytics & All Requests
 exports.getAdminPackageAnalytics = async (req, res) => {
   try {
-    const purchases = await PackagePurchase.find().sort({ createdAt: -1 });
+    // `paymentProof` is a base64-encoded screenshot stored directly on the
+    // document (often several hundred KB–multiple MB of text per record) —
+    // fetching it for every purchase in this list/summary view (with no
+    // projection, no .lean()) was pulling the full image data for the
+    // entire collection on every load. With only ~50 real purchases so far
+    // this had already grown large enough to blow past Vercel's function
+    // timeout (504 Gateway Timeout) — it would only get worse as more
+    // members submit purchases. Excluded here; "View Proof" now fetches
+    // just that one purchase's image on demand (see getPurchaseProof
+    // below), and .lean() skips Mongoose document hydration we don't need
+    // for a read-only summary.
+    const purchases = await PackagePurchase.find().select('-paymentProof').sort({ createdAt: -1 }).lean();
 
     const totalRevenue = purchases
       .filter((p) => p.paymentStatus === 'COMPLETED')
@@ -519,6 +530,25 @@ exports.getAdminPackageAnalytics = async (req, res) => {
         purchases
       }
     });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/**
+ * Admin: fetch a single purchase's payment proof screenshot on demand —
+ * split out of getAdminPackageAnalytics above so the list/summary view
+ * never has to pull every purchase's proof image just to render a table.
+ * GET /api/package-purchases/:purchaseId/proof
+ */
+exports.getPackagePurchaseProof = async (req, res) => {
+  try {
+    const { purchaseId } = req.params;
+    const purchase = await PackagePurchase.findById(purchaseId).select('paymentProof').lean();
+    if (!purchase) {
+      return res.status(404).json({ success: false, message: 'Purchase record not found' });
+    }
+    res.json({ success: true, data: { paymentProof: purchase.paymentProof || '' } });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

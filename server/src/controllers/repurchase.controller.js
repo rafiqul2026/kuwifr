@@ -316,7 +316,16 @@ const rejectRepurchasePurchase = async (req, res, next) => {
  */
 const getAdminRepurchaseAnalytics = async (req, res, next) => {
   try {
-    const purchases = await RepurchasePurchase.find().sort({ createdAt: -1 });
+    // Same fix as packagePurchase.controller.js#getAdminPackageAnalytics:
+    // `paymentProof` is a base64-encoded screenshot stored inline on the
+    // document — fetching it for every purchase here (no projection, no
+    // .lean()) grows this payload by the full image data of the entire
+    // collection on every load, which is exactly what pushed the package
+    // equivalent of this endpoint past Vercel's function timeout (504) at
+    // only ~50 records. Excluded here before the same happens to this
+    // endpoint; "View Proof" now fetches just that one purchase's image on
+    // demand (see getRepurchasePurchaseProof below).
+    const purchases = await RepurchasePurchase.find().select('-paymentProof').sort({ createdAt: -1 }).lean();
 
     const totalRevenue = purchases
       .filter((p) => p.paymentStatus === 'COMPLETED')
@@ -329,6 +338,25 @@ const getAdminRepurchaseAnalytics = async (req, res, next) => {
       success: true,
       data: { totalRevenue, totalOrders, pendingCount, purchases }
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Admin: fetch a single repurchase purchase's payment proof screenshot on
+ * demand — split out of getAdminRepurchaseAnalytics above so the list/
+ * summary view never has to pull every purchase's proof image.
+ * GET /api/repurchase/:purchaseId/proof
+ */
+const getRepurchasePurchaseProof = async (req, res, next) => {
+  try {
+    const { purchaseId } = req.params;
+    const purchase = await RepurchasePurchase.findById(purchaseId).select('paymentProof').lean();
+    if (!purchase) {
+      return res.status(404).json({ success: false, message: 'Purchase record not found' });
+    }
+    res.json({ success: true, data: { paymentProof: purchase.paymentProof || '' } });
   } catch (error) {
     next(error);
   }
@@ -556,6 +584,7 @@ module.exports = {
   approveRepurchasePurchase,
   rejectRepurchasePurchase,
   getAdminRepurchaseAnalytics,
+  getRepurchasePurchaseProof,
   get10LevelRepurchase,
   getAdminRepurchaseProducts,
   createRepurchaseProduct,

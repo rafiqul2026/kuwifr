@@ -19,6 +19,7 @@ const AdminRepurchaseVerificationPage = () => {
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [pendingAction, setPendingAction] = useState(null); // { type: 'APPROVE' | 'REJECT', item }
   const [rejectReason, setRejectReason] = useState('');
+  const [proofLoadingId, setProofLoadingId] = useState(null);
 
   const fetchAnalytics = useCallback(async () => {
     try {
@@ -57,6 +58,27 @@ const AdminRepurchaseVerificationPage = () => {
     if (actionLoadingId) return;
     setPendingAction(null);
     setRejectReason('');
+  };
+
+  // Same fix as AdminPackageAnalyticsPage.jsx — payment proof is a
+  // base64-encoded screenshot no longer included in the list payload (see
+  // repurchase.controller.js#getAdminRepurchaseAnalytics), fetched here on
+  // demand for just the one purchase being viewed.
+  const handleViewProof = async (item) => {
+    setProofLoadingId(item._id);
+    try {
+      const res = await api.get(`/api/repurchase/${item._id}/proof`);
+      const proof = res.data?.data?.paymentProof;
+      if (proof) {
+        setProofModalUrl(proof);
+      } else {
+        showNotification('No payment proof was uploaded for this purchase.', 'info');
+      }
+    } catch (err) {
+      showNotification(err.response?.data?.message || 'Failed to load payment proof.', 'error');
+    } finally {
+      setProofLoadingId(null);
+    }
   };
 
   const executeApprove = async () => {
@@ -257,17 +279,14 @@ const AdminRepurchaseVerificationPage = () => {
                       <code className={styles.txnCode}>{item.transactionId}</code>
                     </td>
                     <td>
-                      {item.paymentProof ? (
-                        <button
-                          type="button"
-                          onClick={() => setProofModalUrl(item.paymentProof)}
-                          className={styles.viewProofBtn}
-                        >
-                          👁️ View Proof
-                        </button>
-                      ) : (
-                        <span className={styles.noProofTag}>No Proof</span>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleViewProof(item)}
+                        className={styles.viewProofBtn}
+                        disabled={proofLoadingId === item._id}
+                      >
+                        {proofLoadingId === item._id ? 'Loading...' : '👁️ View Proof'}
+                      </button>
                     </td>
                     <td>
                       {item.paymentStatus === 'PENDING_VERIFICATION' && (

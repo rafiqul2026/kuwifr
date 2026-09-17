@@ -19,6 +19,7 @@ router.post('/upgrade', auth, packagePurchaseController.completePackageUpgrade);
 
 // Admin Management & Analytics
 router.get('/admin-analytics', auth, adminAuth, packagePurchaseController.getAdminPackageAnalytics);
+router.get('/:purchaseId/proof', auth, adminAuth, packagePurchaseController.getPackagePurchaseProof);
 router.patch('/approve/:purchaseId', auth, adminAuth, packagePurchaseController.approvePackagePurchase);
 router.patch('/reject/:purchaseId', auth, adminAuth, packagePurchaseController.rejectPackagePurchase);
 

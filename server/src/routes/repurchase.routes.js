@@ -9,6 +9,7 @@ const {
   approveRepurchasePurchase,
   rejectRepurchasePurchase,
   getAdminRepurchaseAnalytics,
+  getRepurchasePurchaseProof,
   get10LevelRepurchase,
   getAdminRepurchaseProducts,
   createRepurchaseProduct,
@@ -52,6 +53,7 @@ router.get('/10-level-stats', get10LevelRepurchase);
 
 // Admin Management & Analytics — pending manual-UPI payment verification
 router.get('/admin-analytics', adminAuth, getAdminRepurchaseAnalytics);
+router.get('/:purchaseId/proof', adminAuth, getRepurchasePurchaseProof);
 router.patch('/approve/:purchaseId', adminAuth, approveRepurchasePurchase);
 router.patch('/reject/:purchaseId', adminAuth, rejectRepurchasePurchase);
 
