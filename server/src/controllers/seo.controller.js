@@ -1,5 +1,5 @@
 // server/src/controllers/seo.controller.js
-const { PUBLIC_PRODUCT_IDS } = require('../data/publicProductIds');
+const RepurchaseProduct = require('../models/RepurchaseProduct');
 
 const SITE_URL = 'https://kuwifr.in';
 
@@ -46,16 +46,17 @@ const escapeXml = (str = '') =>
 /**
  * GET /sitemap.xml
  * Only canonical, indexable public URLs — no admin/member/auth/API routes,
- * no query-string filter/sort/pagination variants, no localhost URLs. No
- * <lastmod> is emitted anywhere: none of these pages have genuine
- * "last modified" timestamp data available (the static informational pages
- * are hardcoded source files with no CMS date, and the product catalog
- * below is likewise a static, undated list) — omitting the field entirely
- * rather than fabricating a date, per the "no fake data" requirement.
- * lastmod is optional in the sitemap protocol, so this is a fully valid
- * sitemap without it.
+ * no query-string filter/sort/pagination variants, no localhost URLs.
+ * Product URLs are queried live from RepurchaseProduct (the real,
+ * admin-managed catalog that also backs the public storefront — see
+ * ProductShowcase.jsx/ShopContext.jsx) each request, so a newly added or
+ * deactivated product is reflected immediately with no redeploy needed.
+ * Products carry a genuine <lastmod> from their real `updatedAt` timestamp;
+ * the static informational pages don't have any CMS date data, so they
+ * omit <lastmod> entirely rather than fabricating one (lastmod is optional
+ * per the sitemap protocol).
  */
-const getSitemapXml = (req, res) => {
+const getSitemapXml = async (req, res) => {
   const staticEntries = [
     { path: '/', priority: '1.0', changefreq: 'daily' },
     { path: '/shop', priority: '0.9', changefreq: 'daily' },
@@ -76,18 +77,27 @@ const getSitemapXml = (req, res) => {
     { path: '/refund-policy', priority: '0.3', changefreq: 'yearly' }
   ];
 
-  const productEntries = PUBLIC_PRODUCT_IDS.map((id) => ({
-    path: `/product/${id}`,
-    priority: '0.7',
-    changefreq: 'weekly'
-  }));
+  let productEntries = [];
+  try {
+    const products = await RepurchaseProduct.find({ isActive: true }).select('id updatedAt').lean();
+    productEntries = products.map((p) => ({
+      path: `/product/${p.id}`,
+      priority: '0.7',
+      changefreq: 'weekly',
+      lastmod: p.updatedAt ? new Date(p.updatedAt).toISOString().slice(0, 10) : null
+    }));
+  } catch (error) {
+    // A DB hiccup shouldn't take down the whole sitemap — still serve the
+    // static pages below rather than a 500.
+    console.error('Sitemap: failed to load product URLs:', error.message);
+  }
 
   const allEntries = [...staticEntries, ...productEntries];
 
   const urlXml = allEntries
     .map(
       (entry) => `  <url>
-    <loc>${escapeXml(SITE_URL + entry.path)}</loc>
+    <loc>${escapeXml(SITE_URL + entry.path)}</loc>${entry.lastmod ? `\n    <lastmod>${entry.lastmod}</lastmod>` : ''}
     <changefreq>${entry.changefreq}</changefreq>
     <priority>${entry.priority}</priority>
   </url>`

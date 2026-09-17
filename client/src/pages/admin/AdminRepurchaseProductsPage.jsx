@@ -10,6 +10,8 @@ const INITIAL_FORM = {
   id: '',
   name: '',
   category: '',
+  description: '',
+  tag: '',
   mrp: '',
   ksp: '',
   kbp: '',
@@ -99,6 +101,8 @@ const AdminRepurchaseProductsPage = () => {
       id: product.id || '',
       name: product.name || '',
       category: product.category || '',
+      description: product.description || '',
+      tag: product.tag || '',
       mrp: String(product.mrp ?? ''),
       ksp: String(product.ksp ?? ''),
       kbp: String(product.kbp ?? ''),
@@ -146,6 +150,8 @@ const AdminRepurchaseProductsPage = () => {
     if (!editingProduct) fd.append('id', formData.id.trim());
     fd.append('name', formData.name.trim());
     fd.append('category', formData.category.trim());
+    fd.append('description', formData.description.trim());
+    fd.append('tag', formData.tag.trim());
     fd.append('mrp', formData.mrp);
     fd.append('ksp', formData.ksp);
     fd.append('kbp', formData.kbp);
@@ -372,6 +378,26 @@ const AdminRepurchaseProductsPage = () => {
                       autoFocus
                     />
                   )}
+                </div>
+
+                <div className={`${styles.formGroup} ${styles.spanFull}`}>
+                  <label>Description</label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Real product description — shown on the storefront product card and detail page"
+                    rows={3}
+                  />
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label>Badge / Tag</label>
+                  <input
+                    type="text"
+                    value={formData.tag}
+                    onChange={(e) => setFormData({ ...formData, tag: e.target.value })}
+                    placeholder="e.g. Best Seller (optional)"
+                  />
                 </div>
 
                 <div className={styles.formGroup}>

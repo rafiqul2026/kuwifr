@@ -32,6 +32,22 @@ const repurchaseProductSchema = new mongoose.Schema(
       required: true,
       trim: true
     },
+    // Optional — shown on the public storefront's product cards/detail page
+    // and used for the meta description / Product JSON-LD there. Existing
+    // products created before this field existed simply have an empty one.
+    description: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    // Optional marketing badge (e.g. "Best Seller", "Popular", "Value Pack")
+    // shown on the storefront product card. Purely cosmetic — no business
+    // logic reads this.
+    tag: {
+      type: String,
+      trim: true,
+      default: ''
+    },
     mrp: {
       type: Number,
       required: true

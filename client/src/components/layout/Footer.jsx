@@ -1,11 +1,24 @@
 // client/src/components/layout/Footer.jsx
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import OrderTrackingModal from '../public/OrderTrackingModal';
+import { useShop } from '../../context/ShopContext';
 import styles from './Footer.module.css';
 
 const Footer = () => {
   const navigate = useNavigate();
+  const { products = [], categories = [] } = useShop() || {};
+
+  // Real categories, most-populated first — replaces a hardcoded list
+  // (Alkaline Water Devices, Designer Modern Sarees, etc.) that no longer
+  // matches this catalog's real category names.
+  const topCategories = useMemo(() => {
+    const counts = {};
+    products.forEach((p) => {
+      if (p.category) counts[p.category] = (counts[p.category] || 0) + 1;
+    });
+    return [...categories].sort((a, b) => (counts[b] || 0) - (counts[a] || 0)).slice(0, 6);
+  }, [categories, products]);
 
   // Mobile Accordion state
   const [openSections, setOpenSections] = useState({
@@ -166,36 +179,13 @@ const Footer = () => {
                   openSections.categories ? styles.navLinksListOpen : ''
                 }`}
               >
-                <li>
-                  <Link to="/shop?category=Health+%26+Wellness">
-                    <span className={styles.dot}></span>Health & Wellness
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/shop?category=Alkaline+Water+Devices">
-                    <span className={styles.dot}></span>Alkaline Water Devices
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/shop?category=Designer+Modern+Sarees">
-                    <span className={styles.dot}></span>Designer Modern Sarees
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/shop?category=Gents+Premium+Wear">
-                    <span className={styles.dot}></span>Gents Premium Wear
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/shop?category=Smart+EV+Scooty">
-                    <span className={styles.dot}></span>Smart EV Scooty
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/shop?category=Hair+Care+%26+Serums">
-                    <span className={styles.dot}></span>Hair Care & Serums
-                  </Link>
-                </li>
+                {topCategories.map((cat) => (
+                  <li key={cat}>
+                    <Link to={`/shop?category=${encodeURIComponent(cat)}`}>
+                      <span className={styles.dot}></span>{cat}
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </div>
 

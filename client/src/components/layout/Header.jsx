@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useShop } from '../../context/ShopContext';
 import { useAuth } from '../../context/AuthContext';
-import { KUWIFR_PRODUCTS } from '../../constants/productsData';
 import OrderTrackingModal from '../public/OrderTrackingModal';
 import styles from './Header.module.css';
 
@@ -18,6 +17,8 @@ const Header = () => {
 
   const shopContext = useShop ? useShop() : {};
   const {
+    products,
+    categories = [],
     cartCount = 0,
     wishlistCount = 0,
     setIsCartOpen,
@@ -26,11 +27,25 @@ const Header = () => {
     activeCategoryFilter = 'ALL'
   } = shopContext;
 
-  // Search suggestions source — ShopContext never actually provided a
-  // `products` list (it only holds cart/wishlist state), so this dropdown
-  // was silently always empty before. KUWIFR_PRODUCTS is the same static
-  // catalog the live Home/Shop pages and cart already render from.
-  const safeProducts = useMemo(() => KUWIFR_PRODUCTS, []);
+  // Search suggestions source — the real, admin-managed catalog fetched
+  // once in ShopContext, shared by every storefront component.
+  const safeProducts = useMemo(() => (Array.isArray(products) ? products : []), [products]);
+
+  // Top real categories (by how many products are in each) drive the
+  // header's quick-nav shortcuts and the mobile drawer's "Featured
+  // Collections" list — replaces a hardcoded set of category labels
+  // (Alkaline Water Devices, Designer Modern Sarees, etc.) that no longer
+  // match this catalog's real category names.
+  const topCategories = useMemo(() => {
+    const counts = {};
+    safeProducts.forEach((p) => {
+      if (p.category) counts[p.category] = (counts[p.category] || 0) + 1;
+    });
+    return categories
+      .filter((c) => counts[c])
+      .sort((a, b) => counts[b] - counts[a])
+      .slice(0, 6);
+  }, [categories, safeProducts]);
 
   const { user, isAuthenticated, logout } = useAuth
     ? useAuth()
@@ -144,9 +159,11 @@ const Header = () => {
   const navItems = [
     { label: 'Home', action: () => navigate('/') },
     { label: 'Shop All', action: () => handleNavClick('ALL'), key: 'ALL' },
-    { label: 'Health & Wellness', action: () => handleNavClick('Health & Wellness'), key: 'Health & Wellness' },
-    { label: 'Alkaline Tech', action: () => handleNavClick('Alkaline Water Devices'), key: 'Alkaline Water Devices' },
-    { label: 'Fashion & EV', action: () => handleNavClick('Smart EV Scooty'), key: 'Smart EV Scooty' },
+    ...topCategories.slice(0, 3).map((cat) => ({
+      label: cat,
+      action: () => handleNavClick(cat),
+      key: cat
+    }))
   ];
 
   return (
@@ -235,11 +252,17 @@ const Header = () => {
                             setSearchSuggestions([]);
                           }}
                         >
-                          <img
-                            src={prod.image}
-                            alt={prod.name}
-                            className={styles.suggestionThumb}
-                          />
+                          {prod.image ? (
+                            <img
+                              src={prod.image}
+                              alt={prod.name}
+                              className={styles.suggestionThumb}
+                            />
+                          ) : (
+                            <div className={styles.suggestionThumb} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', fontSize: '16px' }} aria-hidden="true">
+                              🛍️
+                            </div>
+                          )}
                           <div className={styles.suggestionInfo}>
                             <div className={styles.suggestionName}>{prod.name}</div>
                             <div className={styles.suggestionPrice}>
@@ -457,42 +480,15 @@ const Header = () => {
               <div className={styles.drawerSectionLabel} style={{ marginTop: '18px' }}>
                 Featured Collections
               </div>
-              <button
-                onClick={() => handleNavClick('Health & Wellness')}
-                className={styles.drawerCategoryBtn}
-              >
-                🌿 Health & Wellness
-              </button>
-              <button
-                onClick={() => handleNavClick('Alkaline Water Devices')}
-                className={styles.drawerCategoryBtn}
-              >
-                💧 Alkaline Water Devices
-              </button>
-              <button
-                onClick={() => handleNavClick('Designer Modern Sarees')}
-                className={styles.drawerCategoryBtn}
-              >
-                ✨ Designer Modern Sarees
-              </button>
-              <button
-                onClick={() => handleNavClick('Gents Premium Wear')}
-                className={styles.drawerCategoryBtn}
-              >
-                👔 Gents Premium Wear
-              </button>
-              <button
-                onClick={() => handleNavClick('Smart EV Scooty')}
-                className={styles.drawerCategoryBtn}
-              >
-                ⚡ Smart EV Scooty
-              </button>
-              <button
-                onClick={() => handleNavClick('Hair Care & Serums')}
-                className={styles.drawerCategoryBtn}
-              >
-                🧴 Hair Care & Serums
-              </button>
+              {topCategories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => handleNavClick(cat)}
+                  className={styles.drawerCategoryBtn}
+                >
+                  🛍️ {cat}
+                </button>
+              ))}
 
               <div className={styles.drawerSectionLabel} style={{ marginTop: '18px' }}>
                 User Services

@@ -1,64 +1,56 @@
 // client/src/pages/public/HomePage.jsx
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import styles from './HomePage.module.css';
 import ProductShowcase from '../../components/public/ProductShowcase';
 import Seo from '../../seo/Seo';
 import { buildOrganizationSchema, buildWebsiteSchema } from '../../seo/schema';
+import { useShop } from '../../context/ShopContext';
+
+// Purely decorative — a nicer icon than the generic fallback for common
+// category names. Never affects filtering/matching, which is always by the
+// real category string.
+const CATEGORY_ICONS = {
+  'Hair Care': '🧴',
+  Apparel: '👗',
+  'Health & Nutrition': '💊',
+  Wellness: '🌿',
+  Beverages: '🥤',
+  'Home & Kitchen': '🏠',
+  'Health & Wellness': '🌿',
+  Appliances: '💧',
+  'Automotive / Package': '⚡',
+  'Personal Care': '🧴',
+  Grocery: '🛒',
+  'Oral Care': '🦷'
+};
 
 const HomePage = () => {
   const navigate = useNavigate();
+  const { products, categories: realCategories } = useShop();
 
-  const categories = [
-    {
-      id: 'health-wellness',
-      title: 'Health & Wellness',
-      desc: 'Certified herbal, organic vitality supplements & Shilajit.',
-      query: 'Health & Wellness',
-      icon: '🌿',
-      image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80',
-    },
-    {
-      id: 'alkaline-tech',
-      title: 'Alkaline Water Devices',
-      desc: 'Antioxidant active hydrogen filtration & water ionizers.',
-      query: 'Alkaline Water Devices',
-      icon: '💧',
-      image: 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?auto=format&fit=crop&w=600&q=80',
-    },
-    {
-      id: 'designer-sarees',
-      title: 'Designer Modern Sarees',
-      desc: 'Handcrafted artisan silk, banarasi & contemporary ethnic wear.',
-      query: 'Designer Modern Sarees',
-      icon: '✨',
-      image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80',
-    },
-    {
-      id: 'gents-wear',
-      title: 'Gents Premium Wear',
-      desc: 'Tailored luxury fabrics, modern shirts & formal ensembles.',
-      query: 'Gents Premium Wear',
-      icon: '👔',
-      image: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=600&q=80',
-    },
-    {
-      id: 'smart-ev',
-      title: 'Smart EV Scooty',
-      desc: 'Eco-conscious electric two-wheelers for modern mobility.',
-      query: 'Smart EV Scooty',
-      icon: '⚡',
-      image: 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=600&q=80',
-    },
-    {
-      id: 'hair-serums',
-      title: 'Hair Care & Serums',
-      desc: 'Clinically verified follicle nutrition & regenerative oils.',
-      query: 'Hair Care & Serums',
-      icon: '🧴',
-      image: 'https://images.unsplash.com/photo-1608248597359-bb51da77d7ea?auto=format&fit=crop&w=600&q=80',
-    },
-  ];
+  // Real category cards — previously a hardcoded list of 6 curated
+  // categories with stock Unsplash photos that didn't match any real
+  // product's actual category. Derived from the live catalog instead: each
+  // card uses a real uploaded product photo as its thumbnail and only ever
+  // links to a category that genuinely has products in it.
+  const categories = useMemo(() => {
+    return realCategories
+      .map((cat) => {
+        const catProducts = products.filter((p) => p.category === cat);
+        return {
+          id: cat,
+          title: cat,
+          count: catProducts.length,
+          desc: `${catProducts.length} product${catProducts.length === 1 ? '' : 's'} available`,
+          query: cat,
+          icon: CATEGORY_ICONS[cat] || '🛍️',
+          image: catProducts.find((p) => p.image)?.image || ''
+        };
+      })
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+  }, [realCategories, products]);
 
   const trustValues = [
     { label: '100% Authentic', sub: 'Genuine Items Verified', icon: '🛡️' },
@@ -210,12 +202,16 @@ const HomePage = () => {
                 }}
               >
                 <div className={styles.categoryImageWrapper}>
-                  <img
-                    src={cat.image}
-                    alt={cat.title}
-                    className={styles.categoryImage}
-                    loading="lazy"
-                  />
+                  {cat.image ? (
+                    <img
+                      src={cat.image}
+                      alt={cat.title}
+                      className={styles.categoryImage}
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className={styles.categoryImagePlaceholder} aria-hidden="true">{cat.icon}</div>
+                  )}
                   <div className={styles.categoryOverlay}></div>
                   <div className={styles.categoryBadgeIcon}>{cat.icon}</div>
                 </div>

@@ -1,7 +1,6 @@
 // client/src/pages/public/ProductDetailPage.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { KUWIFR_PRODUCTS } from '../../constants/productsData';
 import { useShop } from '../../context/ShopContext';
 import ProductModal from '../../components/public/ProductModal';
 import Seo from '../../seo/Seo';
@@ -13,24 +12,35 @@ import styles from './ProductDetailPage.module.css';
  * The real, crawlable, per-product detail page — previously products only
  * existed inside a client-side "Quick View" modal (ProductModal.jsx) that
  * never changed the URL, so no individual SKU had a shareable/indexable
- * page (see the SEO audit finding). Sourced from the same static
- * KUWIFR_PRODUCTS catalog the live Home/Shop pages and cart/wishlist
- * already use (client/src/constants/productsData.js) — this is the actual
- * product data shown to shoppers today, not a separate/duplicated catalog.
+ * page (see the SEO audit finding).
  *
- * NOTE: a separate, database-backed, admin-editable catalog also exists
- * (RepurchaseProduct, managed at Admin > Products, /admin/products) that
- * backs the Member Repurchase Store and Buy Package's "included product"
- * choices — but this public storefront still isn't wired to it, so it
- * remains on the static KUWIFR_PRODUCTS catalog. Unifying the two is a
- * follow-up, not done here.
+ * Sourced from the real, admin-managed RepurchaseProduct catalog (fetched
+ * once in ShopContext and shared across the whole storefront) — the same
+ * catalog and original product photos already used by the Member
+ * Repurchase Store and Buy Package. The public storefront previously
+ * rendered a separate, hardcoded demo catalog with stock Unsplash photos;
+ * that's been retired in favor of this single, real, photo-managed source.
  */
 const ProductDetailPage = () => {
   const { id } = useParams();
-  const { addToCart, toggleWishlist, wishlist } = useShop();
+  const { addToCart, toggleWishlist, wishlist, products, productsLoading } = useShop();
   const [showModal, setShowModal] = useState(false);
+  const [activeImageIdx, setActiveImageIdx] = useState(0);
 
-  const product = KUWIFR_PRODUCTS.find((p) => p.id === id);
+  const product = products.find((p) => p.id === id);
+
+  useEffect(() => {
+    setActiveImageIdx(0);
+  }, [id]);
+
+  if (productsLoading) {
+    return (
+      <div className={styles.notFound}>
+        <Seo title="Loading Product" path={`/product/${id}`} robots="noindex" />
+        <p>Loading product...</p>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -44,19 +54,21 @@ const ProductDetailPage = () => {
   }
 
   const isWishlisted = wishlist?.some((w) => w.id === product.id);
-  const discountPercent = Math.round(((product.mrp - product.ksp) / product.mrp) * 100);
+  const discountPercent = product.mrp > 0 ? Math.round(((product.mrp - product.ksp) / product.mrp) * 100) : 0;
   const path = `/product/${product.id}`;
+  const gallery = product.images?.length ? product.images : [];
+  const activeImage = gallery[activeImageIdx]?.url || product.image;
 
-  const related = KUWIFR_PRODUCTS.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+  const related = products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
 
   return (
     <div className={styles.page}>
       <Seo
         title={product.name}
-        description={product.description}
+        description={product.description || `${product.name} — available on the KUWIFR store.`}
         path={path}
         type="product"
-        image={product.image}
+        image={activeImage}
         jsonLd={[buildProductSchema(product, path)]}
       />
 
@@ -70,18 +82,39 @@ const ProductDetailPage = () => {
       />
 
       <div className={styles.grid}>
-        <div className={styles.imageWrap}>
-          <img src={product.image} alt={product.name} className={styles.image} />
+        <div>
+          <div className={styles.imageWrap}>
+            {activeImage ? (
+              <img src={activeImage} alt={product.name} className={styles.image} />
+            ) : (
+              <div className={styles.imagePlaceholder} aria-hidden="true">🛍️</div>
+            )}
+          </div>
+          {gallery.length > 1 && (
+            <div className={styles.thumbRow}>
+              {gallery.map((img, idx) => (
+                <button
+                  key={img.publicId || idx}
+                  type="button"
+                  className={`${styles.thumbBtn} ${idx === activeImageIdx ? styles.thumbBtnActive : ''}`}
+                  onClick={() => setActiveImageIdx(idx)}
+                  aria-label={`Show photo ${idx + 1}`}
+                >
+                  <img src={img.url} alt="" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className={styles.info}>
           <span className={styles.catBadge}>{product.categoryLabel}</span>
           <h1 className={styles.title}>{product.name}</h1>
-          <p className={styles.description}>{product.description}</p>
+          {product.description && <p className={styles.description}>{product.description}</p>}
 
           <div className={styles.priceRow}>
             <span className={styles.ksp}>₹{product.ksp.toLocaleString()}</span>
-            <span className={styles.mrp}>₹{product.mrp.toLocaleString()}</span>
+            {product.mrp > product.ksp && <span className={styles.mrp}>₹{product.mrp.toLocaleString()}</span>}
             {discountPercent > 0 && <span className={styles.discount}>{discountPercent}% OFF</span>}
           </div>
 
@@ -115,7 +148,11 @@ const ProductDetailPage = () => {
           <div className={styles.relatedGrid}>
             {related.map((p) => (
               <Link key={p.id} to={`/product/${p.id}`} className={styles.relatedCard}>
-                <img src={p.image} alt={p.name} className={styles.relatedImage} loading="lazy" />
+                {p.image ? (
+                  <img src={p.image} alt={p.name} className={styles.relatedImage} loading="lazy" />
+                ) : (
+                  <div className={styles.relatedImagePlaceholder} aria-hidden="true">🛍️</div>
+                )}
                 <div className={styles.relatedBody}>
                   <p className={styles.relatedName}>{p.name}</p>
                   <span className={styles.relatedPrice}>₹{p.ksp.toLocaleString()}</span>

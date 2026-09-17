@@ -378,17 +378,21 @@
 }
 
 .formGroup input,
-.formGroup select {
+.formGroup select,
+.formGroup textarea {
   width: 100%;
   padding: 9px 12px;
   border: 1px solid #d4d4d4;
   border-radius: 7px;
   font-size: 13px;
   box-sizing: border-box;
+  font-family: inherit;
+  resize: vertical;
 }
 
 .formGroup input:focus,
-.formGroup select:focus {
+.formGroup select:focus,
+.formGroup textarea:focus {
   outline: none;
   border-color: #008080;
 }

@@ -446,6 +446,16 @@
   transform: scale(1.05);
 }
 
+.categoryImagePlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+}
+
 .categoryOverlay {
   position: absolute;
   inset: 0;

@@ -418,7 +418,7 @@ const getAdminRepurchaseProducts = async (req, res, next) => {
  */
 const createRepurchaseProduct = async (req, res, next) => {
   try {
-    const { id, name, category, mrp, ksp, kbp, sortOrder, isActive } = req.body;
+    const { id, name, category, description, tag, mrp, ksp, kbp, sortOrder, isActive } = req.body;
 
     if (!id || !String(id).trim()) {
       return res.status(400).json({ success: false, message: 'A unique Product ID is required.' });
@@ -447,6 +447,8 @@ const createRepurchaseProduct = async (req, res, next) => {
       id: normalizedId,
       name: name.trim(),
       category: category.trim(),
+      description: description ? description.trim() : '',
+      tag: tag ? tag.trim() : '',
       mrp: Number(mrp),
       ksp: Number(ksp),
       kbp: Number(kbp),
@@ -476,9 +478,11 @@ const updateRepurchaseProduct = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Product not found.' });
     }
 
-    const { name, category, mrp, ksp, kbp, sortOrder, isActive, removeImageIds } = req.body;
+    const { name, category, description, tag, mrp, ksp, kbp, sortOrder, isActive, removeImageIds } = req.body;
     if (name !== undefined) product.name = name.trim();
     if (category !== undefined) product.category = category.trim();
+    if (description !== undefined) product.description = description.trim();
+    if (tag !== undefined) product.tag = tag.trim();
     if (mrp !== undefined) product.mrp = Number(mrp);
     if (ksp !== undefined) product.ksp = Number(ksp);
     if (kbp !== undefined) product.kbp = Number(kbp);

@@ -184,17 +184,17 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-// ==================== SEO: robots.txt / sitemap.xml ====================
-// Served at the site root (https://kuwifr.in/robots.txt,
-// https://kuwifr.in/sitemap.xml) — vercel.json rewrites those two exact
-// paths to this serverless function ahead of its catch-all SPA rewrite,
-// since Vercel would otherwise serve client/dist/index.html for any path
-// with no matching static file. Placed before the DB-connect gate below:
-// neither handler queries MongoDB (see seo.controller.js), so both stay
-// available even if the database is briefly unreachable.
+// ==================== SEO: robots.txt ====================
+// Served at the site root (https://kuwifr.in/robots.txt) — vercel.json
+// rewrites this exact path to this serverless function ahead of its
+// catch-all SPA rewrite, since Vercel would otherwise serve
+// client/dist/index.html for any path with no matching static file. Placed
+// before the DB-connect gate below since it never queries MongoDB (see
+// seo.controller.js), so it stays available even if the database is
+// briefly unreachable. sitemap.xml is registered after the gate instead
+// (below) since it now queries RepurchaseProduct for real product URLs.
 const { getRobotsTxt, getSitemapXml } = require('./controllers/seo.controller');
 app.get('/robots.txt', getRobotsTxt);
-app.get('/sitemap.xml', getSitemapXml);
 
 // Ensure MongoDB is connected before any DATA route handler runs a query.
 // Deliberately placed after the health/test routes above (which should
@@ -219,6 +219,12 @@ app.use(async (req, res, next) => {
     });
   }
 });
+
+// GET /sitemap.xml — after the DB gate above since it queries
+// RepurchaseProduct for real product URLs (see seo.controller.js).
+// vercel.json rewrites this exact path to this serverless function ahead
+// of its catch-all SPA rewrite.
+app.get('/sitemap.xml', getSitemapXml);
 
 // ============================================================
 // ✅ MOUNTED API ROUTERS
