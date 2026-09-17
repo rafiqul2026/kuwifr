@@ -28,6 +28,11 @@ const AdminRepurchaseProductsPage = () => {
   const [editingProduct, setEditingProduct] = useState(null);
   const [formData, setFormData] = useState(INITIAL_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Category field is a dropdown of categories already in use, plus an
+  // "Add New Category" option that reveals a free-text input — keeps entry
+  // consistent (no near-duplicate categories from typos/casing) while still
+  // letting admin introduce a brand-new one whenever needed.
+  const [useCustomCategory, setUseCustomCategory] = useState(false);
 
   // Existing (already-uploaded) images vs newly-selected files pending
   // upload — kept separate so we know which publicIds to send back for
@@ -64,6 +69,11 @@ const AdminRepurchaseProductsPage = () => {
     );
   }, [products, searchQuery]);
 
+  const existingCategories = useMemo(
+    () => [...new Set(products.map((p) => p.category).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [products]
+  );
+
   const remainingSlots = MAX_IMAGES - (existingImages.length - removedImageIds.length + newImageFiles.length);
 
   const resetForm = () => {
@@ -73,6 +83,7 @@ const AdminRepurchaseProductsPage = () => {
     setRemovedImageIds([]);
     setNewImageFiles([]);
     setNewImagePreviews([]);
+    setUseCustomCategory(false);
   };
 
   const handleOpenCreate = () => {
@@ -83,6 +94,7 @@ const AdminRepurchaseProductsPage = () => {
 
   const handleOpenEdit = (product) => {
     setEditingProduct(product);
+    setUseCustomCategory(false);
     setFormData({
       id: product.id || '',
       name: product.name || '',
@@ -330,13 +342,36 @@ const AdminRepurchaseProductsPage = () => {
 
                 <div className={styles.formGroup}>
                   <label>Category *</label>
-                  <input
-                    type="text"
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    placeholder="e.g. Hair Care"
-                    required
-                  />
+                  <select
+                    value={useCustomCategory ? '__new__' : formData.category}
+                    onChange={(e) => {
+                      if (e.target.value === '__new__') {
+                        setUseCustomCategory(true);
+                        setFormData({ ...formData, category: '' });
+                      } else {
+                        setUseCustomCategory(false);
+                        setFormData({ ...formData, category: e.target.value });
+                      }
+                    }}
+                    required={!useCustomCategory}
+                  >
+                    <option value="" disabled>Select a category...</option>
+                    {existingCategories.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                    <option value="__new__">+ Add New Category</option>
+                  </select>
+                  {useCustomCategory && (
+                    <input
+                      type="text"
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      placeholder="Type new category name"
+                      required
+                      style={{ marginTop: '8px' }}
+                      autoFocus
+                    />
+                  )}
                 </div>
 
                 <div className={styles.formGroup}>
