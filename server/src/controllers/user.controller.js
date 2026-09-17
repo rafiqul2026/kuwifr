@@ -125,18 +125,30 @@ const getDashboardStats = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Member profile not found' });
     }
 
-    const [todayAddMembers, todayActiveMembers, totalDirects, fullDownline] = await Promise.all([
-      User.countDocuments({ sponsorId: userId, createdAt: { $gte: todayStart } }),
-      User.countDocuments({ sponsorId: userId, status: 'ACTIVE', createdAt: { $gte: todayStart } }),
+    const [totalDirects, fullDownline] = await Promise.all([
       User.countDocuments({ sponsorId: userId }),
       // Full downline (any depth), computed authoritatively from User.sponsorId
       // via DownlineService instead of the incomplete Referral collection —
       // see downline.service.js. This one fetch backs totalMembers,
       // totalActiveMembers ("Full Downline Network" / "Network Wide Active"),
-      // and all three Star cards below, so a member with a large real
-      // downline no longer shows a handful of direct-only numbers.
+      // todayAddMembers/todayActiveMembers below, and all three Star cards,
+      // so a member with a large real downline no longer shows a handful of
+      // direct-only numbers.
       DownlineService.getFullDownline(userId)
     ]);
+
+    // "Today Add Members" / "Today Active Members" on the My Team page must
+    // count the FULL downline (unlimited depth), not just direct sponsees —
+    // previously these two cards queried `sponsorId: userId` directly, which
+    // only sees one level down, so a member whose new/activated joins landed
+    // several generations below them via a direct's own referral always saw
+    // 0 here even on a day with real new/activated members in their network.
+    // Derived from the same fullDownline fetch above for consistency with
+    // totalMembers/totalActiveMembers on this same payload.
+    const todayAddMembers = fullDownline.filter((m) => new Date(m.createdAt) >= todayStart).length;
+    const todayActiveMembers = fullDownline.filter(
+      (m) => String(m.status).toUpperCase() === 'ACTIVE' && new Date(m.createdAt) >= todayStart
+    ).length;
 
     const totalTeamCount = Math.max(fullDownline.length, totalDirects);
     const totalActiveTeamCount = fullDownline.filter((m) => String(m.status).toUpperCase() === 'ACTIVE').length;
