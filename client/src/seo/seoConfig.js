@@ -29,13 +29,10 @@ export const COMPANY_ADDRESS = 'GS Road, Christian Basti, Guwahati, Assam - 7810
 // `sameAs` entirely while this stays empty, per "no fake data" policy.
 export const SOCIAL_PROFILES = [];
 
-// No real branded 1200x630 share image or logo file exists in this
-// codebase yet (verified during the SEO audit — only a payment QR standee
-// image exists under client/public/images). Left null rather than pointing
-// at a stock photo or fabricated graphic; pages with a genuine on-page hero
-// image set their own `image` prop on <Seo> instead. See the SEO
-// implementation report for what a design team should supply.
-export const DEFAULT_OG_IMAGE = null;
+// Official KUWIFR logo, supplied by the business — the default social share
+// image for any page that doesn't set its own `image` prop on <Seo> (e.g. a
+// product image or article hero).
+export const DEFAULT_OG_IMAGE = `${SITE_URL}/logo.jpg`;
 
 // No Twitter/X handle is configured anywhere in the codebase — omitted
 // rather than guessed.

@@ -209,7 +209,7 @@ const RegisterPage = () => {
       <div className={styles.authContainer}>
         <div className={styles.authCard}>
           <div className={styles.authHeader}>
-            <div className={styles.authLogo}>🚀</div>
+            <img src="/logo.jpg" alt="KUWIFR" className={styles.authLogo} />
             <h1>Create Account</h1>
             <p>Join KUWIFR and start your journey to success</p>
           </div>

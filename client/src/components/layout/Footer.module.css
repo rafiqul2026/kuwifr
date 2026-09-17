@@ -44,15 +44,12 @@
   margin-bottom: 14px;
 }
 
-.logoRocket {
-  font-size: 22px;
-}
-
-.logoText {
-  font-size: 24px;
-  font-weight: 850;
-  color: #ffffff;
-  letter-spacing: -0.025em;
+.logoImg {
+  height: 44px;
+  width: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
 }
 
 .brandDescription {

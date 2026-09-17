@@ -92,8 +92,12 @@
   gap: 8px;
 }
 
-.brandIcon {
-  font-size: 20px;
+.brandLogoImg {
+  height: 30px;
+  width: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
 }
 
 .brandName {

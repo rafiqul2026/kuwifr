@@ -81,7 +81,7 @@ const ForgotPasswordPage = () => {
       <div className={styles.authContainer}>
         <div className={styles.authCard}>
           <div className={styles.authHeader}>
-            <div className={styles.authLogo}>🔐</div>
+            <img src="/logo.jpg" alt="KUWIFR" className={styles.authLogo} />
             <h1>Reset Password</h1>
             <p>{step === 1 ? 'Enter your User ID or registered Email to receive an OTP' : 'Enter the 6-digit OTP sent to your email'}</p>
           </div>

@@ -154,7 +154,7 @@ const MemberLayout = () => {
             role="button"
             tabIndex={0}
           >
-            <span className={styles.logoIcon}>🚀</span>
+            <img src="/logo.jpg" alt="KUWIFR" className={styles.logoImg} />
             <span className={styles.logoText}>KUWIFR</span>
             <span className={styles.envTag}>Member</span>
           </div>

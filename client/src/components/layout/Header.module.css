@@ -74,15 +74,12 @@
   flex-shrink: 0;
 }
 
-.logoRocket {
-  font-size: 22px;
-}
-
-.logoText {
-  font-size: 22px;
-  font-weight: 850;
-  color: #1e3a8a;
-  letter-spacing: -0.025em;
+.logoImg {
+  height: 40px;
+  width: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
 }
 
 /* Desktop Navigation */
@@ -538,15 +535,9 @@
   gap: 8px;
 }
 
-.drawerHeader .logoRocket {
-  font-size: 20px;
-}
-
-.drawerHeader .logoText {
-  color: #ffffff;
-  font-size: 20px;
-  font-weight: 850;
-  letter-spacing: -0.02em;
+.drawerHeader .logoImg {
+  height: 34px;
+  width: 34px;
 }
 
 .drawerCloseBtn {

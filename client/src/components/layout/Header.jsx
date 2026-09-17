@@ -173,8 +173,7 @@ const Header = () => {
             </button>
 
             <Link to="/" className={styles.brandLogo} aria-label="KUWIFR Home">
-              <span className={styles.logoRocket}>🚀</span>
-              <span className={styles.logoText}>KUWIFR</span>
+              <img src="/logo.jpg" alt="KUWIFR" className={styles.logoImg} />
             </Link>
           </div>
 
@@ -410,8 +409,7 @@ const Header = () => {
           >
             <div className={styles.drawerHeader}>
               <Link to="/" className={styles.brandLogo} onClick={() => setMobileMenuOpen(false)}>
-                <span className={styles.logoRocket}>🚀</span>
-                <span className={styles.brandTitle}>KUWIFR</span>
+                <img src="/logo.jpg" alt="KUWIFR" className={styles.logoImg} />
               </Link>
               <button
                 onClick={() => setMobileMenuOpen(false)}

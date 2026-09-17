@@ -223,7 +223,7 @@ const AdminLayout = () => {
       <aside className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : ''}`}>
         <div className={styles.sidebarHeader}>
           <div className={styles.brand}>
-            <span className={styles.brandIcon}>🚀</span>
+            <img src="/logo.jpg" alt="KUWIFR" className={styles.brandLogoImg} />
             <span className={styles.brandName}>KUWIFR</span>
           </div>
           <span className={styles.badgePanel}>Admin Suite</span>

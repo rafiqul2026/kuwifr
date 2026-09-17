@@ -552,8 +552,12 @@
   margin-bottom: 4px;
 }
 
-.brandIcon {
-  font-size: 22px;
+.brandLogoImg {
+  height: 36px;
+  width: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
 }
 
 .invoiceLogo h2 {

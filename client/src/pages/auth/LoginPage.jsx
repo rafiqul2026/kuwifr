@@ -119,7 +119,7 @@ const LoginPage = ({ isAdminLogin = false }) => {
       <div className={styles.authContainer}>
         <div className={styles.authCard}>
           <div className={styles.authHeader}>
-            <div className={styles.authLogo}>🔐</div>
+            <img src="/logo.jpg" alt="KUWIFR" className={styles.authLogo} />
             <h1>Welcome Back</h1>
             <p>Login with your User ID (KFRxxxxxx)</p>
           </div>

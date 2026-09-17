@@ -90,8 +90,12 @@
   user-select: none;
 }
 
-.logoIcon {
-  font-size: 22px;
+.logoImg {
+  height: 32px;
+  width: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
 }
 
 .logoText {

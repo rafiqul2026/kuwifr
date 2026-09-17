@@ -45,9 +45,12 @@
 }
 
 .authLogo {
-  font-size: 48px;
-  margin-bottom: 12px;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 12px auto;
   display: block;
+  border-radius: 50%;
+  object-fit: cover;
   animation: bounce 2s ease-in-out infinite;
 }
 
@@ -321,7 +324,8 @@
   }
 
   .authLogo {
-    font-size: 36px;
+    width: 48px;
+    height: 48px;
   }
 }
 
@@ -394,9 +398,12 @@
 /* ============ AUTH LOGO ============ */
 
 .authLogo {
-  font-size: 48px;
-  margin-bottom: 12px;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 12px auto;
   display: block;
+  border-radius: 50%;
+  object-fit: cover;
   animation: bounce 2s ease-in-out infinite;
 }
 
@@ -552,7 +559,8 @@
   }
 
   .authLogo {
-    font-size: 36px;
+    width: 48px;
+    height: 48px;
   }
 
   .formOptions {

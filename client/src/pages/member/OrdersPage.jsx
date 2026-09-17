@@ -373,17 +373,17 @@ const OrdersPage = () => {
               <div className={styles.invoiceHeader}>
                 <div className={styles.companyInfo}>
                   <div className={styles.invoiceLogo}>
-                    <span className={styles.brandIcon}>🚀</span>
+                    <img src="/logo.jpg" alt="KUWIFR" className={styles.brandLogoImg} />
                     <div>
-                      <h2>KUWIFR GLOBAL NETWORKS</h2>
-                      <small className={styles.companyType}>KUWIFR Networking &amp; E-Commerce Private Limited</small>
+                      <h2>KUWIFR SERVICES PVT LTD</h2>
+                      <small className={styles.companyType}>KUWIFR Services Private Limited</small>
                     </div>
                   </div>
-                  <p>Corporate Hub: G.S. Road, Guwahati, Assam - 781005, India</p>
+                  <p>Corporate Hub: GS Road, Christian Basti, Guwahati, Assam - 781005, India</p>
                   <p>
-                    GSTIN: <strong>18AABCK1234F1Z5</strong> | PAN: <strong>AABCK1234F</strong> | CIN: <strong>U51909AS2026PTC012345</strong>
+                    GSTIN: <strong>18AAECK1298P1Z5</strong> | PAN: <strong>AAECK1298P</strong> | CIN: <strong>U51909AS2026PTC019821</strong>
                   </p>
-                  <p>Official Support: <strong>support@kuwifr.com</strong> | Portal: <strong>www.kuwifr.com</strong></p>
+                  <p>Official Support: <strong>support@kuwifr.com</strong> | Portal: <strong>www.kuwifr.in</strong></p>
                 </div>
 
                 <div className={styles.invoiceMetaRight}>
@@ -418,9 +418,9 @@ const OrdersPage = () => {
                   <div className={styles.addressBoxHeader}>BILLED TO / DISTRIBUTOR DETAILS</div>
                   <div className={styles.addressBoxContent}>
                     <h4 className={styles.distributorName}>{user?.fullName || 'Distributor Member'}</h4>
-                    <p>Member ID: <strong className={styles.memberIdText}>{user?.memberId || 'KFR665384'}</strong></p>
-                    <p>Registered Email: {user?.email || 'mcarubul2021@gmail.com'}</p>
-                    <p>Contact Phone: {user?.phoneNumber || '+91 7578898063'}</p>
+                    <p>Member ID: <strong className={styles.memberIdText}>{user?.memberId || 'N/A'}</strong></p>
+                    <p>Registered Email: {user?.email || 'N/A'}</p>
+                    <p>Contact Phone: {user?.phoneNumber || 'N/A'}</p>
                     <p>Address: Assam, India</p>
                   </div>
                 </div>

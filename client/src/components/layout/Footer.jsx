@@ -49,8 +49,7 @@ const Footer = () => {
             {/* Brand Column */}
             <div className={styles.brandCol}>
               <Link to="/" className={styles.brandLogo}>
-                <span className={styles.logoRocket}>🚀</span>
-                <span className={styles.logoText}>KUWIFR</span>
+                <img src="/logo.jpg" alt="KUWIFR" className={styles.logoImg} />
               </Link>
               <p className={styles.brandDescription}>
                 India's premier digital storefront providing certified wellness essentials,
