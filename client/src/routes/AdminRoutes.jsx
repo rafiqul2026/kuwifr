@@ -7,6 +7,7 @@ import AdminLayout from '../components/layout/AdminLayout';
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage';
 import AdminPackageAnalyticsPage from '../pages/admin/AdminPackageAnalyticsPage';
 import AdminRepurchaseVerificationPage from '../pages/admin/AdminRepurchaseVerificationPage';
+import AdminRepurchaseProductsPage from '../pages/admin/AdminRepurchaseProductsPage';
 
 // Import remaining admin management pages (adjust to your project files)
 import AdminMembersPage from '../pages/admin/AdminMembersPage';
@@ -52,6 +53,9 @@ const AdminRoutes = () => {
 
         {/* 🛍️ Repurchase Store Payment Verification */}
         <Route path="repurchase-sales" element={<AdminRepurchaseVerificationPage />} />
+
+        {/* 📦 Repurchase Store Product Catalog (pricing, KBP, photos) */}
+        <Route path="repurchase-products" element={<AdminRepurchaseProductsPage />} />
 
         {/* Core Administrative Pages */}
         <Route path="members" element={<AdminMembersPage />} />

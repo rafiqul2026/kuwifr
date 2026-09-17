@@ -505,6 +505,19 @@ const RepurchasePage = () => {
 
                 return (
                   <article key={prod.id} className={styles.modernCard}>
+                    <div className={styles.prodImageWrap}>
+                      {prod.images?.[0] ? (
+                        <img
+                          src={prod.images[0].url}
+                          alt={prod.name}
+                          className={styles.prodImage}
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className={styles.prodImagePlaceholder}>🛍️</div>
+                      )}
+                    </div>
+
                     <div className={styles.cardHeader}>
                       <span className={styles.prodCat}>{prod.category}</span>
                       <span className={styles.kbpPointBadge}>⭐ {prod.kbp.toLocaleString()} KBP</span>

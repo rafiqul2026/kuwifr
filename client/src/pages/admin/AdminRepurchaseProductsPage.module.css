@@ -1,0 +1,554 @@
+/* client/src/pages/admin/AdminRepurchaseProductsPage.module.css */
+
+.page {
+  padding: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #171717;
+  margin: 0 0 4px 0;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: #737373;
+  margin: 0;
+  max-width: 560px;
+}
+
+.topActions {
+  display: flex;
+  gap: 10px;
+}
+
+.refreshBtn,
+.createBtn {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refreshBtn {
+  background: #ffffff;
+  border: 1px solid #d4d4d4;
+  color: #404040;
+}
+
+.refreshBtn:hover {
+  background: #f5f5f5;
+}
+
+.createBtn {
+  background: #008080;
+  color: #ffffff;
+}
+
+.createBtn:hover {
+  background: #006666;
+}
+
+.filterStrip {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 220px;
+  padding: 10px 14px;
+  border: 1px solid #d4d4d4;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: #008080;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.card:hover {
+  border-color: #d4d4d4;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
+.cardImageWrap {
+  position: relative;
+  width: 100%;
+  height: 150px;
+  background: #f3f3f3;
+}
+
+.cardImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cardImagePlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+  color: #a3a3a3;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cardImagePlaceholder span:first-child {
+  font-size: 28px;
+}
+
+.imageCountBadge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+
+.statusBadge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 20px;
+  text-transform: uppercase;
+}
+
+.statusActive {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.statusInactive {
+  background: #f5f5f5;
+  color: #737373;
+}
+
+.cardBody {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.cardCat {
+  font-size: 10px;
+  font-weight: 700;
+  color: #008080;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.cardName {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1c2a2a;
+  line-height: 1.35;
+  min-height: 36px;
+  margin: 0;
+}
+
+.cardIdTag {
+  font-size: 10.5px;
+  color: #a3a3a3;
+  font-family: monospace;
+}
+
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.ksp {
+  font-size: 15px;
+  font-weight: 800;
+  color: #171717;
+}
+
+.mrp {
+  font-size: 11.5px;
+  color: #a3a3a3;
+  text-decoration: line-through;
+}
+
+.kbpBadge {
+  align-self: flex-start;
+  background: #fef9c3;
+  color: #92660b;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.cardActions {
+  display: flex;
+  gap: 8px;
+  padding: 0 14px 14px 14px;
+}
+
+.editBtn,
+.deleteBtn,
+.toggleBtn {
+  flex: 1;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 0;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.editBtn {
+  background: #e6f5f5;
+  color: #008080;
+}
+
+.editBtn:hover {
+  background: #ccecec;
+}
+
+.toggleBtn {
+  background: #f5f5f5;
+  color: #525252;
+}
+
+.toggleBtn:hover {
+  background: #ebebeb;
+}
+
+.deleteBtn {
+  background: #fee2e2;
+  color: #dc2626;
+  flex: 0 0 auto;
+  padding: 7px 12px;
+}
+
+.deleteBtn:hover {
+  background: #fecaca;
+}
+
+.loading,
+.emptyState {
+  text-align: center;
+  padding: 60px 20px;
+  color: #737373;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e5e5e5;
+  border-top-color: #008080;
+  border-radius: 50%;
+  margin: 0 auto 12px auto;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ===== Modal ===== */
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 16px;
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+.modal {
+  background: #ffffff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 640px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 18px 20px;
+  border-bottom: 1px solid #e5e5e5;
+  position: sticky;
+  top: 0;
+  background: #ffffff;
+  z-index: 1;
+}
+
+.modalHeader h2 {
+  margin: 0 0 4px 0;
+  font-size: 18px;
+  color: #171717;
+}
+
+.modalSub {
+  margin: 0;
+  font-size: 12px;
+  color: #737373;
+}
+
+.closeModalBtn {
+  border: none;
+  background: #f5f5f5;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  color: #525252;
+  flex: 0 0 auto;
+}
+
+.formGrid {
+  padding: 18px 20px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.spanFull {
+  grid-column: 1 / -1;
+}
+
+.formGroup label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #525252;
+  margin-bottom: 5px;
+}
+
+.formGroup input,
+.formGroup select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid #d4d4d4;
+  border-radius: 7px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.formGroup input:focus,
+.formGroup select:focus {
+  outline: none;
+  border-color: #008080;
+}
+
+.formGroup input:disabled {
+  background: #f5f5f5;
+  color: #a3a3a3;
+}
+
+.hint {
+  font-size: 10.5px;
+  color: #a3a3a3;
+  margin-top: 4px;
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkboxRow label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #404040;
+  margin: 0;
+}
+
+/* Image gallery inside the form */
+
+.imageGallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.imageSlot {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e5e5e5;
+}
+
+.imageSlot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.imageSlotRemove {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.imageSlotRemove:hover {
+  background: #dc2626;
+}
+
+.imageSlotNew {
+  position: absolute;
+  bottom: 3px;
+  left: 3px;
+  background: #16a34a;
+  color: #fff;
+  font-size: 8.5px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.addImageSlot {
+  width: 84px;
+  height: 84px;
+  border-radius: 8px;
+  border: 1.5px dashed #d4d4d4;
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  color: #008080;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.addImageSlot:hover {
+  background: #e6f5f5;
+  border-color: #99d6d6;
+}
+
+.addImageSlot span:first-child {
+  font-size: 20px;
+}
+
+.fileInput {
+  display: none;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid #e5e5e5;
+}
+
+.cancelBtn {
+  background: #f5f5f5;
+  color: #525252;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.saveBtn {
+  background: #008080;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.saveBtn:hover {
+  background: #006666;
+}
+
+.saveBtn:disabled,
+.cancelBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 560px) {
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+}

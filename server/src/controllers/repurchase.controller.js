@@ -7,50 +7,25 @@ const Wallet = require('../models/Wallet');
 const Order = require('../models/Order');
 const Notification = require('../models/Notification');
 const RepurchasePurchase = require('../models/RepurchasePurchase');
+const RepurchaseProduct = require('../models/RepurchaseProduct');
+const cloudinary = require('../config/cloudinary');
 
-// Complete 30 Products Catalog with MRP, KSP, and KBP
-const REPURCHASE_PRODUCTS = [
-  { id: 'kfr-p01', name: 'Instant Magic Hair Color Shampoo', mrp: 1999, ksp: 1500, kbp: 1000, category: 'Hair Care' },
-  { id: 'kfr-p02', name: 'Kuwi Gold Magic Black Hair oil', mrp: 2100, ksp: 1500, kbp: 1000, category: 'Hair Care' },
-  { id: 'kfr-p03', name: 'Modern Saree (Ready Made Wear)', mrp: 2499, ksp: 1500, kbp: 1000, category: 'Apparel' },
-  { id: 'kfr-p04', name: 'Kuwi Pro+ Protein Powder (500gm)', mrp: 3130, ksp: 1500, kbp: 1000, category: 'Health & Nutrition' },
-  { id: 'kfr-p05', name: 'Kuwimul 77 Multi Vitamin', mrp: 1860, ksp: 1500, kbp: 1000, category: 'Health & Nutrition' },
-  { id: 'kfr-p06', name: 'Kuwi Living Sea buckthorn', mrp: 1999, ksp: 1500, kbp: 1000, category: 'Health & Nutrition' },
-  { id: 'kfr-p07', name: 'Kuwi Shilajit 99', mrp: 5910, ksp: 5000, kbp: 4000, category: 'Wellness' },
-  { id: 'kfr-p08', name: 'Kuwi Magic Berries Juice (All Solutions)', mrp: 2100, ksp: 1500, kbp: 1000, category: 'Beverages' },
-  { id: 'kfr-p09', name: 'Festival Wear Premium Modern Saree', mrp: 7250, ksp: 5000, kbp: 4000, category: 'Apparel' },
-  { id: 'kfr-p10', name: 'Kuwi Pro+ Protein Powder (1KG)', mrp: 5750, ksp: 5000, kbp: 4000, category: 'Health & Nutrition' },
-  { id: 'kfr-p11', name: 'Gents Premium Clothes', mrp: 6500, ksp: 5000, kbp: 4000, category: 'Apparel' },
-  { id: 'kfr-p12', name: 'Alkaline Jug', mrp: 5450, ksp: 5000, kbp: 4000, category: 'Home & Kitchen' },
-  { id: 'kfr-p13', name: 'Alkaline Drop', mrp: 5550, ksp: 5000, kbp: 4000, category: 'Health & Wellness' },
-  { id: 'kfr-p14', name: 'Alkaline Water Device (15k Ltr Capacity)', mrp: 13000, ksp: 10000, kbp: 7500, category: 'Appliances' },
-  { id: 'kfr-p15', name: 'Alkaline Mobile Water Device', mrp: 13300, ksp: 10000, kbp: 7500, category: 'Appliances' },
-  { id: 'kfr-p16', name: 'Alkaline Water Device Premium (30k Ltr Capacity)', mrp: 18000, ksp: 15000, kbp: 10000, category: 'Appliances' },
-  { id: 'kfr-p17', name: 'Alkaline Water Device of Copper Jar', mrp: 18500, ksp: 15000, kbp: 10000, category: 'Appliances' },
-  { id: 'kfr-p18', name: 'Electric Scooty (Growth Special)', mrp: 120500, ksp: 110000, kbp: 50000, category: 'Automotive / Package' },
-  { id: 'kfr-p19', name: 'Kuwi Gold Face Wash', mrp: 299, ksp: 249, kbp: 186, category: 'Personal Care' },
-  { id: 'kfr-p20', name: 'Kuwi Glow Soap', mrp: 299, ksp: 249, kbp: 190, category: 'Personal Care' },
-  { id: 'kfr-p21', name: 'Kuwi Glow Cream', mrp: 349, ksp: 299, kbp: 220, category: 'Personal Care' },
-  { id: 'kfr-p22', name: 'Kuwi Diabetic White Rice (1Kg)', mrp: 225, ksp: 210, kbp: 50, category: 'Grocery' },
-  { id: 'kfr-p23', name: 'Electric Burner', mrp: 9350, ksp: 8000, kbp: 2000, category: 'Appliances' },
-  { id: 'kfr-p24', name: 'Electric Geyser', mrp: 4500, ksp: 4000, kbp: 1700, category: 'Appliances' },
-  { id: 'kfr-p25', name: 'Premium Kurti Set', mrp: 2999, ksp: 2499, kbp: 1000, category: 'Apparel' },
-  { id: 'kfr-p26', name: 'Anno Fresh Salt', mrp: 30, ksp: 25, kbp: 12, category: 'Grocery' },
-  { id: 'kfr-p27', name: 'Kuwi Mustard Oil', mrp: 210, ksp: 200, kbp: 70, category: 'Grocery' },
-  { id: 'kfr-p28', name: 'Kuwi Fresh Kitchen King Masala (250gm)', mrp: 279, ksp: 249, kbp: 70, category: 'Grocery' },
-  { id: 'kfr-p29', name: 'Kuwi Body Spray Perfume', mrp: 279, ksp: 210, kbp: 100, category: 'Personal Care' },
-  { id: 'kfr-p30', name: 'Kuwi Toothpaste (100gm)', mrp: 249, ksp: 220, kbp: 80, category: 'Oral Care' }
-];
+const MAX_PRODUCT_IMAGES = 4;
 
 /**
- * Get all 30 Repurchase Products
+ * Get all active Repurchase Store products, DB-backed (RepurchaseProduct —
+ * see that model's comment for why this replaced a hardcoded array).
  * GET /api/repurchase/products
  */
 const getRepurchaseProducts = async (req, res, next) => {
   try {
+    const products = await RepurchaseProduct.find({ isActive: true })
+      .sort({ sortOrder: 1, createdAt: 1 })
+      .lean();
+
     res.json({
       success: true,
-      data: { products: REPURCHASE_PRODUCTS }
+      data: { products }
     });
   } catch (error) {
     next(error);
@@ -59,16 +34,20 @@ const getRepurchaseProducts = async (req, res, next) => {
 
 /**
  * Compute cart totals + normalized item list against the authoritative
- * REPURCHASE_PRODUCTS catalog — shared by submit/approve so the two can
+ * RepurchaseProduct catalog — shared by submit/approve so the two can
  * never disagree about what a cart is actually worth.
  */
-const priceCart = (items) => {
+const priceCart = async (items) => {
   let totalKSPAmount = 0;
   let totalKBPAmount = 0;
   const purchasedItems = [];
 
+  const ids = (items || []).map((item) => item.productId);
+  const products = await RepurchaseProduct.find({ id: { $in: ids } }).lean();
+  const productMap = new Map(products.map((p) => [p.id, p]));
+
   for (const item of items || []) {
-    const prod = REPURCHASE_PRODUCTS.find((p) => p.id === item.productId);
+    const prod = productMap.get(item.productId);
     if (prod) {
       const qty = parseInt(item.quantity, 10) || 1;
       totalKSPAmount += prod.ksp * qty;
@@ -124,7 +103,7 @@ const submitRepurchasePurchase = async (req, res, next) => {
       });
     }
 
-    const { totalKSPAmount, totalKBPAmount, purchasedItems } = priceCart(items);
+    const { totalKSPAmount, totalKBPAmount, purchasedItems } = await priceCart(items);
     if (purchasedItems.length === 0) {
       return res.status(400).json({ success: false, message: 'No valid products found in cart.' });
     }
@@ -397,11 +376,185 @@ const get10LevelRepurchase = async (req, res, next) => {
   }
 };
 
+/**
+ * Uploads a single image buffer to Cloudinary under the Repurchase Store
+ * product folder — same upload_stream shape used by offer.controller.js and
+ * user.controller.js's KYC upload.
+ */
+const uploadProductImage = (buffer) =>
+  new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'kuwifr/repurchase-products',
+        transformation: [{ width: 800, crop: 'limit' }, { quality: 'auto', fetch_format: 'auto' }]
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+    uploadStream.end(buffer);
+  });
+
+/**
+ * Admin: List every Repurchase Store product (active + inactive), for the
+ * product management screen.
+ * GET /api/repurchase/admin/products
+ */
+const getAdminRepurchaseProducts = async (req, res, next) => {
+  try {
+    const products = await RepurchaseProduct.find().sort({ sortOrder: 1, createdAt: 1 }).lean();
+    res.json({ success: true, data: { products } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Admin: Create a new Repurchase Store product, with up to 4 original
+ * product photos uploaded straight to Cloudinary (multipart `images` field
+ * — see repurchase.routes.js's multer wiring).
+ * POST /api/repurchase/admin/products
+ */
+const createRepurchaseProduct = async (req, res, next) => {
+  try {
+    const { id, name, category, mrp, ksp, kbp, sortOrder, isActive } = req.body;
+
+    if (!id || !String(id).trim()) {
+      return res.status(400).json({ success: false, message: 'A unique Product ID is required.' });
+    }
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, message: 'Product name is required.' });
+    }
+    if (!category || !category.trim()) {
+      return res.status(400).json({ success: false, message: 'Category is required.' });
+    }
+    if (!mrp || !ksp || !kbp) {
+      return res.status(400).json({ success: false, message: 'MRP, KSP, and KBP are all required.' });
+    }
+
+    const normalizedId = String(id).trim().toLowerCase();
+    const existing = await RepurchaseProduct.findOne({ id: normalizedId });
+    if (existing) {
+      return res.status(400).json({ success: false, message: `A product with ID "${normalizedId}" already exists.` });
+    }
+
+    const files = (req.files || []).slice(0, MAX_PRODUCT_IMAGES);
+    const uploads = await Promise.all(files.map((f) => uploadProductImage(f.buffer)));
+    const images = uploads.map((u) => ({ url: u.secure_url, publicId: u.public_id }));
+
+    const product = await RepurchaseProduct.create({
+      id: normalizedId,
+      name: name.trim(),
+      category: category.trim(),
+      mrp: Number(mrp),
+      ksp: Number(ksp),
+      kbp: Number(kbp),
+      sortOrder: Number(sortOrder) || 0,
+      isActive: isActive === undefined ? true : isActive === 'true' || isActive === true,
+      images
+    });
+
+    res.status(201).json({ success: true, message: 'Product added to the Repurchase Store.', data: { product } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Admin: Update a Repurchase Store product's fields, add new photos (up to
+ * the 4-image cap), and/or remove specific existing photos (Cloudinary
+ * assets are destroyed on removal). `removeImageIds` is a JSON-encoded array
+ * of `publicId`s sent as a text field alongside any new `images` files.
+ * PUT /api/repurchase/admin/products/:id
+ */
+const updateRepurchaseProduct = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const product = await RepurchaseProduct.findById(id);
+    if (!product) {
+      return res.status(404).json({ success: false, message: 'Product not found.' });
+    }
+
+    const { name, category, mrp, ksp, kbp, sortOrder, isActive, removeImageIds } = req.body;
+    if (name !== undefined) product.name = name.trim();
+    if (category !== undefined) product.category = category.trim();
+    if (mrp !== undefined) product.mrp = Number(mrp);
+    if (ksp !== undefined) product.ksp = Number(ksp);
+    if (kbp !== undefined) product.kbp = Number(kbp);
+    if (sortOrder !== undefined) product.sortOrder = Number(sortOrder) || 0;
+    if (isActive !== undefined) product.isActive = isActive === 'true' || isActive === true;
+
+    if (removeImageIds) {
+      let idsToRemove = [];
+      try {
+        idsToRemove = JSON.parse(removeImageIds);
+      } catch {
+        idsToRemove = [];
+      }
+      if (Array.isArray(idsToRemove) && idsToRemove.length) {
+        await Promise.all(
+          idsToRemove.map((publicId) => cloudinary.uploader.destroy(publicId).catch(() => {}))
+        );
+        product.images = product.images.filter((img) => !idsToRemove.includes(img.publicId));
+      }
+    }
+
+    const files = req.files || [];
+    if (files.length) {
+      const remainingSlots = MAX_PRODUCT_IMAGES - product.images.length;
+      if (remainingSlots <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: `This product already has the maximum of ${MAX_PRODUCT_IMAGES} images. Remove one before adding another.`
+        });
+      }
+      const uploads = await Promise.all(files.slice(0, remainingSlots).map((f) => uploadProductImage(f.buffer)));
+      product.images.push(...uploads.map((u) => ({ url: u.secure_url, publicId: u.public_id })));
+    }
+
+    await product.save();
+    res.json({ success: true, message: 'Product updated.', data: { product } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Admin: Delete a Repurchase Store product (and all of its Cloudinary
+ * photos). Past orders/purchase history keep their own denormalized
+ * name/category/ksp/kbp snapshot (see RepurchasePurchase.items), so removing
+ * a product here never rewrites completed order history.
+ * DELETE /api/repurchase/admin/products/:id
+ */
+const deleteRepurchaseProduct = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const product = await RepurchaseProduct.findById(id);
+    if (!product) {
+      return res.status(404).json({ success: false, message: 'Product not found.' });
+    }
+
+    if (product.images?.length) {
+      await Promise.all(product.images.map((img) => cloudinary.uploader.destroy(img.publicId).catch(() => {})));
+    }
+    await product.deleteOne();
+
+    res.json({ success: true, message: 'Product removed from the Repurchase Store.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getRepurchaseProducts,
   submitRepurchasePurchase,
   approveRepurchasePurchase,
   rejectRepurchasePurchase,
   getAdminRepurchaseAnalytics,
-  get10LevelRepurchase
+  get10LevelRepurchase,
+  getAdminRepurchaseProducts,
+  createRepurchaseProduct,
+  updateRepurchaseProduct,
+  deleteRepurchaseProduct
 };
