@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import styles from './LegalPages.module.css';
+import styles from './LegalPage.module.css';
+import Seo from '../../seo/Seo';
+import Breadcrumbs from '../../seo/Breadcrumbs';
 
 const GrievancePage = () => {
   const [submitted, setSubmitted] = useState(false);
@@ -11,9 +13,9 @@ const GrievancePage = () => {
 
   if (submitted) {
     return (
-      <div className={styles.legalPage}>
+      <div className={styles.pageWrapper}>
         <div className={styles.container}>
-          <h1>Grievance Redressal</h1>
+          <h1 className={styles.title}>Grievance Redressal</h1>
           <div className={styles.section}>
             <h2>✅ Complaint Submitted</h2>
             <p>
@@ -30,10 +32,16 @@ const GrievancePage = () => {
   }
 
   return (
-    <div className={styles.legalPage}>
+    <div className={styles.pageWrapper}>
+      <Seo
+        title="Grievance Redressal"
+        description="File a grievance or complaint with KUWIFR customer support and track its resolution."
+        path="/grievance"
+      />
       <div className={styles.container}>
-        <h1>Grievance Redressal</h1>
-        <p className={styles.lastUpdated}>
+        <Breadcrumbs items={[{ name: 'Home', path: '/' }, { name: 'Grievance Redressal', path: '/grievance' }]} />
+        <h1 className={styles.title}>Grievance Redressal</h1>
+        <p className={styles.updatedDate}>
           We are committed to resolving your concerns promptly and fairly.
         </p>
 

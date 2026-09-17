@@ -1,12 +1,20 @@
 import React from 'react';
-import styles from './LegalPages.module.css';
+import styles from './LegalPage.module.css';
+import Seo from '../../seo/Seo';
+import Breadcrumbs from '../../seo/Breadcrumbs';
 
 const CustomerSupportPage = () => {
   return (
-    <div className={styles.legalPage}>
+    <div className={styles.pageWrapper}>
+      <Seo
+        title="Customer Support"
+        description="Get help from KUWIFR customer support with orders, products, payments, and deliveries."
+        path="/customer-support"
+      />
       <div className={styles.container}>
-        <h1>Customer Support</h1>
-        <p className={styles.lastUpdated}>We're Here to Help</p>
+        <Breadcrumbs items={[{ name: 'Home', path: '/' }, { name: 'Customer Support', path: '/customer-support' }]} />
+        <h1 className={styles.title}>Customer Support</h1>
+        <p className={styles.updatedDate}>We're Here to Help</p>
 
         <section className={styles.section}>
           <h2>Contact Us</h2>

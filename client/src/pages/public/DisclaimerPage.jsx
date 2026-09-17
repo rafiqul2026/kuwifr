@@ -1,11 +1,19 @@
 // client/src/pages/public/DisclaimerPage.jsx
 import React from 'react';
 import styles from './LegalPage.module.css';
+import Seo from '../../seo/Seo';
+import Breadcrumbs from '../../seo/Breadcrumbs';
 
 const DisclaimerPage = () => {
   return (
     <div className={styles.pageWrapper}>
+      <Seo
+        title="Disclaimer"
+        description="Product and performance disclaimer for items sold on the KUWIFR online store."
+        path="/disclaimer"
+      />
       <div className={styles.container}>
+        <Breadcrumbs items={[{ name: 'Home', path: '/' }, { name: 'Disclaimer', path: '/disclaimer' }]} />
         <div className={styles.header}>
           <span className={styles.badge}>Transparency & Notices</span>
           <h1 className={styles.title}>Product & Performance Disclaimer</h1>

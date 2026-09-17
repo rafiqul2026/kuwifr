@@ -1,12 +1,20 @@
 import React from 'react';
-import styles from './LegalPages.module.css';
+import styles from './LegalPage.module.css';
+import Seo from '../../seo/Seo';
+import Breadcrumbs from '../../seo/Breadcrumbs';
 
 const PaymentInfoPage = () => {
   return (
-    <div className={styles.legalPage}>
+    <div className={styles.pageWrapper}>
+      <Seo
+        title="Payment Information"
+        description="Secure payment methods accepted on the KUWIFR online store, including UPI, cards, NetBanking, and Cash on Delivery."
+        path="/payment-info"
+      />
       <div className={styles.container}>
-        <h1>Payment Information</h1>
-        <p className={styles.lastUpdated}>Secure and Transparent Payments</p>
+        <Breadcrumbs items={[{ name: 'Home', path: '/' }, { name: 'Payment Information', path: '/payment-info' }]} />
+        <h1 className={styles.title}>Payment Information</h1>
+        <p className={styles.updatedDate}>Secure and Transparent Payments</p>
 
         <section className={styles.section}>
           <h2>Payment Methods</h2>

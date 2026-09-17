@@ -4,6 +4,29 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
     <meta name="theme-color" content="#2563eb" />
+
+    <!-- Static fallback SEO tags. This app is a pure client-side-rendered
+         Vite SPA (no SSR/prerendering) — react-helmet-async (see
+         client/src/seo/Seo.jsx) overwrites these per-route for crawlers
+         that execute JavaScript (Googlebot does), but link-preview bots
+         that do NOT execute JS (Facebook/WhatsApp/LinkedIn/Slack, etc.)
+         only ever see exactly what's written here. Keep this accurate and
+         brand-generic; it is the permanent fallback for the homepage and
+         for any route a non-JS crawler visits directly. -->
+    <meta name="description" content="KUWIFR — certified health & wellness supplements, alkaline water devices, fashion, and smart EV mobility. Shop genuine products with nationwide delivery." />
+    <link rel="canonical" href="https://kuwifr.in/" />
+    <meta property="og:site_name" content="KUWIFR" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="KUWIFR — Health, Wellness & Lifestyle Essentials" />
+    <meta property="og:description" content="Certified health & wellness supplements, alkaline water devices, fashion, and smart EV mobility from KUWIFR Services Pvt Ltd." />
+    <meta property="og:url" content="https://kuwifr.in/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="KUWIFR — Health, Wellness & Lifestyle Essentials" />
+    <meta name="twitter:description" content="Certified health & wellness supplements, alkaline water devices, fashion, and smart EV mobility from KUWIFR Services Pvt Ltd." />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/site.webmanifest" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -12,7 +35,7 @@
          Used by the redesigned Member Dashboard page. Loaded alongside Inter so the rest of the
          site keeps its current font until it is redesigned too. -->
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <title>KUWIFR Services Pvt Ltd</title>
+    <title>KUWIFR Services Pvt Ltd | Health, Wellness & Lifestyle Essentials</title>
   </head>
   <body>
     <div id="root"></div>

@@ -1,6 +1,7 @@
 // client/src/components/layout/AdminLayout.jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
@@ -187,6 +188,13 @@ const AdminLayout = () => {
 
   return (
     <div className={styles.layoutWrapper}>
+      {/* Blanket noindex for the entire Admin Panel — every nested admin
+          route renders inside this layout's <Outlet/>, so one tag here
+          covers all of them. Admin pages must never be indexed or leak
+          dashboard stats/user data/internal IDs through SEO metadata. */}
+      <Helmet>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
       {/* Mobile Top Header Bar */}
       <header className={styles.mobileTopBar}>
         <button

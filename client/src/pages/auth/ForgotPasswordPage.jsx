@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useNotification } from '../../hooks/useNotification';
 import api from '../../services/api';
+import Seo from '../../seo/Seo';
 import styles from './AuthPages.module.css';
 
 const ForgotPasswordPage = () => {
@@ -76,6 +77,7 @@ const ForgotPasswordPage = () => {
 
   return (
     <div className={styles.authPage}>
+      <Seo title="Forgot Password" path="/forgot-password" robots="noindex" />
       <div className={styles.authContainer}>
         <div className={styles.authCard}>
           <div className={styles.authHeader}>

@@ -3,6 +3,8 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import styles from './HomePage.module.css';
 import ProductShowcase from '../../components/public/ProductShowcase';
+import Seo from '../../seo/Seo';
+import { buildOrganizationSchema, buildWebsiteSchema } from '../../seo/schema';
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -78,6 +80,13 @@ const HomePage = () => {
 
   return (
     <div className={styles.homePage}>
+      <Seo
+        title="KUWIFR — Health, Wellness & Lifestyle Essentials"
+        description="Shop genuine health & wellness supplements, alkaline water devices, designer sarees, gents wear, and smart EV mobility at KUWIFR. Nationwide express shipping, secure payments, 100% authentic products."
+        path="/"
+        type="website"
+        jsonLd={[buildOrganizationSchema(), buildWebsiteSchema()]}
+      />
       {/* 1. HERO SECTION */}
       <section className={styles.hero}>
         <div className={styles.heroBackgroundMesh} aria-hidden="true" />

@@ -3,9 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
+import Seo from '../../seo/Seo';
 import styles from './AuthPages.module.css';
 
-const LoginPage = () => {
+const LoginPage = ({ isAdminLogin = false }) => {
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -110,6 +111,11 @@ const LoginPage = () => {
 
   return (
     <div className={styles.authPage}>
+      <Seo
+        title={isAdminLogin ? 'Admin Login' : 'Member Login'}
+        path={isAdminLogin ? '/admin/login' : '/login'}
+        robots="noindex"
+      />
       <div className={styles.authContainer}>
         <div className={styles.authCard}>
           <div className={styles.authHeader}>

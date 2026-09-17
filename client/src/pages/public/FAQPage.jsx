@@ -2,6 +2,15 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styles from './FAQPage.module.css';
+import Seo from '../../seo/Seo';
+import Breadcrumbs from '../../seo/Breadcrumbs';
+
+// NOTE: this page has genuine, real FAQ content (see FAQ_CATEGORIES below),
+// which would normally be a good candidate for FAQPage JSON-LD (section 15
+// of the SEO brief). Per explicit product decision during this
+// implementation, FAQPage structured data was intentionally left out of
+// scope for this pass — only standard page-level SEO is applied. Revisit if
+// FAQ rich-result snippets become a priority.
 
 const FAQ_CATEGORIES = [
   {
@@ -93,7 +102,13 @@ const FAQPage = () => {
 
   return (
     <div className={styles.faqPage}>
+      <Seo
+        title="Frequently Asked Questions"
+        description="Answers to common KUWIFR questions about orders, payments, shipping timelines, Cash on Delivery, order tracking, and product quality assurance."
+        path="/faq"
+      />
       <div className={styles.container}>
+        <Breadcrumbs items={[{ name: 'Home', path: '/' }, { name: 'FAQ', path: '/faq' }]} />
         {/* Header */}
         <div className={styles.header}>
           <span className={styles.badge}>Help & Support</span>

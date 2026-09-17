@@ -1,6 +1,16 @@
 // client/src/pages/public/BlogPage.jsx
 import React from 'react';
 import styles from './BlogPage.module.css';
+import Seo from '../../seo/Seo';
+import Breadcrumbs from '../../seo/Breadcrumbs';
+
+// NOTE (SEO audit finding): these 3 posts are placeholder content — dates
+// are fabricated and "Read Article" has no destination (no individual post
+// page/route exists). Per explicit product decision, no BlogPosting/Article
+// JSON-LD is implemented for this page (that would mean asserting fake
+// publish dates/authors as structured data). Only generic WebPage-level SEO
+// is applied below. Replace with real posts before treating this as a real
+// content-marketing channel.
 
 const BLOG_POSTS = [
   {
@@ -35,7 +45,13 @@ const BLOG_POSTS = [
 const BlogPage = () => {
   return (
     <div className={styles.blogPage}>
+      <Seo
+        title="Blog"
+        description="Wellness guides, alkaline water science, and lifestyle articles from KUWIFR — covering health supplements, hydration technology, and sustainable mobility."
+        path="/blog"
+      />
       <div className={styles.container}>
+        <Breadcrumbs items={[{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }]} />
         <div className={styles.header}>
           <span className={styles.badge}>Insights & Lifestyle</span>
           <h1 className={styles.title}>KUWIFR Wellness & Lifestyle Journal</h1>

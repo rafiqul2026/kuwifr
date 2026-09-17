@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
+import Seo from '../../seo/Seo';
 import styles from './AuthPages.module.css';
 
 const VerifyEmailPage = () => {
@@ -34,6 +35,7 @@ const VerifyEmailPage = () => {
   if (loading) {
     return (
       <div className={styles.authPage}>
+        <Seo title="Verifying Email" path="/verify-email" robots="noindex" />
         <div className={styles.authContainer}>
           <div className={styles.authCard}>
             <div className={styles.authHeader}>
@@ -50,6 +52,7 @@ const VerifyEmailPage = () => {
   if (error) {
     return (
       <div className={styles.authPage}>
+        <Seo title="Verification Failed" path="/verify-email" robots="noindex" />
         <div className={styles.authContainer}>
           <div className={styles.authCard}>
             <div className={styles.authHeader}>
@@ -70,6 +73,7 @@ const VerifyEmailPage = () => {
 
   return (
     <div className={styles.authPage}>
+      <Seo title="Email Verified" path="/verify-email" robots="noindex" />
       <div className={styles.authContainer}>
         <div className={styles.authCard}>
           <div className={styles.authHeader}>

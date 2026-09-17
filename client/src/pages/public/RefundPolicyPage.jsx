@@ -1,11 +1,19 @@
 // client/src/pages/public/RefundPolicyPage.jsx
 import React from 'react';
 import styles from './LegalPage.module.css';
+import Seo from '../../seo/Seo';
+import Breadcrumbs from '../../seo/Breadcrumbs';
 
 const RefundPolicyPage = () => {
   return (
     <div className={styles.pageWrapper}>
+      <Seo
+        title="Returns, Replacement & Refund Policy"
+        description="KUWIFR's returns, replacement, and refund policy for online store purchases, including eligibility and processing timelines."
+        path="/refund-policy"
+      />
       <div className={styles.container}>
+        <Breadcrumbs items={[{ name: 'Home', path: '/' }, { name: 'Refund Policy', path: '/refund-policy' }]} />
         <div className={styles.header}>
           <span className={styles.badge}>Customer Protection</span>
           <h1 className={styles.title}>Returns, Replacement & Refund Policy</h1>

@@ -2,10 +2,20 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styles from './AboutPage.module.css';
+import Seo from '../../seo/Seo';
+import Breadcrumbs from '../../seo/Breadcrumbs';
 
 const AboutPage = () => {
   return (
     <div className={styles.aboutPage}>
+      <Seo
+        title="About Us"
+        description="KUWIFR is India's direct storefront for certified health & wellness supplements, alkaline water devices, fashion, and smart EV mobility, built on transparency and quality."
+        path="/about"
+      />
+      <div className={styles.container}>
+        <Breadcrumbs items={[{ name: 'Home', path: '/' }, { name: 'About Us', path: '/about' }]} />
+      </div>
       {/* Hero */}
       <section className={styles.heroSection}>
         <div className={styles.container}>

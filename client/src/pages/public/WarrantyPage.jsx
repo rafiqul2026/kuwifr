@@ -1,8 +1,16 @@
 import React from 'react';
+import Seo from '../../seo/Seo';
+import Breadcrumbs from '../../seo/Breadcrumbs';
 
 const WarrantyPage = () => {
   return (
     <div style={{ padding: '100px 20px', maxWidth: '800px', margin: '0 auto' }}>
+      <Seo
+        title="Warranty Information"
+        description="Warranty coverage and terms for products purchased from the KUWIFR online store."
+        path="/warranty"
+      />
+      <Breadcrumbs items={[{ name: 'Home', path: '/' }, { name: 'Warranty Information', path: '/warranty' }]} />
       <h1 style={{ fontSize: '36px', marginBottom: '20px' }}>Warranty Information</h1>
       <p style={{ fontSize: '18px', color: '#64748b', marginBottom: '40px' }}>Product Warranty Details</p>
 

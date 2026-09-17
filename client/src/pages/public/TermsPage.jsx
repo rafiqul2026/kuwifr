@@ -1,11 +1,19 @@
 // client/src/pages/public/TermsPage.jsx
 import React from 'react';
 import styles from './LegalPage.module.css';
+import Seo from '../../seo/Seo';
+import Breadcrumbs from '../../seo/Breadcrumbs';
 
 const TermsPage = () => {
   return (
     <div className={styles.pageWrapper}>
+      <Seo
+        title="Terms & Conditions"
+        description="Terms and Conditions of Sale for KUWIFR SERVICES PVT LTD's online store, covering orders, payments, and platform usage."
+        path="/terms"
+      />
       <div className={styles.container}>
+        <Breadcrumbs items={[{ name: 'Home', path: '/' }, { name: 'Terms & Conditions', path: '/terms' }]} />
         <div className={styles.header}>
           <span className={styles.badge}>Customer Terms</span>
           <h1 className={styles.title}>Terms & Conditions of Sale</h1>

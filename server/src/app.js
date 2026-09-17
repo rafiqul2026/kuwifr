@@ -185,6 +185,18 @@ app.get('/api/test', (req, res) => {
   });
 });
 
+// ==================== SEO: robots.txt / sitemap.xml ====================
+// Served at the site root (https://kuwifr.in/robots.txt,
+// https://kuwifr.in/sitemap.xml) — vercel.json rewrites those two exact
+// paths to this serverless function ahead of its catch-all SPA rewrite,
+// since Vercel would otherwise serve client/dist/index.html for any path
+// with no matching static file. Placed before the DB-connect gate below:
+// neither handler queries MongoDB (see seo.controller.js), so both stay
+// available even if the database is briefly unreachable.
+const { getRobotsTxt, getSitemapXml } = require('./controllers/seo.controller');
+app.get('/robots.txt', getRobotsTxt);
+app.get('/sitemap.xml', getSitemapXml);
+
 // Ensure MongoDB is connected before any DATA route handler runs a query.
 // Deliberately placed after the health/test routes above (which should
 // keep working even if the database is briefly unreachable) and after

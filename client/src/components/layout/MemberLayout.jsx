@@ -1,6 +1,7 @@
 // client/src/components/layout/MemberLayout.jsx
 import React, { useState, useEffect, useCallback } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { useAuth } from "../../context/AuthContext";
 import styles from "./MemberLayout.module.css";
 
@@ -128,6 +129,14 @@ const MemberLayout = () => {
 
   return (
     <div className={styles.memberLayout}>
+      {/* Blanket noindex for the entire private Member Portal — applies to
+          every nested route rendered via <Outlet/> below in one place,
+          since these pages must never be indexed or show up in search
+          results (member IDs, wallet balances, team data, etc. must never
+          be exposed through SEO metadata). */}
+      <Helmet>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
       {/* Top Header */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>

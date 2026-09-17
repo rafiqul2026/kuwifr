@@ -1,11 +1,19 @@
 // client/src/pages/public/PrivacyPage.jsx
 import React from 'react';
 import styles from './LegalPage.module.css';
+import Seo from '../../seo/Seo';
+import Breadcrumbs from '../../seo/Breadcrumbs';
 
 const PrivacyPage = () => {
   return (
     <div className={styles.pageWrapper}>
+      <Seo
+        title="Privacy Policy"
+        description="How KUWIFR SERVICES PVT LTD collects, uses, and protects your personal data when you shop on our online store."
+        path="/privacy"
+      />
       <div className={styles.container}>
+        <Breadcrumbs items={[{ name: 'Home', path: '/' }, { name: 'Privacy Policy', path: '/privacy' }]} />
         <div className={styles.header}>
           <span className={styles.badge}>Customer Privacy</span>
           <h1 className={styles.title}>Privacy & Data Protection Policy</h1>

@@ -1,5 +1,6 @@
 // client/src/components/public/ProductShowcase.jsx
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import './ProductShowcase.css';
 import { KUWIFR_PRODUCTS } from '../../constants/productsData';
 import { useShop } from '../../context/ShopContext';
@@ -96,7 +97,9 @@ const ProductShowcase = () => {
                     {isWishlisted ? '♥' : '♡'}
                   </button>
 
-                  <img src={product.image} alt={product.name} loading="lazy" />
+                  <Link to={`/product/${product.id}`} aria-label={product.name}>
+                    <img src={product.image} alt={product.name} loading="lazy" />
+                  </Link>
 
                   <button className="kuwifr-quickview-btn" onClick={() => setSelectedProduct(product)}>
                     Quick View
@@ -105,7 +108,11 @@ const ProductShowcase = () => {
 
                 <div className="kuwifr-card-info">
                   <span className="kuwifr-card-cat">{product.categoryLabel}</span>
-                  <h3 className="kuwifr-card-name">{product.name}</h3>
+                  <h3 className="kuwifr-card-name">
+                    <Link to={`/product/${product.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                      {product.name}
+                    </Link>
+                  </h3>
                   <p className="kuwifr-card-desc">{product.description}</p>
 
                   <div className="kuwifr-price-row">

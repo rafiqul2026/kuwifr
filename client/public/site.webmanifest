@@ -1,0 +1,16 @@
+{
+  "name": "KUWIFR Services Pvt Ltd",
+  "short_name": "KUWIFR",
+  "description": "KUWIFR — Health, Wellness & Lifestyle Essentials",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

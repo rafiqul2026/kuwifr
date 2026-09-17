@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useShop } from '../../context/ShopContext';
 import { useAuth } from '../../context/AuthContext';
+import { KUWIFR_PRODUCTS } from '../../constants/productsData';
 import OrderTrackingModal from '../public/OrderTrackingModal';
 import styles from './Header.module.css';
 
@@ -17,7 +18,6 @@ const Header = () => {
 
   const shopContext = useShop ? useShop() : {};
   const {
-    products,
     cartCount = 0,
     wishlistCount = 0,
     setIsCartOpen,
@@ -26,10 +26,11 @@ const Header = () => {
     activeCategoryFilter = 'ALL'
   } = shopContext;
 
-  // Stabilize products array reference to prevent infinite re-renders
-  const safeProducts = useMemo(() => {
-    return Array.isArray(products) ? products : [];
-  }, [products]);
+  // Search suggestions source — ShopContext never actually provided a
+  // `products` list (it only holds cart/wishlist state), so this dropdown
+  // was silently always empty before. KUWIFR_PRODUCTS is the same static
+  // catalog the live Home/Shop pages and cart already render from.
+  const safeProducts = useMemo(() => KUWIFR_PRODUCTS, []);
 
   const { user, isAuthenticated, logout } = useAuth
     ? useAuth()
@@ -236,18 +237,14 @@ const Header = () => {
                           }}
                         >
                           <img
-                            src={
-                              prod.image ||
-                              prod.images?.[0] ||
-                              'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=100&q=80'
-                            }
+                            src={prod.image}
                             alt={prod.name}
                             className={styles.suggestionThumb}
                           />
                           <div className={styles.suggestionInfo}>
                             <div className={styles.suggestionName}>{prod.name}</div>
                             <div className={styles.suggestionPrice}>
-                              ₹{(prod.price || prod.sellingPrice || 0).toLocaleString()}
+                              ₹{(prod.ksp || 0).toLocaleString()}
                             </div>
                           </div>
                         </div>

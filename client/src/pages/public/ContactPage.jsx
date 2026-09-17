@@ -1,6 +1,8 @@
 // client/src/pages/public/ContactPage.jsx
 import React, { useState } from 'react';
 import styles from './ContactPage.module.css';
+import Seo from '../../seo/Seo';
+import Breadcrumbs from '../../seo/Breadcrumbs';
 
 const ContactPage = () => {
   const [submitted, setSubmitted] = useState(false);
@@ -17,7 +19,13 @@ const ContactPage = () => {
 
   return (
     <div className={styles.contactPage}>
+      <Seo
+        title="Contact Us"
+        description="Contact KUWIFR customer support for questions about orders, deliveries, or products. Reach us by phone, email, or our online contact form."
+        path="/contact"
+      />
       <div className={styles.container}>
+        <Breadcrumbs items={[{ name: 'Home', path: '/' }, { name: 'Contact Us', path: '/contact' }]} />
         <div className={styles.header}>
           <span className={styles.badge}>Customer Help Desk</span>
           <h1 className={styles.title}>Get in Touch with KUWIFR</h1>

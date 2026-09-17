@@ -1,12 +1,20 @@
 import React from 'react';
-import styles from './LegalPages.module.css';
+import styles from './LegalPage.module.css';
+import Seo from '../../seo/Seo';
+import Breadcrumbs from '../../seo/Breadcrumbs';
 
 const HowItWorksPage = () => {
   return (
-    <div className={styles.legalPage}>
+    <div className={styles.pageWrapper}>
+      <Seo
+        title="How It Works"
+        description="A step-by-step guide to joining KUWIFR, purchasing products, building your team, and earning income."
+        path="/how-it-works"
+      />
       <div className={styles.container}>
-        <h1>How It Works</h1>
-        <p className={styles.lastUpdated}>Your Step-by-Step Guide to Success with KUWIFR</p>
+        <Breadcrumbs items={[{ name: 'Home', path: '/' }, { name: 'How It Works', path: '/how-it-works' }]} />
+        <h1 className={styles.title}>How It Works</h1>
+        <p className={styles.updatedDate}>Your Step-by-Step Guide to Success with KUWIFR</p>
 
         <section className={styles.section}>
           <h2>1. Join KUWIFR</h2>

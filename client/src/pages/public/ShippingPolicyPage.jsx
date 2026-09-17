@@ -1,11 +1,19 @@
 // client/src/pages/public/ShippingPolicyPage.jsx
 import React from 'react';
 import styles from './LegalPage.module.css';
+import Seo from '../../seo/Seo';
+import Breadcrumbs from '../../seo/Breadcrumbs';
 
 const ShippingPolicyPage = () => {
   return (
     <div className={styles.pageWrapper}>
+      <Seo
+        title="Shipping & Delivery Policy"
+        description="KUWIFR's shipping and delivery timelines, coverage areas, and order fulfillment policy for online store purchases."
+        path="/shipping-policy"
+      />
       <div className={styles.container}>
+        <Breadcrumbs items={[{ name: 'Home', path: '/' }, { name: 'Shipping Policy', path: '/shipping-policy' }]} />
         <div className={styles.header}>
           <span className={styles.badge}>Order Fulfillment</span>
           <h1 className={styles.title}>Shipping & Delivery Policy</h1>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
+import Seo from '../../seo/Seo';
 import styles from './AuthPages.module.css';
 
 const ResetPasswordPage = () => {
@@ -53,6 +54,7 @@ const ResetPasswordPage = () => {
   if (submitted) {
     return (
       <div className={styles.authPage}>
+        <Seo title="Password Reset Successful" path="/reset-password" robots="noindex" />
         <div className={styles.authContainer}>
           <div className={styles.authCard}>
             <div className={styles.authHeader}>
@@ -73,6 +75,7 @@ const ResetPasswordPage = () => {
 
   return (
     <div className={styles.authPage}>
+      <Seo title="Reset Password" path="/reset-password" robots="noindex" />
       <div className={styles.authContainer}>
         <div className={styles.authCard}>
           <div className={styles.authHeader}>

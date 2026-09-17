@@ -1,12 +1,20 @@
 import React from 'react';
-import styles from './LegalPages.module.css';
+import styles from './LegalPage.module.css';
+import Seo from '../../seo/Seo';
+import Breadcrumbs from '../../seo/Breadcrumbs';
 
 const SellerVerificationPage = () => {
   return (
-    <div className={styles.legalPage}>
+    <div className={styles.pageWrapper}>
+      <Seo
+        title="Direct Seller Information"
+        description="Information about KUWIFR's direct sellers and how to verify a distributor's identity."
+        path="/seller-verification"
+      />
       <div className={styles.container}>
-        <h1>Direct Seller Information</h1>
-        <p className={styles.lastUpdated}>Verification & Information</p>
+        <Breadcrumbs items={[{ name: 'Home', path: '/' }, { name: 'Direct Seller Information', path: '/seller-verification' }]} />
+        <h1 className={styles.title}>Direct Seller Information</h1>
+        <p className={styles.updatedDate}>Verification & Information</p>
 
         <section className={styles.section}>
           <h2>About Direct Sellers</h2>
