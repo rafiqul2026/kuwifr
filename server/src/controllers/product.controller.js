@@ -1,5 +1,25 @@
 // server/src/controllers/product.controller.js
 const Product = require('../models/Product');
+const cloudinary = require('../config/cloudinary');
+
+/**
+ * Uploads a single image buffer to Cloudinary — same upload_stream shape
+ * used by offer.controller.js / repurchase.controller.js's product images.
+ */
+const uploadProductImage = (buffer) =>
+  new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'kuwifr/products',
+        transformation: [{ width: 800, crop: 'limit' }, { quality: 'auto', fetch_format: 'auto' }]
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+    uploadStream.end(buffer);
+  });
 
 const ALL_30_STORE_PRODUCTS = [
   // --- Category: Hair Care & Serums (5 Products) ---
@@ -564,6 +584,15 @@ const getCategories = async (req, res, next) => {
 
 /**
  * POST /api/products or POST /api/admin/products
+ *
+ * Image handling: previously the client sent the picked file as a base64
+ * data URL string in JSON (`image`/`images` fields) which Mongoose rejected
+ * with "Cast to embedded failed" the moment it hit the `images:
+ * [{url,publicId,isPrimary}]` subdocument array — base64 strings don't cast
+ * to that shape. Now accepts a real multipart file upload (`image` field,
+ * see product.routes.js's multer wiring) uploaded to Cloudinary, same
+ * pattern as offers/repurchase products, or a plain `imageUrl` text field as
+ * a manual-URL fallback (no Cloudinary asset to manage in that case).
  */
 const createProduct = async (req, res, next) => {
   try {
@@ -575,19 +604,29 @@ const createProduct = async (req, res, next) => {
       });
     }
 
+    let images = [];
+    if (req.file) {
+      const uploadResult = await uploadProductImage(req.file.buffer);
+      images = [{ url: uploadResult.secure_url, publicId: uploadResult.public_id, isPrimary: true }];
+    } else if (b.imageUrl && String(b.imageUrl).trim()) {
+      images = [{ url: String(b.imageUrl).trim(), isPrimary: true }];
+    }
+
     const price = Number(b.ksp || b.price);
     const newProduct = await Product.create({
-      ...b,
       name: b.name.trim(),
       sku: (b.sku || `KWF-${Date.now().toString().slice(-6)}`).toUpperCase(),
+      description: b.description || b.name.trim(),
+      shortDescription: b.shortDescription || '',
       mrp: Number(b.mrp || price),
       ksp: price,
       price: price,
       kbp: Number(b.kbp || 0),
+      category: b.category,
       stock: Number(b.stock !== undefined ? b.stock : 100),
       isInStock: Number(b.stock !== undefined ? b.stock : 100) > 0,
-      isActive: b.isActive !== undefined ? Boolean(b.isActive) : true,
-      image: b.image || 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=500&auto=format&fit=crop&q=80'
+      isActive: b.isActive !== undefined ? (b.isActive === 'true' || b.isActive === true) : true,
+      images
     });
 
     return res.status(201).json({
@@ -603,40 +642,71 @@ const createProduct = async (req, res, next) => {
 
 /**
  * PUT /api/products/:id or PUT /api/admin/products/:id
+ * See createProduct's comment for why images are handled via multipart
+ * upload / imageUrl fallback instead of a raw JSON `images` array.
  */
 const updateProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const updates = { ...req.body };
-
-    if (updates.mrp !== undefined) updates.mrp = Number(updates.mrp);
-    if (updates.ksp !== undefined) {
-      updates.ksp = Number(updates.ksp);
-      updates.price = updates.ksp;
-    }
-    if (updates.price !== undefined && updates.ksp === undefined) {
-      updates.price = Number(updates.price);
-      updates.ksp = updates.price;
-    }
-    if (updates.kbp !== undefined) updates.kbp = Number(updates.kbp);
-    if (updates.stock !== undefined) {
-      updates.stock = Number(updates.stock);
-      updates.isInStock = updates.stock > 0;
-    }
-    if (updates.isActive !== undefined) {
-      updates.isActive = Boolean(updates.isActive);
-    }
-
-    const updated = await Product.findByIdAndUpdate(id, { $set: updates }, { new: true, runValidators: true });
-    if (!updated) {
+    const product = await Product.findById(id);
+    if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
+
+    const b = req.body;
+    if (b.name !== undefined) product.name = b.name.trim();
+    if (b.sku !== undefined && b.sku) product.sku = b.sku.toUpperCase();
+    if (b.description !== undefined) product.description = b.description;
+    if (b.shortDescription !== undefined) product.shortDescription = b.shortDescription;
+    if (b.category !== undefined) product.category = b.category;
+    if (b.mrp !== undefined) product.mrp = Number(b.mrp);
+    if (b.ksp !== undefined) {
+      product.ksp = Number(b.ksp);
+      product.price = product.ksp;
+    } else if (b.price !== undefined) {
+      product.price = Number(b.price);
+      product.ksp = product.price;
+    }
+    if (b.kbp !== undefined) product.kbp = Number(b.kbp);
+    if (b.stock !== undefined) {
+      product.stock = Number(b.stock);
+      product.isInStock = product.stock > 0;
+    }
+    if (b.isActive !== undefined) {
+      product.isActive = b.isActive === 'true' || b.isActive === true;
+    }
+
+    if (req.file) {
+      // Replacing the photo — destroy whatever Cloudinary asset was there
+      // before (a manually pasted imageUrl won't have a publicId, which is
+      // fine, there's nothing to clean up in that case).
+      const oldPublicId = product.images?.[0]?.publicId;
+      if (oldPublicId) {
+        await cloudinary.uploader.destroy(oldPublicId).catch(() => {});
+      }
+      const uploadResult = await uploadProductImage(req.file.buffer);
+      product.images = [{ url: uploadResult.secure_url, publicId: uploadResult.public_id, isPrimary: true }];
+    } else if (b.imageUrl !== undefined && String(b.imageUrl).trim()) {
+      const oldPublicId = product.images?.[0]?.publicId;
+      if (oldPublicId) {
+        await cloudinary.uploader.destroy(oldPublicId).catch(() => {});
+      }
+      product.images = [{ url: String(b.imageUrl).trim(), isPrimary: true }];
+    } else if (b.removeImage === 'true' || b.removeImage === true) {
+      const oldPublicId = product.images?.[0]?.publicId;
+      if (oldPublicId) {
+        await cloudinary.uploader.destroy(oldPublicId).catch(() => {});
+      }
+      product.images = [];
+    }
+
+    await product.save();
 
     return res.status(200).json({
       success: true,
       message: 'Product updated successfully',
-      data: { product: updated },
-      product: updated
+      data: { product },
+      product
     });
   } catch (error) {
     next(error);
@@ -652,6 +722,11 @@ const deleteProduct = async (req, res, next) => {
     const deleted = await Product.findByIdAndDelete(id);
     if (!deleted) {
       return res.status(404).json({ success: false, message: 'Product not found' });
+    }
+    if (deleted.images?.length) {
+      await Promise.all(
+        deleted.images.filter((img) => img.publicId).map((img) => cloudinary.uploader.destroy(img.publicId).catch(() => {}))
+      );
     }
     return res.status(200).json({
       success: true,

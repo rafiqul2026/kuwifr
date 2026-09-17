@@ -27,6 +27,17 @@ const CATEGORY_DISPLAY = {
 const DEFAULT_FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=500&auto=format&fit=crop&q=80';
 
+// Resolves a displayable image URL from a product's `images` array —
+// tolerates legacy malformed entries (plain strings instead of
+// {url,publicId,isPrimary} objects) left over from before the Cloudinary
+// upload flow existed, so old records don't render a broken image.
+const resolveProductImage = (product) => {
+  const first = product?.images?.[0];
+  if (!first) return '';
+  if (typeof first === 'string') return first;
+  return first.url || '';
+};
+
 const INITIAL_FORM = {
   name: '',
   sku: '',
@@ -36,8 +47,7 @@ const INITIAL_FORM = {
   kbp: '',
   category: 'HAIR_CARE',
   stock: '25',
-  isActive: true,
-  image: ''
+  isActive: true
 };
 
 const AdminProductsPage = () => {
@@ -50,6 +60,22 @@ const AdminProductsPage = () => {
   const [formData, setFormData] = useState(INITIAL_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imagePreview, setImagePreview] = useState('');
+  // The actual file selected from disk (sent to the server as multipart
+  // form data) — kept separate from the base64 preview string, which is
+  // display-only and never sent to the backend (see handleSubmit).
+  const [imageFile, setImageFile] = useState(null);
+  // Manual URL fallback — lets admin paste a CDN link instead of uploading a
+  // file. Deliberately left empty when editing an existing product (even
+  // though its current photo shows in imagePreview) — pre-filling it with
+  // the existing URL would resubmit it as `imageUrl` on every save (even one
+  // that only changed price/stock), which would make the server destroy the
+  // still-in-use Cloudinary asset it's already pointing to. Only a value the
+  // admin actually types here is sent.
+  const [imageUrlInput, setImageUrlInput] = useState('');
+  // True once admin explicitly clicks "Delete Image" while editing — tells
+  // the server to clear the product's photo. Distinct from "field left
+  // untouched", which must leave the existing photo alone.
+  const [imageRemoved, setImageRemoved] = useState(false);
 
   const fileInputRef = useRef(null);
   const { showNotification } = useNotification();
@@ -112,7 +138,11 @@ const AdminProductsPage = () => {
     return { total, active, lowStock, totalAssetValuation, totalUnits };
   }, [products]);
 
-  // Handle local image file upload & base64 conversion
+  // Handle local image file selection — kept as a real File object (sent
+  // as multipart form data on submit) with an object-URL preview only, no
+  // base64 conversion (see resolveProductImage's comment for why that broke
+  // saving: the server casts `images` to {url,publicId,isPrimary}
+  // subdocuments and a base64 string doesn't fit that shape).
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -122,14 +152,11 @@ const AdminProductsPage = () => {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64String = reader.result;
-      setImagePreview(base64String);
-      setFormData((prev) => ({ ...prev, image: base64String }));
-      showNotification('Image selected for upload', 'success');
-    };
-    reader.readAsDataURL(file);
+    setImageFile(file);
+    setImageUrlInput('');
+    setImageRemoved(false);
+    setImagePreview(URL.createObjectURL(file));
+    showNotification('Image selected for upload', 'success');
   };
 
   const handleChangeImage = () => {
@@ -141,7 +168,9 @@ const AdminProductsPage = () => {
 
   const handleDeleteImage = () => {
     setImagePreview('');
-    setFormData((prev) => ({ ...prev, image: '' }));
+    setImageFile(null);
+    setImageUrlInput('');
+    setImageRemoved(true);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -151,6 +180,9 @@ const AdminProductsPage = () => {
   const handleOpenCreate = () => {
     setEditingProduct(null);
     setImagePreview('');
+    setImageFile(null);
+    setImageUrlInput('');
+    setImageRemoved(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
     setFormData({
       ...INITIAL_FORM,
@@ -161,8 +193,12 @@ const AdminProductsPage = () => {
 
   const handleEdit = (product) => {
     setEditingProduct(product);
-    const resolvedImg = product.image || product.images?.[0] || '';
+    const resolvedImg = resolveProductImage(product);
     setImagePreview(resolvedImg);
+    setImageFile(null);
+    // Left empty on purpose — see imageUrlInput's declaration comment.
+    setImageUrlInput('');
+    setImageRemoved(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
 
     setFormData({
@@ -174,8 +210,7 @@ const AdminProductsPage = () => {
       kbp: product.kbp !== undefined ? String(product.kbp) : '',
       category: product.category || 'HAIR_CARE',
       stock: product.stock !== undefined ? String(product.stock) : '25',
-      isActive: product.isActive !== undefined ? product.isActive : true,
-      image: resolvedImg
+      isActive: product.isActive !== undefined ? product.isActive : true
     });
     setShowModal(true);
   };
@@ -189,38 +224,43 @@ const AdminProductsPage = () => {
 
     setIsSubmitting(true);
     try {
-      const resolvedImg = formData.image || DEFAULT_FALLBACK_IMAGE;
-      const payload = {
-        ...formData,
-        mrp: parseFloat(formData.mrp || formData.ksp),
-        ksp: parseFloat(formData.ksp),
-        price: parseFloat(formData.ksp),
-        kbp: parseFloat(formData.kbp || 0),
-        stock: parseInt(formData.stock || 0, 10),
-        isInStock: parseInt(formData.stock || 0, 10) > 0,
-        image: resolvedImg,
-        images: [resolvedImg] // Sets both fields for UI compatibility
-      };
+      const fd = new FormData();
+      fd.append('name', formData.name.trim());
+      fd.append('sku', formData.sku);
+      fd.append('description', formData.description);
+      fd.append('mrp', String(parseFloat(formData.mrp || formData.ksp)));
+      fd.append('ksp', String(parseFloat(formData.ksp)));
+      fd.append('kbp', String(parseFloat(formData.kbp || 0)));
+      fd.append('category', formData.category);
+      fd.append('stock', String(parseInt(formData.stock || 0, 10)));
+      fd.append('isActive', String(formData.isActive));
+      if (imageFile) {
+        fd.append('image', imageFile);
+      } else if (imageUrlInput && imageUrlInput.trim()) {
+        fd.append('imageUrl', imageUrlInput.trim());
+      } else if (imageRemoved) {
+        fd.append('removeImage', 'true');
+      }
+
+      const axiosConfig = { headers: { 'Content-Type': 'multipart/form-data' } };
 
       if (editingProduct) {
         const id = editingProduct._id || editingProduct.id;
+        let res;
         try {
-          await api.put(`/api/products/${id}`, payload);
+          res = await api.put(`/api/products/${id}`, fd, axiosConfig);
         } catch {
-          await api.put(`/api/admin/products/${id}`, payload);
+          res = await api.put(`/api/admin/products/${id}`, fd, axiosConfig);
         }
 
-        // Optimistically update table state
-        setProducts((prev) =>
-          prev.map((p) => ((p._id || p.id) === id ? { ...p, ...payload } : p))
-        );
+        const updated = res.data?.data?.product || res.data?.product;
+        setProducts((prev) => prev.map((p) => ((p._id || p.id) === id ? updated || p : p)));
         showNotification('Product and image updated successfully!', 'success');
       } else {
-        let created;
         try {
-          created = await api.post('/api/products', payload);
+          await api.post('/api/products', fd, axiosConfig);
         } catch {
-          created = await api.post('/api/admin/products', payload);
+          await api.post('/api/admin/products', fd, axiosConfig);
         }
         showNotification('New product added to inventory!', 'success');
         fetchProducts();
@@ -377,7 +417,7 @@ const AdminProductsPage = () => {
             <tbody>
               {filteredProducts.map((product) => {
                 const id = product._id || product.id;
-                const displayImg = product.image || product.images?.[0] || DEFAULT_FALLBACK_IMAGE;
+                const displayImg = resolveProductImage(product) || DEFAULT_FALLBACK_IMAGE;
 
                 return (
                   <tr key={id}>
@@ -610,13 +650,15 @@ const AdminProductsPage = () => {
                     </div>
                   )}
 
-                  {/* Manual URL Input */}
+                  {/* Manual URL Input — used only when no file is selected */}
                   <div style={{ marginTop: '8px' }}>
                     <input
                       type="text"
-                      value={formData.image}
+                      value={imageUrlInput}
                       onChange={(e) => {
-                        setFormData({ ...formData, image: e.target.value });
+                        setImageFile(null);
+                        setImageRemoved(false);
+                        setImageUrlInput(e.target.value);
                         setImagePreview(e.target.value);
                       }}
                       placeholder="Or paste Product Image CDN URL directly..."
