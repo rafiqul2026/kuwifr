@@ -55,17 +55,23 @@ const PackagesPage = () => {
   const fetchLivePackages = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get('/api/packages');
+      const [res, repurchaseRes] = await Promise.all([
+        api.get('/api/packages'),
+        // Real, admin-managed Repurchase Store catalog — the same products
+        // shown at /member/repurchase — is what backs each package's
+        // "included product" choices below. Falls back to an empty list
+        // (package cards still load, just with no product picker) rather
+        // than failing the whole page if this call has trouble.
+        api.get('/api/repurchase/products').catch(() => ({ data: { data: { products: [] } } }))
+      ]);
       const remotePkgs = res.data?.data?.packages || res.data?.packages || [];
+      const repurchaseProducts = repurchaseRes.data?.data?.products || [];
 
       if (Array.isArray(remotePkgs) && remotePkgs.length > 0) {
         const formatted = remotePkgs.map((dbPkg) => {
           const typeUpper = (dbPkg.type || '').toUpperCase();
 
-          let products = dbPkg.availableProducts || dbPkg.products;
-          if (!products || products.length === 0) {
-            products = getProductsForPackage(dbPkg);
-          }
+          const products = getProductsForPackage(dbPkg, repurchaseProducts);
 
           const isPopular = !!dbPkg.isPopular;
           // Recommended/popular packages get the teal "current/recommended"
@@ -402,7 +408,11 @@ const PackagesPage = () => {
                         />
 
                         <div className={styles.productThumbnail}>
-                          <img src={product.image} alt={product.name} />
+                          {product.image ? (
+                            <img src={product.image} alt={product.name} />
+                          ) : (
+                            <span aria-hidden="true">📦</span>
+                          )}
                         </div>
 
                         <div className={styles.productItemInfo}>
@@ -488,11 +498,17 @@ const PackagesPage = () => {
                         style={idx > 0 ? { marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #e5e5e5' } : undefined}
                         key={product.id || idx}
                       >
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className={styles.chosenProductImg}
-                        />
+                        {product.image ? (
+                          <img
+                            src={product.image}
+                            alt={product.name}
+                            className={styles.chosenProductImg}
+                          />
+                        ) : (
+                          <div className={styles.chosenProductImg} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', background: '#f5f5f5' }} aria-hidden="true">
+                            📦
+                          </div>
+                        )}
                         <div className={styles.chosenProductDetails}>
                           <span className={styles.chosenCat}>{product.category}</span>
                           <h3 className={styles.chosenTitle}>{product.name}</h3>

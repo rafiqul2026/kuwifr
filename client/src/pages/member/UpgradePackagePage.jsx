@@ -36,6 +36,7 @@ const UpgradePackagePage = () => {
   const navigate = useNavigate();
 
   const [packages, setPackages] = useState([]);
+  const [repurchaseProducts, setRepurchaseProducts] = useState([]);
   const [currentPackage, setCurrentPackage] = useState(null);
   const [memberStatus, setMemberStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -63,10 +64,16 @@ const UpgradePackagePage = () => {
   const fetchUpgradeData = useCallback(async () => {
     try {
       setLoading(true);
-      const [pkgRes, profileRes] = await Promise.all([
+      const [pkgRes, profileRes, repurchaseRes] = await Promise.all([
         api.get('/api/packages'),
-        api.get('/api/users/profile').catch(() => ({ data: { data: {} } }))
+        api.get('/api/users/profile').catch(() => ({ data: { data: {} } })),
+        // Real, admin-managed Repurchase Store catalog — same products shown
+        // at /member/repurchase — backs each package's "included product"
+        // choices below (see packageProductCatalog.js).
+        api.get('/api/repurchase/products').catch(() => ({ data: { data: { products: [] } } }))
       ]);
+
+      setRepurchaseProducts(repurchaseRes.data?.data?.products || []);
 
       const remotePkgs = pkgRes.data?.data?.packages || pkgRes.data?.packages || [];
       const sorted = [...remotePkgs]
@@ -125,13 +132,13 @@ const UpgradePackagePage = () => {
       let changed = false;
       packages.forEach((pkg) => {
         if (getSelectionMode(pkg.type) === 'ALL' && !next[pkg._id]) {
-          next[pkg._id] = getProductsForPackage(pkg);
+          next[pkg._id] = getProductsForPackage(pkg, repurchaseProducts);
           changed = true;
         }
       });
       return changed ? next : prev;
     });
-  }, [packages]);
+  }, [packages, repurchaseProducts]);
 
   const handleSelectProductOnCard = (pkgId, pkgType, product) => {
     if (getSelectionMode(pkgType) === 'ALL') return; // not user-selectable, both are bundled
@@ -421,7 +428,7 @@ const UpgradePackagePage = () => {
                 </div>
 
                 <div className={styles.productList}>
-                  {getProductsForPackage(pkg).map((product) => {
+                  {getProductsForPackage(pkg, repurchaseProducts).map((product) => {
                     const isChecked = selectionMode === 'ALL' || cardSelectedProducts.some((p) => p.id === product.id);
                     return (
                       <div
@@ -527,7 +534,13 @@ const UpgradePackagePage = () => {
                         style={idx > 0 ? { marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #e5e5e5' } : undefined}
                         key={product.id || idx}
                       >
-                        <img src={product.image} alt={product.name} className={styles.chosenProductImg} />
+                        {product.image ? (
+                          <img src={product.image} alt={product.name} className={styles.chosenProductImg} />
+                        ) : (
+                          <div className={styles.chosenProductImg} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', background: '#f5f5f5' }} aria-hidden="true">
+                            📦
+                          </div>
+                        )}
                         <div className={styles.chosenProductDetails}>
                           <span className={styles.chosenCat}>{product.category}</span>
                           <h3 className={styles.chosenTitle}>{product.name}</h3>
