@@ -414,12 +414,128 @@
   }
 }
 
+/* Compact 2-column grid on phones — the previous single-column layout with
+   full-size (280px+) cards read more like a scrolling blog than a shopping
+   app; a 2-up dense grid (Amazon/Flipkart/Myntra pattern) fits far more of
+   the catalog on screen and matches what a "professional ecommerce mobile
+   app" actually looks like. */
 @media (max-width: 600px) {
-  .kuwifr-products-grid {
-    grid-template-columns: 1fr;
+  .kuwifr-store-section {
+    padding: 2.5rem 0.75rem;
   }
+
   .kuwifr-store-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .kuwifr-store-title {
+    font-size: 1.5rem;
+  }
+
+  /* Category chips scroll horizontally in one row instead of wrapping into
+     a multi-row cloud — the standard mobile shopping-app pattern. */
+  .kuwifr-category-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .kuwifr-category-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .kuwifr-tab-btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .kuwifr-products-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+  }
+
+  .kuwifr-card-img-wrap {
+    height: 130px;
+  }
+
+  /* Quick View only ever appears on :hover, which touch devices never
+     trigger — it was already permanently invisible on mobile. The product
+     image already links to the full detail page, so nothing is lost. */
+  .kuwifr-quickview-btn {
+    display: none;
+  }
+
+  .kuwifr-card-wishlist {
+    width: 28px;
+    height: 28px;
+    font-size: 0.95rem;
+    top: 8px;
+    right: 8px;
+  }
+
+  .kuwifr-card-tag {
+    top: 8px;
+    left: 8px;
+    font-size: 0.62rem;
+    padding: 0.2rem 0.45rem;
+  }
+
+  .kuwifr-card-info {
+    padding: 0.65rem;
+  }
+
+  .kuwifr-card-cat {
+    font-size: 0.62rem;
+  }
+
+  .kuwifr-card-name {
+    font-size: 0.8rem;
+    margin: 0.2rem 0 0.35rem 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Description reads fine on the detail page but only crowds a card this
+     small — dropped from the mobile grid, same as most shopping apps. */
+  .kuwifr-card-desc {
+    display: none;
+  }
+
+  .kuwifr-price-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+    padding-top: 0.5rem;
+    margin-bottom: 0.65rem;
+  }
+
+  .kuwifr-price-current {
+    font-size: 0.95rem;
+  }
+
+  .kuwifr-price-mrp {
+    font-size: 0.7rem;
+  }
+
+  .kuwifr-discount-badge {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+  }
+
+  /* Side-by-side buttons at this card width become unreadably small —
+     stacked, full-width, still comfortably tappable (44px+ target). */
+  .kuwifr-card-actions {
+    grid-template-columns: 1fr;
+    gap: 0.4rem;
+  }
+
+  .kuwifr-btn-buy,
+  .kuwifr-btn-cart {
+    padding: 0.6rem 0.4rem;
+    font-size: 0.78rem;
   }
 }

@@ -52,6 +52,20 @@ const HomePage = () => {
       .slice(0, 6);
   }, [realCategories, products]);
 
+  // Real, original product photos for the hero/promo/brand visuals —
+  // previously generic Unsplash stock photos unrelated to anything KUWIFR
+  // actually sells. Picks distinct real products so the three spots don't
+  // all show the same photo; each gracefully falls back to a plain
+  // placeholder (never another stock photo) if no product has a photo
+  // uploaded yet.
+  const productsWithPhotos = useMemo(() => products.filter((p) => p.image), [products]);
+  const heroImage = productsWithPhotos[0];
+  const promoImage =
+    productsWithPhotos.find((p) => p.category === 'Automotive / Package' && p !== heroImage) ||
+    productsWithPhotos.find((p) => p !== heroImage) ||
+    heroImage;
+  const brandImage = productsWithPhotos.find((p) => p !== heroImage && p !== promoImage) || heroImage;
+
   const trustValues = [
     { label: '100% Authentic', sub: 'Genuine Items Verified', icon: '🛡️' },
     { label: 'Best Price', sub: 'Guaranteed Value', icon: '🏷️' },
@@ -138,12 +152,16 @@ const HomePage = () => {
             {/* Right Visual Card with 3D Depth */}
             <div className={styles.heroVisual}>
               <div className={styles.imageCard}>
-                <img
-                  src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=900&auto=format&fit=crop&q=80"
-                  alt="KUWIFR Health & Lifestyle Store"
-                  className={styles.heroImg}
-                  loading="eager"
-                />
+                {heroImage ? (
+                  <img
+                    src={heroImage.image}
+                    alt={heroImage.name}
+                    className={styles.heroImg}
+                    loading="eager"
+                  />
+                ) : (
+                  <div className={styles.heroImgPlaceholder} aria-hidden="true">🛍️</div>
+                )}
                 <div className={styles.floatingCard}>
                   <div className={styles.floatingIcon}>⭐</div>
                   <div>
@@ -273,12 +291,16 @@ const HomePage = () => {
             </div>
 
             <div className={styles.promoVisual}>
-              <img
-                src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=800&q=80"
-                alt="KUWIFR EV Mobility and Wellness"
-                className={styles.promoImage}
-                loading="lazy"
-              />
+              {promoImage ? (
+                <img
+                  src={promoImage.image}
+                  alt={promoImage.name}
+                  className={styles.promoImage}
+                  loading="lazy"
+                />
+              ) : (
+                <div className={styles.promoImagePlaceholder} aria-hidden="true">🛍️</div>
+              )}
             </div>
           </div>
         </div>
@@ -336,12 +358,16 @@ const HomePage = () => {
           <div className={styles.brandGrid}>
             <div className={styles.brandVisualCol}>
               <div className={styles.brandImageStack}>
-                <img
-                  src="https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=800&q=80"
-                  alt="Quality Laboratory Standards"
-                  className={styles.brandImage}
-                  loading="lazy"
-                />
+                {brandImage ? (
+                  <img
+                    src={brandImage.image}
+                    alt={brandImage.name}
+                    className={styles.brandImage}
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className={styles.brandImagePlaceholder} aria-hidden="true">🛍️</div>
+                )}
                 <div className={styles.brandBadge}>
                   <span className={styles.brandBadgeNumber}>100%</span>
                   <span className={styles.brandBadgeLabel}>Verified Standards</span>

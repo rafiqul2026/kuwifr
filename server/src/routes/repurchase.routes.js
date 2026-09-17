@@ -34,10 +34,19 @@ const adminAuth =
     return res.status(403).json({ success: false, message: 'Administrator credentials required' });
   });
 
+// Public: product catalog listing. Registered BEFORE the router.use(auth)
+// gate below — this same catalog now backs the public storefront
+// (Home/Shop/product pages, reachable by logged-out visitors), not just the
+// Member Repurchase Store. Previously this sat behind the auth gate, so
+// every logged-out visitor's product fetch got a silent 401 and the
+// homepage/shop rendered "No products available yet". Only returns public
+// catalog fields (name/category/price/kbp/images) — no member or purchase
+// data, so this is safe to expose without authentication.
+router.get('/products', getRepurchaseProducts);
+
 // Protected Repurchase Routes
 router.use(auth);
 
-router.get('/products', getRepurchaseProducts);
 router.post('/submit', submitRepurchasePurchase);
 router.get('/10-level-stats', get10LevelRepurchase);
 

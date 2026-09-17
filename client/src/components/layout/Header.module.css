@@ -25,6 +25,16 @@
   font-size: clamp(11px, 2.5vw, 13px);
 }
 
+@media (max-width: 480px) {
+  .announcementText {
+    /* On very narrow phones the full promo line no longer fits on one row
+       even at the smallest clamped size — wrap it instead of letting it
+       overflow and push the page wider than the viewport. */
+    white-space: normal;
+    line-height: 1.4;
+  }
+}
+
 /* 2. Full-Width Sticky Navbar */
 .header {
   position: sticky;
@@ -721,8 +731,5 @@
   }
   .desktopOnlyIcon {
     display: none !important;
-  }
-  .logoText {
-    font-size: 20px;
   }
 }
