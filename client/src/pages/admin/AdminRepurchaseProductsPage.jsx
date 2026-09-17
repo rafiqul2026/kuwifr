@@ -213,10 +213,12 @@ const AdminRepurchaseProductsPage = () => {
     <div className={styles.page}>
       <header className={styles.header}>
         <div>
-          <h1 className={styles.title}>Repurchase Store Products</h1>
+          <h1 className={styles.title}>Products</h1>
           <p className={styles.subtitle}>
-            Manage the Repurchase Store catalog — pricing, KBP, and up to {MAX_IMAGES} original photos per
-            product. Changes go live on the Member Repurchase Store instantly.
+            The single universal product catalog — pricing, KBP, and up to {MAX_IMAGES} original photos per
+            product. Powers both the Member Repurchase Store and the "included product" choices on
+            Buy Package / Upgrade Package cards (a package's price is matched to real products of the
+            same KSP value). Changes go live everywhere instantly.
           </p>
         </div>
         <div className={styles.topActions}>
@@ -364,6 +366,10 @@ const AdminRepurchaseProductsPage = () => {
                     onChange={(e) => setFormData({ ...formData, ksp: e.target.value })}
                     required
                   />
+                  <p className={styles.hint}>
+                    Set KSP to a package price (1,500 / 5,000 / 10,000 / 15,000 / 110,000) to also
+                    offer this product as an "included product" choice on that Buy Package card.
+                  </p>
                 </div>
 
                 <div className={styles.formGroup}>

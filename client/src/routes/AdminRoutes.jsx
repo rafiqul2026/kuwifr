@@ -12,7 +12,6 @@ import AdminRepurchaseProductsPage from '../pages/admin/AdminRepurchaseProductsP
 // Import remaining admin management pages (adjust to your project files)
 import AdminMembersPage from '../pages/admin/AdminMembersPage';
 import AdminPackagesPage from '../pages/admin/AdminPackagesPage';
-import AdminProductsPage from '../pages/admin/AdminProductsPage';
 import AdminOrdersPage from '../pages/admin/AdminOrdersPage';
 import AdminWithdrawalsPage from '../pages/admin/AdminWithdrawalsPage';
 import AdminRanksPage from '../pages/admin/AdminRanksPage';
@@ -54,14 +53,17 @@ const AdminRoutes = () => {
         {/* 🛍️ Repurchase Store Payment Verification */}
         <Route path="repurchase-sales" element={<AdminRepurchaseVerificationPage />} />
 
-        {/* 📦 Repurchase Store Product Catalog (pricing, KBP, photos) */}
-        <Route path="repurchase-products" element={<AdminRepurchaseProductsPage />} />
-
         {/* Core Administrative Pages */}
         <Route path="members" element={<AdminMembersPage />} />
         <Route path="members/:id" element={<AdminMemberDetailPage />} />
         <Route path="packages" element={<AdminPackagesPage />} />
-        <Route path="products" element={<AdminProductsPage />} />
+        {/* 📦 Universal Product Catalog — the single admin-managed product
+            list backing both the Repurchase Store and Buy/Upgrade
+            Package's "included product" options (they're the same
+            products, per business rule). Previously a separate demo
+            catalog (fake products, stock photos, no real inventory tie)
+            lived at this URL; now it's this real, photo-managed one. */}
+        <Route path="products" element={<AdminRepurchaseProductsPage />} />
         <Route path="orders" element={<AdminOrdersPage />} />
         <Route path="orders/:id" element={<AdminOrderDetailPage />} />
         <Route path="transactions" element={<AdminTransactionsPage />} />

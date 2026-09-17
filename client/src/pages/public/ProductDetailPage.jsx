@@ -18,10 +18,12 @@ import styles from './ProductDetailPage.module.css';
  * already use (client/src/constants/productsData.js) — this is the actual
  * product data shown to shoppers today, not a separate/duplicated catalog.
  *
- * NOTE: a second, database-backed product catalog also exists
- * (server/src/models/Product.js via /api/products, managed from Admin >
- * Products) but is not wired into any live storefront page — see the SEO
- * report for why this page intentionally uses the static catalog instead.
+ * NOTE: a separate, database-backed, admin-editable catalog also exists
+ * (RepurchaseProduct, managed at Admin > Products, /admin/products) that
+ * backs the Member Repurchase Store and Buy Package's "included product"
+ * choices — but this public storefront still isn't wired to it, so it
+ * remains on the static KUWIFR_PRODUCTS catalog. Unifying the two is a
+ * follow-up, not done here.
  */
 const ProductDetailPage = () => {
   const { id } = useParams();

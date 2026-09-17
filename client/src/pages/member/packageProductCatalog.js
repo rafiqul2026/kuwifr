@@ -2,7 +2,7 @@
 //
 // "Included product" choices per package tier — per business rule, the
 // Repurchase Store and Buy Package's included products are the SAME
-// catalog (RepurchaseProduct, admin-managed at /admin/repurchase-products,
+// catalog (RepurchaseProduct, admin-managed at /admin/products,
 // fetched via GET /api/repurchase/products). This file previously held a
 // hardcoded array of fabricated demo products with Unsplash stock photos
 // and invented names/prices with no database backing at all.

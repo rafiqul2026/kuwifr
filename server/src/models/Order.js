@@ -46,11 +46,12 @@ const OrderSchema = new mongoose.Schema({
     default: 'REPURCHASE'
   },
 
-  // Products in Order
+  // Products in Order — denormalized (name/sku/price/kbp written directly by
+  // every order-creation path); productId has no `ref` since it was never
+  // actually populated against a Product document anywhere in the codebase.
   products: [{
     productId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Product'
+      type: mongoose.Schema.Types.ObjectId
     },
     name: {
       type: String,

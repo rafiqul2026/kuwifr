@@ -51,21 +51,14 @@ const PackageSchema = new mongoose.Schema({
     min: [0, 'Monthly cap cannot be negative']
   },
 
-  // Products included in package
-  products: [{
-    productId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Product'
-    },
-    name: String,
-    sku: String,
-    quantity: {
-      type: Number,
-      default: 1
-    },
-    price: Number,
-    kbp: Number
-  }],
+  // Products included in a package are NOT stored here — per business rule,
+  // Buy Package's "included product" choices are the same catalog as the
+  // Repurchase Store (RepurchaseProduct, admin-managed at
+  // /admin/products), resolved dynamically by matching a package's `price`
+  // against that catalog's `ksp` (see
+  // client/src/pages/member/packageProductCatalog.js). This field used to
+  // exist but was never actually read or written by any controller/admin
+  // UI — always empty on every real document.
 
   // Features and Benefits
   features: [String],
