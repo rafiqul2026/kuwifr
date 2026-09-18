@@ -159,6 +159,47 @@ class FundService {
   }
 
   /**
+   * Waterfall-allocates a member's cumulative left/right repurchase KBP
+   * across the 6 fund tiers, in order — each tier's own requirement must be
+   * FULLY filled, on both legs, before any further KBP counts toward the
+   * next tier. Previously every tier independently compared the SAME raw
+   * cumulative total against its own threshold, so a single order's KBP
+   * appeared to contribute to every tier at once (a 1,000 KBP order showed
+   * up as "1K / 100K" progress on Family and "1K / 250K" on Travelling
+   * simultaneously, alongside "1K / 25K" on School) and — more seriously —
+   * a member could independently clear School (25K), Family (100K), AND
+   * Travelling (250K) the moment their lifetime total passed 250K, without
+   * ever having 375K (25K+100K+250K) of actual matched volume. Per business
+   * rule: "After complete 25K:25K in School, member needs a NEWLY 100K:100K
+   * to fulfill Family" — each tier consumes its own full, non-overlapping
+   * slice; an incomplete tier holds 100% of whatever KBP hasn't yet filled
+   * it, and nothing flows past it to later tiers.
+   *
+   * Returns one entry per FUND_PLANS tier (same order), each
+   * { code, leftKBP, rightKBP, qualified } — leftKBP/rightKBP is that
+   * tier's own waterfall-allocated (not raw cumulative) progress.
+   */
+  static computeWaterfallProgress(leftTotal, rightTotal) {
+    let leftRemaining = leftTotal;
+    let rightRemaining = rightTotal;
+
+    return FUND_PLANS.map((plan) => {
+      const leftKBP = Math.min(leftRemaining, plan.requiredLeftKBP);
+      const rightKBP = Math.min(rightRemaining, plan.requiredRightKBP);
+      const leftCompleted = leftKBP >= plan.requiredLeftKBP;
+      const rightCompleted = rightKBP >= plan.requiredRightKBP;
+
+      // Only an already-full tier passes its remainder on to the next one —
+      // an incomplete tier parks the entire remaining balance on itself
+      // (that's the "this 1,000 KBP only shows on School" behavior).
+      leftRemaining = leftCompleted ? leftRemaining - plan.requiredLeftKBP : 0;
+      rightRemaining = rightCompleted ? rightRemaining - plan.requiredRightKBP : 0;
+
+      return { code: plan.code, leftKBP, rightKBP, qualified: leftCompleted && rightCompleted };
+    });
+  }
+
+  /**
    * Check if a member qualifies for any of the 6 Funds, and roll forward the
    * monthly maintenance counters ("New Business Matching") on funds they are
    * already qualified for.
@@ -180,14 +221,20 @@ class FundService {
     const leftKBP = binaryNode.leftRepurchaseKBP || 0;
     const rightKBP = binaryNode.rightRepurchaseKBP || 0;
     const currentPeriod = this.currentPeriodKey();
+    const waterfall = this.computeWaterfallProgress(leftKBP, rightKBP);
 
     let allFoundationAchieved = true;
 
-    for (const plan of FUND_PLANS) {
+    for (let i = 0; i < FUND_PLANS.length; i++) {
+      const plan = FUND_PLANS[i];
+      const tier = waterfall[i];
       const isPension = plan.code === 'PENSION';
-      const meetsTarget = leftKBP >= plan.requiredLeftKBP && rightKBP >= plan.requiredRightKBP;
-      const qualifiesNow = isPension ? (allFoundationAchieved && meetsTarget) : meetsTarget;
-      if (!isPension && !meetsTarget) allFoundationAchieved = false;
+      // Pension's own slice is already gated behind every prior tier's slice
+      // by the waterfall allocation itself (it can't fill until all 5
+      // foundation tiers are full) — allFoundationAchieved is kept as an
+      // explicit, redundant safety check rather than relied on implicitly.
+      const qualifiesNow = isPension ? (allFoundationAchieved && tier.qualified) : tier.qualified;
+      if (!isPension && !tier.qualified) allFoundationAchieved = false;
 
       if (qualifiesNow) {
         await FundQualification.findOneAndUpdate(
@@ -195,8 +242,11 @@ class FundService {
           {
             userId,
             fundCode: plan.code,
-            matchedLeftKBP: leftKBP,
-            matchedRightKBP: rightKBP,
+            // The tier's own locked-in slice (e.g. 25000/25000 for School),
+            // not the live cumulative total — once qualified this stays
+            // fixed; further KBP flows into the next tier instead.
+            matchedLeftKBP: tier.leftKBP,
+            matchedRightKBP: tier.rightKBP,
             status: 'ACTIVE'
           },
           { upsert: true, new: true }
@@ -283,16 +333,30 @@ class FundService {
 
     const qualifications = await FundQualification.find({ userId, status: 'ACTIVE' }).lean();
     const qualifiedCodes = new Set(qualifications.map(q => q.fundCode));
+    const matchedByCode = qualifications.reduce((acc, q) => {
+      acc[q.fundCode] = q;
+      return acc;
+    }, {});
 
-    const funds = FUND_PLANS.map(fund => {
+    // Each tier only shows its own waterfall-allocated slice of the
+    // cumulative KBP (see computeWaterfallProgress) — not the flat lifetime
+    // total — so a single order's KBP appears on exactly one card at a time.
+    const waterfall = this.computeWaterfallProgress(leftKBP, rightKBP);
+
+    const funds = FUND_PLANS.map((fund, i) => {
       const isQualified = qualifiedCodes.has(fund.code);
+      // Once qualified, keep the locked-in slice that was stored at
+      // qualification time (matchedLeftKBP/matchedRightKBP) rather than the
+      // live waterfall value, so an already-cleared tier stays visually
+      // "full" even as later tiers consume the remaining KBP.
+      const locked = matchedByCode[fund.code];
+      const current = isQualified && locked
+        ? { leftKBP: locked.matchedLeftKBP, rightKBP: locked.matchedRightKBP }
+        : { leftKBP: waterfall[i].leftKBP, rightKBP: waterfall[i].rightKBP };
       return {
         fund,
         qualified: isQualified,
-        current: {
-          leftKBP,
-          rightKBP
-        }
+        current
       };
     });
 
