@@ -377,7 +377,7 @@ const RepurchasePage = () => {
     });
   }, [products, selectedCategory, searchFilter]);
 
-  // Dynamic UPI URI targeting the official SBI Merchant account with the
+  // Dynamic UPI URI targeting the admin-configured merchant account with the
   // exact cart total — same pattern as PackagesPage.jsx.
   const upiUri = checkoutStep
     ? `upi://pay?pa=${paymentInfo.upiId}&pn=${encodeURIComponent(paymentInfo.merchantName)}&am=${calculateCartTotals.totalKSP}&cu=INR&tn=${encodeURIComponent(`KUWIFR-REPURCHASE-${user?.memberId || 'MEMBER'}`)}`
@@ -1011,7 +1011,7 @@ const RepurchasePage = () => {
               <>
                 <div className={checkoutStyles.modalHeader}>
                   <div>
-                    <span className={checkoutStyles.modalTag}>SBI Payments QR</span>
+                    <span className={checkoutStyles.modalTag}>{paymentInfo.merchantName} Payments QR</span>
                     <h2>Scan & Pay to Confirm Order</h2>
                   </div>
                   <button
@@ -1034,7 +1034,7 @@ const RepurchasePage = () => {
                         onChange={() => setPaymentMethod('UPI_GATEWAY')}
                       />
                       <div className={checkoutStyles.paymentOptionDetails}>
-                        <strong>SBI Payments UPI QR (PhonePe / GPay / Paytm)</strong>
+                        <strong>UPI QR (PhonePe / GPay / Paytm)</strong>
                         <span>Instant scan with pre-filled cart amount</span>
                       </div>
                       <span className={checkoutStyles.payIcon}>📱</span>
@@ -1049,7 +1049,7 @@ const RepurchasePage = () => {
                       />
                       <div className={checkoutStyles.paymentOptionDetails}>
                         <strong>Direct Bank Transfer (IMPS / NEFT / RTGS)</strong>
-                        <span>Company State Bank of India Current Account</span>
+                        <span>Company {paymentInfo.bankName} Current Account</span>
                       </div>
                       <span className={checkoutStyles.payIcon}>🏦</span>
                     </label>
@@ -1059,8 +1059,8 @@ const RepurchasePage = () => {
                     <div className={checkoutStyles.qrPaymentContainer}>
                       <div className={checkoutStyles.qrBox}>
                         <img
-                          src={qrViewMode === 'DYNAMIC' ? dynamicQrUrl : (paymentInfo.qrCodeUrl || '/images/kuwifr-upi-standee.jpeg')}
-                          alt="KUWIFR SBI Dynamic UPI QR"
+                          src={qrViewMode === 'STANDEE' && paymentInfo.qrCodeUrl ? paymentInfo.qrCodeUrl : dynamicQrUrl}
+                          alt="KUWIFR UPI QR"
                           className={checkoutStyles.qrImage}
                           onError={(e) => {
                             e.currentTarget.onerror = null;
@@ -1068,17 +1068,19 @@ const RepurchasePage = () => {
                           }}
                         />
                         <span className={checkoutStyles.qrScanHint}>Scan with PhonePe, GPay or Paytm</span>
-                        <button
-                          type="button"
-                          onClick={() => setQrViewMode(qrViewMode === 'DYNAMIC' ? 'STANDEE' : 'DYNAMIC')}
-                          style={{
-                            marginTop: '8px', fontSize: '11px', padding: '3px 10px', borderRadius: '6px',
-                            background: 'rgba(0, 128, 128, 0.08)', border: '1px solid rgba(0, 128, 128, 0.25)',
-                            color: '#008080', cursor: 'pointer', fontWeight: 700
-                          }}
-                        >
-                          {qrViewMode === 'DYNAMIC' ? '📷 View Standee Photo' : '⚡ Auto-Amount QR'}
-                        </button>
+                        {paymentInfo.qrCodeUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setQrViewMode(qrViewMode === 'DYNAMIC' ? 'STANDEE' : 'DYNAMIC')}
+                            style={{
+                              marginTop: '8px', fontSize: '11px', padding: '3px 10px', borderRadius: '6px',
+                              background: 'rgba(0, 128, 128, 0.08)', border: '1px solid rgba(0, 128, 128, 0.25)',
+                              color: '#008080', cursor: 'pointer', fontWeight: 700
+                            }}
+                          >
+                            {qrViewMode === 'DYNAMIC' ? '📷 View Standee Photo' : '⚡ Auto-Amount QR'}
+                          </button>
+                        )}
                       </div>
 
                       <div className={checkoutStyles.upiInfoCard}>

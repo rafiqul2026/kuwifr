@@ -622,7 +622,7 @@ const UpgradePackagePage = () => {
               <>
                 <div className={styles.modalHeader}>
                   <div>
-                    <span className={styles.modalTag}>Step 2 of 3 · SBI Payments QR</span>
+                    <span className={styles.modalTag}>Step 2 of 3 · {paymentInfo.merchantName} Payments QR</span>
                     <h2>Scan & Pay to Upgrade</h2>
                   </div>
                   <button type="button" className={styles.closeBtn} onClick={handleCloseModal} disabled={processing}>✕</button>
@@ -638,7 +638,7 @@ const UpgradePackagePage = () => {
                         onChange={() => setPaymentMethod('UPI_GATEWAY')}
                       />
                       <div className={styles.paymentOptionDetails}>
-                        <strong>SBI Payments UPI QR (PhonePe / GPay / Paytm)</strong>
+                        <strong>UPI QR (PhonePe / GPay / Paytm)</strong>
                         <span>Instant scan with pre-filled upgrade amount</span>
                       </div>
                       <span className={styles.payIcon}>📱</span>
@@ -653,7 +653,7 @@ const UpgradePackagePage = () => {
                       />
                       <div className={styles.paymentOptionDetails}>
                         <strong>Direct Bank Transfer (IMPS / NEFT / RTGS)</strong>
-                        <span>Company State Bank of India Current Account</span>
+                        <span>Company {paymentInfo.bankName} Current Account</span>
                       </div>
                       <span className={styles.payIcon}>🏦</span>
                     </label>
@@ -663,8 +663,8 @@ const UpgradePackagePage = () => {
                     <div className={styles.qrPaymentContainer}>
                       <div className={styles.qrBox}>
                         <img
-                          src={qrViewMode === 'DYNAMIC' ? dynamicQrUrl : (paymentInfo.qrCodeUrl || '/images/kuwifr-upi-standee.jpeg')}
-                          alt="KUWIFR SBI Dynamic UPI QR"
+                          src={qrViewMode === 'STANDEE' && paymentInfo.qrCodeUrl ? paymentInfo.qrCodeUrl : dynamicQrUrl}
+                          alt="KUWIFR UPI QR"
                           className={styles.qrImage}
                           onError={(e) => {
                             e.currentTarget.onerror = null;
@@ -672,13 +672,15 @@ const UpgradePackagePage = () => {
                           }}
                         />
                         <span className={styles.qrScanHint}>Scan with PhonePe, GPay or Paytm</span>
-                        <button
-                          type="button"
-                          onClick={() => setQrViewMode(qrViewMode === 'DYNAMIC' ? 'STANDEE' : 'DYNAMIC')}
-                          className={styles.qrToggleBtn}
-                        >
-                          {qrViewMode === 'DYNAMIC' ? '📷 View Standee Photo' : '⚡ Auto-Amount QR'}
-                        </button>
+                        {paymentInfo.qrCodeUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setQrViewMode(qrViewMode === 'DYNAMIC' ? 'STANDEE' : 'DYNAMIC')}
+                            className={styles.qrToggleBtn}
+                          >
+                            {qrViewMode === 'DYNAMIC' ? '📷 View Standee Photo' : '⚡ Auto-Amount QR'}
+                          </button>
+                        )}
                       </div>
 
                       <div className={styles.upiInfoCard}>

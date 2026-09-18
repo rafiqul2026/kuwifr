@@ -308,7 +308,7 @@ const PackagesPage = () => {
     setProofPreview('');
   };
 
-  // Dynamic UPI URI targeting official SBI Merchant account with exact package price
+  // Dynamic UPI URI targeting the admin-configured merchant account with exact package price
   const upiUri = activePkg
     ? `upi://pay?pa=${paymentInfo.upiId}&pn=${encodeURIComponent(paymentInfo.merchantName)}&am=${activePkg.price}&cu=INR&tn=${encodeURIComponent(`KUWIFR-${activePkg.name}-${user?.memberId || 'MEMBER'}`)}`
     : '';
@@ -594,12 +594,12 @@ const PackagesPage = () => {
               </>
             )}
 
-            {/* 2. STEP 2: PAYMENT METHOD & SBI QR CODE SCAN / UTR / PROOF UPLOAD */}
+            {/* 2. STEP 2: PAYMENT METHOD & QR CODE SCAN / UTR / PROOF UPLOAD */}
             {modalStep === 'PAYMENT' && (
               <>
                 <div className={styles.modalHeader}>
                   <div>
-                    <span className={styles.modalTag}>Step 2 of 3 · SBI Payments QR</span>
+                    <span className={styles.modalTag}>Step 2 of 3 · {paymentInfo.merchantName} Payments QR</span>
                     <h2>Scan & Pay to Activate</h2>
                   </div>
                   <button
@@ -623,7 +623,7 @@ const PackagesPage = () => {
                         onChange={() => setPaymentMethod('UPI_GATEWAY')}
                       />
                       <div className={styles.paymentOptionDetails}>
-                        <strong>SBI Payments UPI QR (PhonePe / GPay / Paytm)</strong>
+                        <strong>UPI QR (PhonePe / GPay / Paytm)</strong>
                         <span>Instant scan with pre-filled package amount</span>
                       </div>
                       <span className={styles.payIcon}>📱</span>
@@ -638,7 +638,7 @@ const PackagesPage = () => {
                       />
                       <div className={styles.paymentOptionDetails}>
                         <strong>Direct Bank Transfer (IMPS / NEFT / RTGS)</strong>
-                        <span>Company State Bank of India Current Account</span>
+                        <span>Company {paymentInfo.bankName} Current Account</span>
                       </div>
                       <span className={styles.payIcon}>🏦</span>
                     </label>
@@ -649,12 +649,8 @@ const PackagesPage = () => {
                     <div className={styles.qrPaymentContainer}>
                       <div className={styles.qrBox}>
                         <img
-                          src={
-                            qrViewMode === 'DYNAMIC'
-                              ? dynamicQrUrl
-                              : (paymentInfo.qrCodeUrl || '/images/kuwifr-upi-standee.jpeg')
-                          }
-                          alt="KUWIFR SBI Dynamic UPI QR"
+                          src={qrViewMode === 'STANDEE' && paymentInfo.qrCodeUrl ? paymentInfo.qrCodeUrl : dynamicQrUrl}
+                          alt="KUWIFR UPI QR"
                           className={styles.qrImage}
                           onError={(e) => {
                             e.currentTarget.onerror = null;
@@ -664,23 +660,28 @@ const PackagesPage = () => {
                         <span className={styles.qrScanHint}>
                           Scan with PhonePe, GPay or Paytm
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => setQrViewMode(qrViewMode === 'DYNAMIC' ? 'STANDEE' : 'DYNAMIC')}
-                          style={{
-                            marginTop: '8px',
-                            fontSize: '11px',
-                            padding: '3px 10px',
-                            borderRadius: '6px',
-                            background: 'rgba(0, 128, 128, 0.08)',
-                            border: '1px solid rgba(0, 128, 128, 0.25)',
-                            color: '#008080',
-                            cursor: 'pointer',
-                            fontWeight: 700
-                          }}
-                        >
-                          {qrViewMode === 'DYNAMIC' ? '📷 View Standee Photo' : '⚡ Auto-Amount QR'}
-                        </button>
+                        {/* Standee toggle only appears once the admin has uploaded a
+                            real QR photo (Admin > Settings > Payment Gateway) — no
+                            stale local fallback image is ever shown otherwise. */}
+                        {paymentInfo.qrCodeUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setQrViewMode(qrViewMode === 'DYNAMIC' ? 'STANDEE' : 'DYNAMIC')}
+                            style={{
+                              marginTop: '8px',
+                              fontSize: '11px',
+                              padding: '3px 10px',
+                              borderRadius: '6px',
+                              background: 'rgba(0, 128, 128, 0.08)',
+                              border: '1px solid rgba(0, 128, 128, 0.25)',
+                              color: '#008080',
+                              cursor: 'pointer',
+                              fontWeight: 700
+                            }}
+                          >
+                            {qrViewMode === 'DYNAMIC' ? '📷 View Standee Photo' : '⚡ Auto-Amount QR'}
+                          </button>
+                        )}
                       </div>
 
                       <div className={styles.upiInfoCard}>
