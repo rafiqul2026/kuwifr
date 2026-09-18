@@ -2,6 +2,7 @@
 // Production Controller for KUWIFR System & Enterprise Parameters
 const Setting = require('../models/Setting');
 const SettingsService = require('../services/settings.service');
+const cloudinary = require('../config/cloudinary');
 
 // Standard KUWIFR Initial Default Setting Document
 const DEFAULT_SYSTEM_SETTINGS = {
@@ -19,11 +20,15 @@ const DEFAULT_SYSTEM_SETTINGS = {
     defaultGateway: 'RAZORPAY',
     razorpayKeyId: 'rzp_live_kuwifr_production',
     razorpayKeySecret: '••••••••••••••••••••',
-    upiId: 'kuwifr@icici',
-    accountHolder: 'KUWIFR MARKETING PRIVATE LIMITED',
-    bankName: 'ICICI Bank Ltd',
-    accountNumber: '002105018921',
-    ifscCode: 'ICIC0000021'
+    upiId: '7002458418.eazypay@icici',
+    merchantName: 'A J ENTERPRISE',
+    accountHolder: 'A J ENTERPRISE',
+    bankName: 'ICICI Bank',
+    branch: 'BARPETA BRANCH',
+    accountNumber: '726505001743',
+    ifscCode: 'ICIC0007265',
+    qrCodeUrl: '',
+    qrCodePublicId: ''
   },
   security: {
     sessionTimeoutMinutes: 120,
@@ -61,7 +66,23 @@ const DEFAULT_SYSTEM_SETTINGS = {
 const PUBLIC_SAFE_FIELDS = {
   company: true,
   system: true,
-  payment: { gatewayEnabled: true, defaultGateway: true, upiId: true },
+  // Bank/UPI/QR fields a member needs to see at checkout (Buy Package /
+  // Upgrade / Repurchase manual-UPI payment screens) — previously excluded
+  // entirely, which is why those checkout pages each hardcoded their own
+  // copy of this info instead of reading it from here. Razorpay keys stay
+  // excluded (real secrets, only relevant to the gateway integration).
+  payment: {
+    gatewayEnabled: true,
+    defaultGateway: true,
+    upiId: true,
+    merchantName: true,
+    accountHolder: true,
+    bankName: true,
+    branch: true,
+    accountNumber: true,
+    ifscCode: true,
+    qrCodeUrl: true
+  },
   compensation: true // rates are not secret — useful for a public compensation-plan page
 };
 
@@ -177,6 +198,62 @@ exports.updateSettings = async (req, res, next) => {
       message: 'System settings saved successfully!',
       data: doc,
       settings: doc
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Admin: Upload/replace the "Scan and Pay" QR code image shown to members
+ * on the Buy Package / Upgrade / Repurchase checkout screens. Expects
+ * multipart/form-data with a `qrImage` file field (see setting.routes.js's
+ * multer wiring) — same Cloudinary upload_stream pattern as
+ * offer.controller.js#createOffer/updateOffer. Destroys the previous QR
+ * asset on replace so old uploads don't pile up in the Cloudinary account.
+ * POST /api/settings/admin/payment-qr or /api/admin/settings/payment-qr
+ */
+exports.uploadPaymentQr = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'A QR code image is required.' });
+    }
+
+    const doc = await getOrSeedSettings();
+
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'kuwifr/payment',
+          transformation: [{ width: 800, crop: 'limit' }, { quality: 'auto', fetch_format: 'auto' }]
+        },
+        (error, result) => {
+          if (error) return reject(error);
+          resolve(result);
+        }
+      );
+      uploadStream.end(req.file.buffer);
+    });
+
+    const previousPublicId = doc.payment?.qrCodePublicId;
+
+    doc.payment = {
+      ...(doc.payment.toObject?.() ?? doc.payment),
+      qrCodeUrl: uploadResult.secure_url,
+      qrCodePublicId: uploadResult.public_id
+    };
+    await doc.save();
+
+    if (previousPublicId) {
+      await cloudinary.uploader.destroy(previousPublicId).catch(() => {});
+    }
+
+    SettingsService.invalidateCache();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Payment QR code updated. Members will see it immediately at checkout.',
+      data: { qrCodeUrl: doc.payment.qrCodeUrl }
     });
   } catch (error) {
     next(error);

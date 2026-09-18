@@ -65,11 +65,15 @@ const INITIAL_STATE = {
     defaultGateway: 'RAZORPAY',
     razorpayKeyId: 'rzp_live_kuwifr_production',
     razorpayKeySecret: '••••••••••••••••••••',
-    upiId: 'kuwifr@icici',
-    accountHolder: 'KUWIFR MARKETING PRIVATE LIMITED',
-    bankName: 'ICICI Bank Ltd',
-    accountNumber: '002105018921',
-    ifscCode: 'ICIC0000021'
+    upiId: '7002458418.eazypay@icici',
+    merchantName: 'A J ENTERPRISE',
+    accountHolder: 'A J ENTERPRISE',
+    bankName: 'ICICI Bank',
+    branch: 'BARPETA BRANCH',
+    accountNumber: '726505001743',
+    ifscCode: 'ICIC0007265',
+    qrCodeUrl: '',
+    qrCodePublicId: ''
   },
   security: {
     sessionTimeoutMinutes: 120,
@@ -126,6 +130,13 @@ const AdminSettingsPage = () => {
   const [placementCorrectionResult, setPlacementCorrectionResult] = useState(null);
   const [isApplyingRepurchasePlan, setIsApplyingRepurchasePlan] = useState(false);
   const [repurchasePlanApplyResult, setRepurchasePlanApplyResult] = useState(null);
+  // Payment "Scan and Pay" QR code upload (Payment Gateway tab) — a real
+  // Cloudinary-hosted image an admin can replace anytime, instead of the
+  // Buy Package / Upgrade / Repurchase checkout pages' previous hardcoded
+  // local asset. See setting.controller.js#uploadPaymentQr.
+  const [qrUploadFile, setQrUploadFile] = useState(null);
+  const [qrUploadPreview, setQrUploadPreview] = useState(null);
+  const [isUploadingQr, setIsUploadingQr] = useState(false);
   // Repairs "Transfer to Repurchase Wallet" transactions made before the
   // WalletService.transferToRepurchase() routing fix (Sept 2026) — see
   // handleRepairWalletTransferRouting below.
@@ -232,6 +243,38 @@ const AdminSettingsPage = () => {
         [field]: value
       }
     }));
+  };
+
+  const handleQrFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setQrUploadFile(file);
+    setQrUploadPreview(URL.createObjectURL(file));
+  };
+
+  // Uploads immediately (its own endpoint, not part of the main "Save
+  // Configuration" button) so the admin sees the new QR live on checkout
+  // right away, without needing to also save every other settings tab.
+  const handleUploadQr = async () => {
+    if (!qrUploadFile) return;
+    setIsUploadingQr(true);
+    try {
+      const fd = new FormData();
+      fd.append('qrImage', qrUploadFile);
+      const res = await api.post('/api/admin/settings/payment-qr', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      const newUrl = res.data?.data?.qrCodeUrl;
+      setSettings((prev) => ({ ...prev, payment: { ...prev.payment, qrCodeUrl: newUrl } }));
+      setSavedBaseline((prev) => ({ ...prev, payment: { ...prev.payment, qrCodeUrl: newUrl } }));
+      setQrUploadFile(null);
+      setQrUploadPreview(null);
+      showNotification('Payment QR code updated — live on checkout now.', 'success');
+    } catch (error) {
+      showNotification(error.response?.data?.message || 'Failed to upload QR code.', 'error');
+    } finally {
+      setIsUploadingQr(false);
+    }
   };
 
   // Compensation is one level deeper (settings.compensation.<block>.<field>)
@@ -849,11 +892,29 @@ const AdminSettingsPage = () => {
                   </div>
 
                   <div className={styles.formGroup}>
+                    <label>Merchant / Payee Display Name</label>
+                    <input
+                      type="text"
+                      value={settings.payment.merchantName}
+                      onChange={(e) => handleFieldChange('payment', 'merchantName', e.target.value)}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
                     <label>Bank Name (Disbursals)</label>
                     <input
                       type="text"
                       value={settings.payment.bankName}
                       onChange={(e) => handleFieldChange('payment', 'bankName', e.target.value)}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Branch</label>
+                    <input
+                      type="text"
+                      value={settings.payment.branch}
+                      onChange={(e) => handleFieldChange('payment', 'branch', e.target.value)}
                     />
                   </div>
 
@@ -893,6 +954,48 @@ const AdminSettingsPage = () => {
                       />
                       <span>Enable Online Payment Gateway at Storefront Checkout</span>
                     </label>
+                  </div>
+                </div>
+
+                {/* "Scan and Pay" QR code — uploads immediately to Cloudinary
+                    and goes live on the Buy Package / Upgrade / Repurchase
+                    checkout screens right away, independent of the main
+                    "Save Configuration" button below. */}
+                <div className={styles.sectionHeader} style={{ marginTop: '28px' }}>
+                  <div>
+                    <h3>Scan &amp; Pay QR Code</h3>
+                    <p>Shown to members at checkout as the standee/fallback QR. Replace it anytime — takes effect immediately.</p>
+                  </div>
+                </div>
+
+                <div className={styles.formGrid}>
+                  <div className={`${styles.formGroup} ${styles.colSpan2}`}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                      <div style={{ width: '160px', height: '160px', border: '1px solid #e5e5e5', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: '#fafafa', flexShrink: 0 }}>
+                        {qrUploadPreview || settings.payment.qrCodeUrl ? (
+                          <img
+                            src={qrUploadPreview || settings.payment.qrCodeUrl}
+                            alt="Payment QR code"
+                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                          />
+                        ) : (
+                          <span style={{ fontSize: '12px', color: '#a3a3a3', textAlign: 'center', padding: '0 10px' }}>No QR uploaded yet</span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <input type="file" accept="image/*" onChange={handleQrFileChange} />
+                        <button
+                          type="button"
+                          onClick={handleUploadQr}
+                          disabled={!qrUploadFile || isUploadingQr}
+                          className={styles.toggleSecretsBtn}
+                          style={{ width: 'fit-content' }}
+                        >
+                          {isUploadingQr ? 'Uploading…' : '⬆️ Upload & Go Live'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

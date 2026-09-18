@@ -18,16 +18,19 @@ const THEME_COLORS = {
 
 const TIER_BADGES = ['Tier 1', 'Tier 2', 'Tier 3', 'Tier 4', 'Tier 5'];
 
-// Official Company Receiving Accounts — same account used on the Buy Package
-// checkout, kept in sync manually since there is no shared config module.
-const COMPANY_PAYMENT_INFO = {
-  upiId: 'SBIBHIM.INSTANT13112874693574880@sbipay',
-  merchantName: 'SB214110 (KUWIFR SERVICES PVT LTD)',
-  accountName: 'KUWIFR SERVICES PRIVATE LIMITED',
-  bankName: 'State Bank of India',
-  accountNumber: '44708235535',
-  ifscCode: 'SBIN0011617',
-  branch: 'BARPETA BAZAR, ASSAM'
+// Fallback only — real values come live from GET /api/settings (admin-
+// editable on the Payment Gateway tab, see AdminSettingsPage.jsx), which
+// overwrites this the moment it loads. Kept as a safety net for the brief
+// window before that fetch resolves, or if it fails.
+const DEFAULT_PAYMENT_INFO = {
+  upiId: '7002458418.eazypay@icici',
+  merchantName: 'A J ENTERPRISE',
+  accountName: 'A J ENTERPRISE',
+  bankName: 'ICICI Bank',
+  accountNumber: '726505001743',
+  ifscCode: 'ICIC0007265',
+  branch: 'BARPETA BRANCH',
+  qrCodeUrl: ''
 };
 
 const UpgradePackagePage = () => {
@@ -53,6 +56,37 @@ const UpgradePackagePage = () => {
   const [paymentMethod, setPaymentMethod] = useState('UPI_GATEWAY');
   const [qrViewMode, setQrViewMode] = useState('DYNAMIC');
   const [utrNumber, setUtrNumber] = useState('');
+  const [paymentInfo, setPaymentInfo] = useState(DEFAULT_PAYMENT_INFO);
+
+  // Live bank/UPI/QR details from the admin-editable Payment Gateway
+  // settings — was previously hardcoded here and out of sync with whatever
+  // the admin configured. accountHolder (the Setting model's field name)
+  // maps to this component's `accountName` for display.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get('/api/settings');
+        const p = res.data?.data?.payment;
+        if (!cancelled && p) {
+          setPaymentInfo((prev) => ({
+            ...prev,
+            upiId: p.upiId || prev.upiId,
+            merchantName: p.merchantName || prev.merchantName,
+            accountName: p.accountHolder || prev.accountName,
+            bankName: p.bankName || prev.bankName,
+            accountNumber: p.accountNumber || prev.accountNumber,
+            ifscCode: p.ifscCode || prev.ifscCode,
+            branch: p.branch || prev.branch,
+            qrCodeUrl: p.qrCodeUrl || ''
+          }));
+        }
+      } catch {
+        // Keep DEFAULT_PAYMENT_INFO fallback on failure.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const [proofPreview, setProofPreview] = useState('');
   const [processing, setProcessing] = useState(false);
   const [successReceipt, setSuccessReceipt] = useState(null);
@@ -261,7 +295,7 @@ const UpgradePackagePage = () => {
   };
 
   const upiUri = selectedUpgrade
-    ? `upi://pay?pa=${COMPANY_PAYMENT_INFO.upiId}&pn=${encodeURIComponent(COMPANY_PAYMENT_INFO.merchantName)}&am=${amountPayable}&cu=INR&tn=${encodeURIComponent(`KUWIFR-UPGRADE-${selectedUpgrade.name}-${user?.memberId || 'MEMBER'}`)}`
+    ? `upi://pay?pa=${paymentInfo.upiId}&pn=${encodeURIComponent(paymentInfo.merchantName)}&am=${amountPayable}&cu=INR&tn=${encodeURIComponent(`KUWIFR-UPGRADE-${selectedUpgrade.name}-${user?.memberId || 'MEMBER'}`)}`
     : '';
 
   const dynamicQrUrl = selectedUpgrade
@@ -629,7 +663,7 @@ const UpgradePackagePage = () => {
                     <div className={styles.qrPaymentContainer}>
                       <div className={styles.qrBox}>
                         <img
-                          src={qrViewMode === 'DYNAMIC' ? dynamicQrUrl : '/images/kuwifr-upi-standee.jpeg'}
+                          src={qrViewMode === 'DYNAMIC' ? dynamicQrUrl : (paymentInfo.qrCodeUrl || '/images/kuwifr-upi-standee.jpeg')}
                           alt="KUWIFR SBI Dynamic UPI QR"
                           className={styles.qrImage}
                           onError={(e) => {
@@ -651,8 +685,8 @@ const UpgradePackagePage = () => {
                         <div className={styles.infoRow}>
                           <span>Merchant UPI ID</span>
                           <div className={styles.copyRow}>
-                            <strong className={styles.monoFont}>{COMPANY_PAYMENT_INFO.upiId}</strong>
-                            <button type="button" onClick={() => handleCopyToClipboard(COMPANY_PAYMENT_INFO.upiId, 'UPI ID')} className={styles.copyBtn}>
+                            <strong className={styles.monoFont}>{paymentInfo.upiId}</strong>
+                            <button type="button" onClick={() => handleCopyToClipboard(paymentInfo.upiId, 'UPI ID')} className={styles.copyBtn}>
                               Copy
                             </button>
                           </div>
@@ -660,7 +694,7 @@ const UpgradePackagePage = () => {
 
                         <div className={styles.infoRow}>
                           <span>Merchant Name</span>
-                          <strong>{COMPANY_PAYMENT_INFO.merchantName}</strong>
+                          <strong>{paymentInfo.merchantName}</strong>
                         </div>
 
                         <div className={styles.infoRow}>
@@ -675,17 +709,17 @@ const UpgradePackagePage = () => {
                     <div className={styles.bankDetailsContainer}>
                       <div className={styles.bankDetailRow}>
                         <span>Bank Name:</span>
-                        <strong>{COMPANY_PAYMENT_INFO.bankName}</strong>
+                        <strong>{paymentInfo.bankName}</strong>
                       </div>
                       <div className={styles.bankDetailRow}>
                         <span>Account Name:</span>
-                        <strong>{COMPANY_PAYMENT_INFO.accountName}</strong>
+                        <strong>{paymentInfo.accountName}</strong>
                       </div>
                       <div className={styles.bankDetailRow}>
                         <span>Account Number:</span>
                         <div className={styles.copyRow}>
-                          <strong className={styles.monoFont}>{COMPANY_PAYMENT_INFO.accountNumber}</strong>
-                          <button type="button" onClick={() => handleCopyToClipboard(COMPANY_PAYMENT_INFO.accountNumber, 'Account Number')} className={styles.copyBtn}>
+                          <strong className={styles.monoFont}>{paymentInfo.accountNumber}</strong>
+                          <button type="button" onClick={() => handleCopyToClipboard(paymentInfo.accountNumber, 'Account Number')} className={styles.copyBtn}>
                             Copy
                           </button>
                         </div>
@@ -693,15 +727,15 @@ const UpgradePackagePage = () => {
                       <div className={styles.bankDetailRow}>
                         <span>IFSC Code:</span>
                         <div className={styles.copyRow}>
-                          <strong className={styles.monoFont}>{COMPANY_PAYMENT_INFO.ifscCode}</strong>
-                          <button type="button" onClick={() => handleCopyToClipboard(COMPANY_PAYMENT_INFO.ifscCode, 'IFSC Code')} className={styles.copyBtn}>
+                          <strong className={styles.monoFont}>{paymentInfo.ifscCode}</strong>
+                          <button type="button" onClick={() => handleCopyToClipboard(paymentInfo.ifscCode, 'IFSC Code')} className={styles.copyBtn}>
                             Copy
                           </button>
                         </div>
                       </div>
                       <div className={styles.bankDetailRow}>
                         <span>Branch:</span>
-                        <strong>{COMPANY_PAYMENT_INFO.branch}</strong>
+                        <strong>{paymentInfo.branch}</strong>
                       </div>
                       <div className={styles.bankDetailRow}>
                         <span>Exact Payable Amount:</span>

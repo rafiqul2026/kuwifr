@@ -15,17 +15,26 @@ const settingSchema = new mongoose.Schema(
       gstNumber: { type: String, default: '18AAECK1298P1Z5' }
     },
 
-    // 2. Payment Gateway Configuration
+    // 2. Payment Gateway Configuration — manual-UPI bank/QR details a member
+    // sees at checkout (Buy Package / Upgrade / Repurchase). qrCodeUrl/
+    // qrCodePublicId let the admin upload a real scan-and-pay QR image
+    // (Cloudinary-hosted, same upload_stream pattern as Offer banners —
+    // see setting.controller.js#uploadPaymentQr) instead of the checkout
+    // pages' previous hardcoded local asset.
     payment: {
       gatewayEnabled: { type: Boolean, default: true },
       defaultGateway: { type: String, default: 'RAZORPAY' },
       razorpayKeyId: { type: String, default: 'rzp_live_kuwifr_production' },
       razorpayKeySecret: { type: String, default: '••••••••••••••••••••' },
-      upiId: { type: String, default: 'kuwifr@icici' },
-      accountHolder: { type: String, default: 'KUWIFR MARKETING PRIVATE LIMITED' },
-      bankName: { type: String, default: 'ICICI Bank Ltd' },
-      accountNumber: { type: String, default: '002105018921' },
-      ifscCode: { type: String, default: 'ICIC0000021' }
+      upiId: { type: String, default: '7002458418.eazypay@icici' },
+      merchantName: { type: String, default: 'A J ENTERPRISE' },
+      accountHolder: { type: String, default: 'A J ENTERPRISE' },
+      bankName: { type: String, default: 'ICICI Bank' },
+      branch: { type: String, default: 'BARPETA BRANCH' },
+      accountNumber: { type: String, default: '726505001743' },
+      ifscCode: { type: String, default: 'ICIC0007265' },
+      qrCodeUrl: { type: String, default: '' },
+      qrCodePublicId: { type: String, default: '' }
     },
 
     // 3. Security & Access Control

@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const adminRouter = express.Router();
+const multer = require('multer');
 const settingController = require('../controllers/setting.controller');
 const authModule = require('../middleware/auth');
 
@@ -13,6 +14,13 @@ const adminAuth =
     if (role === 'ADMIN' || role === 'SUPER_ADMIN') return next();
     return res.status(403).json({ success: false, message: 'Administrator credentials required' });
   });
+
+// Same multer shape as offer.routes.js — buffer straight into memory, then
+// streamed to Cloudinary in setting.controller.js#uploadPaymentQr.
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 3 * 1024 * 1024 } // 3 MB
+});
 
 // ============================================================
 // PUBLIC router — mounted at /api/settings in app.js.
@@ -30,6 +38,7 @@ router.put('/', auth, adminAuth, settingController.updateSettings);
 router.put('/admin', auth, adminAuth, settingController.updateSettings);
 router.post('/reset', auth, adminAuth, settingController.resetSettings);
 router.post('/admin/reset', auth, adminAuth, settingController.resetSettings);
+router.post('/admin/payment-qr', auth, adminAuth, upload.single('qrImage'), settingController.uploadPaymentQr);
 
 // ============================================================
 // ADMIN-ONLY router — mounted at /api/admin/settings in app.js.
@@ -46,6 +55,7 @@ adminRouter.put('/', settingController.updateSettings);
 adminRouter.put('/admin', settingController.updateSettings);
 adminRouter.post('/reset', settingController.resetSettings);
 adminRouter.post('/admin/reset', settingController.resetSettings);
+adminRouter.post('/payment-qr', upload.single('qrImage'), settingController.uploadPaymentQr);
 
 module.exports = router;
 module.exports.adminRouter = adminRouter;
