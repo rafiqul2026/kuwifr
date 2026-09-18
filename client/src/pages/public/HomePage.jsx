@@ -1,11 +1,12 @@
 // client/src/pages/public/HomePage.jsx
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import styles from './HomePage.module.css';
 import ProductShowcase from '../../components/public/ProductShowcase';
 import Seo from '../../seo/Seo';
 import { buildOrganizationSchema, buildWebsiteSchema } from '../../seo/schema';
 import { useShop } from '../../context/ShopContext';
+import api from '../../services/api';
 
 // Purely decorative — a nicer icon than the generic fallback for common
 // category names. Never affects filtering/matching, which is always by the
@@ -28,6 +29,9 @@ const CATEGORY_ICONS = {
 const HomePage = () => {
   const navigate = useNavigate();
   const { products, categories: realCategories } = useShop();
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [newsletterStatus, setNewsletterStatus] = useState('idle'); // idle | loading | success | error
+  const [newsletterMessage, setNewsletterMessage] = useState('');
 
   // Real category cards — previously a hardcoded list of 6 curated
   // categories with stock Unsplash photos that didn't match any real
@@ -81,6 +85,22 @@ const HomePage = () => {
       el.scrollIntoView({ behavior: 'smooth' });
     } else {
       navigate('/shop');
+    }
+  };
+
+  const handleNewsletterSubmit = async (e) => {
+    e.preventDefault();
+    if (newsletterStatus === 'loading') return;
+    setNewsletterStatus('loading');
+    setNewsletterMessage('');
+    try {
+      const res = await api.post('/api/newsletter/subscribe', { email: newsletterEmail.trim() });
+      setNewsletterStatus('success');
+      setNewsletterMessage(res.data?.message || 'Subscribed successfully!');
+      setNewsletterEmail('');
+    } catch (err) {
+      setNewsletterStatus('error');
+      setNewsletterMessage(err.response?.data?.message || 'Something went wrong. Please try again.');
     }
   };
 
@@ -265,7 +285,44 @@ const HomePage = () => {
         <ProductShowcase showHeader={false} />
       </section>
 
-      {/* 5. PROMOTIONAL LIFESTYLE BANNER */}
+      {/* 5. TWIN PROMOTIONS STRIP */}
+      <section className={styles.twinPromoSection}>
+        <div className={styles.container}>
+          <div className={styles.twinPromoGrid}>
+            <div className={`${styles.twinPromoCard} ${styles.twinPromoCardSale}`}>
+              <div className={styles.twinPromoText}>
+                <h3>Repurchase Sale</h3>
+                <p>Up to 50% OFF on select wellness essentials</p>
+                <a
+                  href="#products"
+                  onClick={handleScrollToProducts}
+                  className={styles.twinPromoBtn}
+                >
+                  Shop Now
+                </a>
+              </div>
+              <span className={styles.twinPromoIcon} aria-hidden="true">🌿</span>
+            </div>
+
+            <div className={`${styles.twinPromoCard} ${styles.twinPromoCardDeals}`}>
+              <div className={styles.twinPromoText}>
+                <h3>Top Brands, Best Deals</h3>
+                <p>Verified quality across every category</p>
+                <a
+                  href="#products"
+                  onClick={handleScrollToProducts}
+                  className={styles.twinPromoBtn}
+                >
+                  Shop Now
+                </a>
+              </div>
+              <span className={styles.twinPromoIcon} aria-hidden="true">🛍️</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 6. PROMOTIONAL LIFESTYLE BANNER */}
       <section className={styles.promoBannerSection}>
         <div className={styles.container}>
           <div className={styles.promoCard}>
@@ -308,7 +365,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* 6. WHY CHOOSE KUWIFR */}
+      {/* 7. WHY CHOOSE KUWIFR */}
       <section className={styles.features}>
         <div className={styles.container}>
           <div className={styles.sectionHeader}>
@@ -354,7 +411,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* 7. ABOUT / BRAND STORY */}
+      {/* 8. ABOUT / BRAND STORY */}
       <section className={styles.brandSection}>
         <div className={styles.container}>
           <div className={styles.brandGrid}>
@@ -399,7 +456,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* 8. CUSTOMER TRUST REVIEWS */}
+      {/* 9. CUSTOMER TRUST REVIEWS */}
       <section className={styles.testimonials}>
         <div className={styles.container}>
           <div className={styles.sectionHeader}>
@@ -456,7 +513,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* 9. CALL TO ACTION SECTION */}
+      {/* 10. CALL TO ACTION SECTION */}
       <section className={styles.cta}>
         <div className={styles.container}>
           <div className={styles.ctaBox}>
@@ -477,6 +534,47 @@ const HomePage = () => {
               </Link>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* 11. NEWSLETTER */}
+      <section className={styles.newsletterSection}>
+        <div className={styles.container}>
+          <div className={styles.newsletterCard}>
+            <div className={styles.newsletterIcon} aria-hidden="true">✉️</div>
+            <div className={styles.newsletterText}>
+              <h3>Stay Updated</h3>
+              <p>Get the latest offers, new arrivals and exclusive deals.</p>
+            </div>
+            <form className={styles.newsletterForm} onSubmit={handleNewsletterSubmit}>
+              <input
+                type="email"
+                required
+                placeholder="Enter your email"
+                value={newsletterEmail}
+                onChange={(e) => setNewsletterEmail(e.target.value)}
+                className={styles.newsletterInput}
+                aria-label="Email address"
+              />
+              <button
+                type="submit"
+                className={styles.newsletterBtn}
+                disabled={newsletterStatus === 'loading'}
+              >
+                {newsletterStatus === 'loading' ? 'Subscribing…' : 'Subscribe'}
+              </button>
+            </form>
+          </div>
+          {newsletterMessage && (
+            <p
+              className={`${styles.newsletterFeedback} ${
+                newsletterStatus === 'error' ? styles.newsletterFeedbackError : styles.newsletterFeedbackSuccess
+              }`}
+              role="status"
+            >
+              {newsletterStatus === 'error' ? '⚠️' : '✅'} {newsletterMessage}
+            </p>
+          )}
         </div>
       </section>
     </div>

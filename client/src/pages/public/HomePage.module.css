@@ -534,6 +534,80 @@
 }
 
 /* ==================== 5. PROMOTIONAL HERO BANNER ==================== */
+/* ==================== 5. TWIN PROMOTIONS STRIP ==================== */
+.twinPromoSection {
+  padding: 30px 0 0 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.twinPromoGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.twinPromoCard {
+  position: relative;
+  border-radius: 18px;
+  padding: 28px 26px;
+  min-height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  overflow: hidden;
+  box-shadow: 0 12px 28px -14px rgba(15, 23, 42, 0.2);
+}
+
+.twinPromoCardSale {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+}
+
+.twinPromoCardDeals {
+  background: linear-gradient(135deg, #ea580c 0%, #f97316 100%);
+}
+
+.twinPromoText h3 {
+  color: #ffffff;
+  font-size: clamp(18px, 2vw, 24px);
+  font-weight: 850;
+  margin: 0 0 8px 0;
+}
+
+.twinPromoText p {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13.5px;
+  margin: 0 0 16px 0;
+}
+
+.twinPromoBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 13.5px;
+  font-weight: 750;
+  padding: 10px 20px;
+  border-radius: 8px;
+  text-decoration: none;
+  min-height: 40px;
+  transition: transform 0.15s ease;
+}
+
+.twinPromoBtn:hover {
+  transform: translateY(-1px);
+}
+
+.twinPromoIcon {
+  font-size: 56px;
+  opacity: 0.35;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* ==================== 6. PROMOTIONAL LIFESTYLE BANNER ==================== */
 .promoBannerSection {
   padding: 30px 0 60px 0;
   width: 100%;
@@ -962,6 +1036,115 @@
 }
 
 /* ==================== RESPONSIVE BREAKPOINTS ==================== */
+/* ==================== 11. NEWSLETTER ==================== */
+.newsletterSection {
+  padding: 20px 0 60px 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.newsletterCard {
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  border-radius: 18px;
+  padding: clamp(24px, 4vw, 36px);
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.newsletterIcon {
+  font-size: 32px;
+  flex-shrink: 0;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 16px -6px rgba(37, 99, 235, 0.25);
+}
+
+.newsletterText {
+  flex-shrink: 0;
+}
+
+.newsletterText h3 {
+  font-size: 19px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+}
+
+.newsletterText p {
+  font-size: 13.5px;
+  color: #475569;
+  margin: 0;
+}
+
+.newsletterForm {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.newsletterInput {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 14px;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.newsletterInput:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.newsletterBtn {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+  min-height: 44px;
+}
+
+.newsletterBtn:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.newsletterBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.newsletterFeedback {
+  margin: 14px 0 0 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.newsletterFeedbackSuccess {
+  color: #059669;
+}
+
+.newsletterFeedbackError {
+  color: #dc2626;
+}
+
 @media (max-width: 1024px) {
   .heroGrid {
     grid-template-columns: 1fr;
@@ -1006,6 +1189,16 @@
   .testimonialsGrid {
     grid-template-columns: 1fr;
   }
+  .twinPromoGrid {
+    grid-template-columns: 1fr;
+  }
+  .newsletterCard {
+    flex-direction: column;
+    text-align: center;
+  }
+  .newsletterForm {
+    width: 100%;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1040,6 +1233,18 @@
   }
   .ctaBtnPrimary,
   .ctaBtnSecondary {
+    width: 100%;
+  }
+  .twinPromoCard {
+    padding: 22px 18px;
+  }
+  .twinPromoIcon {
+    font-size: 42px;
+  }
+  .newsletterForm {
+    flex-direction: column;
+  }
+  .newsletterBtn {
     width: 100%;
   }
 }
