@@ -98,6 +98,34 @@
   gap: 14px;
 }
 
+.businessGrid + .sectionHeaderRow {
+  margin-top: 28px;
+}
+
+.sectionHeaderRow {
+  margin-bottom: 14px;
+}
+
+.sectionHeaderTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1c2a2a;
+  margin: 0 0 4px 0;
+  letter-spacing: -0.3px;
+}
+
+.sectionHeaderSubtitle {
+  font-size: 13px;
+  color: #737373;
+  margin: 0;
+  max-width: 640px;
+  line-height: 1.5;
+}
+
+.sectionHeaderRow + .businessGrid {
+  margin-bottom: 0;
+}
+
 .businessCard {
   background: #ffffff;
   border: 1px solid #e5e5e5;
