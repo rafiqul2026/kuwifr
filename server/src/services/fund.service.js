@@ -1,10 +1,18 @@
 // server/src/services/fund.service.js
+const mongoose = require('mongoose');
 const Fund = require('../models/Fund');
 const FundQualification = require('../models/FundQualification');
 const BinaryNode = require('../models/BinaryNode');
 const User = require('../models/User');
 const Order = require('../models/Order');
-const { getBusinessMonthStart, getBusinessMonthEnd, getBusinessMonthString } = require('../utils/businessDate');
+const RepurchaseKbpLedger = require('../models/RepurchaseKbpLedger');
+const {
+  getBusinessMonthStart,
+  getBusinessMonthEnd,
+  getBusinessMonthString,
+  getBusinessDayStart,
+  getBusinessWeekStart
+} = require('../utils/businessDate');
 
 const FUND_PLANS = [
   {
@@ -118,6 +126,19 @@ class FundService {
         parentNode.rightRepurchaseKBP = (parentNode.rightRepurchaseKBP || 0) + totalOrderKBP;
       }
       await parentNode.save();
+
+      // Dated ledger row for this credit — lets "Today"/"This Week"
+      // repurchase KBP (by leg) be computed later via a date-ranged
+      // aggregate, the same way IncomeTransaction already backs "today's
+      // income" elsewhere. leftRepurchaseKBP/rightRepurchaseKBP above are
+      // just running totals with no history, so without this there'd be no
+      // way to ever answer "how much landed today" after the fact.
+      await RepurchaseKbpLedger.create({
+        userId: parentNode.userId,
+        side: isLeft ? 'LEFT' : 'RIGHT',
+        kbp: totalOrderKBP,
+        sourceUserId: userId
+      });
 
       // Check if this parent now qualifies for a new fund, and roll the
       // monthly "new business" maintenance counters on their existing funds.
@@ -282,6 +303,46 @@ class FundService {
       funds,
       allFundsAchieved,
       pensionActive
+    };
+  }
+
+  /**
+   * Today / This Week / Total repurchase KBP credited to a member's own
+   * left and right leg — the "Total" figure is the same lifetime
+   * leftRepurchaseKBP/rightRepurchaseKBP getFundStatus above reads off
+   * BinaryNode (so it always matches what's shown on the fund cards);
+   * "Today"/"Week" are date-ranged aggregates over RepurchaseKbpLedger,
+   * IST business-day/week boundaries (see utils/businessDate.js).
+   */
+  static async getRepurchaseKbpSummary(userId) {
+    const now = new Date();
+    const dayStart = getBusinessDayStart(now);
+    const weekStart = getBusinessWeekStart(now);
+
+    const [binaryNode, dayRows, weekRows] = await Promise.all([
+      BinaryNode.findOne({ userId }).select('leftRepurchaseKBP rightRepurchaseKBP').lean(),
+      RepurchaseKbpLedger.aggregate([
+        { $match: { userId: new mongoose.Types.ObjectId(userId), createdAt: { $gte: dayStart } } },
+        { $group: { _id: '$side', total: { $sum: '$kbp' } } }
+      ]),
+      RepurchaseKbpLedger.aggregate([
+        { $match: { userId: new mongoose.Types.ObjectId(userId), createdAt: { $gte: weekStart } } },
+        { $group: { _id: '$side', total: { $sum: '$kbp' } } }
+      ])
+    ]);
+
+    const toLeftRight = (rows) => {
+      const byside = rows.reduce((acc, r) => { acc[r._id] = r.total; return acc; }, {});
+      return { left: byside.LEFT || 0, right: byside.RIGHT || 0 };
+    };
+
+    return {
+      today: toLeftRight(dayRows),
+      week: toLeftRight(weekRows),
+      total: {
+        left: binaryNode?.leftRepurchaseKBP || 0,
+        right: binaryNode?.rightRepurchaseKBP || 0
+      }
     };
   }
 

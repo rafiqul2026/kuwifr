@@ -1,7 +1,6 @@
 // server/src/controllers/fund.controller.js
 // Production Controller for KUWIFR Life Tension Free Funds & TTO Royalty Engine
 const Fund = require('../models/Fund');
-const BinaryNode = require('../models/BinaryNode');
 const User = require('../models/User');
 const FundQualification = require('../models/FundQualification');
 const FundService = require('../services/fund.service');
@@ -373,42 +372,44 @@ const updateFund = async (req, res, next) => {
 /**
  * Member: Get user qualification status for all 6 funds
  * GET /api/funds/status
+ *
+ * Previously duplicated the qualification logic here reading
+ * BinaryNode.leftVolume/rightVolume — package-purchase binary volume, not
+ * repurchase volume. Every fund tier's threshold (School 25K, Family 100K,
+ * etc.) was therefore being checked against the wrong number: a member's
+ * Qualified/Locked status here had nothing to do with their team's actual
+ * repurchase activity, which is what this whole feature is supposed to
+ * measure ("Life Tension Free Income on Repurchase Target" per the business
+ * plan). FundService.getFundStatus (fund.service.js) already implements
+ * this correctly — reads leftRepurchaseKBP/rightRepurchaseKBP, the
+ * dedicated repurchase-only accumulator that processRepurchaseKBPForFunds
+ * maintains on every approved repurchase order — but was never actually
+ * called from this route. Delegating to it here instead of keeping two
+ * diverging implementations. Also self-heals: FundService.getFundStatus
+ * calls evaluateFundQualification on every request, so a member whose
+ * repurchase KBP already clears a threshold gets their FundQualification
+ * record created/updated even without a fresh order triggering it.
  */
 const getFundStatus = async (req, res, next) => {
   try {
     const userId = req.userId || req.user?.id || req.user?._id;
-    const binaryNode = await BinaryNode.findOne({ userId }).lean().catch(() => null);
-    const currentLeftKBP = binaryNode?.leftVolume || 0;
-    const currentRightKBP = binaryNode?.rightVolume || 0;
+    const result = await FundService.getFundStatus(userId);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
 
-    let allPreviousAchieved = true;
-    const fundsStatus = FUND_PLANS.map((fund) => {
-      const isQualified = currentLeftKBP >= fund.requiredLeftKBP && currentRightKBP >= fund.requiredRightKBP;
-      if (!isQualified && fund.code !== 'PENSION') {
-        allPreviousAchieved = false;
-      }
-
-      const isPension = fund.code === 'PENSION';
-      const pensionActive = isPension && allPreviousAchieved && isQualified;
-
-      return {
-        fund,
-        qualified: isPension ? pensionActive : isQualified,
-        current: {
-          leftKBP: currentLeftKBP,
-          rightKBP: currentRightKBP
-        }
-      };
-    });
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        funds: fundsStatus,
-        allFundsAchieved: allPreviousAchieved,
-        pensionActive: fundsStatus.find((f) => f.fund.code === 'PENSION')?.qualified || false
-      }
-    });
+/**
+ * Member: Today / This Week / Total repurchase KBP on their own left and
+ * right leg — backs the 3 summary cards above the fund tier cards.
+ * GET /api/funds/repurchase-kbp-summary
+ */
+const getRepurchaseKbpSummary = async (req, res, next) => {
+  try {
+    const userId = req.userId || req.user?.id || req.user?._id;
+    const result = await FundService.getRepurchaseKbpSummary(userId);
+    return res.status(200).json({ success: true, data: result });
   } catch (error) {
     next(error);
   }
@@ -476,6 +477,7 @@ module.exports = {
   getAdminFundStats,
   updateFund,
   getFundStatus,
+  getRepurchaseKbpSummary,
   processFundQualification,
   getFundBenefits,
   calculateTTO,

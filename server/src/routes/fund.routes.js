@@ -19,6 +19,7 @@ router.get('/', fundController.getAllFunds);
 router.get('/all', fundController.getAllFunds);
 router.get('/stats', fundController.getAdminFundStats);
 router.get('/status', auth, fundController.getFundStatus);
+router.get('/repurchase-kbp-summary', auth, fundController.getRepurchaseKbpSummary);
 router.post('/process-qualification', auth, fundController.processFundQualification);
 router.get('/benefits', auth, fundController.getFundBenefits);
 router.post('/calculate-tto', auth, fundController.calculateTTO);

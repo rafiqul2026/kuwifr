@@ -133,6 +133,11 @@ const RepurchasePage = () => {
   const [processingFund, setProcessingFund] = useState(false);
   const [allFundsAchieved, setAllFundsAchieved] = useState(false);
   const [pensionActive, setPensionActive] = useState(false);
+  const [kbpSummary, setKbpSummary] = useState({
+    today: { left: 0, right: 0 },
+    week: { left: 0, right: 0 },
+    total: { left: 0, right: 0 }
+  });
 
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
@@ -157,10 +162,11 @@ const RepurchasePage = () => {
   const fetchInitialData = async () => {
     try {
       setLoading(true);
-      const [prodRes, statsRes, fundRes] = await Promise.all([
+      const [prodRes, statsRes, fundRes, kbpSummaryRes] = await Promise.all([
         api.get('/api/repurchase/products').catch(() => ({ data: { success: false } })),
         api.get('/api/repurchase/10-level-stats').catch(() => ({ data: { success: false } })),
-        api.get('/api/funds/status').catch(() => ({ data: { success: false } }))
+        api.get('/api/funds/status').catch(() => ({ data: { success: false } })),
+        api.get('/api/funds/repurchase-kbp-summary').catch(() => ({ data: { success: false } }))
       ]);
 
       if (prodRes.data?.success) setProducts(prodRes.data.data.products || []);
@@ -179,6 +185,9 @@ const RepurchasePage = () => {
         setFunds(data.funds || []);
         setAllFundsAchieved(data.allFundsAchieved || false);
         setPensionActive(data.pensionActive || false);
+      }
+      if (kbpSummaryRes.data?.success) {
+        setKbpSummary(kbpSummaryRes.data.data);
       }
     } catch {
       showNotification('Failed to load Repurchase data', 'error');
@@ -776,6 +785,40 @@ const RepurchasePage = () => {
             >
               {processingFund ? '🔄 Auditing Targets...' : '🔄 Check Qualification Status'}
             </button>
+          </div>
+
+          {/* Repurchase KBP at a glance — Today/This Week/Total, split by
+              binary leg. "Total" mirrors the same leftRepurchaseKBP/
+              rightRepurchaseKBP the fund cards below check against each
+              tier's threshold, so it always matches what's shown there.
+              "Today"/"This Week" are new: no per-day history existed before
+              (see server/src/models/RepurchaseKbpLedger.js), so they'll
+              read 0 for any KBP credited before this feature shipped —
+              that's expected, not a bug. */}
+          <div className={styles.kbpSummaryGrid}>
+            {[
+              { key: 'today', label: 'Today Repurchase KBP', icon: '📅' },
+              { key: 'week', label: 'Weekly Repurchase KBP', icon: '🗓️' },
+              { key: 'total', label: 'Total Repurchase KBP', icon: '📊' }
+            ].map((tile) => (
+              <div key={tile.key} className={styles.kbpSummaryCard}>
+                <div className={styles.kbpSummaryHeader}>
+                  <span className={styles.kbpSummaryIcon}>{tile.icon}</span>
+                  <h4>{tile.label}</h4>
+                </div>
+                <div className={styles.kbpSummarySides}>
+                  <div className={styles.kbpSummarySide}>
+                    <span className={styles.kbpSummarySideLabel}>Left</span>
+                    <strong>{formatKBPDisplay(kbpSummary[tile.key]?.left || 0)}</strong>
+                  </div>
+                  <div className={styles.kbpSummaryDivider} />
+                  <div className={styles.kbpSummarySide}>
+                    <span className={styles.kbpSummarySideLabel}>Right</span>
+                    <strong>{formatKBPDisplay(kbpSummary[tile.key]?.right || 0)}</strong>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
 
           {allFundsAchieved && (
