@@ -11,6 +11,7 @@ const Withdrawal = require('../models/Withdrawal');
 const IncomeTransaction = require('../models/IncomeTransaction');
 const BinaryService = require('../services/binary.service');
 const SalaryService = require('../services/salary.service');
+const FundService = require('../services/fund.service');
 const DownlineService = require('../services/downline.service');
 const cloudinary = require('../config/cloudinary');
 const { getBusinessDayStart, getBusinessWeekStart, getBusinessMonthStart } = require('../utils/businessDate');
@@ -685,51 +686,46 @@ const getBinaryTree = async (req, res, next) => {
   }
 };
 
-const FUND_PLANS = [
-  { code: 'SCHOOL', name: 'School Fund', requiredLeftKBP: 25000, requiredRightKBP: 25000, icon: '🏫' },
-  { code: 'FAMILY', name: 'Family Fund', requiredLeftKBP: 100000, requiredRightKBP: 100000, icon: '👨‍👩‍👦' },
-  { code: 'TRAVELLING', name: 'Travelling Fund', requiredLeftKBP: 250000, requiredRightKBP: 250000, icon: '✈️' },
-  { code: 'LIFESTYLE', name: 'Lifestyle Fund', requiredLeftKBP: 500000, requiredRightKBP: 500000, icon: '🌟' },
-  { code: 'FOREIGN_TRIP', name: 'Foreign Trip Fund', requiredLeftKBP: 1000000, requiredRightKBP: 1000000, icon: '🌍' },
-  { code: 'PENSION', name: 'Pension Fund', requiredLeftKBP: 1000000, requiredRightKBP: 1000000, icon: '🏦' }
-];
+// Icons only — thresholds/qualification are NOT duplicated here. This used
+// to be a 4th, independently-maintained copy of the 6 Fund tiers (matching
+// the ones in fund.service.js and fund.controller.js) that qualified
+// members on BinaryNode.leftVolume/rightVolume (package-purchase binary
+// volume) with a flat, non-sequential threshold check — both bugs already
+// fixed elsewhere in FundService (repurchase-KBP waterfall allocation) but
+// never applied here. That let a member's Dashboard/Ranks page "Current
+// Fund Achieved" card show a fund (e.g. Family) they hadn't actually
+// qualified for under the real business rule, purely because their
+// unrelated package-purchase volume happened to clear that tier's number.
+// Delegating to FundService.getFundStatus (the single source of truth,
+// already used by GET /api/funds/status and the Repurchase Store page)
+// instead of re-implementing qualification a 4th time.
+const FUND_ICONS = {
+  SCHOOL: '🏫',
+  FAMILY: '👨‍👩‍👦',
+  TRAVELLING: '✈️',
+  LIFESTYLE: '🌟',
+  FOREIGN_TRIP: '🌍',
+  PENSION: '🏦'
+};
 
 const getMemberFundSummary = async (userId) => {
-  const binaryNode = await BinaryNode.findOne({ userId }).lean();
-  const leftKBP = binaryNode?.leftVolume || 0;
-  const rightKBP = binaryNode?.rightVolume || 0;
-
-  let achievedFunds = [];
-  let highestFund = null;
-  let allPrevious = true;
-
-  for (const fund of FUND_PLANS) {
-    const isPension = fund.code === 'PENSION';
-    const volumeMatch = leftKBP >= fund.requiredLeftKBP && rightKBP >= fund.requiredRightKBP;
-
-    let qualified = false;
-    if (isPension) {
-      qualified = allPrevious && volumeMatch;
-    } else {
-      qualified = volumeMatch;
-      if (!qualified) allPrevious = false;
-    }
-
-    if (qualified) {
-      achievedFunds.push(fund);
-      highestFund = fund;
-    }
-  }
+  const { funds, pensionActive, leftKBP, rightKBP } = await FundService.getFundStatus(userId);
+  const achievedFunds = funds.filter((f) => f.qualified);
+  const highest = achievedFunds[achievedFunds.length - 1] || null;
 
   return {
-    currentFundName: highestFund ? highestFund.name : 'Not Achieved',
-    currentFundCode: highestFund ? highestFund.code : 'NONE',
-    currentFundIcon: highestFund ? highestFund.icon : '🎯',
+    currentFundName: highest ? highest.fund.name : 'Not Achieved',
+    currentFundCode: highest ? highest.fund.code : 'NONE',
+    currentFundIcon: highest ? (FUND_ICONS[highest.fund.code] || '🎯') : '🎯',
     totalAchievedCount: achievedFunds.length,
-    achievedFunds: achievedFunds.map((f) => ({ name: f.name, code: f.code, icon: f.icon })),
-    pensionActive: achievedFunds.some((f) => f.code === 'PENSION'),
-    currentLeftKBP: leftKBP,
-    currentRightKBP: rightKBP
+    achievedFunds: achievedFunds.map((f) => ({
+      name: f.fund.name,
+      code: f.fund.code,
+      icon: FUND_ICONS[f.fund.code] || '🎯'
+    })),
+    pensionActive,
+    currentLeftKBP: leftKBP || 0,
+    currentRightKBP: rightKBP || 0
   };
 };
 

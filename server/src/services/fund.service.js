@@ -366,7 +366,13 @@ class FundService {
     return {
       funds,
       allFundsAchieved,
-      pensionActive
+      pensionActive,
+      // Raw lifetime repurchase KBP totals (pre-waterfall) — additive field,
+      // lets callers that need "how much repurchase KBP has this member's
+      // team generated in total" (e.g. user.controller.js's dashboard-stats
+      // fund summary) reuse this lookup instead of re-querying BinaryNode.
+      leftKBP,
+      rightKBP
     };
   }
 
