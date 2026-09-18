@@ -1,6 +1,7 @@
 // server/src/services/salary.service.js
 const User = require('../models/User');
 const DownlineService = require('./downline.service');
+const BinaryService = require('./binary.service');
 const Wallet = require('../models/Wallet');
 const SalaryLog = require('../models/SalaryLog');
 const TTORecord = require('../models/TTORecord');
@@ -137,18 +138,39 @@ const checkKuwiStarSelfEntryGate = async (userId) => {
  * from the live, always-correct User.sponsorId graph via DownlineService
  * (a single $graphLookup query), so there is no separate, driftable
  * collection this financial calculation depends on.
+ *
+ * Left/Right classification: each star-qualified member's side is
+ * determined by their true position in the BINARY tree relative to
+ * `userId` (BinaryService.getBranchUserIds — walks BinaryNode.leftChildId/
+ * rightChildId, the same tree the Growth Generation page renders), not by
+ * that member's own User.binarySide field. binarySide only encodes a
+ * member's position under THEIR OWN direct sponsor/binary-parent — for any
+ * star-qualified member who isn't userId's own direct sponsee (i.e. almost
+ * the whole real downline, since binary placement spillover nests members
+ * many levels deep under whichever sponsor referred them), that field says
+ * nothing about which of userId's two legs they actually sit under. This
+ * was a genuine real-money bug: Gold Star's 200-star threshold and 50:50
+ * leg-balance check below both read leftStars/rightStars from here, so a
+ * member's real, correctly-balanced downline could evaluate as lopsided
+ * (or vice versa) purely from this misclassification.
  */
 const countVerifiedSubtreeStars = async (userId) => {
-  const downlineMembers = await DownlineService.getFullDownlineIds(userId);
+  const [downlineMembers, { leftIds, rightIds }] = await Promise.all([
+    DownlineService.getFullDownlineIds(userId),
+    BinaryService.getBranchUserIds(userId)
+  ]);
+  const leftSet = new Set(leftIds.map(String));
+  const rightSet = new Set(rightIds.map(String));
+
   let leftStars = 0;
   let rightStars = 0;
 
   for (const member of downlineMembers) {
     const isStar = await checkIsKuwiStar(member._id);
     if (isStar) {
-      const side = String(member.binarySide || '').toLowerCase();
-      if (side === 'left') leftStars++;
-      else if (side === 'right') rightStars++;
+      const idStr = String(member._id);
+      if (leftSet.has(idStr)) leftStars++;
+      else if (rightSet.has(idStr)) rightStars++;
     }
   }
 

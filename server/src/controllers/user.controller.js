@@ -59,9 +59,25 @@ const RankAchievement = require('../models/RankAchievement');
  *
  * Takes the already-fetched full-downline id list (rather than re-running
  * the $graphLookup aggregation on every call) since getDashboardStats calls
- * this three times (today/month/lifetime) for the same member.
+ * this three times (today/month/lifetime) for the same member. Also takes
+ * `leftSubtreeIds`/`rightSubtreeIds` — the root-relative binary-tree branch
+ * membership already computed via BinaryService.getBranchUserIds elsewhere
+ * in getDashboardStats — instead of classifying each achiever by their own
+ * User.binarySide.
+ *
+ * binarySide only encodes a member's position under THEIR OWN direct
+ * sponsor/binary-parent (which leg of the referral link they registered
+ * through), not their side relative to `userId` here. Any achiever more
+ * than one level below the viewer — i.e. almost the entire real downline —
+ * was being misclassified: e.g. a member placed under the viewer's RIGHT
+ * branch, three levels deep, whose own binarySide happens to be 'left'
+ * (because THEY were placed on their own direct parent's left leg), was
+ * counted as one of the viewer's LEFT stars. This is exactly why the
+ * Growth Generation page's real Left/Right member counts (walked correctly
+ * via BinaryNode.leftChildId/rightChildId, the same tree
+ * getBranchUserIds walks) never matched the Ranks page's Star cards.
  */
-const countSubtreeKuwiStars = async (downlineIds, sinceDate = null) => {
+const countSubtreeKuwiStars = async (downlineIds, leftSubtreeIds, rightSubtreeIds, sinceDate = null) => {
   if (!downlineIds || downlineIds.length === 0) return { leftStars: 0, rightStars: 0, totalStars: 0 };
 
   const achievementQuery = { userId: { $in: downlineIds }, rankName: 'Kuwi Star', status: 'ACHIEVED' };
@@ -70,15 +86,15 @@ const countSubtreeKuwiStars = async (downlineIds, sinceDate = null) => {
   const achievements = await RankAchievement.find(achievementQuery).select('userId').lean();
   if (achievements.length === 0) return { leftStars: 0, rightStars: 0, totalStars: 0 };
 
-  const achieverIds = achievements.map((a) => a.userId);
-  const achievers = await User.find({ _id: { $in: achieverIds } }).select('binarySide').lean();
+  const leftSet = new Set((leftSubtreeIds || []).map(String));
+  const rightSet = new Set((rightSubtreeIds || []).map(String));
 
   let leftStars = 0;
   let rightStars = 0;
-  for (const u of achievers) {
-    const side = String(u.binarySide || '').toLowerCase();
-    if (side === 'left') leftStars++;
-    else if (side === 'right') rightStars++;
+  for (const a of achievements) {
+    const idStr = String(a.userId);
+    if (leftSet.has(idStr)) leftStars++;
+    else if (rightSet.has(idStr)) rightStars++;
   }
 
   return { leftStars, rightStars, totalStars: leftStars + rightStars };
@@ -367,7 +383,7 @@ const getDashboardStats = async (req, res, next) => {
       ? carryForwardStar
       : { left: 0, right: 0 };
 
-    const todayStars = await countSubtreeKuwiStars(downlineIds, todayStart);
+    const todayStars = await countSubtreeKuwiStars(downlineIds, leftSubtreeIds, rightSubtreeIds, todayStart);
 
     // Lifetime "Total Star" must match the LIVE Left/Right count already
     // shown on the Remuneration (Gold Star progress) card — both need to be
