@@ -1,5 +1,5 @@
 // client/src/components/layout/MemberLayout.jsx
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "../../context/AuthContext";
@@ -54,6 +54,24 @@ const MemberLayout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Account dropdown (Account / Notifications / Change Password / Log out)
+  // — replaces the sidebar footer's previous plain "Logout Account" button
+  // with the same PBW-Foundation-style popover already used on the Admin
+  // side (AdminLayout.jsx).
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef(null);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return undefined;
+    const handleClickOutside = (e) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(e.target)) {
+        setAccountMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [accountMenuOpen]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -292,11 +310,87 @@ const MemberLayout = () => {
             })}
           </nav>
 
-          <div className={styles.sidebarFooter}>
-            <button type="button" className={styles.logoutBtnSidebar} onClick={handleLogout}>
-              <span>🚪</span>
-              <span>Logout Account</span>
+          <div className={styles.sidebarFooter} ref={accountMenuRef}>
+            <button
+              type="button"
+              className={styles.memberMetaBtn}
+              onClick={() => setAccountMenuOpen((prev) => !prev)}
+              aria-haspopup="true"
+              aria-expanded={accountMenuOpen}
+            >
+              <div className={styles.memberMeta}>
+                <div className={styles.memberMetaAvatar}>
+                  {user?.profileImage?.url ? (
+                    <img src={user.profileImage.url} alt={user.fullName || "User"} className={styles.avatarImg} />
+                  ) : (
+                    (user?.fullName || "M").charAt(0).toUpperCase()
+                  )}
+                </div>
+                <div className={styles.memberMetaText}>
+                  <div className={styles.memberMetaName}>{user?.fullName || "Member"}</div>
+                  <span className={styles.memberMetaEmail}>{user?.email || (user?.memberId ? `ID: ${user.memberId}` : "")}</span>
+                </div>
+              </div>
+              <span className={styles.accountMenuCaret}>{accountMenuOpen ? "▾" : "▴"}</span>
             </button>
+
+            {accountMenuOpen && (
+              <div className={styles.accountDropdown}>
+                <div className={styles.accountDropdownHeader}>
+                  <div className={styles.memberMetaAvatar}>
+                    {user?.profileImage?.url ? (
+                      <img src={user.profileImage.url} alt={user.fullName || "User"} className={styles.avatarImg} />
+                    ) : (
+                      (user?.fullName || "M").charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  <div>
+                    <div className={styles.accountDropdownName}>{user?.fullName || "Member"}</div>
+                    <div className={styles.accountDropdownEmail}>{user?.email || ""}</div>
+                    <span className={styles.accountDropdownBadge}>{user?.memberId ? `ID: ${user.memberId}` : "MEMBER"}</span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className={styles.accountMenuItem}
+                  onClick={() => {
+                    setAccountMenuOpen(false);
+                    navigate("/member/profile");
+                  }}
+                >
+                  <span className={styles.accountMenuIcon}>👤</span> Account
+                </button>
+                <button
+                  type="button"
+                  className={styles.accountMenuItem}
+                  onClick={() => {
+                    setAccountMenuOpen(false);
+                    navigate("/member/notifications");
+                  }}
+                >
+                  <span className={styles.accountMenuIcon}>🔔</span> Notifications
+                </button>
+                <button
+                  type="button"
+                  className={styles.accountMenuItem}
+                  onClick={() => {
+                    setAccountMenuOpen(false);
+                    navigate("/member/profile", { state: { openChangePassword: true } });
+                  }}
+                >
+                  <span className={styles.accountMenuIcon}>🔑</span> Change Password
+                </button>
+                <div className={styles.accountMenuDivider} />
+                <button
+                  type="button"
+                  className={`${styles.accountMenuItem} ${styles.accountMenuItemDanger}`}
+                  onClick={handleLogout}
+                >
+                  <span className={styles.accountMenuIcon}>🚪</span> Log out
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </aside>

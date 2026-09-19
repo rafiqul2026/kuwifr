@@ -1,5 +1,6 @@
 // client/src/pages/member/ProfilePage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
@@ -8,6 +9,8 @@ import styles from './ProfilePage.module.css';
 const ProfilePage = () => {
   const { user, refreshUser } = useAuth();
   const { showNotification } = useNotification();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -27,6 +30,17 @@ const ProfilePage = () => {
   });
   const [showPw, setShowPw] = useState({ current: false, new: false, confirm: false });
   const [changingPassword, setChangingPassword] = useState(false);
+
+  // Opened via the sidebar's "Change Password" account-menu item
+  // (MemberLayout.jsx), which navigates here with this state flag instead
+  // of duplicating a second password-change UI. Cleared immediately after
+  // reading so a browser back/refresh doesn't reopen the modal.
+  useEffect(() => {
+    if (location.state?.openChangePassword) {
+      setShowPasswordModal(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   // Form inputs
   const [formData, setFormData] = useState({
