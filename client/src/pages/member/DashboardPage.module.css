@@ -383,6 +383,45 @@
 /* ============================================================
    📢 ADMIN NOTIFICATION BAR — rotates admin broadcast messages
    ============================================================ */
+/* Top-of-page strip: above the dashboard scene, aligned with the same
+   max-width/gutters as the content below it. */
+.notificationTopStrip {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 12px 20px 0 20px;
+  box-sizing: border-box;
+}
+
+.notificationTopStrip .notificationBar {
+  margin-bottom: 0;
+}
+
+/* Phones: let the message use the full width and drop the action / dots /
+   close controls onto their own row instead of squeezing the text. */
+@media (max-width: 640px) {
+  .notificationTopStrip {
+    padding: 10px 14px 0 14px;
+  }
+
+  .notificationTopStrip .notificationBar {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .notificationTopStrip .notificationBarText {
+    flex: 1 1 calc(100% - 40px);
+    min-width: 0;
+  }
+
+  .notificationTopStrip .notificationBarText span {
+    white-space: normal;
+  }
+
+  .notificationTopStrip .notificationBarClose {
+    margin-left: auto;
+  }
+}
+
 .notificationBar {
   background: #ffffff;
   border: 1px solid #e5e5e5;

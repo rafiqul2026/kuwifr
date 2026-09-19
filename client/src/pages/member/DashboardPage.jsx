@@ -323,6 +323,50 @@ const DashboardPage = () => {
   }
 
   return (
+    <>
+      {/* Notification Bar — sits at the very top of the page, right under
+          the app header and above the dashboard, and rotates through unread
+          admin/system notifications (title/message); each dot jumps straight
+          to one. */}
+      {announcements.length > 0 && (
+        <div className={styles.notificationTopStrip}>
+          <div className={styles.notificationBar} style={{ borderLeftColor: announcements[annIndex]?.color || '#2563eb' }}>
+            <span className={styles.notificationBarIcon}>{announcements[annIndex]?.icon || '📢'}</span>
+            <div className={styles.notificationBarText}>
+              <strong>{announcements[annIndex]?.title}</strong>
+              <span>{announcements[annIndex]?.message}</span>
+            </div>
+            {announcements[annIndex]?.action && (
+              <Link to={announcements[annIndex].action} className={styles.notificationBarAction}>
+                {announcements[annIndex].actionLabel || 'View'} →
+              </Link>
+            )}
+            {announcements.length > 1 && (
+              <div className={styles.notificationBarDots}>
+                {announcements.map((_, i) => (
+                  <button
+                    type="button"
+                    key={i}
+                    className={`${styles.dot} ${i === annIndex ? styles.dotActive : ''}`}
+                    onClick={() => setAnnIndex(i)}
+                    aria-label={`Show notification ${i + 1}`}
+                  />
+                ))}
+              </div>
+            )}
+            <button
+              type="button"
+              className={styles.notificationBarClose}
+              onClick={() => handleDismissAnnouncement(announcements[annIndex]?._id || announcements[annIndex]?.id)}
+              aria-label="Close this notification"
+              title="Close"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
     <div className={styles.dashboardScene}>
       {/* 3D Ambient Canvas Background */}
       <div className={styles.ambientCanvas} aria-hidden="true">
@@ -442,45 +486,6 @@ const DashboardPage = () => {
             </div>
           </div>
         </section>
-
-        {/* Admin-set Notification Bar — rotates through unread admin
-            broadcasts (title/message), each dot jumps straight to one. */}
-        {announcements.length > 0 && (
-          <div className={styles.notificationBar} style={{ borderLeftColor: announcements[annIndex]?.color || '#2563eb' }}>
-            <span className={styles.notificationBarIcon}>{announcements[annIndex]?.icon || '📢'}</span>
-            <div className={styles.notificationBarText}>
-              <strong>{announcements[annIndex]?.title}</strong>
-              <span>{announcements[annIndex]?.message}</span>
-            </div>
-            {announcements[annIndex]?.action && (
-              <Link to={announcements[annIndex].action} className={styles.notificationBarAction}>
-                {announcements[annIndex].actionLabel || 'View'} →
-              </Link>
-            )}
-            {announcements.length > 1 && (
-              <div className={styles.notificationBarDots}>
-                {announcements.map((_, i) => (
-                  <button
-                    type="button"
-                    key={i}
-                    className={`${styles.dot} ${i === annIndex ? styles.dotActive : ''}`}
-                    onClick={() => setAnnIndex(i)}
-                    aria-label={`Show notification ${i + 1}`}
-                  />
-                ))}
-              </div>
-            )}
-            <button
-              type="button"
-              className={styles.notificationBarClose}
-              onClick={() => handleDismissAnnouncement(announcements[annIndex]?._id || announcements[annIndex]?.id)}
-              aria-label="Close this notification"
-              title="Close"
-            >
-              ✕
-            </button>
-          </div>
-        )}
 
         {/* Admin-controlled Offer Slider — image carousel, refreshed
             automatically whenever the admin adds/removes/reorders offers. */}
@@ -1078,6 +1083,7 @@ const DashboardPage = () => {
         </section>
       </div>
     </div>
+    </>
   );
 };
 export default DashboardPage;
