@@ -208,6 +208,85 @@
   overflow-x: auto;
 }
 
+/* Pagination — same shape as AdminMembersPage's "Go to page" control */
+.paginationRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 4px 4px;
+  margin-top: 6px;
+  border-top: 1px solid #e5e5e5;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pageInfo {
+  font-size: 12px;
+  color: #737373;
+}
+
+.gotoPageForm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gotoPageLabel {
+  font-size: 12px;
+  color: #737373;
+  white-space: nowrap;
+}
+
+.gotoPageInput {
+  width: 64px;
+  padding: 6px 8px;
+  border: 1px solid #d4d4d4;
+  border-radius: 6px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.gotoPageInput:focus {
+  outline: none;
+  border-color: #008080;
+  box-shadow: 0 0 0 2px rgba(0, 128, 128, 0.15);
+}
+
+.gotoPageBtn {
+  background: #008080;
+  color: #ffffff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gotoPageBtn:hover {
+  background: #006666;
+}
+
+.pageBtns {
+  display: flex;
+  gap: 8px;
+}
+
+.pageBtn {
+  background: #ffffff;
+  border: 1px solid #d4d4d4;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pageBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .dataTable {
   width: 100%;
   border-collapse: collapse;

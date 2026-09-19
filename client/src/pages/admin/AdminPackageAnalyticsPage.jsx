@@ -11,6 +11,15 @@ const AdminPackageAnalyticsPage = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('ALL');
+  // Client-side pagination — this endpoint already returns every purchase
+  // record in one call (no server-side paging), and with 90+ activation
+  // requests and growing, rendering the whole filtered list at once made
+  // this page an endless scroll. Paginated the already-fetched array
+  // instead of touching the endpoint, since search/filter already work the
+  // same way.
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1);
+  const [gotoPageInput, setGotoPageInput] = useState('');
   const [proofModalUrl, setProofModalUrl] = useState(null);
   const [actionLoadingId, setActionLoadingId] = useState(null);
   // Native window.confirm()/window.prompt()/alert() were the previous
@@ -43,6 +52,12 @@ const AdminPackageAnalyticsPage = () => {
   useEffect(() => {
     fetchAnalytics();
   }, [fetchAnalytics]);
+
+  // Reset to page 1 whenever the search term or filter narrows/changes the
+  // result set, so the admin never lands on a stale, now-out-of-range page.
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, selectedFilter]);
 
   // Currency Formatter
   const formatINR = (val) =>
@@ -148,6 +163,32 @@ const AdminPackageAnalyticsPage = () => {
 
     return matchesSearch && matchesFilter;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredPurchases.length / PAGE_SIZE));
+  // Search/filter changing the result set could otherwise strand the admin
+  // on a now-empty page (e.g. was on page 4, then a search narrows results
+  // to 1 page) — clamp back into range whenever the filtered set shrinks.
+  const currentPage = Math.min(page, totalPages);
+  const paginatedPurchases = filteredPurchases.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  const goToPage = (target) => {
+    const clamped = Math.max(1, Math.min(target, totalPages));
+    setPage(clamped);
+  };
+
+  const handleGotoPageSubmit = (e) => {
+    e.preventDefault();
+    const target = parseInt(gotoPageInput, 10);
+    if (!target || target < 1 || target > totalPages) {
+      showNotification(`Enter a page number between 1 and ${totalPages}.`, 'warning');
+      return;
+    }
+    goToPage(target);
+    setGotoPageInput('');
+  };
 
   if (loading && !analytics) {
     return (
@@ -277,7 +318,7 @@ const AdminPackageAnalyticsPage = () => {
                   </td>
                 </tr>
               ) : (
-                filteredPurchases.map((item) => (
+                paginatedPurchases.map((item) => (
                   <tr key={item._id}>
                     <td>
                       <div className={styles.dateCol}>
@@ -382,6 +423,48 @@ const AdminPackageAnalyticsPage = () => {
             </tbody>
           </table>
         </div>
+
+        {filteredPurchases.length > 0 && (
+          <div className={styles.paginationRow}>
+            <span className={styles.pageInfo}>
+              Showing page {currentPage} of {totalPages} ({filteredPurchases.length} requests)
+            </span>
+
+            <form onSubmit={handleGotoPageSubmit} className={styles.gotoPageForm}>
+              <label htmlFor="packageSalesGotoPage" className={styles.gotoPageLabel}>Go to page</label>
+              <input
+                id="packageSalesGotoPage"
+                type="number"
+                min="1"
+                max={totalPages}
+                value={gotoPageInput}
+                onChange={(e) => setGotoPageInput(e.target.value)}
+                placeholder={`1-${totalPages}`}
+                className={styles.gotoPageInput}
+              />
+              <button type="submit" className={styles.gotoPageBtn}>Go</button>
+            </form>
+
+            <div className={styles.pageBtns}>
+              <button
+                type="button"
+                disabled={currentPage <= 1}
+                onClick={() => goToPage(currentPage - 1)}
+                className={styles.pageBtn}
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onClick={() => goToPage(currentPage + 1)}
+                className={styles.pageBtn}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Screenshot Proof Preview Modal */}
