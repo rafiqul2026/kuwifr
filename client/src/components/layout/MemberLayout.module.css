@@ -1249,7 +1249,13 @@
 @media (max-width: 1024px) {
   .sidebar {
     top: 56px;
-    width: min(82vw, 280px);
+    /* Full viewport width instead of the previous min(82vw, 280px) — the
+       old, narrower sidebar left a visible strip of the page behind it on
+       phones, which read as "half open" rather than a proper full-screen
+       mobile nav drawer. `width: 100%` (not 100vw) on a `position: fixed`
+       element resolves against the actual visible viewport, so it can't
+       overflow by a scrollbar's width the way 100vw sometimes does. */
+    width: 100%;
     transform: translateX(-100%);
     box-shadow: 6px 0 24px rgba(28, 42, 42, 0.14);
   }
