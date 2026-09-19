@@ -153,6 +153,21 @@ const IncomeTransactionSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+
+  // Daily-settlement tracking for MATCHING_INCOME / LEADERSHIP_INCOME_L1/L2/L3
+  // only (business rule: these two income types are earned in real time —
+  // still recorded here immediately with status CREDITED, so caps and
+  // "Today's Earnings" keep working exactly as before — but only actually
+  // move into the member's wallet balance once a day, in a single batched
+  // settlement at IST business-day close. null means "earned but not yet in
+  // the wallet"; every other income type sets this at creation time and can
+  // be treated as always-settled. See income.service.js#creditIncome and
+  // #settleDailyMatchingAndLeadershipIncome.
+  walletSettledAt: {
+    type: Date,
+    default: null,
+    index: true
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -209,6 +224,8 @@ IncomeTransactionSchema.index({ userId: 1, type: 1 });
 IncomeTransactionSchema.index({ userId: 1, createdAt: -1 });
 IncomeTransactionSchema.index({ sourceId: 1, sourceModel: 1 });
 IncomeTransactionSchema.index({ status: 1, createdAt: 1 });
+// Daily settlement query: unsettled matching/leadership CREDITED transactions.
+IncomeTransactionSchema.index({ type: 1, status: 1, walletSettledAt: 1, createdAt: 1 });
 
 const IncomeTransaction = mongoose.model('IncomeTransaction', IncomeTransactionSchema);
 module.exports = IncomeTransaction;

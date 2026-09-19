@@ -139,7 +139,7 @@ const WalletPage = () => {
       id: 'income',
       label: 'Income Wallet',
       value: wallet.incomeBalance || 0,
-      sublabel: 'Binary matching & referral earnings',
+      sublabel: 'Referral instant · Matching/Leadership settle nightly',
       icon: '💵',
       gradientClass: styles.cardIncome
     },

@@ -142,6 +142,14 @@ const AdminSettingsPage = () => {
   // handleRepairWalletTransferRouting below.
   const [isRepairingWalletTransfers, setIsRepairingWalletTransfers] = useState(false);
   const [walletTransferRepairResult, setWalletTransferRepairResult] = useState(null);
+  // Manual trigger for the daily Matching Income + Leadership Income wallet
+  // settlement (see server/src/services/income.service.js#
+  // settleDailyMatchingAndLeadershipIncome) — the same job the
+  // GET /api/cron/settle-daily-income Vercel cron runs automatically every
+  // night. Lets an admin run it on demand for testing or to catch up after
+  // a missed cron run.
+  const [isSettlingDailyIncome, setIsSettlingDailyIncome] = useState(false);
+  const [dailyIncomeSettlementResult, setDailyIncomeSettlementResult] = useState(null);
   // One-time index migration — the Referral collection's old single-field
   // unique index on `userId` made it impossible to store more than a
   // member's level-1 row, which is exactly why "Repair Referral Chains" can
@@ -431,6 +439,19 @@ const AdminSettingsPage = () => {
       showNotification(err.response?.data?.message || 'Failed to apply repurchase plan update.', 'error');
     } finally {
       setIsApplyingRepurchasePlan(false);
+    }
+  };
+
+  const handleSettleDailyIncome = async () => {
+    setIsSettlingDailyIncome(true);
+    try {
+      const res = await api.post('/api/admin/settings/settle-daily-income');
+      setDailyIncomeSettlementResult(res.data?.data);
+      showNotification(res.data?.message || 'Daily income settlement complete.', 'success');
+    } catch (err) {
+      showNotification(err.response?.data?.message || 'Failed to run daily income settlement.', 'error');
+    } finally {
+      setIsSettlingDailyIncome(false);
     }
   };
 
@@ -1733,6 +1754,36 @@ const AdminSettingsPage = () => {
                             ? 'Old index dropped and indexes re-synced.'
                             : 'Old index already gone — indexes re-synced.'}{' '}
                           Now run "Repair Referral Chains" below.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className={styles.maintenanceCard}>
+                      <span className={styles.maintenanceLabel}>Run Daily Income Settlement (Matching + Leadership)</span>
+                      <p className={styles.maintenanceHelp}>
+                        Matching Income and Leadership Income are recorded the instant they're earned (still count
+                        toward daily/weekly/monthly caps and "Today's Earnings" right away), but only actually land
+                        in a member's Wallet Balance once a day, in one batched credit per member — automatically at
+                        00:10 AM IST via a scheduled job. Use this button to run that same settlement on demand:
+                        for testing, or to immediately catch up any unsettled income if a scheduled run was ever
+                        missed. Idempotent — an already-settled day is never re-credited, so it's safe to click
+                        more than once.
+                      </p>
+                      <button
+                        type="button"
+                        className={styles.testEmailBtn}
+                        onClick={handleSettleDailyIncome}
+                        disabled={isSettlingDailyIncome}
+                        style={{ marginTop: '10px' }}
+                      >
+                        {isSettlingDailyIncome ? 'Settling...' : '💰 Run Settlement Now'}
+                      </button>
+                      {dailyIncomeSettlementResult && (
+                        <p className={styles.maintenanceHelp} style={{ marginTop: '8px' }}>
+                          {dailyIncomeSettlementResult.membersSettled} member(s) settled · ₹
+                          {(dailyIncomeSettlementResult.totalSettled || 0).toLocaleString('en-IN')} moved to wallets
+                          across {dailyIncomeSettlementResult.transactionsFound} transaction(s) checked
+                          {dailyIncomeSettlementResult.errors?.length > 0 ? ` · ${dailyIncomeSettlementResult.errors.length} error(s)` : ''}.
                         </p>
                       )}
                     </div>

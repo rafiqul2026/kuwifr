@@ -318,6 +318,43 @@ app.get('/api/cron/reconcile-capped-rollover', async (req, res) => {
   }
 });
 
+// Daily-close settlement for Matching Income + Leadership Income — moves
+// each member's whole day's earning of these two income types into their
+// wallet balance in one batched credit per bucket, once the IST business
+// day has fully closed (business rule: "will be add in Members wallet at
+// the time of closing the Date"). Every other income type is unaffected
+// (still credits instantly, as before). Configured to fire once a day via
+// the "crons" entry in vercel.json, scheduled shortly after IST midnight.
+//
+// Same CRON_SECRET bearer-token pattern as reconcile-capped-rollover above
+// — not behind the normal user-JWT auth since Vercel's cron caller has no
+// user session. Fails closed with no/mismatched secret.
+app.get('/api/cron/settle-daily-income', async (req, res) => {
+  const expectedSecret = process.env.CRON_SECRET;
+  if (!expectedSecret) {
+    return res.status(503).json({ success: false, message: 'CRON_SECRET is not configured for this project.' });
+  }
+
+  const provided = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+  if (provided !== expectedSecret) {
+    return res.status(401).json({ success: false, message: 'Unauthorized' });
+  }
+
+  try {
+    const IncomeService = require('./services/income.service');
+    const summary = await IncomeService.settleDailyMatchingAndLeadershipIncome();
+    console.log(`⏰ [DAILY SETTLEMENT CRON] ${summary.membersSettled} member(s) settled, ₹${summary.totalSettled.toLocaleString('en-IN')} moved to wallets, ${summary.transactionsFound} transaction(s) processed, ${summary.errors.length} error(s).`);
+    res.json({
+      success: true,
+      message: `Daily settlement complete. ${summary.membersSettled} member(s) settled, ₹${summary.totalSettled.toLocaleString('en-IN')} moved to wallets across ${summary.transactionsFound} transaction(s).`,
+      data: summary
+    });
+  } catch (error) {
+    console.error('❌ [DAILY SETTLEMENT CRON] Failed:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // ==================== ERROR HANDLING ====================
 app.use(notFoundHandler);
 app.use(errorHandler);

@@ -139,6 +139,26 @@ router.post('/settings/apply-repurchase-plan-update', async (req, res, next) => 
   }
 });
 
+// Manual trigger for the daily Matching Income + Leadership Income wallet
+// settlement — the same logic GET /api/cron/settle-daily-income runs
+// automatically each night (00:10 AM IST, see vercel.json). Lets an admin
+// run it on demand (testing, or catching up after a missed/failed cron
+// run) without needing the CRON_SECRET. Idempotent — safe to run more than
+// once; already-settled transactions are never touched again.
+router.post('/settings/settle-daily-income', async (req, res, next) => {
+  try {
+    const IncomeService = require('../services/income.service');
+    const summary = await IncomeService.settleDailyMatchingAndLeadershipIncome();
+    res.json({
+      success: true,
+      message: `Daily settlement complete. ${summary.membersSettled} member(s) settled, ₹${summary.totalSettled.toLocaleString('en-IN')} moved to wallets across ${summary.transactionsFound} transaction(s) checked.`,
+      data: summary
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Repairs "Transfer to Repurchase Wallet" transactions made before the
 // WalletService.transferToRepurchase() routing fix — before that fix, the
 // transfer's credit leg was mis-routed into incomeBalance instead of

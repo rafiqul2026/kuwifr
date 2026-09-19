@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/reconcile-capped-rollover",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/settle-daily-income",
+      "schedule": "40 18 * * *"
     }
   ],
   "headers": [

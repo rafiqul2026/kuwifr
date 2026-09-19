@@ -6,7 +6,7 @@ const Referral = require('../models/Referral');
 const Order = require('../models/Order');
 const WalletService = require('./wallet.service');
 const BinaryService = require('./binary.service');
-const { getBusinessDayStart, getBusinessWeekStart, getBusinessMonthStart } = require('../utils/businessDate');
+const { getBusinessDayStart, getBusinessWeekStart, getBusinessMonthStart, getBusinessDateString } = require('../utils/businessDate');
 
 /**
  * Income Service - Handles all income calculations
@@ -760,14 +760,38 @@ class IncomeService {
 
   // ============ INCOME CREDITING ============
 
+  // Matching Income and Leadership Income are earned the instant a pair
+  // matches / a leadership override fires — but per business rule, the
+  // member's actual wallet balance only receives the WHOLE DAY's earning
+  // of these two types once, at IST business-day close (a single batched
+  // settlement — see settleDailyMatchingAndLeadershipIncome below and the
+  // GET /api/cron/settle-daily-income route it's wired to). Every other
+  // income type (referral, repurchase, franchise, etc.) is unaffected and
+  // still credits to the wallet immediately, exactly as before.
+  static DEFERRED_SETTLEMENT_TYPES = ['MATCHING_INCOME', 'LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3'];
+
   async creditIncome(userId, amount, type, sourceId, sourceModel, kbp, rate, metadata = {}) {
     if (amount <= 0) return null;
 
     const walletType = ['REFERRAL_INCOME', 'MATCHING_INCOME', 'LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3', 'FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE'].includes(type) ? 'INCOME' : 'REPURCHASE';
+    const isDeferred = IncomeService.DEFERRED_SETTLEMENT_TYPES.includes(type);
 
     try {
-      const creditResult = await WalletService.credit(userId, amount, type, sourceId, { sourceModel, kbp, rate, ...metadata });
-      if (!creditResult || !creditResult.transaction) throw new Error('Failed to credit wallet');
+      // Deferred types don't touch the wallet balance yet — still need a
+      // valid walletId to satisfy IncomeTransaction's required field, and
+      // caps/"Today's Earnings" (both read IncomeTransaction directly, not
+      // the wallet) must keep seeing this the instant it happens.
+      let walletId;
+      let walletTransaction = null;
+      if (isDeferred) {
+        const wallet = await WalletService.getOrCreateWallet(userId);
+        walletId = wallet._id;
+      } else {
+        const creditResult = await WalletService.credit(userId, amount, type, sourceId, { sourceModel, kbp, rate, ...metadata });
+        if (!creditResult || !creditResult.transaction) throw new Error('Failed to credit wallet');
+        walletId = creditResult.transaction.walletId;
+        walletTransaction = creditResult.transaction;
+      }
 
       const incomeTransaction = new IncomeTransaction({
         userId: userId,
@@ -781,16 +805,21 @@ class IncomeService {
         capAdjustment: 0,
         creditedAmount: amount,
         walletType: walletType,
-        walletId: creditResult.transaction.walletId,
+        walletId: walletId,
         status: 'CREDITED',
         processedAt: new Date(),
-        metadata: { ...metadata, walletTransactionId: creditResult.transaction._id }
+        walletSettledAt: isDeferred ? null : new Date(),
+        metadata: walletTransaction ? { ...metadata, walletTransactionId: walletTransaction._id } : metadata
       });
 
       await incomeTransaction.save();
-      console.log(`   ✅ Credited ₹${amount} to ${walletType} wallet of user ${userId}`);
+      console.log(
+        isDeferred
+          ? `   ⏳ Recorded ₹${amount} ${type} for user ${userId} — pending wallet settlement at day close`
+          : `   ✅ Credited ₹${amount} to ${walletType} wallet of user ${userId}`
+      );
 
-      return { success: true, transaction: incomeTransaction, walletTransaction: creditResult.transaction };
+      return { success: true, transaction: incomeTransaction, walletTransaction };
     } catch (error) {
       console.error(`   ❌ Failed to credit income: ${error.message}`);
 
@@ -833,6 +862,102 @@ class IncomeService {
 
       return null;
     }
+  }
+
+  /**
+   * Daily-close settlement for Matching Income + Leadership Income.
+   *
+   * Finds every CREDITED-but-unsettled MATCHING_INCOME / LEADERSHIP_INCOME_
+   * L1/L2/L3 transaction from BEFORE the current IST business day (i.e. every
+   * fully-closed day, not just "yesterday" — so a single missed cron run
+   * self-heals on the next one instead of silently losing a day), groups it
+   * per member, and moves the total into that member's wallet balance in one
+   * batched credit per income "bucket" (Matching, and Leadership L1+L2+L3
+   * combined) — exactly the "whole day earning... will be in their
+   * respective wallet at the time of closing the Date" business rule.
+   *
+   * Idempotent by construction: only rows with walletSettledAt: null are
+   * selected, and every row this touches is stamped with walletSettledAt
+   * immediately after its wallet credit succeeds, so re-running this (the
+   * cron's own retry, or the admin's manual "Run Settlement Now" button)
+   * never double-credits.
+   *
+   * @param {Date} [cutoff] - settle everything strictly before this instant.
+   *   Defaults to the start of the CURRENT IST business day, i.e. "every
+   *   fully-closed day up to and including yesterday." Exposed as a
+   *   parameter for tests / manual admin runs with an explicit cutoff.
+   */
+  async settleDailyMatchingAndLeadershipIncome(cutoff = null) {
+    const settleBefore = cutoff || getBusinessDayStart(new Date());
+    const types = IncomeService.DEFERRED_SETTLEMENT_TYPES;
+
+    const unsettled = await IncomeTransaction.find({
+      type: { $in: types },
+      status: 'CREDITED',
+      walletSettledAt: null,
+      createdAt: { $lt: settleBefore }
+    }).select('_id userId type creditedAmount createdAt').lean();
+
+    const summary = { transactionsFound: unsettled.length, membersSettled: 0, totalSettled: 0, errors: [] };
+    if (unsettled.length === 0) return summary;
+
+    // Group by member, then by "bucket" — Matching Income settles as its own
+    // wallet credit; Leadership L1+L2+L3 settle together as one combined
+    // credit (WalletService.credit already maps all three LEADERSHIP_INCOME_L*
+    // sources to the same leadershipIncome lifetime counter).
+    const byMember = new Map();
+    for (const txn of unsettled) {
+      const uid = String(txn.userId);
+      if (!byMember.has(uid)) byMember.set(uid, { MATCHING_INCOME: [], LEADERSHIP: [] });
+      const bucket = txn.type === 'MATCHING_INCOME' ? 'MATCHING_INCOME' : 'LEADERSHIP';
+      byMember.get(uid)[bucket].push(txn);
+    }
+
+    for (const [userId, buckets] of byMember.entries()) {
+      try {
+        let memberSettled = 0;
+
+        for (const [bucketKey, txns] of Object.entries(buckets)) {
+          if (txns.length === 0) continue;
+          const total = txns.reduce((sum, t) => sum + Number(t.creditedAmount || 0), 0);
+          if (total <= 0) {
+            // Nothing owed (e.g. every row in this bucket was a 0-amount
+            // edge case) — still mark settled so it's never re-checked.
+            await IncomeTransaction.updateMany({ _id: { $in: txns.map((t) => t._id) } }, { $set: { walletSettledAt: new Date() } });
+            continue;
+          }
+
+          const source = bucketKey === 'MATCHING_INCOME' ? 'MATCHING_INCOME' : 'LEADERSHIP_INCOME';
+          const dateLabel = getBusinessDateString(txns[0].createdAt);
+          const creditResult = await WalletService.credit(userId, total, source, null, {
+            description: `Daily settlement: ${bucketKey === 'MATCHING_INCOME' ? 'Matching' : 'Leadership'} Income for ${dateLabel} (${txns.length} transaction${txns.length === 1 ? '' : 's'})`,
+            settlementTransactionIds: txns.map((t) => String(t._id)),
+            settlementDate: dateLabel
+          });
+
+          if (!creditResult || !creditResult.success) {
+            throw new Error(`Wallet credit failed for ${bucketKey} bucket`);
+          }
+
+          await IncomeTransaction.updateMany(
+            { _id: { $in: txns.map((t) => t._id) } },
+            { $set: { walletSettledAt: new Date(), 'metadata.settlementWalletTransactionId': creditResult.transaction._id } }
+          );
+
+          memberSettled += total;
+        }
+
+        if (memberSettled > 0) {
+          summary.membersSettled += 1;
+          summary.totalSettled += memberSettled;
+        }
+      } catch (err) {
+        console.error(`   ❌ Daily settlement failed for user ${userId}:`, err.message);
+        summary.errors.push({ userId, message: err.message });
+      }
+    }
+
+    return summary;
   }
 
   async getUserEmail(userId) {
