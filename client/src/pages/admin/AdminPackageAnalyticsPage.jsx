@@ -298,6 +298,7 @@ const AdminPackageAnalyticsPage = () => {
           <table className={styles.dataTable}>
             <thead>
               <tr>
+                <th className={styles.serialCol}>S.No.</th>
                 <th>Date & Time</th>
                 <th>Member</th>
                 <th>Package</th>
@@ -313,13 +314,16 @@ const AdminPackageAnalyticsPage = () => {
             <tbody>
               {filteredPurchases.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className={styles.noData}>
+                  <td colSpan="11" className={styles.noData}>
                     No package sales found matching criteria.
                   </td>
                 </tr>
               ) : (
-                paginatedPurchases.map((item) => (
+                paginatedPurchases.map((item, index) => (
                   <tr key={item._id}>
+                    <td className={styles.serialCol}>
+                      {(currentPage - 1) * PAGE_SIZE + index + 1}
+                    </td>
                     <td>
                       <div className={styles.dateCol}>
                         <span>{new Date(item.activationDate || item.createdAt).toLocaleDateString('en-IN')}</span>

@@ -317,6 +317,13 @@
   background: #f3f3f3;
 }
 
+.serialCol {
+  text-align: center;
+  color: #737373;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .dateCol {
   display: flex;
   flex-direction: column;
