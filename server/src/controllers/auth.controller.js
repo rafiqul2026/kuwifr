@@ -266,6 +266,145 @@ const register = async (req, res, next) => {
   }
 };
 
+// ============ MEMBER-INITIATED DOWNLINE REGISTRATION (Growth Generation "Open Spot") ============
+// The public register() above is built for a logged-out visitor: it issues
+// a token/cookie for the NEW account, which would silently swap a logged-in
+// member's session to the person they just registered. This is the
+// authenticated counterpart used when a member clicks an "Open Spot" on
+// their Growth Generation tree — sponsor is always the caller, the new
+// member is placed at that exact spot (not the extreme-leg spillover
+// register() uses), and no token is issued for the new account.
+
+// GET /api/auth/register-downline/spot?parent=KFR...&side=left|right
+const getDownlineSpotInfo = async (req, res, next) => {
+  try {
+    const spot = await BinaryService.validateOpenSpot(req.userId, req.query.parent, req.query.side);
+    if (!spot.ok) {
+      return res.status(spot.status).json({ success: false, message: spot.message });
+    }
+    res.json({
+      success: true,
+      data: {
+        side: spot.side,
+        parent: { memberId: spot.parentUser.memberId, fullName: spot.parentUser.fullName },
+        sponsor: { memberId: req.user.memberId, fullName: req.user.fullName }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/auth/register-downline
+const registerDownlineMember = async (req, res, next) => {
+  try {
+    const { fullName, email, phoneNumber, password, placementParentId, side } = req.body;
+
+    const cleanEmail = email ? String(email).toLowerCase().trim() : "";
+    const cleanPhone = phoneNumber ? String(phoneNumber).trim() : "";
+
+    if (!fullName || !String(fullName).trim() || !cleanEmail || !cleanPhone || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields (Full Name, Email, Phone Number, Password) are required.",
+      });
+    }
+    if (String(password).length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters.",
+      });
+    }
+
+    const sponsor = req.user;
+    const spot = await BinaryService.validateOpenSpot(sponsor._id, placementParentId, side);
+    if (!spot.ok) {
+      return res.status(spot.status).json({ success: false, message: spot.message });
+    }
+
+    const generatedMemberId = await User.generateMemberId();
+    const user = new User({
+      memberId: generatedMemberId,
+      referralCode: generatedMemberId,
+      fullName: String(fullName).trim(),
+      email: cleanEmail,
+      phoneNumber: cleanPhone,
+      password,
+      registrationIP: req.ip,
+      userAgent: req.headers["user-agent"],
+      status: "INACTIVE",
+      activePackageId: null,
+      activationDate: null,
+      sponsorId: sponsor._id,
+      binarySide: spot.side,
+    });
+    await user.save();
+
+    try {
+      await BinaryService.placeMemberAtSpot(user._id, spot);
+    } catch (placeErr) {
+      // Never leave an account that isn't linked into the tree it was
+      // supposed to be created in.
+      await User.deleteOne({ _id: user._id }).catch(() => {});
+      if (placeErr.code === "SPOT_TAKEN") {
+        return res.status(409).json({ success: false, message: placeErr.message });
+      }
+      throw placeErr;
+    }
+
+    try {
+      const chain = await getReferralChainForUser(user.sponsorId);
+      for (let i = 0; i < chain.length && i < 10; i++) {
+        const chainSponsor = chain[i];
+        await Referral.findOneAndUpdate(
+          { sponsorId: chainSponsor._id, userId: user._id },
+          {
+            $set: {
+              level: i + 1,
+              parentId: i === 0 ? user.sponsorId : chain[i - 1]._id,
+              path: chain.slice(0, i + 1).map((s) => s._id.toString()).join("-"),
+              isActive: false,
+            },
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+      }
+      await User.findByIdAndUpdate(user.sponsorId, { $inc: { directReferrals: 1 } });
+    } catch (genealogyErr) {
+      console.error("Genealogy linking notice:", genealogyErr.message);
+    }
+
+    await Wallet.findOneAndUpdate(
+      { userId: user._id },
+      { $setOnInsert: { incomeBalance: 0, repurchaseBalance: 0, totalIncome: 0, totalWithdrawn: 0 } },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    ).catch(() => {});
+
+    res.status(201).json({
+      success: true,
+      message: `Member registered successfully! User ID: ${user.memberId}.`,
+      data: {
+        memberId: user.memberId,
+        fullName: user.fullName,
+        placement: {
+          parentMemberId: spot.parentUser.memberId,
+          parentName: spot.parentUser.fullName,
+          side: spot.side,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Downline registration error:", error);
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "A member with this email or phone number already exists.",
+      });
+    }
+    next(error);
+  }
+};
+
 // ============ LOGIN ============
 const login = async (req, res, next) => {
   try {
@@ -696,4 +835,6 @@ module.exports = {
   sendChangePasswordOTP,
   changePasswordWithOTP,
   changePasswordDirect,
+  registerDownlineMember,
+  getDownlineSpotInfo,
 };

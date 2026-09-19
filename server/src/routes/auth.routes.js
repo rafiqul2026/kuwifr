@@ -11,7 +11,9 @@ const {
   resetPasswordWithOTP,
   sendChangePasswordOTP,
   changePasswordWithOTP,
-  changePasswordDirect
+  changePasswordDirect,
+  registerDownlineMember,
+  getDownlineSpotInfo
 } = require('../controllers/auth.controller');
 const { auth } = require('../middleware/auth');
 
@@ -38,5 +40,9 @@ router.post('/change-password/verify', auth, changePasswordWithOTP);
 // Member Profile page's real "Change Password" form — current password +
 // new password, no OTP. See auth.controller.js#changePasswordDirect.
 router.post('/change-password', auth, changePasswordDirect);
+// Growth Generation "Open Spot" registration — a logged-in member registers a
+// new downline member at an exact open binary spot in their own tree.
+router.get('/register-downline/spot', auth, getDownlineSpotInfo);
+router.post('/register-downline', auth, registerDownlineMember);
 
 module.exports = router;

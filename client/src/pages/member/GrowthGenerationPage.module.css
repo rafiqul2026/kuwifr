@@ -360,7 +360,24 @@
   border: 1px dashed #d4d4d4;
   color: #a3a3a3;
   box-shadow: none;
-  cursor: default;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+/* Open Spots are clickable (opens the register-a-member page for that exact
+   position) — teal on hover so it reads as an action, not a dead placeholder. */
+.nodeVacant {
+  cursor: pointer;
+}
+
+.nodeVacant:hover .avatarPill {
+  background: rgba(0, 128, 128, 0.1);
+  border-color: #008080;
+  color: #008080;
+}
+
+.nodeVacant:hover .nodeName {
+  color: #008080;
 }
 
 .vacantPlus {

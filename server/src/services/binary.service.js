@@ -173,6 +173,113 @@ class BinaryService {
   }
 
   /**
+   * Validates that (parentMemberId, side) is a genuinely open slot inside
+   * `sponsorUserId`'s OWN binary tree — the check behind "click an Open Spot
+   * on the Growth Generation page to register a member right there".
+   *
+   * placeMember()/findPlacement() only ever fill the extreme edge of a leg
+   * (deepest-left / deepest-right), so they can't honor "this specific open
+   * spot in the middle of my tree". This validates an explicit spot instead:
+   *   - the parent must be the sponsor or sit somewhere below them (a member
+   *     can never place someone under another member's tree),
+   *   - the chosen side of that parent must actually be empty. A child
+   *     pointer whose own node doesn't point back at this parent is a stale
+   *     leftover (same case findPlacement() self-heals) and counts as open.
+   * Read-only; placeMemberAtSpot() re-checks atomically at write time, so a
+   * spot taken between this check and the write can never be double-booked.
+   */
+  async validateOpenSpot(sponsorUserId, parentMemberId, side) {
+    const normalizedSide = String(side || '').toLowerCase();
+    if (normalizedSide !== 'left' && normalizedSide !== 'right') {
+      return { ok: false, status: 400, message: 'Position must be Left or Right.' };
+    }
+
+    const cleanParent = String(parentMemberId || '').trim();
+    if (!cleanParent) {
+      return { ok: false, status: 400, message: 'Placement parent member ID is required.' };
+    }
+
+    const parentUser = await User.findOne({
+      memberId: { $regex: new RegExp(`^${cleanParent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+    }).select('_id memberId fullName');
+    if (!parentUser) {
+      return { ok: false, status: 404, message: 'Placement parent member not found.' };
+    }
+
+    if (String(parentUser._id) !== String(sponsorUserId)) {
+      const { leftIds, rightIds } = await this.getBranchUserIds(sponsorUserId);
+      const inTree = [...leftIds, ...rightIds].some((id) => String(id) === String(parentUser._id));
+      if (!inTree) {
+        return { ok: false, status: 403, message: 'That position is not in your own network.' };
+      }
+    }
+
+    const parentNode = await BinaryNode.findOne({ userId: parentUser._id });
+    if (!parentNode) {
+      return { ok: false, status: 404, message: 'Placement parent is not in the binary tree yet.' };
+    }
+
+    const childField = normalizedSide === 'left' ? 'leftChildId' : 'rightChildId';
+    const observedChild = parentNode[childField] || null;
+    if (observedChild) {
+      const childNode = await BinaryNode.findOne({ userId: observedChild }).select('parentId');
+      const isRealChild = childNode && String(childNode.parentId) === String(parentUser._id);
+      if (isRealChild) {
+        return { ok: false, status: 409, message: 'That position has just been taken by another member.' };
+      }
+    }
+
+    return { ok: true, side: normalizedSide, parentUser, parentNode, childField, observedChild };
+  }
+
+  /**
+   * Places `userId` into the exact spot validateOpenSpot() approved. The
+   * parent's child pointer is claimed with an atomic compare-and-swap (only
+   * succeeds if it still holds the value validation observed), so two
+   * simultaneous registrations for the same spot can't both win — the loser
+   * gets SPOT_TAKEN and the caller rolls its user back.
+   */
+  async placeMemberAtSpot(userId, spot) {
+    const { parentUser, parentNode, childField, side, observedChild } = spot;
+
+    const claimed = await BinaryNode.findOneAndUpdate(
+      { userId: parentUser._id, [childField]: observedChild },
+      { $set: { [childField]: userId } },
+      { new: true }
+    );
+    if (!claimed) {
+      const err = new Error('That position has just been taken by another member.');
+      err.code = 'SPOT_TAKEN';
+      throw err;
+    }
+
+    try {
+      await BinaryNode.create({
+        userId,
+        parentId: parentUser._id,
+        position: side,
+        level: (parentNode.level || 1) + 1,
+        leftChildId: null,
+        rightChildId: null,
+        leftVolume: 0,
+        rightVolume: 0,
+        availableLeftVolume: 0,
+        availableRightVolume: 0,
+        matchingVolume: 0,
+        pairCount: 0,
+        totalKBP: 0
+      });
+    } catch (err) {
+      // Give the spot back so a failed node write doesn't leave the parent
+      // pointing at a user with no node.
+      await BinaryNode.updateOne({ userId: parentUser._id }, { $set: { [childField]: observedChild } });
+      throw err;
+    }
+
+    await User.findByIdAndUpdate(userId, { binarySide: side });
+  }
+
+  /**
    * Propagates KBP volume up the binary upline
    *
    * UNIVERSAL SELF-HEALING GUARANTEE (see the real-world case that exposed

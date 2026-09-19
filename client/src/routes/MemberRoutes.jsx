@@ -13,6 +13,7 @@ import IncomePage from "../pages/member/IncomePage";
 import TeamPage from "../pages/member/TeamPage";
 import BusinessPage from "../pages/member/BusinessPage";
 import GrowthGenerationPage from "../pages/member/GrowthGenerationPage";
+import AddMemberPage from "../pages/member/AddMemberPage";
 import PackagesPage from "../pages/member/PackagesPage";
 import UpgradePackagePage from "../pages/member/UpgradePackagePage";
 import OrdersPage from "../pages/member/OrdersPage";
@@ -46,6 +47,7 @@ const MemberRoutes = () => {
 
         {/* Growth Generation Routes */}
         <Route path="growth-generation" element={<GrowthGenerationPage />} />
+        <Route path="add-member" element={<AddMemberPage />} />
         <Route path="growth-map" element={<Navigate to="../growth-generation" replace />} />
         <Route path="binary" element={<Navigate to="../growth-generation" replace />} />
         <Route path="genealogy" element={<Navigate to="../growth-generation" replace />} />

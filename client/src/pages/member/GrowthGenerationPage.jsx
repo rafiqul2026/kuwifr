@@ -1,5 +1,6 @@
 // client/src/pages/member/GrowthGenerationPage.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
@@ -56,7 +57,7 @@ const TreeBranchConnector = () => {
  * 🌲 Unlimited Depth Member Node Component
  * Recursively renders indefinitely whenever a left or right child node exists.
  */
-const GrowthGenerationNode = ({ node, onNodeClick, onMouseEnter, onMouseLeave, parentNode }) => {
+const GrowthGenerationNode = ({ node, onNodeClick, onVacantClick, onMouseEnter, onMouseLeave, parentNode, side }) => {
   const isVacant = !node || node.isVacant;
   // A "more" slot: the real child exists in the database but this response's
   // depth limit stopped short of fetching it (see hasMoreLeft/hasMoreRight
@@ -76,7 +77,14 @@ const GrowthGenerationNode = ({ node, onNodeClick, onMouseEnter, onMouseLeave, p
       onNodeClick(parentNode);
       return;
     }
-    if (!isVacant) onNodeClick(node);
+    // An Open Spot: open the new-member registration page for exactly this
+    // position (this parent + this side). The parent is whoever's child row
+    // this vacant slot was rendered in.
+    if (isVacant) {
+      if (onVacantClick && parentNode?.memberId && side) onVacantClick(parentNode, side);
+      return;
+    }
+    onNodeClick(node);
   };
 
   return (
@@ -91,7 +99,7 @@ const GrowthGenerationNode = ({ node, onNodeClick, onMouseEnter, onMouseLeave, p
           isMore
             ? 'This position already has a member — click to expand and view them'
             : isVacant
-              ? 'Open Position — available for new placement'
+              ? 'Open Position — click to register a new member here'
               : `Click to view ${node.fullName}'s growth generation`
         }
       >
@@ -132,7 +140,9 @@ const GrowthGenerationNode = ({ node, onNodeClick, onMouseEnter, onMouseLeave, p
               <GrowthGenerationNode
                 node={node.left || (node.hasMoreLeft ? { isMore: true } : { isVacant: true })}
                 parentNode={node}
+                side="left"
                 onNodeClick={onNodeClick}
+                onVacantClick={onVacantClick}
                 onMouseEnter={onMouseEnter}
                 onMouseLeave={onMouseLeave}
               />
@@ -146,7 +156,9 @@ const GrowthGenerationNode = ({ node, onNodeClick, onMouseEnter, onMouseLeave, p
               <GrowthGenerationNode
                 node={node.right || (node.hasMoreRight ? { isMore: true } : { isVacant: true })}
                 parentNode={node}
+                side="right"
                 onNodeClick={onNodeClick}
+                onVacantClick={onVacantClick}
                 onMouseEnter={onMouseEnter}
                 onMouseLeave={onMouseLeave}
               />
@@ -176,6 +188,7 @@ const countRegisteredMembers = (branchRoot) => {
 const GrowthGenerationPage = () => {
   const { user } = useAuth();
   const { showNotification } = useNotification();
+  const navigate = useNavigate();
 
   const [rootNode, setRootNode] = useState(null);
   const [currentRootId, setCurrentRootId] = useState(null);
@@ -237,6 +250,12 @@ const GrowthGenerationPage = () => {
   useEffect(() => {
     fetchGrowthGeneration();
   }, [fetchGrowthGeneration]);
+
+  const handleVacantClick = (parentNode, side) => {
+    navigate(
+      `/member/add-member?parent=${encodeURIComponent(parentNode.memberId)}&side=${side}`
+    );
+  };
 
   const handleNodeClick = (node) => {
     if (!node || node.isVacant) return;
@@ -416,6 +435,7 @@ const GrowthGenerationPage = () => {
               <GrowthGenerationNode
                 node={rootNode}
                 onNodeClick={handleNodeClick}
+                onVacantClick={handleVacantClick}
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
               />
