@@ -252,6 +252,7 @@ const AdminMembersPage = () => {
               <table className={styles.table}>
                 <thead>
                   <tr>
+                    <th className={styles.serialCol}>S.No.</th>
                     <th>Distributor</th>
                     <th>Member ID</th>
                     <th>Sponsor ID</th>
@@ -260,12 +261,15 @@ const AdminMembersPage = () => {
                     <th>Lifetime Income</th>
                     <th>Status</th>
                     <th>Joined</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
+                    <th className={styles.actionsCol} style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {members.map((member) => (
+                  {members.map((member, index) => (
                     <tr key={member._id} className={styles.tableRow}>
+                      <td className={styles.serialCol}>
+                        {(pagination.page - 1) * pagination.limit + index + 1}
+                      </td>
                       <td>
                         <div className={styles.userCell}>
                           <div className={styles.avatar}>
@@ -305,7 +309,7 @@ const AdminMembersPage = () => {
                       <td className={styles.dateCell}>
                         {new Date(member.createdAt || Date.now()).toLocaleDateString()}
                       </td>
-                      <td style={{ textAlign: 'right' }}>
+                      <td className={styles.actionsCol} style={{ textAlign: 'right' }}>
                         <div className={styles.actionGroup}>
                           <button
                             onClick={() => setSelectedMember(member)}

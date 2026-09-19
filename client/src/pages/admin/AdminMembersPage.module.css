@@ -165,6 +165,14 @@
 .tableResponsive {
   width: 100%;
   display: block;
+  /* The 9-column table (esp. the 3-control Actions cell) is wider than the
+     card on most desktop widths. .card's overflow:hidden was clipping the
+     overflow completely instead of scrolling to it — the Actions column
+     (delete button included) was rendering off-screen with no way to reach
+     it. Actions is also sticky-right (see .actionsCol) so it stays visible
+     without needing to scroll all the way over. */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 @media (max-width: 900px) {
@@ -175,8 +183,41 @@
 
 .table {
   width: 100%;
+  min-width: 1080px;
   border-collapse: collapse;
   text-align: left;
+}
+
+/* Serial number (sticky left) and Actions (sticky right, includes the
+   delete button) stay visible while the rest of the wide table scrolls
+   horizontally underneath them. */
+.serialCol {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #ffffff;
+  text-align: center;
+  color: #737373;
+  font-weight: 600;
+  width: 56px;
+}
+
+.table th.serialCol {
+  background: #f3f3f3;
+  z-index: 2;
+}
+
+.actionsCol {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: #ffffff;
+  box-shadow: -6px 0 8px -6px rgba(0, 0, 0, 0.08);
+}
+
+.table th.actionsCol {
+  background: #f3f3f3;
+  z-index: 2;
 }
 
 .table th {
