@@ -259,6 +259,52 @@
   flex-direction: column;
 }
 
+/* One settings "part" = one card with its own Save Changes button. */
+.partCard {
+  display: flex;
+  flex-direction: column;
+  background: #fdfaf5;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
+  padding: 22px 24px;
+  margin-bottom: 20px;
+}
+
+.partCard:last-child {
+  margin-bottom: 0;
+}
+
+.cardSaveBar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid #ece7db;
+}
+
+.cardUnsavedHint {
+  font-size: 12px;
+  font-weight: 700;
+  color: #b45309;
+}
+
+.saveBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (max-width: 600px) {
+  .partCard {
+    padding: 16px;
+  }
+  .cardSaveBar {
+    justify-content: space-between;
+  }
+}
+
 .sectionHeader {
   display: flex;
   justify-content: space-between;

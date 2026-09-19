@@ -1,5 +1,5 @@
 // client/src/pages/admin/AdminSettingsPage.jsx
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './AdminSettingsPage.module.css';
@@ -190,6 +190,17 @@ const AdminSettingsPage = () => {
     showNotification: (msg, type) => console.log(`[${type}] ${msg}`)
   };
 
+  // fetchSettings must run ONCE on mount — not every time the notification
+  // context hands back a new showNotification function. It used to list
+  // showNotification as a dependency, so any toast (e.g. after saving one
+  // card) re-fetched the settings and reset every card's form state,
+  // silently discarding edits made in the OTHER cards. Held in a ref so the
+  // loader stays stable while still calling the latest notifier.
+  const notifyRef = useRef(showNotification);
+  useEffect(() => {
+    notifyRef.current = showNotification;
+  });
+
   // Resilient multi-endpoint fetch
   const fetchSettings = useCallback(async () => {
     try {
@@ -227,11 +238,11 @@ const AdminSettingsPage = () => {
       }
     } catch (err) {
       console.error('Failed to load settings:', err);
-      showNotification('Unable to fetch live settings from cluster.', 'warning');
+      notifyRef.current('Unable to fetch live settings from cluster.', 'warning');
     } finally {
       setLoading(false);
     }
-  }, [showNotification]);
+  }, []);
 
   useEffect(() => {
     fetchSettings();
@@ -353,6 +364,93 @@ const AdminSettingsPage = () => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // ---------------------------------------------------------------------
+  // Per-card "Save Changes". Every settings card saves ONLY its own slice
+  // (not the whole page), so saving e.g. Leadership never pushes half-typed
+  // edits from another card, and each card's Save button clearly means
+  // "save what's in this card". The server already merges partial payloads
+  // per section (setting.controller.js#updateSettings), so a slice is sent
+  // as { company: {...} } or { compensation: { leadership: {...} } }.
+  // The page-level Save Changes / floating bar still save everything.
+  // ---------------------------------------------------------------------
+  const SECTION_SLICES = {
+    company: { top: ['company'] },
+    payment: { top: ['payment'] },
+    security: { top: ['security'] },
+    email: { top: ['email'] },
+    system: { top: ['system'] },
+    referralMatching: { comp: ['referral', 'matching'] },
+    leadership: { comp: ['leadership'] },
+    repurchase: { comp: ['repurchase'] },
+    withdrawal: { comp: ['withdrawal'] },
+    franchise: { comp: ['franchise'] }
+  };
+
+  const buildSectionPayload = (sectionId, source) => {
+    const slice = SECTION_SLICES[sectionId];
+    const payload = {};
+    (slice.top || []).forEach((key) => { payload[key] = source[key]; });
+    if (slice.comp) {
+      payload.compensation = {};
+      slice.comp.forEach((block) => { payload.compensation[block] = source.compensation[block]; });
+    }
+    return payload;
+  };
+
+  const isSectionDirty = (sectionId) =>
+    JSON.stringify(buildSectionPayload(sectionId, settings)) !==
+    JSON.stringify(buildSectionPayload(sectionId, savedBaseline));
+
+  const [savingSection, setSavingSection] = useState(null);
+
+  const handleSaveSection = async (sectionId, label) => {
+    const payload = buildSectionPayload(sectionId, settings);
+    setSavingSection(sectionId);
+    try {
+      let res;
+      try {
+        res = await api.put('/api/admin/settings', payload);
+      } catch {
+        res = await api.put('/api/settings', payload);
+      }
+      showNotification(`${label} saved successfully.`, 'success');
+      // Mark only THIS slice as saved — other cards' unsaved edits stay flagged.
+      setSavedBaseline((prev) => {
+        const next = { ...prev };
+        (SECTION_SLICES[sectionId].top || []).forEach((key) => { next[key] = payload[key]; });
+        if (payload.compensation) {
+          next.compensation = { ...prev.compensation, ...payload.compensation };
+        }
+        return next;
+      });
+      return res;
+    } catch (err) {
+      console.error('Section save error:', err);
+      showNotification(err.response?.data?.message || `Failed to save ${label}.`, 'error');
+      return null;
+    } finally {
+      setSavingSection(null);
+    }
+  };
+
+  const renderSaveBar = (sectionId, label) => {
+    const dirty = isSectionDirty(sectionId);
+    const busy = savingSection === sectionId;
+    return (
+      <div className={styles.cardSaveBar}>
+        {dirty && !busy && <span className={styles.cardUnsavedHint}>● Unsaved changes</span>}
+        <button
+          type="button"
+          className={styles.saveBtn}
+          onClick={() => handleSaveSection(sectionId, label)}
+          disabled={busy || isSaving}
+        >
+          {busy ? 'Saving...' : '💾 Save Changes'}
+        </button>
+      </div>
+    );
   };
 
   // Test Email
@@ -768,7 +866,7 @@ const AdminSettingsPage = () => {
           <form onSubmit={handleSaveSettings} className={styles.formContainer}>
             {/* TAB 1: Company Profile */}
             {activeTab === 'company' && (
-              <div className={styles.sectionBlock}>
+              <div className={styles.partCard}>
                 <div className={styles.sectionHeader}>
                   <div>
                     <h3>Company Legal Information</h3>
@@ -852,12 +950,14 @@ const AdminSettingsPage = () => {
                     />
                   </div>
                 </div>
+                {renderSaveBar('company', 'Company Profile')}
               </div>
             )}
 
             {/* TAB 2: Payment Gateway & Banking */}
             {activeTab === 'payment' && (
-              <div className={styles.sectionBlock}>
+              <>
+              <div className={styles.partCard}>
                 <div className={styles.sectionHeader}>
                   <div>
                     <h3>Payment Gateways & Direct Deposit Bank Account</h3>
@@ -978,11 +1078,15 @@ const AdminSettingsPage = () => {
                   </div>
                 </div>
 
+                {renderSaveBar('payment', 'Payment Gateway & Bank Details')}
+              </div>
+
+              <div className={styles.partCard}>
                 {/* "Scan and Pay" QR code — uploads immediately to Cloudinary
                     and goes live on the Buy Package / Upgrade / Repurchase
-                    checkout screens right away, independent of the main
-                    "Save Configuration" button below. */}
-                <div className={styles.sectionHeader} style={{ marginTop: '28px' }}>
+                    checkout screens right away, independent of the Save
+                    Changes buttons (it has its own "Upload & Go Live"). */}
+                <div className={styles.sectionHeader}>
                   <div>
                     <h3>Scan &amp; Pay QR Code</h3>
                     <p>Shown to members at checkout as the standee/fallback QR. Replace it anytime — takes effect immediately.</p>
@@ -1020,11 +1124,13 @@ const AdminSettingsPage = () => {
                   </div>
                 </div>
               </div>
+              </>
             )}
 
             {/* TAB: Commission & Level Income (Compensation Plan) */}
             {activeTab === 'compensation' && (
-              <div className={styles.sectionBlock}>
+              <>
+              <div className={styles.partCard}>
                 <div className={styles.sectionHeader}>
                   <div>
                     <h3>Direct Referral & Binary Matching Income</h3>
@@ -1098,7 +1204,11 @@ const AdminSettingsPage = () => {
                   </div>
                 </div>
 
-                <div className={styles.sectionHeader} style={{ marginTop: '28px' }}>
+                {renderSaveBar('referralMatching', 'Referral & Matching Income')}
+              </div>
+
+              <div className={styles.partCard}>
+                <div className={styles.sectionHeader}>
                   <div>
                     <h3>Leadership / Cheque Match Bonus</h3>
                     <p>Paid to a qualified leader's level-1/2/3 sponsor-tree upline as a % of the leader's own matching-income payout.</p>
@@ -1129,7 +1239,11 @@ const AdminSettingsPage = () => {
                   </div>
                 </div>
 
-                <div className={styles.sectionHeader} style={{ marginTop: '28px' }}>
+                {renderSaveBar('leadership', 'Leadership Bonus')}
+              </div>
+
+              <div className={styles.partCard}>
+                <div className={styles.sectionHeader}>
                   <div>
                     <h3>Repurchase Plan — 15-Level Downline Income</h3>
                     <p>20% self cashback plus a 15-level downline matrix. Level unlock count is based on active direct referrals.</p>
@@ -1207,7 +1321,11 @@ const AdminSettingsPage = () => {
                   ))}
                 </div>
 
-                <div className={styles.sectionHeader} style={{ marginTop: '28px' }}>
+                {renderSaveBar('repurchase', 'Repurchase Plan')}
+              </div>
+
+              <div className={styles.partCard}>
+                <div className={styles.sectionHeader}>
                   <div>
                     <h3>Withdrawal Deductions</h3>
                     <p>Applied to the gross amount requested on every payout.</p>
@@ -1288,7 +1406,11 @@ const AdminSettingsPage = () => {
                   )}
                 </div>
 
-                <div className={styles.sectionHeader} style={{ marginTop: '28px' }}>
+                {renderSaveBar('withdrawal', 'Withdrawal Deductions')}
+              </div>
+
+              <div className={styles.partCard}>
+                <div className={styles.sectionHeader}>
                   <div>
                     <h3>Franchise Commissions</h3>
                     <p>Commission rates for franchise partners.</p>
@@ -1318,12 +1440,14 @@ const AdminSettingsPage = () => {
                     />
                   </div>
                 </div>
+                {renderSaveBar('franchise', 'Franchise Commissions')}
               </div>
+              </>
             )}
 
             {/* TAB 3: Security & Access Control */}
             {activeTab === 'security' && (
-              <div className={styles.sectionBlock}>
+              <div className={styles.partCard}>
                 <div className={styles.sectionHeader}>
                   <div>
                     <h3>Session Authentication & Governance</h3>
@@ -1375,12 +1499,13 @@ const AdminSettingsPage = () => {
                     </label>
                   </div>
                 </div>
+                {renderSaveBar('security', 'Security & Auth')}
               </div>
             )}
 
             {/* TAB 4: Email & SMTP */}
             {activeTab === 'email' && (
-              <div className={styles.sectionBlock}>
+              <div className={styles.partCard}>
                 <div className={styles.sectionHeader}>
                   <div>
                     <h3>SMTP Email Dispatcher Configuration</h3>
@@ -1462,12 +1587,13 @@ const AdminSettingsPage = () => {
                     </label>
                   </div>
                 </div>
+                {renderSaveBar('email', 'Email & SMTP')}
               </div>
             )}
 
             {/* TAB 5: System & Maintenance Engine */}
             {activeTab === 'system' && (
-              <div className={styles.sectionBlock}>
+              <div className={styles.partCard}>
                 <div className={styles.sectionHeader}>
                   <div>
                     <h3>Global Engine Controls & Maintenance Mode</h3>
@@ -1547,6 +1673,8 @@ const AdminSettingsPage = () => {
                     </div>
                   </div>
                 </div>
+
+                {renderSaveBar('system', 'System & Engine Settings')}
 
                 {/* Data Integrity Tools — one-click, non-destructive repair
                     for the two known "member's data shows 0 / empty despite
