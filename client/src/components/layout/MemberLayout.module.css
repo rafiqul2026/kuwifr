@@ -318,40 +318,22 @@
   box-shadow: inset 3px 0 0 #008080;
 }
 
-/* 3D teal icon badge — a small raised square with a soft gradient +
-   highlight/shadow bevel, instead of a plain flat glyph. Color is fixed
-   (white glyph on the brand teal) regardless of row state, so every icon
-   in the list is always exactly the same color as every other one. */
+/* Flat teal glyph — no badge/background, just the icon itself colored in
+   the brand teal. Fixed color regardless of row hover/active state, so
+   every icon in the list is always exactly the same color as every
+   other one. */
 .navIcon {
-  width: 30px;
-  height: 30px;
-  min-width: 30px;
-  border-radius: 9px;
+  width: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(145deg, #00a3a3 0%, #006666 100%);
-  color: #ffffff;
-  box-shadow:
-    0 3px 6px rgba(0, 77, 77, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -2px 3px rgba(0, 0, 0, 0.25);
+  color: #006666;
   flex-shrink: 0;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .navIcon svg {
-  width: 15px;
-  height: 15px;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
-}
-
-.navItem.active .navIcon {
-  transform: scale(1.06);
-  box-shadow:
-    0 4px 10px rgba(0, 77, 77, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 -2px 3px rgba(0, 0, 0, 0.28);
+  width: 18px;
+  height: 18px;
 }
 
 .navLabel {
@@ -417,26 +399,17 @@
 }
 
 .submenuIcon {
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  border-radius: 7px;
+  width: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(145deg, #00a3a3 0%, #006666 100%);
-  color: #ffffff;
-  box-shadow:
-    0 2px 4px rgba(0, 77, 77, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.2);
+  color: #006666;
   flex-shrink: 0;
 }
 
 .submenuIcon svg {
-  width: 12px;
-  height: 12px;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
+  width: 14px;
+  height: 14px;
 }
 
 .sidebarFooter {
@@ -1195,25 +1168,16 @@
 }
 
 .drawerNavIcon {
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  border-radius: 10px;
+  width: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(145deg, #00a3a3 0%, #006666 100%);
-  color: #ffffff;
-  box-shadow:
-    0 4px 8px rgba(0, 77, 77, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -2px 3px rgba(0, 0, 0, 0.25);
+  color: #006666;
 }
 
 .drawerNavIcon svg {
-  width: 17px;
-  height: 17px;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+  width: 20px;
+  height: 20px;
 }
 
 .drawerNavText {
