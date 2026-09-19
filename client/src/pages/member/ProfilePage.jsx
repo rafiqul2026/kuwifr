@@ -15,6 +15,19 @@ const ProfilePage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [profileData, setProfileData] = useState(null);
 
+  // Change Password — real form (current/new/confirm, no OTP) against
+  // POST /api/auth/change-password. Replaces the previous stub button that
+  // only showed a fake "reset link sent" toast and called nothing.
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [pwForm, setPwForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+    signOutOtherDevices: false
+  });
+  const [showPw, setShowPw] = useState({ current: false, new: false, confirm: false });
+  const [changingPassword, setChangingPassword] = useState(false);
+
   // Form inputs
   const [formData, setFormData] = useState({
     fullName: '',
@@ -148,6 +161,50 @@ const ProfilePage = () => {
     }
   };
 
+  const resetPasswordModal = () => {
+    setShowPasswordModal(false);
+    setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '', signOutOtherDevices: false });
+    setShowPw({ current: false, new: false, confirm: false });
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (!pwForm.currentPassword || !pwForm.newPassword || !pwForm.confirmPassword) {
+      showNotification('Please fill in all password fields.', 'warning');
+      return;
+    }
+    if (pwForm.newPassword.length < 8) {
+      showNotification('New password must be at least 8 characters.', 'warning');
+      return;
+    }
+    if (pwForm.newPassword !== pwForm.confirmPassword) {
+      showNotification('New password and confirmation do not match.', 'warning');
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const res = await api.post('/api/auth/change-password', {
+        currentPassword: pwForm.currentPassword,
+        newPassword: pwForm.newPassword,
+        signOutOtherDevices: pwForm.signOutOtherDevices
+      });
+      // A fresh token is only returned when "sign out other devices" was
+      // checked (that action bumps tokenVersion, which would otherwise log
+      // THIS session out too on its very next request) — update the stored
+      // token so the current session stays logged in.
+      if (res.data?.data?.token) {
+        localStorage.setItem('token', res.data.data.token);
+      }
+      showNotification(res.data?.message || 'Password changed successfully.', 'success');
+      resetPasswordModal();
+    } catch (err) {
+      showNotification(err.response?.data?.message || 'Failed to change password.', 'error');
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   const activeUser = profileData || user;
   const memberJoinedFormatted = activeUser?.createdAt
     ? new Date(activeUser.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
@@ -168,14 +225,14 @@ const ProfilePage = () => {
           <button
             type="button"
             className={styles.btnSecondary}
-            onClick={() => showNotification('Password reset link sent to your registered email & phone OTP', 'info')}
-            title="Reset Password via OTP"
+            onClick={() => setShowPasswordModal(true)}
+            title="Change Password"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
               <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
             </svg>
-            <span>Change Password (OTP)</span>
+            <span>Change Password</span>
           </button>
 
           <button
@@ -504,6 +561,73 @@ const ProfilePage = () => {
           </div>
         )}
       </form>
+
+      {/* ================= CHANGE PASSWORD MODAL ================= */}
+      {showPasswordModal && (
+        <div className={styles.pwModalOverlay} onClick={() => !changingPassword && resetPasswordModal()}>
+          <div className={styles.pwModalCard} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.pwModalHeader}>
+              <div>
+                <h2>Change Password</h2>
+                <p>Use a strong password you don't reuse anywhere else.</p>
+              </div>
+              <button
+                type="button"
+                className={styles.pwModalCloseBtn}
+                onClick={resetPasswordModal}
+                disabled={changingPassword}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleChangePassword} className={styles.pwModalForm}>
+              {[
+                { key: 'currentPassword', showKey: 'current', label: 'Current password', placeholder: 'Your current password' },
+                { key: 'newPassword', showKey: 'new', label: 'New password', placeholder: 'At least 8 characters' },
+                { key: 'confirmPassword', showKey: 'confirm', label: 'Confirm new password', placeholder: 'Re-enter new password' }
+              ].map((field) => (
+                <div key={field.key} className={styles.pwFieldGroup}>
+                  <label htmlFor={field.key}>{field.label}</label>
+                  <div className={styles.pwInputWrapper}>
+                    <span className={styles.pwInputIcon}>🔒</span>
+                    <input
+                      id={field.key}
+                      type={showPw[field.showKey] ? 'text' : 'password'}
+                      placeholder={field.placeholder}
+                      value={pwForm[field.key]}
+                      onChange={(e) => setPwForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                      autoComplete={field.key === 'currentPassword' ? 'current-password' : 'new-password'}
+                    />
+                    <button
+                      type="button"
+                      className={styles.pwToggleBtn}
+                      onClick={() => setShowPw((prev) => ({ ...prev, [field.showKey]: !prev[field.showKey] }))}
+                      aria-label={showPw[field.showKey] ? 'Hide password' : 'Show password'}
+                    >
+                      {showPw[field.showKey] ? '🙈' : '👁️'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              <label className={styles.pwCheckboxRow}>
+                <input
+                  type="checkbox"
+                  checked={pwForm.signOutOtherDevices}
+                  onChange={(e) => setPwForm((prev) => ({ ...prev, signOutOtherDevices: e.target.checked }))}
+                />
+                <span>Sign me out of all other devices after changing the password.</span>
+              </label>
+
+              <button type="submit" className={styles.pwSubmitBtn} disabled={changingPassword}>
+                {changingPassword ? 'Updating...' : '🔑 Update Password'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

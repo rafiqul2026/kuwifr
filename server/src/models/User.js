@@ -115,6 +115,18 @@ const UserSchema = new mongoose.Schema(
       enum: ['left', 'right', 'root'],
       default: 'root'
     },
+    // Incremented whenever this member changes their password with "sign
+    // me out of all other devices" checked (see auth.controller.js#
+    // changePasswordDirect). Embedded in every JWT at issue time; the auth
+    // middleware rejects any token whose embedded tokenVersion doesn't match
+    // this current value, which is what actually invalidates every
+    // previously-issued token at once — JWTs are otherwise stateless and
+    // can't be revoked individually. Defaults to 0 so every token issued
+    // before this field existed still matches (decoded.tokenVersion || 0).
+    tokenVersion: {
+      type: Number,
+      default: 0
+    },
     activePackageId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Package',

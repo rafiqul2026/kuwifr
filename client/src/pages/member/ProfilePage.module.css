@@ -516,6 +516,161 @@
 }
 
 /* ============================================================
+   🔑 CHANGE PASSWORD MODAL
+   ============================================================ */
+.pwModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 23, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1000;
+}
+
+.pwModalCard {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e5e5e5;
+  width: 100%;
+  max-width: 440px;
+  padding: 24px;
+  box-sizing: border-box;
+  box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.pwModalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.pwModalHeader h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1c2a2a;
+  margin: 0 0 4px 0;
+}
+
+.pwModalHeader p {
+  font-size: 12.5px;
+  color: #737373;
+  margin: 0;
+}
+
+.pwModalCloseBtn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: #a3a3a3;
+  cursor: pointer;
+  padding: 2px 6px;
+  line-height: 1;
+}
+
+.pwModalCloseBtn:hover {
+  color: #1c2a2a;
+}
+
+.pwModalForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pwFieldGroup label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1c2a2a;
+  margin-bottom: 6px;
+}
+
+.pwInputWrapper {
+  display: flex;
+  align-items: center;
+  border: 1px solid #d4d4d4;
+  border-radius: 9px;
+  padding: 0 12px;
+  background: #ffffff;
+}
+
+.pwInputWrapper:focus-within {
+  border-color: #008080;
+  box-shadow: 0 0 0 3px rgba(0, 128, 128, 0.12);
+}
+
+.pwInputIcon {
+  font-size: 13px;
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.pwInputWrapper input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  padding: 10px 10px;
+  font-size: 13.5px;
+  background: transparent;
+  color: #1c2a2a;
+}
+
+.pwToggleBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.pwToggleBtn:hover {
+  opacity: 1;
+}
+
+.pwCheckboxRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #525252;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.pwCheckboxRow input {
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: #008080;
+}
+
+.pwSubmitBtn {
+  background: #008080;
+  color: #ffffff;
+  border: none;
+  padding: 11px 20px;
+  border-radius: 9px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.pwSubmitBtn:hover:not(:disabled) {
+  background: #006666;
+}
+
+.pwSubmitBtn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* ============================================================
    📱 MOBILE RESPONSIVENESS
    ============================================================ */
 @media (max-width: 768px) {

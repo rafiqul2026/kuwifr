@@ -7,8 +7,12 @@ const BinaryNode = require("../models/BinaryNode");
 const BinaryService = require("../services/binary.service");
 const EmailService = require("../services/email.service");
 
-const generateToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, {
+// tokenVersion defaults to 0 for every existing call site that doesn't pass
+// one — matches the auth middleware's own (decoded.tokenVersion || 0)
+// fallback, so this change never invalidates a token that was already
+// valid before tokenVersion existed.
+const generateToken = (userId, tokenVersion = 0) => {
+  return jwt.sign({ userId, tokenVersion }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || "7d",
   });
 };
@@ -225,7 +229,7 @@ const register = async (req, res, next) => {
       { upsert: true, new: true, setDefaultsOnInsert: true }
     ).catch(() => {});
 
-    const token = generateToken(user._id);
+    const token = generateToken(user._id, user.tokenVersion || 0);
     setTokenCookie(res, token);
 
     const userResponse = user.toObject();
@@ -314,7 +318,7 @@ const login = async (req, res, next) => {
     user.lastLogin = new Date();
     await user.save();
 
-    const token = generateToken(user._id);
+    const token = generateToken(user._id, user.tokenVersion || 0);
     setTokenCookie(res, token);
 
     const userResponse = user.toObject();
@@ -373,7 +377,7 @@ const refreshToken = async (req, res, next) => {
         });
     }
 
-    const newToken = generateToken(user._id);
+    const newToken = generateToken(user._id, user.tokenVersion || 0);
     setTokenCookie(res, newToken);
 
     const userResponse = user.toObject();
@@ -582,6 +586,74 @@ const changePasswordWithOTP = async (req, res, next) => {
   }
 };
 
+// ============ CHANGE PASSWORD (direct — current password only, no OTP) ============
+// The Member Profile page's password-change control used to be a pure UI
+// stub: clicking it just showed a static "Password reset link sent..."
+// toast and called nothing. This is the real endpoint behind its
+// replacement — a standard logged-in "enter current password, set a new
+// one" form, no OTP step (that flow already exists separately for Forgot
+// Password / the Admin panel's OTP-based change-password, both untouched).
+//
+// "Sign me out of all other devices": JWTs are stateless, so there's no
+// session to individually revoke — instead this bumps the user's
+// tokenVersion, which the auth middleware compares against every
+// subsequent request's token. Every token issued before this call now
+// fails that check and is rejected, while THIS request's own new token
+// (returned in the response, embedding the just-bumped tokenVersion) keeps
+// the current session logged in.
+const changePasswordDirect = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword, signOutOtherDevices } = req.body;
+    const userId = req.userId;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password and new password are required",
+      });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 8 characters long",
+      });
+    }
+
+    const user = await User.findById(userId).select("+password");
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Current password is incorrect" });
+    }
+
+    user.password = newPassword;
+    if (signOutOtherDevices) {
+      user.tokenVersion = (user.tokenVersion || 0) + 1;
+    }
+    await user.save();
+
+    const responseData = {};
+    if (signOutOtherDevices) {
+      const freshToken = generateToken(user._id, user.tokenVersion);
+      setTokenCookie(res, freshToken);
+      responseData.token = freshToken;
+    }
+
+    res.json({
+      success: true,
+      message: signOutOtherDevices
+        ? "Password changed. You've been signed out of all other devices."
+        : "Password changed successfully!",
+      data: responseData,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ============ LOGOUT ============
 const logout = async (req, res) => {
   res.clearCookie("token", {
@@ -623,4 +695,5 @@ module.exports = {
   resetPasswordWithOTP,
   sendChangePasswordOTP,
   changePasswordWithOTP,
+  changePasswordDirect,
 };

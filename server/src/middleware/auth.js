@@ -39,6 +39,20 @@ const auth = async (req, res, next) => {
       });
     }
 
+    // Reject any token issued before the user's most recent "sign out of
+    // all other devices" password change (see auth.controller.js#
+    // changePasswordDirect). JWTs are stateless — this comparison against
+    // the live tokenVersion on the user document is what actually revokes
+    // every previously-issued token at once. Both sides default to 0 so a
+    // token issued before tokenVersion existed still matches a user who
+    // has never used this feature.
+    if ((decoded.tokenVersion || 0) !== (user.tokenVersion || 0)) {
+      return res.status(401).json({
+        success: false,
+        message: 'Session invalidated — please log in again.'
+      });
+    }
+
     // Check if user is active
     if (user.status === 'SUSPENDED' || user.status === 'DEACTIVATED') {
       return res.status(403).json({
@@ -151,7 +165,8 @@ const optionalAuth = async (req, res, next) => {
     if (token) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const user = await User.findById(decoded.userId).select('-password');
-      if (user && user.status === 'ACTIVE') {
+      const tokenStillValid = (decoded.tokenVersion || 0) === (user?.tokenVersion || 0);
+      if (user && user.status === 'ACTIVE' && tokenStillValid) {
         req.user = user;
         req.userId = user._id;
       }
