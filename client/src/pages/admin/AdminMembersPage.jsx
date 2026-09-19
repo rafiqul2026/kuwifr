@@ -16,6 +16,7 @@ const AdminMembersPage = () => {
   const [selectedMember, setSelectedMember] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
   const [copiedField, setCopiedField] = useState(null);
+  const [gotoPageInput, setGotoPageInput] = useState('');
 
   // Permanent member deletion — a typed-confirmation modal (must type the
   // member's exact ID) instead of a plain Yes/No, since this destroys real
@@ -84,6 +85,17 @@ const AdminMembersPage = () => {
     }, 250);
     return () => clearTimeout(timer);
   }, [fetchMembers]);
+
+  const handleGotoPage = (e) => {
+    e.preventDefault();
+    const target = parseInt(gotoPageInput, 10);
+    if (!target || target < 1 || target > pagination.pages) {
+      notify(`Enter a page number between 1 and ${pagination.pages}.`, 'warning');
+      return;
+    }
+    fetchMembers(target);
+    setGotoPageInput('');
+  };
 
   const handleStatusChange = async (memberId, newStatus) => {
     try {
@@ -421,6 +433,22 @@ const AdminMembersPage = () => {
                 <span className={styles.pageInfo}>
                   Showing page {pagination.page} of {pagination.pages} ({pagination.total} distributors)
                 </span>
+                <form onSubmit={handleGotoPage} className={styles.gotoPageForm}>
+                  <label htmlFor="gotoPageInput" className={styles.gotoPageLabel}>Go to page</label>
+                  <input
+                    id="gotoPageInput"
+                    type="number"
+                    min="1"
+                    max={pagination.pages}
+                    value={gotoPageInput}
+                    onChange={(e) => setGotoPageInput(e.target.value)}
+                    placeholder={`1-${pagination.pages}`}
+                    className={styles.gotoPageInput}
+                  />
+                  <button type="submit" className={styles.gotoPageBtn}>
+                    Go
+                  </button>
+                </form>
                 <div className={styles.pageBtns}>
                   <button
                     disabled={pagination.page <= 1}

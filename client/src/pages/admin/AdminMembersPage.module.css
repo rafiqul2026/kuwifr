@@ -482,6 +482,48 @@
   gap: 8px;
 }
 
+.gotoPageForm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gotoPageLabel {
+  font-size: 12px;
+  color: #737373;
+  white-space: nowrap;
+}
+
+.gotoPageInput {
+  width: 64px;
+  padding: 6px 8px;
+  border: 1px solid #d4d4d4;
+  border-radius: 6px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.gotoPageInput:focus {
+  outline: none;
+  border-color: #008080;
+  box-shadow: 0 0 0 2px rgba(0, 128, 128, 0.15);
+}
+
+.gotoPageBtn {
+  background: #008080;
+  color: #ffffff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gotoPageBtn:hover {
+  background: #006666;
+}
+
 .pageBtn {
   background: #ffffff;
   border: 1px solid #d4d4d4;
