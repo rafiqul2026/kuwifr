@@ -57,7 +57,7 @@ const WithdrawalsPage = () => {
   // backend read these dynamically, so an admin changing them had no effect
   // on what the member actually saw or could submit. Defaults below match
   // the business rule and only apply until the real settings load.
-  const [withdrawalConfig, setWithdrawalConfig] = useState({ minAmount: 500, adminChargeRate: 0.05, tdsRate: 0.05 });
+  const [withdrawalConfig, setWithdrawalConfig] = useState({ minAmount: 500, adminChargeRate: 0.05, serviceChargeRate: 0.05, tdsRate: 0.05 });
 
   // Form state initialized to minimum ₹500
   const [amount, setAmount] = useState('500');
@@ -72,6 +72,32 @@ const WithdrawalsPage = () => {
 
   const [fieldErrors, setFieldErrors] = useState({});
 
+  // Only replaces state when a rate actually changed, so the periodic
+  // refresh below never causes needless re-renders.
+  const applyWithdrawalConfig = useCallback((live) => {
+    if (!live) return;
+    const next = {
+      minAmount: Number(live.minAmount ?? 500),
+      adminChargeRate: Number(live.adminChargeRate ?? 0.05),
+      serviceChargeRate: Number(live.serviceChargeRate ?? 0.05),
+      tdsRate: Number(live.tdsRate ?? 0.05)
+    };
+    setWithdrawalConfig((prev) => (
+      Object.keys(next).every((k) => prev[k] === next[k]) ? prev : next
+    ));
+  }, []);
+
+  // Lightweight settings-only refresh (no loading spinner, doesn't touch the
+  // form) so a rate the admin just changed shows up here right away.
+  const refreshWithdrawalConfig = useCallback(async () => {
+    try {
+      const res = await api.get('/api/settings');
+      applyWithdrawalConfig(res?.data?.data?.compensation?.withdrawal);
+    } catch {
+      /* keep the last known rates */
+    }
+  }, [applyWithdrawalConfig]);
+
   // Fetch Live Profile, Balance, and History
   const fetchWalletAndProfile = useCallback(async () => {
     try {
@@ -84,14 +110,7 @@ const WithdrawalsPage = () => {
         api.get('/api/settings').catch(() => null)
       ]);
 
-      const liveWithdrawalConfig = settingsRes?.data?.data?.compensation?.withdrawal;
-      if (liveWithdrawalConfig) {
-        setWithdrawalConfig({
-          minAmount: Number(liveWithdrawalConfig.minAmount ?? 500),
-          adminChargeRate: Number(liveWithdrawalConfig.adminChargeRate ?? 0.05),
-          tdsRate: Number(liveWithdrawalConfig.tdsRate ?? 0.05)
-        });
-      }
+      applyWithdrawalConfig(settingsRes?.data?.data?.compensation?.withdrawal);
 
       const historyList = historyRes?.data?.data || [];
       const safeHistory = Array.isArray(historyList) ? historyList : historyList.withdrawals || [];
@@ -129,18 +148,35 @@ const WithdrawalsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, applyWithdrawalConfig]);
 
   useEffect(() => {
     fetchWalletAndProfile();
   }, [fetchWalletAndProfile]);
 
+  // Keep rates live: re-check every 15s while the tab is visible, and
+  // immediately when the member returns to the tab.
+  useEffect(() => {
+    const tick = () => { if (document.visibilityState === 'visible') refreshWithdrawalConfig(); };
+    const timer = setInterval(tick, 15000);
+    document.addEventListener('visibilitychange', tick);
+    window.addEventListener('focus', tick);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', tick);
+      window.removeEventListener('focus', tick);
+    };
+  }, [refreshWithdrawalConfig]);
+
   // Deductions computed from the live admin-configured rates (defaults:
-  // 5% TDS + 5% Admin Handling = 10% total, 90% net).
+  // 5% TDS + 5% Admin Handling + 5% Service Charge = 15% total, 85% net).
+  // Must mirror createWithdrawal on the server.
   const numericAmount = Number(amount) || 0;
   const tdsAmount = Math.round(numericAmount * withdrawalConfig.tdsRate);
   const adminCharge = Math.round(numericAmount * withdrawalConfig.adminChargeRate);
-  const netPayable = Math.max(0, numericAmount - (tdsAmount + adminCharge));
+  const serviceCharge = Math.round(numericAmount * withdrawalConfig.serviceChargeRate);
+  const netPayable = Math.max(0, numericAmount - (tdsAmount + adminCharge + serviceCharge));
+  const pct = (rate) => `${Math.round(rate * 10000) / 100}%`;
 
   // Real, derived-only summary numbers for the KPI strip — every figure
   // here is computed straight from the withdrawal history already fetched
@@ -386,12 +422,16 @@ const WithdrawalsPage = () => {
                 <strong>₹{numericAmount.toLocaleString('en-IN')}</strong>
               </div>
               <div className={styles.breakdownRow}>
-                <span>TDS Deduction ({Math.round(withdrawalConfig.tdsRate * 100)}%):</span>
+                <span>TDS Deduction ({pct(withdrawalConfig.tdsRate)}):</span>
                 <span className={styles.deductText}>- ₹{tdsAmount.toLocaleString('en-IN')}</span>
               </div>
               <div className={styles.breakdownRow}>
-                <span>Admin Handling ({Math.round(withdrawalConfig.adminChargeRate * 100)}%):</span>
+                <span>Admin Handling ({pct(withdrawalConfig.adminChargeRate)}):</span>
                 <span className={styles.deductText}>- ₹{adminCharge.toLocaleString('en-IN')}</span>
+              </div>
+              <div className={styles.breakdownRow}>
+                <span>Service Charge ({pct(withdrawalConfig.serviceChargeRate)}):</span>
+                <span className={styles.deductText}>- ₹{serviceCharge.toLocaleString('en-IN')}</span>
               </div>
               <div className={styles.breakdownDivider}></div>
               <div className={styles.breakdownTotalRow}>

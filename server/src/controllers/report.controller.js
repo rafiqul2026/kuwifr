@@ -509,12 +509,14 @@ const getTaxReport = async (req, res, next) => {
 
     const totalTDS = withdrawals.reduce((sum, w) => sum + Number(w.tdsAmount || 0), 0);
     const totalAdminCharge = withdrawals.reduce((sum, w) => sum + Number(w.adminCharge || w.adminFee || 0), 0);
+    const totalServiceCharge = withdrawals.reduce((sum, w) => sum + Number(w.serviceCharge || 0), 0);
 
     res.status(200).json({
       success: true,
       data: {
         totalTDS,
         totalAdminCharge,
+        totalServiceCharge,
         withdrawals: withdrawals || []
       }
     });
@@ -546,9 +548,9 @@ const exportReportCSV = async (req, res, next) => {
       const withdrawals = await Withdrawal.find(getDateFilter(startDate, endDate))
         .populate('userId', 'fullName email')
         .lean();
-      csv = 'Transaction ID,Member Name,Gross Amount,TDS Amount,Admin Charge,Net Amount,Status,Date\n';
+      csv = 'Transaction ID,Member Name,Gross Amount,TDS Amount,Admin Charge,Service Charge,Net Amount,Status,Date\n';
       withdrawals.forEach((w) => {
-        csv += `"${w.withdrawalNumber || w.transactionId || ''}","${w.userId?.fullName || 'N/A'}",${w.grossAmount || w.amount || 0},${w.tdsAmount || 0},${w.adminCharge || w.adminFee || 0},${w.netAmount || 0},"${w.status || ''}","${w.createdAt ? new Date(w.createdAt).toISOString().split('T')[0] : ''}"\n`;
+        csv += `"${w.withdrawalNumber || w.transactionId || ''}","${w.userId?.fullName || 'N/A'}",${w.grossAmount || w.amount || 0},${w.tdsAmount || 0},${w.adminCharge || w.adminFee || 0},${w.serviceCharge || 0},${w.netAmount || 0},"${w.status || ''}","${w.createdAt ? new Date(w.createdAt).toISOString().split('T')[0] : ''}"\n`;
       });
     } else if (type === 'sales') {
       const orders = await Order.find({ ...PAID_ORDER_MATCH, ...getDateFilter(startDate, endDate) }).lean();

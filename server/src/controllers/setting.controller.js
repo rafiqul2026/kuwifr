@@ -122,6 +122,9 @@ exports.getSettings = async (req, res, next) => {
   try {
     const settings = await getOrSeedSettings();
     const publicSettings = toPublicSettings(settings);
+    // Rates/bank details must never be served stale by a browser or CDN —
+    // an admin change has to show up on the member's very next fetch.
+    res.set('Cache-Control', 'no-store');
     return res.status(200).json({
       success: true,
       data: publicSettings,

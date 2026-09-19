@@ -51,7 +51,12 @@ const WithdrawalSchema = new mongoose.Schema({
   serviceCharge: {
     type: Number,
     default: 0,
-    comment: 'No service charge (cancelled)'
+    comment: 'Service charge amount (rate from Admin Settings > Withdrawal Deductions)'
+  },
+  serviceChargeRate: {
+    type: Number,
+    default: 0,
+    comment: 'Service charge rate applied when this request was created'
   },
   netAmount: {
     type: Number,

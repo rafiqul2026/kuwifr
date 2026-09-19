@@ -77,6 +77,11 @@ const createWithdrawal = async (req, res, next) => {
     // & Withdrawal Setup). This used to hardcode a ₹500 floor regardless of
     // what the admin set here, so the dynamic control silently did nothing —
     // both values are now read live, same as every other compensation figure.
+    // Bypass the 15s settings cache for this money path: the member page
+    // reads /api/settings straight from the DB, so this guarantees the rates
+    // applied here are exactly the ones the member just saw — even on a
+    // serverless instance that hasn't seen the admin's latest save yet.
+    SettingsService.invalidateCache();
     const withdrawalSettings = await SettingsService.getWithdrawal();
 
     if (withdrawalSettings.stopWithdrawals) {
@@ -159,13 +164,20 @@ const createWithdrawal = async (req, res, next) => {
     // pattern as minAmount above) instead of a hardcoded 5%/5% — this used
     // to ignore the Admin Settings "Commission & Withdrawal Setup" sliders
     // entirely, so changing them there silently did nothing to real
-    // withdrawals. Defaults still produce exactly 10% total (5% admin + 5%
-    // TDS), 90% net to the member, matching the business rule.
+    // withdrawals.
+    // Service Charge (Admin Settings > Withdrawal Deductions) was configurable
+    // and stored, but this real payout path never read it — only the
+    // separate, unused WithdrawalService.calculateWithdrawal did — so
+    // changing it from the admin panel had no effect on what members were
+    // actually paid or shown. All three deductions are applied here now
+    // (defaults: 5% admin + 5% service + 5% TDS, per the business plan).
     const adminChargeRate = Number(withdrawalSettings.adminChargeRate ?? 0.05);
+    const serviceChargeRate = Number(withdrawalSettings.serviceChargeRate ?? 0.05);
     const tdsRate = Number(withdrawalSettings.tdsRate ?? 0.05);
     const tdsAmount = Math.round(requestedAmount * tdsRate);
     const adminCharge = Math.round(requestedAmount * adminChargeRate);
-    const netAmount = requestedAmount - (tdsAmount + adminCharge);
+    const serviceCharge = Math.round(requestedAmount * serviceChargeRate);
+    const netAmount = requestedAmount - (tdsAmount + adminCharge + serviceCharge);
     const uniqueTxn = `WTH-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 900 + 100)}`;
 
     const completeBankDetails = {
@@ -190,7 +202,11 @@ const createWithdrawal = async (req, res, next) => {
       amount: requestedAmount,
       grossAmount: requestedAmount,
       tdsAmount,
+      tdsRate,
       adminCharge,
+      adminChargeRate,
+      serviceCharge,
+      serviceChargeRate,
       netAmount,
       status: 'PENDING',
       paymentMethod: 'IMPS_BANK',
@@ -230,8 +246,9 @@ const createWithdrawal = async (req, res, next) => {
           grossAmount: requestedAmount,
           tdsAmount,
           adminCharge,
+          serviceCharge,
           netAmount,
-          totalDeduction: tdsAmount + adminCharge
+          totalDeduction: tdsAmount + adminCharge + serviceCharge
         }
       }
     });

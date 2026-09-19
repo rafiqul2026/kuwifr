@@ -182,7 +182,7 @@ const AdminWithdrawalsPage = () => {
           </div>
           <h1 className={styles.title}>Withdrawal Management</h1>
           <p className={styles.subtitle}>
-            Audit member payouts, automated 5% TDS and 5% Admin deductions, and record bank IMPS references.
+            Audit member payouts, automated TDS, Admin and Service Charge deductions, and record bank IMPS references.
           </p>
         </div>
 
@@ -208,7 +208,7 @@ const AdminWithdrawalsPage = () => {
           <span className={styles.statHelp}>{stats.totalCount || 0} total claims</span>
         </div>
         <div className={styles.statCard}>
-          <span className={styles.statLabel}>Statutory TDS (5%)</span>
+          <span className={styles.statLabel}>Statutory TDS</span>
           <strong className={`${styles.statValue} ${styles.blueText}`}>
             ₹{(stats.totalTds || 0).toLocaleString('en-IN')}
           </strong>
@@ -285,8 +285,9 @@ const AdminWithdrawalsPage = () => {
                 <th>TRANSACTION #</th>
                 <th>BENEFICIARY MEMBER</th>
                 <th>GROSS AMOUNT</th>
-                <th>ADMIN FEE (5%)</th>
-                <th>TDS (5%)</th>
+                <th>ADMIN FEE</th>
+                <th>SERVICE CHARGE</th>
+                <th>TDS</th>
                 <th>NET PAYABLE</th>
                 <th>STATUS</th>
                 <th style={{ textAlign: 'right' }}>ACTIONS</th>
@@ -305,7 +306,10 @@ const AdminWithdrawalsPage = () => {
                 const gross = Number(w.grossAmount || w.amount || 0);
                 const adminFee = Number(w.adminCharge !== undefined ? w.adminCharge : Math.round(gross * 0.05));
                 const tds = Number(w.tdsAmount !== undefined ? w.tdsAmount : Math.round(gross * 0.05));
-                const net = Number(w.netAmount !== undefined ? w.netAmount : (gross - adminFee - tds));
+                // Older requests (before Service Charge was applied to real
+                // payouts) stored 0 here, so their net is unchanged.
+                const serviceFee = Number(w.serviceCharge || 0);
+                const net = Number(w.netAmount !== undefined ? w.netAmount : (gross - adminFee - serviceFee - tds));
 
                 return (
                   <tr key={id}>
@@ -331,6 +335,9 @@ const AdminWithdrawalsPage = () => {
                     </td>
                     <td className={styles.deductText}>
                       -₹{adminFee.toLocaleString('en-IN')}
+                    </td>
+                    <td className={styles.deductText}>
+                      -₹{serviceFee.toLocaleString('en-IN')}
                     </td>
                     <td className={styles.deductText}>
                       -₹{tds.toLocaleString('en-IN')}
@@ -447,12 +454,16 @@ const AdminWithdrawalsPage = () => {
                   <strong>₹{Number(selectedPayout.grossAmount || selectedPayout.amount).toLocaleString('en-IN')}</strong>
                 </div>
                 <div>
-                  <small>TDS (5%)</small>
+                  <small>TDS{selectedPayout.tdsRate != null ? ` (${Math.round(selectedPayout.tdsRate * 10000) / 100}%)` : ''}</small>
                   <span className={styles.redNumber}>-₹{Number(selectedPayout.tdsAmount).toLocaleString('en-IN')}</span>
                 </div>
                 <div>
-                  <small>Admin (5%)</small>
+                  <small>Admin{selectedPayout.adminChargeRate != null ? ` (${Math.round(selectedPayout.adminChargeRate * 10000) / 100}%)` : ''}</small>
                   <span className={styles.redNumber}>-₹{Number(selectedPayout.adminCharge).toLocaleString('en-IN')}</span>
+                </div>
+                <div>
+                  <small>Service{Number(selectedPayout.serviceChargeRate) > 0 ? ` (${Math.round(selectedPayout.serviceChargeRate * 10000) / 100}%)` : ''}</small>
+                  <span className={styles.redNumber}>-₹{Number(selectedPayout.serviceCharge || 0).toLocaleString('en-IN')}</span>
                 </div>
                 <div>
                   <small>Net Payable</small>
