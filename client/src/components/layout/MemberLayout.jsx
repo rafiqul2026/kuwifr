@@ -21,7 +21,9 @@ import {
   FiAward,
   FiHome,
   FiBell,
-  FiHeadphones
+  FiHeadphones,
+  FiKey,
+  FiLogOut
 } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
 import styles from "./MemberLayout.module.css";
@@ -385,7 +387,7 @@ const MemberLayout = () => {
                     navigate("/member/profile");
                   }}
                 >
-                  <span className={styles.accountMenuIcon}>👤</span> Account
+                  <span className={styles.accountMenuIcon}><FiUser /></span> Account
                 </button>
                 <button
                   type="button"
@@ -395,7 +397,7 @@ const MemberLayout = () => {
                     navigate("/member/notifications");
                   }}
                 >
-                  <span className={styles.accountMenuIcon}>🔔</span> Notifications
+                  <span className={styles.accountMenuIcon}><FiBell /></span> Notifications
                 </button>
                 <button
                   type="button"
@@ -405,7 +407,7 @@ const MemberLayout = () => {
                     navigate("/member/profile", { state: { openChangePassword: true } });
                   }}
                 >
-                  <span className={styles.accountMenuIcon}>🔑</span> Change Password
+                  <span className={styles.accountMenuIcon}><FiKey /></span> Change Password
                 </button>
                 <div className={styles.accountMenuDivider} />
                 <button
@@ -413,7 +415,7 @@ const MemberLayout = () => {
                   className={`${styles.accountMenuItem} ${styles.accountMenuItemDanger}`}
                   onClick={handleLogout}
                 >
-                  <span className={styles.accountMenuIcon}>🚪</span> Log out
+                  <span className={styles.accountMenuIcon}><FiLogOut /></span> Log out
                 </button>
               </div>
             )}

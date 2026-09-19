@@ -550,10 +550,20 @@
   background: #fdfaf5;
 }
 
+/* Same flat teal glyph treatment as the main nav list icons (.navIcon) —
+   fixed color regardless of the row's own text color (e.g. Log out's red
+   label), so every icon in the sidebar reads as one consistent set. */
 .accountMenuIcon {
-  font-size: 14px;
   width: 18px;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #006666;
+}
+
+.accountMenuIcon svg {
+  width: 15px;
+  height: 15px;
 }
 
 .accountMenuDivider {
