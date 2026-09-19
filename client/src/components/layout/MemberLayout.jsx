@@ -2,47 +2,73 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
+import {
+  FiGrid,
+  FiUser,
+  FiCreditCard,
+  FiDollarSign,
+  FiTarget,
+  FiShoppingBag,
+  FiTrendingUp,
+  FiUsers,
+  FiBarChart2,
+  FiGitBranch,
+  FiPackage,
+  FiShoppingCart,
+  FiArrowUpCircle,
+  FiClipboard,
+  FiSend,
+  FiAward,
+  FiHome,
+  FiBell,
+  FiHeadphones
+} from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
 import styles from "./MemberLayout.module.css";
 
 // 🧭 FULL MEMBER NAVIGATION CONFIGURATION (Profile configured as Collapsible Dropdown)
+// Icons: a single standard set (Feather, via react-icons/fi) instead of the
+// previous mixed-color platform emoji — every icon now renders in the same
+// currentColor as its label (muted gray at rest, teal when active/hovered,
+// exactly like the text), so the whole list reads as one consistent icon
+// set instead of a jumble of different-colored glyphs.
 const navItems = [
-  { id: "dashboard", label: "Dashboard", icon: "📊", path: "/member/dashboard" },
+  { id: "dashboard", label: "Dashboard", icon: <FiGrid />, path: "/member/dashboard" },
   {
     id: "profile_group",
     label: "Profile",
-    icon: "👤",
+    icon: <FiUser />,
     path: "/member/profile",
     isDropdown: true,
     subItems: [
-      { id: "my_profile", label: "My Profile", icon: "👤", path: "/member/profile" },
-      { id: "kyc_verification", label: "KYC Verification", icon: "🪪", path: "/member/kyc" }
+      { id: "my_profile", label: "My Profile", icon: <FiUser />, path: "/member/profile" },
+      { id: "kyc_verification", label: "KYC Verification", icon: <FiCreditCard />, path: "/member/kyc" }
     ]
   },
-  { id: "wallet", label: "Wallet & Payouts", icon: "💰", path: "/member/wallet" },
-  { id: "bonanza", label: "Bonanza Offers", icon: "🎯", path: "/member/bonanza" },
-  { id: "repurchase", label: "Repurchase Store", icon: "🛍️", path: "/member/repurchase" },
-  { id: "income", label: "Income Stream", icon: "📈", path: "/member/income" },
-  { id: "team", label: "My Team", icon: "👥", path: "/member/team" },
-  { id: "business", label: "My Business", icon: "📊", path: "/member/business" },
-  { id: "growth_generation", label: "Growth Generation", icon: "🌳", path: "/member/growth-generation" },
+  { id: "wallet", label: "Wallet & Payouts", icon: <FiDollarSign />, path: "/member/wallet" },
+  { id: "bonanza", label: "Bonanza Offers", icon: <FiTarget />, path: "/member/bonanza" },
+  { id: "repurchase", label: "Repurchase Store", icon: <FiShoppingBag />, path: "/member/repurchase" },
+  { id: "income", label: "Income Stream", icon: <FiTrendingUp />, path: "/member/income" },
+  { id: "team", label: "My Team", icon: <FiUsers />, path: "/member/team" },
+  { id: "business", label: "My Business", icon: <FiBarChart2 />, path: "/member/business" },
+  { id: "growth_generation", label: "Growth Generation", icon: <FiGitBranch />, path: "/member/growth-generation" },
   {
     id: "package_group",
     label: "Package",
-    icon: "📦",
+    icon: <FiPackage />,
     path: "/member/packages",
     isDropdown: true,
     subItems: [
-      { id: "buy_package", label: "Buy Package", icon: "🛍️", path: "/member/packages" },
-      { id: "upgrade_package", label: "Upgrade Package", icon: "🚀", path: "/member/packages/upgrade" }
+      { id: "buy_package", label: "Buy Package", icon: <FiShoppingCart />, path: "/member/packages" },
+      { id: "upgrade_package", label: "Upgrade Package", icon: <FiArrowUpCircle />, path: "/member/packages/upgrade" }
     ]
   },
-  { id: "orders", label: "Orders", icon: "🛒", path: "/member/orders" },
-  { id: "withdrawals", label: "Withdrawals", icon: "💸", path: "/member/withdrawals" },
-  { id: "ranks", label: "Rank and Rewards", icon: "🏆", path: "/member/ranks" },
-  { id: "franchise", label: "Franchise", icon: "🏢", path: "/member/franchise" },
-  { id: "notifications", label: "Notifications", icon: "🔔", path: "/member/notifications" },
-  { id: "support", label: "Help & Support", icon: "🎧", path: "/member/support" }
+  { id: "orders", label: "Orders", icon: <FiClipboard />, path: "/member/orders" },
+  { id: "withdrawals", label: "Withdrawals", icon: <FiSend />, path: "/member/withdrawals" },
+  { id: "ranks", label: "Rank and Rewards", icon: <FiAward />, path: "/member/ranks" },
+  { id: "franchise", label: "Franchise", icon: <FiHome />, path: "/member/franchise" },
+  { id: "notifications", label: "Notifications", icon: <FiBell />, path: "/member/notifications" },
+  { id: "support", label: "Help & Support", icon: <FiHeadphones />, path: "/member/support" }
 ];
 
 const MemberLayout = () => {
