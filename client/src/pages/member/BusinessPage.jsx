@@ -173,6 +173,24 @@ const BusinessPage = () => {
           )}
           <span className={styles.metricSubtitle}>Lifetime Binary Match</span>
         </div>
+
+        {/* Team Turn Over (docx: "how much Business is done under her
+            downline or in TOTAL TEAM") — self + full Left/Right downline
+            Order KBP for the current, in-progress calendar month. Same live
+            figure the 1% Monthly Remuneration (Gold Star) wallet card is
+            based on, so this always agrees with that payout basis. */}
+        <div className={styles.businessCard}>
+          <div className={styles.cardHeader}>
+            <span className={styles.cardTitle}>TEAM TURN OVER (TTO)</span>
+            <div className={styles.cardIconBox}>💹</div>
+          </div>
+          {loading && !stats ? (
+            <div className={styles.skeletonMetric}></div>
+          ) : (
+            <h2 className={styles.primaryMetric}>{formatKBP(stats?.currentMonthTTO)}</h2>
+          )}
+          <span className={styles.metricSubtitle}>This Month's Team Business (Self + Downline)</span>
+        </div>
       </div>
 
       {/* Repurchase KBP production — same Today/This Week/Total figures,

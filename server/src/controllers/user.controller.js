@@ -497,6 +497,16 @@ const getDashboardStats = async (req, res, next) => {
         // purchased"). Same fallback chain admin.controller.js already uses
         // for the same activePackageId/currentPackage pair.
         currentPackage: user.activePackageId?.name || user.currentPackage || null,
+        // Team Turn Over (TTO) — My Business page card (docx: "how much
+        // Business is done under her downline or in TOTAL TEAM"). Reuses
+        // the live figure SalaryService.getLiveSalaryProgress already
+        // computes for the Gold Star 1% Monthly Remuneration preview (self +
+        // full left/right downline Order KBP for the current, in-progress
+        // month — see SalaryService#getTeamTurnoverForMonth) instead of a
+        // second query, and instead of a separate "lifetime" concept that
+        // doesn't exist anywhere else in this business plan (TTO is always
+        // evaluated per calendar month, same as the real salary payout).
+        currentMonthTTO: salaryProgress?.currentMonthTTO || 0,
         memberSince: user.createdAt || null,
         legComparison,
         recentlyJoined,
