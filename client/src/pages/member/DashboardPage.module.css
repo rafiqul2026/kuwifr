@@ -2008,12 +2008,48 @@
   .healthChecklist {
     grid-template-columns: 1fr;
   }
+  /* Welcome card — mobile: was a flex row that wrapped items wherever they
+     happened to fit, so a two-line value (e.g. "Life Safe Package") had no
+     row of its own and ran straight into the label below it. A real 2x2
+     grid gives every stat its own row/column with breathing room, and
+     everything shrinks a size so it reads comfortably on a phone screen
+     instead of at desktop scale. */
+  .heroCard {
+    padding: 20px 18px;
+  }
+  .heroPill {
+    font-size: 10px;
+    padding: 3px 9px;
+  }
+  .heroTitle {
+    font-size: 19px;
+  }
+  .heroSubtitle {
+    font-size: 12px;
+    line-height: 1.8;
+  }
+  .heroCtaBtn {
+    font-size: 12.5px;
+    padding: 8px 16px;
+  }
   .heroQuickStats {
-    flex-wrap: wrap;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+    gap: 18px 10px;
+    padding: 14px 16px;
   }
   .heroQuickStatDivider {
     display: none;
+  }
+  .heroQuickStatValue {
+    font-size: 14.5px;
+  }
+  .heroQuickStat:last-child .heroQuickStatValue {
+    max-width: 100%;
+  }
+  .heroQuickStatLabel {
+    font-size: 10px;
   }
   .commissionLeft {
     min-width: 140px;
