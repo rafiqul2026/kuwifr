@@ -50,7 +50,7 @@ class WalletService {
    *   transaction (e.g. RepurchaseService crediting self + up to 10 upline
    *   levels atomically).
    */
-  async credit(userId, amount, source, reference, metadata = {}, session = null, walletTypeOverride = null) {
+  async credit(userId, amount, source, reference, metadata = {}, session = null, walletTypeOverride = null, options = {}) {
     if (amount <= 0) {
       throw new Error('Amount must be greater than 0');
     }
@@ -86,15 +86,25 @@ class WalletService {
     // already counted as income once, so it must NOT be counted again here.
     // Every genuine earning source still increments totalIncome exactly as
     // before.
-    const extraIncrements = source === 'SYSTEM' ? {} : { totalIncome: amount };
+    // options.skipLifetimeCounters: used ONLY by the daily Matching/Leadership
+    // settlement (income.service.js#settleDailyMatchingAndLeadershipIncome).
+    // Those two types now recognize into totalIncome/binaryIncome/
+    // leadershipIncome/User.lifetimeIncome the INSTANT they're earned (see
+    // recognizeDeferredIncome below, called from IncomeService#creditIncome)
+    // — settlement only moves the actual cash into incomeBalance later, at
+    // IST business-day close, so it must NOT increment these counters again
+    // or every settled day would double-count that day's Total Income.
+    const extraIncrements = (source === 'SYSTEM' || options.skipLifetimeCounters) ? {} : { totalIncome: amount };
 
     // Maintain per-type lifetime breakdown counters (reporting only — see Wallet.js).
-    if (source === 'REFERRAL_INCOME') extraIncrements.referralIncome = amount;
-    else if (source === 'MATCHING_INCOME') extraIncrements.binaryIncome = amount;
-    else if (['LEADERSHIP_INCOME', 'LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3'].includes(source)) extraIncrements.leadershipIncome = amount;
-    else if (source === 'REPURCHASE_SELF') extraIncrements.selfRepurchaseIncome = amount;
-    else if (source === 'REPURCHASE_DOWNLINE') extraIncrements.downlineRepurchaseIncome = amount;
-    else if (['FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE'].includes(source)) extraIncrements.franchiseIncome = amount;
+    if (!options.skipLifetimeCounters) {
+      if (source === 'REFERRAL_INCOME') extraIncrements.referralIncome = amount;
+      else if (source === 'MATCHING_INCOME') extraIncrements.binaryIncome = amount;
+      else if (['LEADERSHIP_INCOME', 'LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3'].includes(source)) extraIncrements.leadershipIncome = amount;
+      else if (source === 'REPURCHASE_SELF') extraIncrements.selfRepurchaseIncome = amount;
+      else if (source === 'REPURCHASE_DOWNLINE') extraIncrements.downlineRepurchaseIncome = amount;
+      else if (['FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE'].includes(source)) extraIncrements.franchiseIncome = amount;
+    }
 
     const { wallet, transaction } = await Wallet.atomicAdjustBalance(userId, {
       balanceField,
@@ -119,7 +129,7 @@ class WalletService {
     });
 
     // Update user's lifetime income
-    if (INCOME_SOURCES.includes(source) || REPURCHASE_SOURCES.includes(source)) {
+    if (!options.skipLifetimeCounters && (INCOME_SOURCES.includes(source) || REPURCHASE_SOURCES.includes(source))) {
       await User.findByIdAndUpdate(
         userId,
         { $inc: { lifetimeIncome: amount } },
@@ -135,6 +145,42 @@ class WalletService {
         repurchase: wallet.repurchaseBalance
       }
     };
+  }
+
+  /**
+   * Recognize a DEFERRED-settlement income type (Matching / Leadership) as
+   * earned the instant it's created, so every "Total Income" figure (Member
+   * Dashboard, Income Overview snapshot, Wallet page) stays in permanent
+   * agreement with the Income Overview breakdown cards below it — those
+   * already read straight off IncomeTransaction and never waited for
+   * settlement, which is exactly why e.g. Abbas 5 (KFR166821) could show
+   * Direct 6,750 + Matching 7,000 + Leadership 6,950 in the breakdown while
+   * "Total Income" showed only 6,750: only Direct had actually reached
+   * wallet.totalIncome, because Matching/Leadership's real WalletService.credit()
+   * call — the only place that used to increment totalIncome — was deferred
+   * until day-close settlement.
+   *
+   * Increments totalIncome + the matching per-type breakdown counter +
+   * User.lifetimeIncome only. Deliberately does NOT touch incomeBalance/
+   * totalBalance (no cash moves yet — that's still exactly the
+   * "whole day's earning lands in the wallet at business-day close" rule)
+   * and deliberately writes no WalletTransaction row (that audit trail
+   * represents an actual balance movement, which still happens exactly once,
+   * at settlement — see settleDailyMatchingAndLeadershipIncome, which now
+   * calls credit() with { skipLifetimeCounters: true } so these same
+   * counters are never incremented a second time when the cash actually
+   * lands).
+   */
+  async recognizeDeferredIncome(userId, amount, type, session = null) {
+    if (amount <= 0) return;
+    await this.getOrCreateWallet(userId, session);
+
+    const inc = { totalIncome: amount };
+    if (type === 'MATCHING_INCOME') inc.binaryIncome = amount;
+    else if (['LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3'].includes(type)) inc.leadershipIncome = amount;
+
+    await Wallet.findOneAndUpdate({ userId }, { $inc: inc }, { session: session || undefined });
+    await User.findByIdAndUpdate(userId, { $inc: { lifetimeIncome: amount } }, { session: session || undefined });
   }
 
   /**

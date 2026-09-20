@@ -783,9 +783,15 @@ class IncomeService {
       // the wallet) must keep seeing this the instant it happens.
       let walletId;
       let walletTransaction = null;
+      let recognizedMetadata = metadata;
       if (isDeferred) {
         const wallet = await WalletService.getOrCreateWallet(userId);
         walletId = wallet._id;
+        // Counts this as earned Total Income right away — only the actual
+        // wallet cash movement waits for day-close settlement. See
+        // WalletService#recognizeDeferredIncome for why.
+        await WalletService.recognizeDeferredIncome(userId, amount, type);
+        recognizedMetadata = { ...metadata, totalIncomeRecognizedAt: new Date() };
       } else {
         const creditResult = await WalletService.credit(userId, amount, type, sourceId, { sourceModel, kbp, rate, ...metadata });
         if (!creditResult || !creditResult.transaction) throw new Error('Failed to credit wallet');
@@ -809,7 +815,7 @@ class IncomeService {
         status: 'CREDITED',
         processedAt: new Date(),
         walletSettledAt: isDeferred ? null : new Date(),
-        metadata: walletTransaction ? { ...metadata, walletTransactionId: walletTransaction._id } : metadata
+        metadata: walletTransaction ? { ...recognizedMetadata, walletTransactionId: walletTransaction._id } : recognizedMetadata
       });
 
       await incomeTransaction.save();
@@ -929,11 +935,17 @@ class IncomeService {
 
           const source = bucketKey === 'MATCHING_INCOME' ? 'MATCHING_INCOME' : 'LEADERSHIP_INCOME';
           const dateLabel = getBusinessDateString(txns[0].createdAt);
+          // skipLifetimeCounters: totalIncome/binaryIncome/leadershipIncome/
+          // User.lifetimeIncome were already recognized the instant each of
+          // these transactions was created (creditIncome ->
+          // WalletService#recognizeDeferredIncome) — this settlement call
+          // only moves the actual cash into incomeBalance, so it must not
+          // add those counters a second time.
           const creditResult = await WalletService.credit(userId, total, source, null, {
             description: `Daily settlement: ${bucketKey === 'MATCHING_INCOME' ? 'Matching' : 'Leadership'} Income for ${dateLabel} (${txns.length} transaction${txns.length === 1 ? '' : 's'})`,
             settlementTransactionIds: txns.map((t) => String(t._id)),
             settlementDate: dateLabel
-          });
+          }, null, null, { skipLifetimeCounters: true });
 
           if (!creditResult || !creditResult.success) {
             throw new Error(`Wallet credit failed for ${bucketKey} bucket`);
