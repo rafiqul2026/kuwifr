@@ -7,16 +7,23 @@ const Order = require('../models/Order');
 const BinaryService = require('../services/binary.service');
 const IncomeService = require('../services/income.service');
 
+// Income caps (dailyCap/weeklyCap/monthlyCap) — business rule update: every
+// tier's earning cap is now 10x what it was (e.g. Starter: was capped at
+// ₹1,500/day, now ₹15,000/day = price x10; the same x10 factor carries
+// through to weeklyCap (dailyCap x7) and monthlyCap (dailyCap x30), which
+// were already exactly that ratio before this change). price/kbp/
+// directBonus are unaffected — only how much income a member can earn
+// against their package before being capped (income.service.js#applyCaps).
 const DEFAULT_PACKAGES = [
   {
     name: 'Starter Package',
     type: 'STARTER',
     price: 1500,
     kbp: 1000,
-    dailyCap: 1500,
+    dailyCap: 15000,
     directBonus: 100, // 10% of 1000 KBP
-    weeklyCap: 10500,
-    monthlyCap: 45000,
+    weeklyCap: 105000,
+    monthlyCap: 450000,
     description: 'Perfect entry package for beginners to start earning in KUWIFR.',
     badge: 'Popular Choice',
     isActive: true,
@@ -26,11 +33,13 @@ const DEFAULT_PACKAGES = [
     name: 'Growth Package',
     type: 'GROWTH',
     price: 5000,
-    kbp: 5000,
-    dailyCap: 7000,
-    directBonus: 500, // 10% of 5000 KBP
-    weeklyCap: 49000,
-    monthlyCap: 210000,
+    // Matches the live Package document's kbp (4000) — this constant had
+    // drifted to 5000, out of sync with the DB, before this fix.
+    kbp: 4000,
+    dailyCap: 70000,
+    directBonus: 400, // 10% of 4000 KBP
+    weeklyCap: 490000,
+    monthlyCap: 2100000,
     description: 'Designed for ambitious members scaling their binary team network.',
     badge: 'Growth Plan',
     isActive: true,
@@ -41,10 +50,10 @@ const DEFAULT_PACKAGES = [
     type: 'LIFE_SAFE',
     price: 10000,
     kbp: 7500,
-    dailyCap: 15000,
+    dailyCap: 150000,
     directBonus: 750, // 10% of 7500 KBP
-    weeklyCap: 105000,
-    monthlyCap: 450000,
+    weeklyCap: 1050000,
+    monthlyCap: 4500000,
     description: 'Comprehensive health & alkaline water purification solutions.',
     badge: 'Health Choice',
     isActive: true,
@@ -55,10 +64,10 @@ const DEFAULT_PACKAGES = [
     type: 'LIFE_SAFE_ELITE',
     price: 15000,
     kbp: 10000,
-    dailyCap: 20000,
+    dailyCap: 200000,
     directBonus: 1000, // 10% of 10000 KBP
-    weeklyCap: 140000,
-    monthlyCap: 600000,
+    weeklyCap: 1400000,
+    monthlyCap: 6000000,
     description: 'Premium alkaline filtration with high daily earning caps for elite performers.',
     badge: 'High Earner',
     isActive: true,
@@ -69,10 +78,10 @@ const DEFAULT_PACKAGES = [
     type: 'TITANIUM',
     price: 110000,
     kbp: 50000,
-    dailyCap: 50000,
+    dailyCap: 500000,
     directBonus: 5000, // 10% of 50000 KBP
-    weeklyCap: 350000,
-    monthlyCap: 1500000,
+    weeklyCap: 3500000,
+    monthlyCap: 15000000,
     description: 'The ultimate pinnacle tier with Electric Vehicle benefit and maximum capping.',
     badge: 'Executive VIP',
     isActive: true,
