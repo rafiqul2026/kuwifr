@@ -323,6 +323,26 @@ async function getTeamTurnoverForMonth(userId, monthString) {
 }
 
 /**
+ * Downline-only Team Turn Over for a month — excludes the member's own
+ * (self) Order KBP, unlike getTeamTurnoverForMonth()/currentMonthTTO above,
+ * which is self + full downline and stays the actual 1% Monthly
+ * Remuneration payout basis. Per business rule, the My Business page's
+ * "Team Turn Over (TTO)" CARD shows downline business only (what the
+ * member's TEAM produced), so it must never include the member's own
+ * orders the way the salary figure intentionally does.
+ *
+ * Reads the TTORecord left/right components computeAndPersistTTO already
+ * persists (see below) — call this AFTER getTeamTurnoverForMonth /
+ * getLiveSalaryProgress has already run for the same userId+month in this
+ * request so the record is guaranteed fresh, without a second aggregation.
+ */
+async function getDownlineTurnoverForMonth(userId, monthString) {
+  const record = await TTORecord.findOne({ userId, period: monthString }).lean();
+  if (!record) return 0;
+  return (record.leftTeamKBP || 0) + (record.rightTeamKBP || 0);
+}
+
+/**
  * Core, side-effect-free evaluation shared by both the live dashboard preview
  * and the actual monthly settlement. Does NOT read/write SalaryLog itself for
  * the "current" baseline lookup beyond reading the previous month's log.
@@ -538,5 +558,6 @@ module.exports = {
   getMonthString,
   processMonthlySalaryPayout,
   getTeamTurnoverForMonth,
+  getDownlineTurnoverForMonth,
   computeAndPersistTTO
 };

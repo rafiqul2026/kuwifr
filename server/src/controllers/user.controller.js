@@ -143,6 +143,13 @@ const getDashboardStats = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Member profile not found' });
     }
 
+    // My Business page's "Team Turn Over (TTO)" card, downline-only (per
+    // business rule, excludes the member's own orders — see
+    // SalaryService#getDownlineTurnoverForMonth). Run AFTER the Promise.all
+    // above so salaryProgress has already computed+persisted this month's
+    // TTORecord — this then just reads it, no second aggregation.
+    const downlineTTO = await SalaryService.getDownlineTurnoverForMonth(userId, SalaryService.getMonthString(now)).catch(() => 0);
+
     const [totalDirects, fullDownline] = await Promise.all([
       User.countDocuments({ sponsorId: userId }),
       // Full downline (any depth), computed authoritatively from User.sponsorId
@@ -498,15 +505,14 @@ const getDashboardStats = async (req, res, next) => {
         // for the same activePackageId/currentPackage pair.
         currentPackage: user.activePackageId?.name || user.currentPackage || null,
         // Team Turn Over (TTO) — My Business page card (docx: "how much
-        // Business is done under her downline or in TOTAL TEAM"). Reuses
-        // the live figure SalaryService.getLiveSalaryProgress already
-        // computes for the Gold Star 1% Monthly Remuneration preview (self +
-        // full left/right downline Order KBP for the current, in-progress
-        // month — see SalaryService#getTeamTurnoverForMonth) instead of a
-        // second query, and instead of a separate "lifetime" concept that
-        // doesn't exist anywhere else in this business plan (TTO is always
-        // evaluated per calendar month, same as the real salary payout).
-        currentMonthTTO: salaryProgress?.currentMonthTTO || 0,
+        // Business is done under her downline... this card will only show
+        // the Downline Team turnover", explicitly NOT self). Downline-only
+        // (left + right team Order KBP), for the current, in-progress
+        // calendar month — see SalaryService#getDownlineTurnoverForMonth.
+        // Deliberately separate from the self+downline figure
+        // salaryProgress.currentMonthTTO carries, which remains the actual
+        // 1% Monthly Remuneration payout basis and is untouched by this.
+        currentMonthTTO: downlineTTO,
         memberSince: user.createdAt || null,
         legComparison,
         recentlyJoined,

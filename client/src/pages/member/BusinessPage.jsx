@@ -174,11 +174,12 @@ const BusinessPage = () => {
           <span className={styles.metricSubtitle}>Lifetime Binary Match</span>
         </div>
 
-        {/* Team Turn Over (docx: "how much Business is done under her
-            downline or in TOTAL TEAM") — self + full Left/Right downline
-            Order KBP for the current, in-progress calendar month. Same live
+        {/* Team Turn Over (docx: "this card will only show the Downline
+            Team turnover") — full Left/Right DOWNLINE Order KBP only (the
+            member's own orders excluded) for the current, in-progress
+            calendar month. Deliberately separate from the self+downline
             figure the 1% Monthly Remuneration (Gold Star) wallet card is
-            based on, so this always agrees with that payout basis. */}
+            based on. */}
         <div className={styles.businessCard}>
           <div className={styles.cardHeader}>
             <span className={styles.cardTitle}>TEAM TURN OVER (TTO)</span>
@@ -189,7 +190,7 @@ const BusinessPage = () => {
           ) : (
             <h2 className={styles.primaryMetric}>{formatKBP(stats?.currentMonthTTO)}</h2>
           )}
-          <span className={styles.metricSubtitle}>This Month's Team Business (Self + Downline)</span>
+          <span className={styles.metricSubtitle}>This Month's Downline Team Business</span>
         </div>
       </div>
 
