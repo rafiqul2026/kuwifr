@@ -131,6 +131,7 @@ const getDashboardStats = async (req, res, next) => {
       User.findById(userId)
         .populate({ path: 'sponsorId', select: 'fullName memberId referralCode email' })
         .populate({ path: 'currentRankId', select: 'name code level', strictPopulate: false })
+        .populate({ path: 'activePackageId', select: 'name type price kbp', strictPopulate: false })
         .lean(),
       Wallet.findOne({ userId }).lean(),
       BinaryNode.findOne({ userId }).lean(),
@@ -491,6 +492,11 @@ const getDashboardStats = async (req, res, next) => {
         // Member Dashboard. Already computed above for totalTeamCount, just
         // wasn't surfaced in the response until now.
         directReferrals: totalDirects,
+        // Current Package — Member Dashboard hero quick-stats (docx: "Add
+        // current Package where I marked... member can see which package is
+        // purchased"). Same fallback chain admin.controller.js already uses
+        // for the same activePackageId/currentPackage pair.
+        currentPackage: user.activePackageId?.name || user.currentPackage || null,
         memberSince: user.createdAt || null,
         legComparison,
         recentlyJoined,

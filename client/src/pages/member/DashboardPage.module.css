@@ -392,8 +392,12 @@
   box-sizing: border-box;
 }
 
+/* 16px gap below the strip before the "MEMBER DASHBOARD" header row —
+   matches the standard section-to-section spacing used everywhere else on
+   this page (see .heroCard's own margin-bottom). Previously 0, so the
+   notification card sat flush against the dashboard header below it. */
 .notificationTopStrip .notificationBar {
-  margin-bottom: 0;
+  margin-bottom: 16px;
 }
 
 /* Phones: let the message use the full width and drop the action / dots /
@@ -1383,6 +1387,15 @@
   font-weight: 700;
   color: #ffffff;
   white-space: nowrap;
+}
+
+/* Package names ("Life Safe Elite Package") run noticeably longer than the
+   other three stats' values — let this one wrap instead of stretching the
+   whole pill/row wider on narrow viewports. */
+.heroQuickStat:last-child .heroQuickStatValue {
+  white-space: normal;
+  text-align: center;
+  max-width: 130px;
 }
 
 .heroQuickStatLabel {

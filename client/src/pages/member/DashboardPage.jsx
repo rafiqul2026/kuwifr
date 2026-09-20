@@ -484,6 +484,11 @@ const DashboardPage = () => {
               <span className={styles.heroQuickStatValue}>{stats?.currentRank?.name || 'Unranked'}</span>
               <span className={styles.heroQuickStatLabel}>Current Rank</span>
             </div>
+            <div className={styles.heroQuickStatDivider}></div>
+            <div className={styles.heroQuickStat}>
+              <span className={styles.heroQuickStatValue}>{stats?.currentPackage || 'No Package'}</span>
+              <span className={styles.heroQuickStatLabel}>Current Package</span>
+            </div>
           </div>
         </section>
 
