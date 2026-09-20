@@ -132,6 +132,13 @@ const BuyPackagePage = () => {
                     <span>🚀 Daily Capping Limit:</span>
                     <strong>₹{pkg.dailyCap?.toLocaleString()} / Day</strong>
                   </div>
+                  {/* KBP-equivalent of the Rupee cap above (x10 — matching
+                      income pays 10% of matched KBP), purely informational,
+                      always derived from dailyCap so it can't drift. */}
+                  <div className={styles.featureItem}>
+                    <span>💹 Max KBP Earning (Daily):</span>
+                    <strong>{((pkg.dailyCap || 0) * 10).toLocaleString()} KBP</strong>
+                  </div>
                   <div className={styles.featureItem}>
                     <span>🎁 Sponsor Direct Bonus:</span>
                     <strong style={{ color: '#10b981' }}>+₹{pkg.directBonus?.toLocaleString()}</strong>

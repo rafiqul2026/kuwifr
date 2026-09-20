@@ -402,6 +402,10 @@ const PackagesPage = () => {
                   <div className={styles.dailyCapWrap}>
                     <span>Daily Cap</span>
                     <strong>₹{pkg.dailyCap?.toLocaleString()} / Day</strong>
+                    {/* KBP-equivalent of the Rupee cap above (x10 — matching
+                        income pays 10% of matched KBP), purely informational,
+                        always derived from dailyCap so it can't drift. */}
+                    <small className={styles.maxKbpLine}>Max {((pkg.dailyCap || 0) * 10).toLocaleString()} KBP/Day</small>
                   </div>
                 </div>
               </div>
@@ -478,6 +482,14 @@ const PackagesPage = () => {
                 <div className={styles.capMetric}>
                   <small>Monthly Cap</small>
                   <span>₹{pkg.monthlyCap?.toLocaleString()}</span>
+                </div>
+                <div className={styles.capMetric}>
+                  <small>Max KBP (Weekly)</small>
+                  <span>{((pkg.weeklyCap || 0) * 10).toLocaleString()} KBP</span>
+                </div>
+                <div className={styles.capMetric}>
+                  <small>Max KBP (Monthly)</small>
+                  <span>{((pkg.monthlyCap || 0) * 10).toLocaleString()} KBP</span>
                 </div>
               </div>
 
@@ -570,6 +582,11 @@ const PackagesPage = () => {
                     <div className={styles.metricBox}>
                       <small>Daily Binary Cap</small>
                       <strong className={styles.capColor}>🛡️ ₹{activePkg.dailyCap?.toLocaleString()}</strong>
+                    </div>
+
+                    <div className={styles.metricBox}>
+                      <small>Max KBP Earning (Daily)</small>
+                      <strong className={styles.capColor}>💹 {((activePkg.dailyCap || 0) * 10).toLocaleString()} KBP</strong>
                     </div>
                   </div>
                 </div>

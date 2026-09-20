@@ -365,6 +365,8 @@ const UpgradePackagePage = () => {
             <span>Points: <strong>{currentPackage.kbp.toLocaleString()} KBP</strong></span>
             <span>•</span>
             <span>Daily Cap: <strong>₹{currentPackage.dailyCap.toLocaleString()} / Day</strong></span>
+            <span>•</span>
+            <span>Max KBP/Day: <strong>{(currentPackage.dailyCap * 10).toLocaleString()} KBP</strong></span>
           </div>
         </div>
         <div className={styles.bannerRight}>
@@ -437,15 +439,32 @@ const UpgradePackagePage = () => {
                   <span>Daily Binary Cap</span>
                   <strong style={{ color: '#16a34a' }}>₹{pkg.dailyCap.toLocaleString()} / Day</strong>
                 </div>
+                {/* Purely informational — the KBP-equivalent of the Rupee cap
+                    above (10x, since matching income pays 10% of matched
+                    KBP: see compensation.matching.rate). Never a separate
+                    cap of its own, always derived from dailyCap/weeklyCap/
+                    monthlyCap so it can never drift out of sync. */}
+                <div className={styles.specItem}>
+                  <span>Max KBP Earning (Daily)</span>
+                  <strong>{(pkg.dailyCap * 10).toLocaleString()} KBP</strong>
+                </div>
 
                 <div className={styles.specItem}>
                   <span>Weekly Binary Cap</span>
                   <strong>₹{pkg.weeklyCap.toLocaleString()}</strong>
                 </div>
+                <div className={styles.specItem}>
+                  <span>Max KBP Earning (Weekly)</span>
+                  <strong>{(pkg.weeklyCap * 10).toLocaleString()} KBP</strong>
+                </div>
 
                 <div className={styles.specItem}>
                   <span>Monthly Binary Cap</span>
                   <strong>₹{pkg.monthlyCap.toLocaleString()}</strong>
+                </div>
+                <div className={styles.specItem}>
+                  <span>Max KBP Earning (Monthly)</span>
+                  <strong>{(pkg.monthlyCap * 10).toLocaleString()} KBP</strong>
                 </div>
               </div>
 
@@ -599,6 +618,10 @@ const UpgradePackagePage = () => {
                     <div className={styles.summaryRow}>
                       <span>New Daily Binary Cap</span>
                       <strong style={{ color: '#16a34a' }}>₹{selectedUpgrade.dailyCap.toLocaleString()} / Day</strong>
+                    </div>
+                    <div className={styles.summaryRow}>
+                      <span>New Max KBP Earning (Daily)</span>
+                      <strong>{(selectedUpgrade.dailyCap * 10).toLocaleString()} KBP</strong>
                     </div>
                   </div>
 
