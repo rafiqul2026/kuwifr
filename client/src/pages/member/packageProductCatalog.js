@@ -43,6 +43,18 @@ const normalizeProduct = (p) => ({
  * fetch so this stays a pure function with no network calls of its own.
  */
 export const getProductsForPackage = (pkg, repurchaseProducts = []) => {
+  // Admin's explicit choice (Admin > Packages > Products) wins when one has
+  // been set — including an empty list, meaning "offer nothing". Order
+  // follows the order the admin arranged them in.
+  if (Array.isArray(pkg?.includedProductIds)) {
+    const byId = new Map(repurchaseProducts.map((p) => [p.id, p]));
+    return pkg.includedProductIds
+      .map((id) => byId.get(id))
+      .filter(Boolean)
+      .map(normalizeProduct);
+  }
+
+  // Otherwise the automatic default: same-KSP products.
   const price = Number(pkg?.price || 0);
   return repurchaseProducts
     .filter((p) => Number(p.ksp) === price)

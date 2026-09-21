@@ -15,6 +15,57 @@ const AdminPackagesPage = () => {
   const [editingPkg, setEditingPkg] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // ---- "Products" modal: choose which catalog products members can pick
+  // with a package (PUT /api/packages/:id/products). ----
+  const [productsPkg, setProductsPkg] = useState(null); // package being edited
+  const [catalog, setCatalog] = useState([]); // all Repurchase Store products
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [assignedIds, setAssignedIds] = useState([]); // working list
+  const [productSearch, setProductSearch] = useState('');
+  const [savingProducts, setSavingProducts] = useState(false);
+
+  const openProductsModal = async (pkg) => {
+    setProductsPkg(pkg);
+    setProductSearch('');
+    setCatalogLoading(true);
+    try {
+      const res = await api.get('/api/repurchase/admin/products');
+      const products = res.data?.data?.products || [];
+      setCatalog(products);
+      // Start from the admin's saved list; if none was ever set, show the
+      // automatic default (active products priced at this package's KSP) so
+      // they can see and tweak what members currently get.
+      setAssignedIds(
+        Array.isArray(pkg.includedProductIds)
+          ? pkg.includedProductIds
+          : products.filter((p) => p.isActive !== false && Number(p.ksp) === Number(pkg.price)).map((p) => p.id)
+      );
+    } catch (err) {
+      showNotification('Could not load the product catalog.', 'error');
+      setProductsPkg(null);
+    } finally {
+      setCatalogLoading(false);
+    }
+  };
+
+  const saveProducts = async ({ reset = false } = {}) => {
+    if (!productsPkg) return;
+    setSavingProducts(true);
+    try {
+      const res = await api.put(
+        `/api/packages/${productsPkg._id}/products`,
+        reset ? { reset: true } : { productIds: assignedIds }
+      );
+      showNotification(res.data?.message || 'Package products updated.', 'success');
+      setProductsPkg(null);
+      fetchPackages();
+    } catch (err) {
+      showNotification(err.response?.data?.message || 'Failed to update package products.', 'error');
+    } finally {
+      setSavingProducts(false);
+    }
+  };
+
   const [formData, setFormData] = useState({
     name: '',
     type: '',
@@ -266,6 +317,9 @@ const AdminPackagesPage = () => {
                           <button onClick={() => handleOpenModal(pkg)} className={styles.editBtn}>
                             Edit
                           </button>
+                          <button onClick={() => openProductsModal(pkg)} className={styles.editBtn}>
+                            Products
+                          </button>
                           <button
                             onClick={() => handleToggleStatus(pkg._id)}
                             className={pkg.isActive ? styles.btnDeactivate : styles.btnActivate}
@@ -330,6 +384,13 @@ const AdminPackagesPage = () => {
                       style={{ flex: 1 }}
                     >
                       Edit Plan
+                    </button>
+                    <button
+                      onClick={() => openProductsModal(pkg)}
+                      className={styles.editBtn}
+                      style={{ flex: 1 }}
+                    >
+                      Products
                     </button>
                     <button
                       onClick={() => handleToggleStatus(pkg._id)}
@@ -515,6 +576,145 @@ const AdminPackagesPage = () => {
           </div>
         </div>
       )}
+
+      {/* Products modal — pick which catalog products members can choose
+          when buying / upgrading to this package. */}
+      {productsPkg && (() => {
+        const byId = new Map(catalog.map((p) => [p.id, p]));
+        const assigned = assignedIds.map((id) => byId.get(id) || { id, name: id, missing: true });
+        const q = productSearch.trim().toLowerCase();
+        const available = catalog.filter(
+          (p) =>
+            !assignedIds.includes(p.id) &&
+            (!q || [p.name, p.id, p.category].some((v) => String(v || '').toLowerCase().includes(q)))
+        );
+        const isCustom = Array.isArray(productsPkg.includedProductIds);
+
+        return (
+          <div className={styles.modalOverlay} onClick={() => !savingProducts && setProductsPkg(null)}>
+            <div className={styles.modalContent} style={{ maxWidth: 720 }} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.modalHeader}>
+                <div>
+                  <h2>Products in {productsPkg.name}</h2>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
+                    Members choose one of these when they buy or upgrade to this package.{' '}
+                    {isCustom
+                      ? 'Currently a custom list.'
+                      : `Currently automatic (products priced at ₹${(productsPkg.price || 0).toLocaleString('en-IN')}).`}
+                  </p>
+                </div>
+                <button onClick={() => setProductsPkg(null)} className={styles.closeBtn}>✕</button>
+              </div>
+
+              <div className={styles.modalBody}>
+                {catalogLoading ? (
+                  <p>Loading products...</p>
+                ) : (
+                  <>
+                    <h3 className={styles.prodSectionTitle}>
+                      Included in this package ({assigned.length})
+                    </h3>
+                    {assigned.length === 0 ? (
+                      <div className={styles.prodEmpty}>
+                        No products — members won't be able to buy this package until you add at least one.
+                      </div>
+                    ) : (
+                      <div className={styles.prodList}>
+                        {assigned.map((p) => (
+                          <div key={p.id} className={styles.prodRow}>
+                            {p.images?.[0]?.url ? (
+                              <img src={p.images[0].url} alt="" className={styles.prodThumb} />
+                            ) : (
+                              <div className={styles.prodThumb}>📦</div>
+                            )}
+                            <div className={styles.prodInfo}>
+                              <strong>{p.name}</strong>
+                              <small>
+                                {p.missing ? 'No longer in the catalog' : `${p.category} · KSP ₹${Number(p.ksp).toLocaleString('en-IN')}`}
+                                {p.isActive === false ? ' · inactive (hidden from members)' : ''}
+                              </small>
+                            </div>
+                            <button
+                              type="button"
+                              className={styles.prodRemoveBtn}
+                              onClick={() => setAssignedIds((prev) => prev.filter((x) => x !== p.id))}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <h3 className={styles.prodSectionTitle} style={{ marginTop: 18 }}>Add a product</h3>
+                    <input
+                      type="text"
+                      placeholder="Search by name, ID, or category..."
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                      className={styles.prodSearch}
+                    />
+                    <div className={styles.prodList}>
+                      {available.length === 0 ? (
+                        <div className={styles.prodEmpty}>No more products match.</div>
+                      ) : (
+                        available.map((p) => (
+                          <div key={p.id} className={styles.prodRow}>
+                            {p.images?.[0]?.url ? (
+                              <img src={p.images[0].url} alt="" className={styles.prodThumb} />
+                            ) : (
+                              <div className={styles.prodThumb}>📦</div>
+                            )}
+                            <div className={styles.prodInfo}>
+                              <strong>{p.name}</strong>
+                              <small>
+                                {p.category} · KSP ₹{Number(p.ksp).toLocaleString('en-IN')}
+                                {p.isActive === false ? ' · inactive' : ''}
+                              </small>
+                            </div>
+                            <button
+                              type="button"
+                              className={styles.prodAddBtn}
+                              onClick={() => setAssignedIds((prev) => [...prev, p.id])}
+                            >
+                              + Add
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className={styles.modalFooter}>
+                {isCustom && (
+                  <button
+                    type="button"
+                    className={styles.cancelBtn}
+                    style={{ marginRight: 'auto' }}
+                    disabled={savingProducts}
+                    onClick={() => saveProducts({ reset: true })}
+                  >
+                    Reset to automatic
+                  </button>
+                )}
+                <button type="button" className={styles.cancelBtn} onClick={() => setProductsPkg(null)} disabled={savingProducts}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className={styles.saveBtn}
+                  disabled={savingProducts || catalogLoading}
+                  onClick={() => saveProducts()}
+                >
+                  {savingProducts ? 'Saving...' : 'Save Products'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

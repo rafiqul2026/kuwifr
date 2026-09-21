@@ -33,6 +33,7 @@ router.post('/purchase', auth, adminAuth, packageController.purchasePackage);
 router.get('/admin/all', auth, adminAuth, packageController.adminGetAllPackages);
 router.post('/', auth, adminAuth, packageController.createPackage);
 router.put('/:id', auth, adminAuth, packageController.updatePackage);
+router.put('/:id/products', auth, adminAuth, packageController.setPackageProducts);
 router.put('/:id/toggle', auth, adminAuth, packageController.togglePackageStatus);
 router.delete('/:id', auth, adminAuth, packageController.deletePackage);
 

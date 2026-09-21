@@ -51,14 +51,23 @@ const PackageSchema = new mongoose.Schema({
     min: [0, 'Monthly cap cannot be negative']
   },
 
-  // Products included in a package are NOT stored here — per business rule,
-  // Buy Package's "included product" choices are the same catalog as the
-  // Repurchase Store (RepurchaseProduct, admin-managed at
-  // /admin/products), resolved dynamically by matching a package's `price`
-  // against that catalog's `ksp` (see
-  // client/src/pages/member/packageProductCatalog.js). This field used to
-  // exist but was never actually read or written by any controller/admin
-  // UI — always empty on every real document.
+  // Products a member can choose from when buying/upgrading to this package.
+  // Per business rule these come from the same catalog as the Repurchase
+  // Store (RepurchaseProduct, admin-managed at /admin/products).
+  //
+  // includedProductIds holds RepurchaseProduct.id slugs (e.g. 'kfr-p01') the
+  // admin has explicitly assigned to this package from Admin > Packages.
+  //   - undefined / never set: legacy automatic behaviour — every active
+  //     product whose KSP equals this package's price is offered (see
+  //     client/src/pages/member/packageProductCatalog.js).
+  //   - an array (even an empty one): the admin's explicit choice wins and
+  //     ONLY those products are offered.
+  // `default: undefined` is deliberate — Mongoose otherwise defaults arrays
+  // to [], which would make every existing package look "explicitly empty".
+  includedProductIds: {
+    type: [String],
+    default: undefined
+  },
 
   // Features and Benefits
   features: [String],

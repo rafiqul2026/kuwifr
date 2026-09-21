@@ -316,6 +316,77 @@ const updatePackage = async (req, res, next) => {
 };
 
 /**
+ * Admin: choose which products members can pick when buying / upgrading to
+ * this package.
+ * PUT /api/packages/:id/products
+ *   body { productIds: ['kfr-p01', ...] }  -> explicit list (replaces any
+ *                                             previous one; [] = none offered)
+ *   body { reset: true }                   -> back to the automatic default
+ *                                             (every active product whose KSP
+ *                                             equals the package price)
+ * Product ids are RepurchaseProduct.id slugs. Unknown ids are rejected
+ * rather than silently stored, so a typo can't leave a package offering a
+ * product that doesn't exist.
+ */
+const setPackageProducts = async (req, res, next) => {
+  try {
+    const pkg = await Package.findById(req.params.id);
+    if (!pkg) {
+      return res.status(404).json({ success: false, message: 'Package not found' });
+    }
+
+    if (req.body?.reset === true) {
+      await Package.updateOne({ _id: pkg._id }, { $unset: { includedProductIds: 1 } });
+      return res.json({
+        success: true,
+        message: `${pkg.name} now uses the automatic product list (products priced at ₹${pkg.price.toLocaleString('en-IN')}).`,
+        data: { packageId: pkg._id, includedProductIds: null }
+      });
+    }
+
+    const { productIds } = req.body || {};
+    if (!Array.isArray(productIds) || productIds.some((x) => typeof x !== 'string')) {
+      return res.status(400).json({ success: false, message: 'productIds must be an array of product ids.' });
+    }
+
+    const uniqueIds = [...new Set(productIds.map((x) => x.trim()).filter(Boolean))];
+    const RepurchaseProduct = require('../models/RepurchaseProduct');
+    const found = await RepurchaseProduct.find({ id: { $in: uniqueIds } }).select('id').lean();
+    const foundSet = new Set(found.map((p) => p.id));
+    const missing = uniqueIds.filter((x) => !foundSet.has(x));
+    if (missing.length) {
+      return res.status(400).json({ success: false, message: `Unknown product id(s): ${missing.join(', ')}` });
+    }
+
+    await Package.updateOne({ _id: pkg._id }, { $set: { includedProductIds: uniqueIds } });
+    res.json({
+      success: true,
+      message: `${pkg.name} now offers ${uniqueIds.length} product${uniqueIds.length === 1 ? '' : 's'}.`,
+      data: { packageId: pkg._id, includedProductIds: uniqueIds }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Enforces the admin-assigned product list at purchase/upgrade time: when a
+ * package has an explicit includedProductIds list, every product a member
+ * submits must be on it. Packages with no explicit list keep the legacy
+ * behaviour (no server-side product check). Returns an error message string,
+ * or null when the selection is fine.
+ */
+const validateSelectedProducts = (pkg, selectedProducts) => {
+  if (!pkg || !Array.isArray(pkg.includedProductIds)) return null;
+  const allowed = new Set(pkg.includedProductIds);
+  const bad = (selectedProducts || []).filter((p) => !allowed.has(p?.id));
+  if (bad.length) {
+    return `${bad.map((p) => p?.name || p?.id || 'That product').join(', ')} is not available with ${pkg.name}. Please choose one of the listed products.`;
+  }
+  return null;
+};
+
+/**
  * Admin: Toggle active status
  * PUT /api/packages/:id/toggle
  */
@@ -511,6 +582,8 @@ module.exports = {
   getPackageById,
   createPackage,
   updatePackage,
+  setPackageProducts,
+  validateSelectedProducts,
   togglePackageStatus,
   deletePackage,
   purchasePackage

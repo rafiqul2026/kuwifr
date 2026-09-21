@@ -44,6 +44,16 @@ exports.completePackagePurchase = async (req, res) => {
       });
     }
 
+    // If the admin has assigned an explicit product list to this package
+    // (Admin > Packages > Products), the chosen product must be on it.
+    if (mongoose.Types.ObjectId.isValid(packageId)) {
+      const chosenPkg = await Package.findById(packageId).select('name includedProductIds').lean();
+      const productError = require('./package.controller').validateSelectedProducts(chosenPkg, productsArray);
+      if (productError) {
+        return res.status(400).json({ success: false, message: productError });
+      }
+    }
+
     const user = await User.findById(req.user._id || req.user.id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'Member not found' });
@@ -155,6 +165,11 @@ exports.completePackageUpgrade = async (req, res) => {
         success: false,
         message: 'You can only upgrade to a package priced higher than your current package.'
       });
+    }
+
+    const upgradeProductError = require('./package.controller').validateSelectedProducts(targetPkg, productsArray);
+    if (upgradeProductError) {
+      return res.status(400).json({ success: false, message: upgradeProductError });
     }
 
     const existingTxn = await PackagePurchase.findOne({ transactionId: transactionId.trim() });
