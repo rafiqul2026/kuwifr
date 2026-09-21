@@ -120,8 +120,8 @@ const LoginPage = ({ isAdminLogin = false }) => {
         <div className={styles.authCard}>
           <div className={styles.authHeader}>
             <img src="/logo.jpg" alt="KUWIFR" className={styles.authLogo} />
-            <h1>Welcome Back</h1>
-            <p>Login with your User ID (KFRxxxxxx)</p>
+            <h1>{isAdminLogin ? 'Welcome to Admin' : 'Welcome Back'}</h1>
+            <p>{isAdminLogin ? 'Login with your Admin User ID' : 'Login with your User ID (KFRxxxxxx)'}</p>
           </div>
 
           <form onSubmit={handleSubmit} className={styles.authForm} noValidate>
@@ -136,7 +136,7 @@ const LoginPage = ({ isAdminLogin = false }) => {
                 value={userId}
                 onChange={handleUserIdChange}
                 onBlur={() => handleBlur('userId')}
-                placeholder="e.g. KFR635174"
+                placeholder={isAdminLogin ? 'Admin User ID' : 'e.g. KFR635174'}
                 className={touched.userId && errors.userId ? styles.error : ''}
                 disabled={loading}
                 autoComplete="username"
