@@ -178,6 +178,23 @@ const WithdrawalsPage = () => {
   const netPayable = Math.max(0, numericAmount - (tdsAmount + adminCharge + serviceCharge));
   const pct = (rate) => `${Math.round(rate * 10000) / 100}%`;
 
+  // Snaps any raw amount to a valid withdrawal amount: at least minAmount,
+  // a multiple of ₹100, and never more than the member can actually
+  // withdraw (available balance, floored to the nearest ₹100 since a
+  // fractional-hundred balance can't be withdrawn in full while keeping
+  // this rule). Used on blur and by the preset/"Withdraw All" buttons so an
+  // invalid amount never sits in the box once the member is done editing it.
+  const clampToValidWithdrawal = (raw) => {
+    let n = Math.round(Number(raw) || 0);
+    if (n <= 0) return '';
+    const min = withdrawalConfig.minAmount;
+    const maxValid = Math.floor(availableBalance / 100) * 100;
+    if (n < min) n = min;
+    if (n % 100 !== 0) n = Math.ceil(n / 100) * 100;
+    if (maxValid >= min && n > maxValid) n = maxValid;
+    return String(n);
+  };
+
   // Real, derived-only summary numbers for the KPI strip — every figure
   // here is computed straight from the withdrawal history already fetched
   // above, nothing is fabricated.
@@ -204,12 +221,17 @@ const WithdrawalsPage = () => {
     }
   };
 
-  // Validation: Minimum amount per the live admin-configured setting
+  // Validation: Minimum amount per the live admin-configured setting, and —
+  // above that minimum — the amount must be a multiple of ₹100 (₹500, ₹600,
+  // ₹700, ...). Mirrors the server-side check in withdrawal.controller.js,
+  // which is the real guard; this is just for a fast, friendly error.
   const validateForm = () => {
     const errs = {};
 
     if (!amount || isNaN(numericAmount) || numericAmount < withdrawalConfig.minAmount) {
       errs.amount = `Minimum withdrawal amount is ₹${withdrawalConfig.minAmount.toLocaleString('en-IN')}`;
+    } else if (numericAmount % 100 !== 0) {
+      errs.amount = `Amount must be a multiple of ₹100 (e.g. ₹${withdrawalConfig.minAmount}, ₹${withdrawalConfig.minAmount + 100}, ₹${withdrawalConfig.minAmount + 200}...)`;
     } else if (numericAmount > availableBalance) {
       errs.amount = `Amount exceeds available balance (₹${availableBalance.toLocaleString('en-IN')})`;
     }
@@ -375,12 +397,23 @@ const WithdrawalsPage = () => {
                 <span className={styles.currencyPrefix}>₹</span>
                 <input
                   type="number"
-                  placeholder="Enter amount (min 500)"
+                  inputMode="numeric"
+                  min={withdrawalConfig.minAmount}
+                  step="100"
+                  placeholder={`Enter amount (min ${withdrawalConfig.minAmount}, multiples of 100)`}
                   value={amount}
                   onChange={(e) => {
-                    setAmount(e.target.value);
+                    // Digits only — blocks the decimal point/minus sign/'e'
+                    // scientific-notation characters a native number input
+                    // otherwise accepts. Free typing is still allowed here
+                    // (an in-progress "5" or "50" isn't itself invalid);
+                    // the ₹500-minimum + multiple-of-100 rule is enforced
+                    // on blur below, and always re-checked server-side.
+                    const digitsOnly = e.target.value.replace(/[^\d]/g, '');
+                    setAmount(digitsOnly);
                     if (fieldErrors.amount) setFieldErrors((prev) => ({ ...prev, amount: '' }));
                   }}
+                  onBlur={() => setAmount((prev) => clampToValidWithdrawal(prev))}
                   className={`${styles.input} ${styles.amountInput} ${fieldErrors.amount ? styles.inputError : ''}`}
                 />
               </div>
@@ -392,7 +425,7 @@ const WithdrawalsPage = () => {
                     key={preset}
                     type="button"
                     onClick={() => {
-                      setAmount(String(Math.min(preset, availableBalance)));
+                      setAmount(clampToValidWithdrawal(Math.min(preset, availableBalance)));
                       if (fieldErrors.amount) setFieldErrors((prev) => ({ ...prev, amount: '' }));
                     }}
                     className={styles.presetBtn}
@@ -403,7 +436,7 @@ const WithdrawalsPage = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setAmount(String(availableBalance));
+                    setAmount(clampToValidWithdrawal(availableBalance));
                     if (fieldErrors.amount) setFieldErrors((prev) => ({ ...prev, amount: '' }));
                   }}
                   className={styles.presetBtnFull}

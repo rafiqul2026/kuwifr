@@ -99,6 +99,17 @@ const createWithdrawal = async (req, res, next) => {
       });
     }
 
+    // Business rule: above the minimum, a withdrawal must be a multiple of
+    // ₹100 (₹500, ₹600, ₹700, ...). WithdrawalsPage.jsx already enforces
+    // this in the UI, but the real guard has to live here too — the client
+    // check is trivially bypassed with a direct API call.
+    if (requestedAmount % 100 !== 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Withdrawal amount must be a multiple of ₹100 (e.g. ₹${minAmount}, ₹${minAmount + 100}, ₹${minAmount + 200}...).`
+      });
+    }
+
     const user = await User.findById(userId);
     let wallet = await Wallet.findOne({ userId });
 
