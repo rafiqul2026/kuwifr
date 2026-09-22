@@ -180,8 +180,6 @@ const getDashboardStats = async (req, res, next) => {
     const weeklyAddMembers = fullDownline.filter((m) => new Date(m.createdAt) >= weekStart).length;
     const monthlyAddMembers = fullDownline.filter((m) => new Date(m.createdAt) >= monthStart).length;
 
-    const totalTeamCount = Math.max(fullDownline.length, totalDirects);
-    const totalActiveTeamCount = fullDownline.filter((m) => String(m.status).toUpperCase() === 'ACTIVE').length;
     const downlineIds = fullDownline.map((m) => m._id);
 
     const totalKbpLeft = Number(binaryNode?.leftVolume || 0);
@@ -263,6 +261,24 @@ const getDashboardStats = async (req, res, next) => {
     };
 
     const { leftIds: leftSubtreeIds, rightIds: rightSubtreeIds } = await BinaryService.getBranchUserIds(userId);
+
+    // Total Team Size (hero "TEAM SIZE" stat) / Total Team (gradient KPI
+    // card) — business rule already applied to My Team page's "Total
+    // Network Size" card and Growth Generation: this must be the member's
+    // real, unlimited-depth BINARY downline (left subtree + right subtree —
+    // the same leftSubtreeIds/rightSubtreeIds just fetched above for the
+    // KBP business figures), not the sponsor-tree ("who personally referred
+    // whom") downline used elsewhere on this page. Binary spillover
+    // placement routinely makes a member's binary network larger than their
+    // sponsor-tree one — confirmed case: MD RAFIQUL ISLAM (KFR229645) showed
+    // 7 here (sponsor-tree) while My Team's own "Total Network Size" card
+    // correctly showed 12 (binary) for the same account. This now matches
+    // that same figure everywhere.
+    const binaryNetworkIds = [...leftSubtreeIds, ...rightSubtreeIds];
+    const totalTeamCount = binaryNetworkIds.length;
+    const totalActiveTeamCount = binaryNetworkIds.length
+      ? await User.countDocuments({ _id: { $in: binaryNetworkIds }, status: 'ACTIVE' })
+      : 0;
 
     const sumKbpForSubtree = async (subtreeIds, startDate) => {
       if (!subtreeIds || subtreeIds.length === 0) return 0;
