@@ -1,5 +1,5 @@
 // client/src/pages/auth/RegisterPage.jsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
@@ -54,9 +54,26 @@ const RegisterPage = () => {
     fullName: '',
     email: '',
     phoneNumber: '',
+    sponsorId: activeSponsor,
+    binarySide: activeSide,
     password: '',
     confirmPassword: ''
   });
+
+  // A referral link (?ref=X&pos=L) locks Sponsor ID/Side to whatever the
+  // link carries — a visitor arriving that way shouldn't be able to type
+  // over the sponsor/side it was generated for. Coming from the plain
+  // "Register" button (no link) leaves both editable, per the requirement
+  // that every new member must pick a sponsor + side to join under.
+  const sponsorLocked = Boolean(activeSponsor);
+
+  // Keep the form's sponsor/side in sync if the URL itself changes (e.g.
+  // the visitor follows a different referral link without a full reload).
+  useEffect(() => {
+    if (activeSponsor) {
+      setFormData((prev) => ({ ...prev, sponsorId: activeSponsor, binarySide: activeSide }));
+    }
+  }, [activeSponsor, activeSide]);
 
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -95,6 +112,9 @@ const RegisterPage = () => {
           return 'Please enter a valid 10-digit phone number';
         }
         return '';
+      case 'sponsorId':
+        if (!value || !value.trim()) return 'Sponsor ID is required — every new member joins under a sponsor';
+        return '';
       case 'password':
         if (!value) return 'Password is required';
         if (value.length < 8) return 'Password must be at least 8 characters';
@@ -110,7 +130,7 @@ const RegisterPage = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: name === 'sponsorId' ? value.toUpperCase() : value }));
 
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
@@ -131,7 +151,7 @@ const RegisterPage = () => {
     const newErrors = {};
     let isValid = true;
 
-    ['fullName', 'email', 'phoneNumber', 'password', 'confirmPassword'].forEach((field) => {
+    ['fullName', 'email', 'phoneNumber', 'sponsorId', 'password', 'confirmPassword'].forEach((field) => {
       const error = validateField(field, formData[field]);
       if (error) {
         newErrors[field] = error;
@@ -159,15 +179,16 @@ const RegisterPage = () => {
 
     setLoading(true);
     try {
-      const { confirmPassword, ...registrationData } = formData;
+      const { confirmPassword, binarySide, ...registrationData } = formData;
+      const chosenSide = (binarySide || 'LEFT').toUpperCase();
 
       const payload = {
         ...registrationData,
-        sponsorId: activeSponsor,
-        side: activeSide.toLowerCase(),
-        binarySide: activeSide,
-        position: activeSide,
-        pos: activeSide === 'LEFT' ? 'L' : 'R'
+        sponsorId: formData.sponsorId.trim().toUpperCase(),
+        side: chosenSide.toLowerCase(),
+        binarySide: chosenSide,
+        position: chosenSide,
+        pos: chosenSide === 'RIGHT' ? 'R' : 'L'
       };
 
       const result = await register(payload);
@@ -305,6 +326,47 @@ const RegisterPage = () => {
               {touched.phoneNumber && errors.phoneNumber && (
                 <span className={styles.errorMessage}>{errors.phoneNumber}</span>
               )}
+            </div>
+
+            <div className={styles.formGroup}>
+              <label htmlFor="sponsorId">
+                Sponsor ID <span className={styles.required}>*</span>
+              </label>
+              <input
+                type="text"
+                id="sponsorId"
+                name="sponsorId"
+                value={formData.sponsorId}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                placeholder="e.g. KFR123456"
+                className={touched.sponsorId && errors.sponsorId ? styles.error : ''}
+                disabled={loading || sponsorLocked}
+                autoCapitalize="characters"
+              />
+              {sponsorLocked ? (
+                <span className={styles.successMessage}>✅ Assigned via your referral link</span>
+              ) : (
+                touched.sponsorId && errors.sponsorId && (
+                  <span className={styles.errorMessage}>{errors.sponsorId}</span>
+                )
+              )}
+            </div>
+
+            <div className={styles.formGroup}>
+              <label htmlFor="binarySide">
+                Side <span className={styles.required}>*</span>
+              </label>
+              <select
+                id="binarySide"
+                name="binarySide"
+                value={formData.binarySide}
+                onChange={handleChange}
+                disabled={loading || sponsorLocked}
+              >
+                <option value="LEFT">Left Side</option>
+                <option value="RIGHT">Right Side</option>
+              </select>
             </div>
 
             <div className={styles.formGroup}>

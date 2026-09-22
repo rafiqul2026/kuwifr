@@ -68,6 +68,19 @@ const register = async (req, res, next) => {
       });
     }
 
+    // Business rule: every new member joins under a sponsor — there is no
+    // such thing as self-registration into an unlinked spot on this plan.
+    // RegisterPage.jsx already makes Sponsor ID a required field (pre-filled
+    // and locked when arriving via a referral link, editable otherwise);
+    // this is the real guard, since the client check alone is bypassable
+    // with a direct API call.
+    if (!sponsorId || !String(sponsorId).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Sponsor ID is required. Every new member must join under a sponsor.",
+      });
+    }
+
     const generatedMemberId = await User.generateMemberId();
 
     const user = new User({

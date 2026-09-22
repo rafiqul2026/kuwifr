@@ -99,7 +99,8 @@
   color: #ef4444;
 }
 
-.formGroup input {
+.formGroup input,
+.formGroup select {
   padding: 12px 16px;
   border: 2px solid #e2e8f0;
   border-radius: 10px;
@@ -109,9 +110,15 @@
   transition: all 0.2s ease;
   width: 100%;
   box-sizing: border-box;
+  font-family: inherit;
 }
 
-.formGroup input:focus {
+.formGroup select {
+  cursor: pointer;
+}
+
+.formGroup input:focus,
+.formGroup select:focus {
   outline: none;
   border-color: #2563eb;
   background: #ffffff;
@@ -131,7 +138,8 @@
   box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.08);
 }
 
-.formGroup input:disabled {
+.formGroup input:disabled,
+.formGroup select:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
