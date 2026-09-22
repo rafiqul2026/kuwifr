@@ -55,7 +55,11 @@ const RegisterPage = () => {
     email: '',
     phoneNumber: '',
     sponsorId: activeSponsor,
-    binarySide: activeSide,
+    // Empty (forces the "Select One" placeholder) unless a referral link
+    // already fixes the side — a member arriving through the plain
+    // Register button must actively choose Left/Right, never inherit a
+    // silent default.
+    binarySide: activeSponsor ? activeSide : '',
     password: '',
     confirmPassword: ''
   });
@@ -115,6 +119,9 @@ const RegisterPage = () => {
       case 'sponsorId':
         if (!value || !value.trim()) return 'Sponsor ID is required — every new member joins under a sponsor';
         return '';
+      case 'binarySide':
+        if (!value) return 'Please select Left Side or Right Side';
+        return '';
       case 'password':
         if (!value) return 'Password is required';
         if (value.length < 8) return 'Password must be at least 8 characters';
@@ -151,7 +158,7 @@ const RegisterPage = () => {
     const newErrors = {};
     let isValid = true;
 
-    ['fullName', 'email', 'phoneNumber', 'sponsorId', 'password', 'confirmPassword'].forEach((field) => {
+    ['fullName', 'email', 'phoneNumber', 'sponsorId', 'binarySide', 'password', 'confirmPassword'].forEach((field) => {
       const error = validateField(field, formData[field]);
       if (error) {
         newErrors[field] = error;
@@ -380,12 +387,22 @@ const RegisterPage = () => {
                   name="binarySide"
                   value={formData.binarySide}
                   onChange={handleChange}
+                  onBlur={handleBlur}
+                  className={touched.binarySide && errors.binarySide ? styles.error : ''}
                   disabled={loading || sponsorLocked}
                 >
+                  <option value="" disabled>Select One</option>
                   <option value="LEFT">Left Side</option>
                   <option value="RIGHT">Right Side</option>
                 </select>
               </div>
+              {sponsorLocked ? (
+                <span className={styles.successMessage}>✅ Assigned via your referral link</span>
+              ) : (
+                touched.binarySide && errors.binarySide && (
+                  <span className={styles.errorMessage}>{errors.binarySide}</span>
+                )
+              )}
             </div>
 
             <div className={styles.formRow}>
