@@ -227,7 +227,7 @@ const RegisterPage = () => {
   return (
     <div className={styles.authPage}>
       <Seo title="Create Account" path="/register" robots="noindex" />
-      <div className={styles.authContainer}>
+      <div className={styles.authContainerWide}>
         <div className={styles.authCard}>
           <div className={styles.authHeader}>
             <img src="/logo.jpg" alt="KUWIFR" className={styles.authLogo} />
@@ -242,20 +242,20 @@ const RegisterPage = () => {
               style={{
                 background: activeSide === 'LEFT' ? '#eff6ff' : '#fdf2f8',
                 border: activeSide === 'LEFT' ? '1.5px solid #93c5fd' : '1.5px solid #f9a8d4',
-                padding: '14px 18px',
+                padding: '10px 16px',
                 borderRadius: '12px',
-                marginBottom: '22px',
+                marginBottom: '16px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px'
+                gap: '10px'
               }}
             >
-              <span style={{ fontSize: '22px' }}>👤</span>
+              <span style={{ fontSize: '19px' }}>👤</span>
               <div>
                 <strong
                   style={{
                     color: activeSide === 'LEFT' ? '#1d4ed8' : '#be185d',
-                    fontSize: '14.5px',
+                    fontSize: '13.5px',
                     letterSpacing: '0.4px',
                     display: 'block'
                   }}
@@ -267,172 +267,195 @@ const RegisterPage = () => {
           )}
 
           <form onSubmit={handleSubmit} className={styles.authForm} noValidate>
-            <div className={styles.formGroup}>
-              <label htmlFor="fullName">
-                Full Name <span className={styles.required}>*</span>
-              </label>
-              <input
-                type="text"
-                id="fullName"
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="Enter your full name"
-                className={touched.fullName && errors.fullName ? styles.error : ''}
-                disabled={loading}
-              />
-              {touched.fullName && errors.fullName && (
-                <span className={styles.errorMessage}>{errors.fullName}</span>
-              )}
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label htmlFor="fullName">
+                  Full Name <span className={styles.required}>*</span>
+                </label>
+                <div className={styles.inputWithIcon}>
+                  <span className={styles.fieldIcon} aria-hidden="true">👤</span>
+                  <input
+                    type="text"
+                    id="fullName"
+                    name="fullName"
+                    value={formData.fullName}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    placeholder="Your full name"
+                    className={touched.fullName && errors.fullName ? styles.error : ''}
+                    disabled={loading}
+                  />
+                </div>
+                {touched.fullName && errors.fullName && (
+                  <span className={styles.errorMessage}>{errors.fullName}</span>
+                )}
+              </div>
+
+              <div className={styles.formGroup}>
+                <label htmlFor="email">
+                  Email Address <span className={styles.required}>*</span>
+                </label>
+                <div className={styles.inputWithIcon}>
+                  <span className={styles.fieldIcon} aria-hidden="true">✉️</span>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    placeholder="For OTP & notices"
+                    className={touched.email && errors.email ? styles.error : ''}
+                    disabled={loading}
+                  />
+                </div>
+                {touched.email && errors.email && (
+                  <span className={styles.errorMessage}>{errors.email}</span>
+                )}
+              </div>
             </div>
 
-            <div className={styles.formGroup}>
-              <label htmlFor="email">
-                Email Address (For OTP & Notices) <span className={styles.required}>*</span>
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="Enter your email address"
-                className={touched.email && errors.email ? styles.error : ''}
-                disabled={loading}
-              />
-              {touched.email && errors.email && (
-                <span className={styles.errorMessage}>{errors.email}</span>
-              )}
-            </div>
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label htmlFor="phoneNumber">
+                  Phone Number <span className={styles.required}>*</span>
+                </label>
+                <div className={styles.inputWithIcon}>
+                  <span className={styles.fieldIcon} aria-hidden="true">📱</span>
+                  <input
+                    type="tel"
+                    id="phoneNumber"
+                    name="phoneNumber"
+                    value={formData.phoneNumber}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    placeholder="10-digit number"
+                    maxLength="10"
+                    className={touched.phoneNumber && errors.phoneNumber ? styles.error : ''}
+                    disabled={loading}
+                  />
+                </div>
+                {touched.phoneNumber && errors.phoneNumber && (
+                  <span className={styles.errorMessage}>{errors.phoneNumber}</span>
+                )}
+              </div>
 
-            <div className={styles.formGroup}>
-              <label htmlFor="phoneNumber">
-                Phone Number <span className={styles.required}>*</span>
-              </label>
-              <input
-                type="tel"
-                id="phoneNumber"
-                name="phoneNumber"
-                value={formData.phoneNumber}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="Enter 10-digit phone number"
-                maxLength="10"
-                className={touched.phoneNumber && errors.phoneNumber ? styles.error : ''}
-                disabled={loading}
-              />
-              {touched.phoneNumber && errors.phoneNumber && (
-                <span className={styles.errorMessage}>{errors.phoneNumber}</span>
-              )}
-            </div>
-
-            <div className={styles.formGroup}>
-              <label htmlFor="sponsorId">
-                Sponsor ID <span className={styles.required}>*</span>
-              </label>
-              <input
-                type="text"
-                id="sponsorId"
-                name="sponsorId"
-                value={formData.sponsorId}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="e.g. KFR123456"
-                className={touched.sponsorId && errors.sponsorId ? styles.error : ''}
-                disabled={loading || sponsorLocked}
-                autoCapitalize="characters"
-              />
-              {sponsorLocked ? (
-                <span className={styles.successMessage}>✅ Assigned via your referral link</span>
-              ) : (
-                touched.sponsorId && errors.sponsorId && (
-                  <span className={styles.errorMessage}>{errors.sponsorId}</span>
-                )
-              )}
+              <div className={styles.formGroup}>
+                <label htmlFor="sponsorId">
+                  Sponsor ID <span className={styles.required}>*</span>
+                </label>
+                <div className={styles.inputWithIcon}>
+                  <span className={styles.fieldIcon} aria-hidden="true">🔗</span>
+                  <input
+                    type="text"
+                    id="sponsorId"
+                    name="sponsorId"
+                    value={formData.sponsorId}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    placeholder="e.g. KFR123456"
+                    className={touched.sponsorId && errors.sponsorId ? styles.error : ''}
+                    disabled={loading || sponsorLocked}
+                    autoCapitalize="characters"
+                  />
+                </div>
+                {sponsorLocked ? (
+                  <span className={styles.successMessage}>✅ Assigned via your referral link</span>
+                ) : (
+                  touched.sponsorId && errors.sponsorId && (
+                    <span className={styles.errorMessage}>{errors.sponsorId}</span>
+                  )
+                )}
+              </div>
             </div>
 
             <div className={styles.formGroup}>
               <label htmlFor="binarySide">
                 Side <span className={styles.required}>*</span>
               </label>
-              <select
-                id="binarySide"
-                name="binarySide"
-                value={formData.binarySide}
-                onChange={handleChange}
-                disabled={loading || sponsorLocked}
-              >
-                <option value="LEFT">Left Side</option>
-                <option value="RIGHT">Right Side</option>
-              </select>
-            </div>
-
-            <div className={styles.formGroup}>
-              <label htmlFor="password">
-                Password <span className={styles.required}>*</span>
-              </label>
-              <div className={styles.passwordWrapper}>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  id="password"
-                  name="password"
-                  value={formData.password}
+              <div className={styles.inputWithIcon}>
+                <span className={styles.fieldIcon} aria-hidden="true">🧭</span>
+                <select
+                  id="binarySide"
+                  name="binarySide"
+                  value={formData.binarySide}
                   onChange={handleChange}
-                  onBlur={handleBlur}
-                  placeholder="Create a strong password (min 8 chars)"
-                  className={touched.password && errors.password ? styles.error : ''}
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  className={styles.passwordToggle}
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  disabled={loading || sponsorLocked}
                 >
-                  {showPassword ? '🙈' : '👁️'}
-                </button>
+                  <option value="LEFT">Left Side</option>
+                  <option value="RIGHT">Right Side</option>
+                </select>
               </div>
-              {touched.password && errors.password && (
-                <span className={styles.errorMessage}>{errors.password}</span>
-              )}
             </div>
 
-            <div className={styles.formGroup}>
-              <label htmlFor="confirmPassword">
-                Confirm Password <span className={styles.required}>*</span>
-              </label>
-              <div className={styles.passwordWrapper}>
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  placeholder="Re-enter your password"
-                  className={touched.confirmPassword && errors.confirmPassword ? styles.error : ''}
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  className={styles.passwordToggle}
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showConfirmPassword ? '🙈' : '👁️'}
-                </button>
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label htmlFor="password">
+                  Password <span className={styles.required}>*</span>
+                </label>
+                <div className={styles.passwordWrapper}>
+                  <span className={styles.fieldIcon} aria-hidden="true">🔒</span>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    id="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    placeholder="Min 8 characters"
+                    className={touched.password && errors.password ? styles.error : ''}
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    className={styles.passwordToggle}
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? '🙈' : '👁️'}
+                  </button>
+                </div>
+                {touched.password && errors.password && (
+                  <span className={styles.errorMessage}>{errors.password}</span>
+                )}
               </div>
-              {touched.confirmPassword && errors.confirmPassword && (
-                <span className={styles.errorMessage}>{errors.confirmPassword}</span>
-              )}
-              {formData.confirmPassword && formData.password && formData.password === formData.confirmPassword && (
-                <span className={styles.successMessage}>✅ Passwords match</span>
-              )}
+
+              <div className={styles.formGroup}>
+                <label htmlFor="confirmPassword">
+                  Confirm Password <span className={styles.required}>*</span>
+                </label>
+                <div className={styles.passwordWrapper}>
+                  <span className={styles.fieldIcon} aria-hidden="true">🔒</span>
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    placeholder="Re-enter password"
+                    className={touched.confirmPassword && errors.confirmPassword ? styles.error : ''}
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    className={styles.passwordToggle}
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showConfirmPassword ? '🙈' : '👁️'}
+                  </button>
+                </div>
+                {touched.confirmPassword && errors.confirmPassword && (
+                  <span className={styles.errorMessage}>{errors.confirmPassword}</span>
+                )}
+                {formData.confirmPassword && formData.password && formData.password === formData.confirmPassword && (
+                  <span className={styles.successMessage}>✅ Match</span>
+                )}
+              </div>
             </div>
 
-            <button type="submit" className={styles.submitBtn} disabled={loading} style={{ marginTop: '10px' }}>
+            <button type="submit" className={styles.submitBtn} disabled={loading} style={{ marginTop: '4px' }}>
               {loading ? (
                 <span className={styles.loadingSpinner}>
                   <span className={styles.spinner}></span>

@@ -8,9 +8,7 @@
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #f0f4ff 0%, #e8eeff 50%, #f5f0ff 100%);
-  padding: 20px;
-  padding-top: 100px;
-  padding-bottom: 40px;
+  padding: 32px 20px;
 }
 
 .authContainer {
@@ -18,10 +16,18 @@
   max-width: 440px;
 }
 
+/* Register only — the extra Sponsor ID/Side fields pair up two-per-row
+   (see .formRow), so the card needs more horizontal room than Login's
+   single-column form to stay compact vertically instead of running long. */
+.authContainerWide {
+  width: 100%;
+  max-width: 560px;
+}
+
 .authCard {
   background: #ffffff;
-  border-radius: 24px;
-  padding: 40px 36px;
+  border-radius: 20px;
+  padding: 32px;
   box-shadow: 0 20px 60px rgba(37, 99, 235, 0.10);
   border: 1px solid rgba(37, 99, 235, 0.06);
   animation: slideUp 0.5s ease;
@@ -80,17 +86,34 @@
 .authForm {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 14px;
+}
+
+/* Two fields per row on a wide-enough card (Register's .authContainerWide) —
+   the main lever for keeping the form to roughly half its previous height
+   instead of every field stacking full-width. Collapses to one column
+   below 560px so nothing feels cramped on a phone. */
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 560px) {
+  .formRow {
+    grid-template-columns: 1fr;
+  }
 }
 
 .formGroup {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .formGroup label {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #1e293b;
 }
@@ -101,8 +124,8 @@
 
 .formGroup input,
 .formGroup select {
-  padding: 12px 16px;
-  border: 2px solid #e2e8f0;
+  padding: 11px 14px;
+  border: 1.5px solid #e2e8f0;
   border-radius: 10px;
   font-size: 14px;
   background: #f8fafc;
@@ -115,6 +138,33 @@
 
 .formGroup select {
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+/* Left icon inside a field (see the 👤/✉️/📱/... spans in RegisterPage.jsx) */
+.inputWithIcon {
+  position: relative;
+}
+
+.inputWithIcon .fieldIcon {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 15px;
+  opacity: 0.55;
+  pointer-events: none;
+  line-height: 1;
+}
+
+.inputWithIcon input,
+.inputWithIcon select {
+  padding-left: 38px;
 }
 
 .formGroup input:focus,
@@ -151,6 +201,18 @@
 
 .passwordWrapper input {
   padding-right: 48px;
+  padding-left: 38px;
+}
+
+.passwordWrapper .fieldIcon {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 15px;
+  opacity: 0.55;
+  pointer-events: none;
+  line-height: 1;
 }
 
 .passwordToggle {
@@ -318,17 +380,34 @@
 /* ============ RESPONSIVE ============ */
 @media (max-width: 480px) {
   .authCard {
-    padding: 28px 20px;
+    padding: 20px 16px;
+  }
+
+  .authHeader {
+    margin-bottom: 16px;
   }
 
   .authHeader h1 {
-    font-size: 24px;
+    font-size: 21px;
+    margin-bottom: 4px;
+  }
+
+  .authForm {
+    gap: 11px;
+  }
+
+  .submitBtn {
+    min-height: 46px;
+    padding: 11px;
+  }
+
+  .authFooter {
+    margin-top: 16px;
+    padding-top: 14px;
   }
 
   .authPage {
-    padding-top: 80px;
-    padding-left: 12px;
-    padding-right: 12px;
+    padding: 12px 12px;
   }
 
   .authLogo {
@@ -376,14 +455,6 @@
 }
 
 /* ============ PASSWORD WRAPPER (Shared with Register) ============ */
-
-.passwordWrapper {
-  position: relative;
-}
-
-.passwordWrapper input {
-  padding-right: 48px;
-}
 
 .passwordToggle {
   position: absolute;
@@ -552,25 +623,6 @@
 /* ============ RESPONSIVE ============ */
 
 @media (max-width: 480px) {
-  .authCard {
-    padding: 28px 20px;
-  }
-
-  .authHeader h1 {
-    font-size: 24px;
-  }
-
-  .authPage {
-    padding-top: 80px;
-    padding-left: 12px;
-    padding-right: 12px;
-  }
-
-  .authLogo {
-    width: 48px;
-    height: 48px;
-  }
-
   .formOptions {
     flex-direction: column;
     gap: 8px;
