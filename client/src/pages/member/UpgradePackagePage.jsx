@@ -176,7 +176,11 @@ const UpgradePackagePage = () => {
 
   const handleSelectProductOnCard = (pkgId, pkgType, product) => {
     if (getSelectionMode(pkgType) === 'ALL') return; // not user-selectable, both are bundled
-    setSelectedProductMap((prev) => ({ ...prev, [pkgId]: [product] }));
+    // Clicking the already-selected product deselects it.
+    setSelectedProductMap((prev) => ({
+      ...prev,
+      [pkgId]: prev[pkgId]?.some((p) => p.id === product.id) ? [] : [product]
+    }));
   };
 
   // Member selects a product on the card first, then clicks "Upgrade
@@ -495,8 +499,10 @@ const UpgradePackagePage = () => {
                           type={selectionMode === 'ALL' ? 'checkbox' : 'radio'}
                           name={`upgrade-product-${pkg._id}`}
                           checked={isChecked}
-                          readOnly={selectionMode === 'ALL'}
-                          onChange={() => handleSelectProductOnCard(pkg._id, pkg.type, product)}
+                          readOnly
+                          // The card's onClick (this click bubbles to it) handles
+                          // select/deselect; handling it here too would toggle twice.
+                          onChange={() => {}}
                           className={styles.radioBtn}
                         />
                         <div className={styles.productItemInfo}>
@@ -521,7 +527,7 @@ const UpgradePackagePage = () => {
                 <p className={styles.productsPreviewFootnote}>
                   {selectionMode === 'ALL'
                     ? 'Both products above are bundled automatically with this package.'
-                    : 'Select 1 product first, then click Upgrade Package below.'}
+                    : 'Select 1 product (click it again to deselect), then click Upgrade Package below.'}
                 </p>
               </div>
 

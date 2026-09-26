@@ -192,9 +192,10 @@ const PackagesPage = () => {
 
   const handleSelectProduct = (pkgKey, pkgType, product) => {
     if (getSelectionMode(pkgType) === 'ALL') return; // not user-selectable, both are bundled
+    // Clicking the already-selected product deselects it.
     setSelectedProductMap((prev) => ({
       ...prev,
-      [pkgKey]: [product]
+      [pkgKey]: prev[pkgKey]?.some((p) => p.id === product.id) ? [] : [product]
     }));
   };
 
@@ -444,8 +445,10 @@ const PackagesPage = () => {
                           type={selectionMode === 'ALL' ? 'checkbox' : 'radio'}
                           name={`package-product-${pkgKey}`}
                           checked={isChecked}
-                          readOnly={selectionMode === 'ALL'}
-                          onChange={() => handleSelectProduct(pkgKey, pkg.type, product)}
+                          readOnly
+                          // The card's onClick (this click bubbles to it) handles
+                          // select/deselect; handling it here too would toggle twice.
+                          onChange={() => {}}
                           className={styles.radioBtn}
                         />
 
