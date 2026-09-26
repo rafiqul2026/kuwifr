@@ -1,16 +1,17 @@
 {
+  "id": "/",
   "name": "KUWIFR Services Pvt Ltd",
   "short_name": "KUWIFR",
   "description": "KUWIFR — Health, Wellness & Lifestyle Essentials",
-  "start_url": "/",
+  "start_url": "/member/dashboard",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#2563eb",
+  "theme_color": "#008080",
   "icons": [
-    {
-      "src": "/logo.jpg",
-      "sizes": "1240x1237",
-      "type": "image/jpeg"
-    }
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
