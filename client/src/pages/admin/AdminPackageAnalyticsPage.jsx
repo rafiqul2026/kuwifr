@@ -362,7 +362,11 @@ const AdminPackageAnalyticsPage = () => {
                     </td>
                     <td>
                       <strong className={styles.amountCol}>{formatINR(item.packagePrice)}</strong>
-                      {item.purchaseType === 'UPGRADE' && (
+                      {item.isInsurance ? (
+                        <small className={styles.amountSubNote}>
+                          insurance installment{item.purchaseType === 'UPGRADE' ? ', 0 KBP' : ''}
+                        </small>
+                      ) : item.purchaseType === 'UPGRADE' && (
                         <small className={styles.amountSubNote}>full upgrade price, 0 KBP</small>
                       )}
                     </td>

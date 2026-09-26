@@ -43,6 +43,11 @@ const normalizeProduct = (p) => ({
  * fetch so this stays a pure function with no network calls of its own.
  */
 export const getProductsForPackage = (pkg, repurchaseProducts = []) => {
+  // The package's insurance plan (sent by the API as pkg.insurancePlan, see
+  // server/src/constants/insurancePlans.js) is always offered as one more
+  // choice after the physical products.
+  const insurance = pkg?.insurancePlan ? [{ ...pkg.insurancePlan, image: '' }] : [];
+
   // Admin's explicit choice (Admin > Packages > Products) wins when one has
   // been set — including an empty list, meaning "offer nothing". Order
   // follows the order the admin arranged them in.
@@ -51,12 +56,24 @@ export const getProductsForPackage = (pkg, repurchaseProducts = []) => {
     return pkg.includedProductIds
       .map((id) => byId.get(id))
       .filter(Boolean)
-      .map(normalizeProduct);
+      .map(normalizeProduct)
+      .concat(insurance);
   }
 
   // Otherwise the automatic default: same-KSP products.
   const price = Number(pkg?.price || 0);
   return repurchaseProducts
     .filter((p) => Number(p.ksp) === price)
-    .map(normalizeProduct);
+    .map(normalizeProduct)
+    .concat(insurance);
+};
+
+/**
+ * What the member pays: the insurance installment if they picked the
+ * insurance plan, otherwise the package price. Mirrors getAmountPayable in
+ * server/src/constants/insurancePlans.js (the server recomputes it).
+ */
+export const getAmountPayable = (pkg, selectedProducts = []) => {
+  const insurance = selectedProducts.find((p) => p?.isInsurance);
+  return insurance ? Number(insurance.installment || 0) : Number(pkg?.price || 0);
 };

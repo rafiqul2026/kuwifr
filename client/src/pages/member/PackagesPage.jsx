@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
-import { getProductsForPackage, getSelectionMode } from './packageProductCatalog';
+import { getProductsForPackage, getSelectionMode, getAmountPayable } from './packageProductCatalog';
 import styles from './PackagesPage.module.css';
 
 // PBW Foundation token palette — teal primary, orange accent, plus the
@@ -308,9 +308,12 @@ const PackagesPage = () => {
     setProofPreview('');
   };
 
-  // Dynamic UPI URI targeting the admin-configured merchant account with exact package price
+  // Package price, or the insurance installment if the insurance plan was chosen.
+  const payableAmount = activePkg ? getAmountPayable(activePkg, activeProducts) : 0;
+
+  // Dynamic UPI URI targeting the admin-configured merchant account with the exact payable amount
   const upiUri = activePkg
-    ? `upi://pay?pa=${paymentInfo.upiId}&pn=${encodeURIComponent(paymentInfo.merchantName)}&am=${activePkg.price}&cu=INR&tn=${encodeURIComponent(`KUWIFR-${activePkg.name}-${user?.memberId || 'MEMBER'}`)}`
+    ? `upi://pay?pa=${paymentInfo.upiId}&pn=${encodeURIComponent(paymentInfo.merchantName)}&am=${payableAmount}&cu=INR&tn=${encodeURIComponent(`KUWIFR-${activePkg.name}-${user?.memberId || 'MEMBER'}`)}`
     : '';
 
   const dynamicQrUrl = activePkg
@@ -450,17 +453,27 @@ const PackagesPage = () => {
                           {product.image ? (
                             <img src={product.image} alt={product.name} />
                           ) : (
-                            <span aria-hidden="true">📦</span>
+                            <span aria-hidden="true">{product.isInsurance ? '🛡️' : '📦'}</span>
                           )}
                         </div>
 
                         <div className={styles.productItemInfo}>
                           <span className={styles.itemCat}>{product.category}</span>
                           <h4 className={styles.itemTitle}>{product.name}</h4>
-                          <div className={styles.itemPrices}>
-                            <span className={styles.kspPrice}>KSP: ₹{product.ksp?.toLocaleString()}</span>
-                            {product.mrp && <span className={styles.mrpPrice}>MRP: ₹{product.mrp?.toLocaleString()}</span>}
-                          </div>
+                          {product.isInsurance ? (
+                            <>
+                              <span className={styles.itemProvider}>{product.provider}</span>
+                              <div className={styles.itemPrices}>
+                                <span className={styles.kspPrice}>Installment: ₹{product.installment?.toLocaleString('en-IN')}</span>
+                                <span className={styles.kspPrice}>KSP: ₹{product.ksp?.toLocaleString('en-IN')}</span>
+                              </div>
+                            </>
+                          ) : (
+                            <div className={styles.itemPrices}>
+                              <span className={styles.kspPrice}>KSP: ₹{product.ksp?.toLocaleString()}</span>
+                              {product.mrp && <span className={styles.mrpPrice}>MRP: ₹{product.mrp?.toLocaleString()}</span>}
+                            </div>
+                          )}
                         </div>
 
                         <div className={styles.selectionCircle}>
@@ -501,7 +514,7 @@ const PackagesPage = () => {
                   onClick={() => handleInitiatePurchase(pkg)}
                 >
                   {hasSelection ? (
-                    <span>Purchase {pkg.name} (₹{pkg.price?.toLocaleString()}) →</span>
+                    <span>Purchase {pkg.name} (₹{getAmountPayable(pkg, selectedProducts).toLocaleString()}) →</span>
                   ) : (
                     <span>Select 1 Product to Purchase</span>
                   )}
@@ -553,16 +566,23 @@ const PackagesPage = () => {
                           />
                         ) : (
                           <div className={styles.chosenProductImg} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', background: '#f5f5f5' }} aria-hidden="true">
-                            📦
+                            {product.isInsurance ? '🛡️' : '📦'}
                           </div>
                         )}
                         <div className={styles.chosenProductDetails}>
                           <span className={styles.chosenCat}>{product.category}</span>
                           <h3 className={styles.chosenTitle}>{product.name}</h3>
-                          <div className={styles.chosenPrices}>
-                            <span><strong>KSP Price:</strong> ₹{product.ksp?.toLocaleString()}</span>
-                            {product.mrp && <span className={styles.chosenMrp}>(MRP: ₹{product.mrp?.toLocaleString()})</span>}
-                          </div>
+                          {product.isInsurance ? (
+                            <div className={styles.chosenPrices}>
+                              <span><strong>Installment:</strong> ₹{product.installment?.toLocaleString('en-IN')}</span>
+                              <span className={styles.chosenMrp}>({product.provider})</span>
+                            </div>
+                          ) : (
+                            <div className={styles.chosenPrices}>
+                              <span><strong>KSP Price:</strong> ₹{product.ksp?.toLocaleString()}</span>
+                              {product.mrp && <span className={styles.chosenMrp}>(MRP: ₹{product.mrp?.toLocaleString()})</span>}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -570,8 +590,8 @@ const PackagesPage = () => {
 
                   <div className={styles.metricsGrid}>
                     <div className={styles.metricBox}>
-                      <small>Package Price</small>
-                      <strong className={styles.priceColor}>₹{activePkg.price?.toLocaleString()}</strong>
+                      <small>{payableAmount !== activePkg.price ? 'Amount Payable (Insurance Installment)' : 'Package Price'}</small>
+                      <strong className={styles.priceColor}>₹{payableAmount.toLocaleString()}</strong>
                     </div>
 
                     <div className={styles.metricBox}>
@@ -605,7 +625,7 @@ const PackagesPage = () => {
                     className={styles.confirmBtn}
                     onClick={handleProceedToPayment}
                   >
-                    Confirm & Proceed to Pay (₹{activePkg.price?.toLocaleString()}) →
+                    Confirm & Proceed to Pay (₹{payableAmount.toLocaleString()}) →
                   </button>
                 </div>
               </>
@@ -736,7 +756,7 @@ const PackagesPage = () => {
                         <div className={styles.infoRow} style={{ marginTop: '6px' }}>
                           <span>Exact Payable Amount</span>
                           <strong className={styles.highlightAmount}>
-                            ₹{activePkg.price?.toLocaleString('en-IN')}
+                            ₹{payableAmount.toLocaleString('en-IN')}
                           </strong>
                         </div>
                       </div>
@@ -861,7 +881,7 @@ const PackagesPage = () => {
                     onClick={handleCompleteActivation}
                     disabled={processingPayment}
                   >
-                    {processingPayment ? 'Submitting Payment Proof...' : `Submit Payment Proof (₹${activePkg.price?.toLocaleString()})`}
+                    {processingPayment ? 'Submitting Payment Proof...' : `Submit Payment Proof (₹${payableAmount.toLocaleString()})`}
                   </button>
                 </div>
               </>

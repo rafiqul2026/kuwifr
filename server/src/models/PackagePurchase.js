@@ -108,6 +108,14 @@ const packagePurchaseSchema = new mongoose.Schema(
       enum: ['NEW', 'UPGRADE'],
       default: 'NEW'
     },
+    // True when the member picked the package's insurance plan as their
+    // product — `packagePrice` is then the insurance installment they paid
+    // (see constants/insurancePlans.js), while `targetPackagePrice` stays
+    // the package's own price.
+    isInsurance: {
+      type: Boolean,
+      default: false
+    },
     previousPackageId: { type: String },
     previousPackageName: { type: String },
     previousPackagePrice: { type: Number },

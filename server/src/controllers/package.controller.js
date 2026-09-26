@@ -6,6 +6,7 @@ const Referral = require('../models/Referral');
 const Order = require('../models/Order');
 const BinaryService = require('../services/binary.service');
 const IncomeService = require('../services/income.service');
+const { withInsurancePlan, getInsurancePlan } = require('../constants/insurancePlans');
 
 // Income caps (dailyCap/weeklyCap/monthlyCap) — the Rupee capping value
 // itself is correct as-is and must NOT be scaled. What members see as
@@ -122,7 +123,7 @@ const getAllPackages = async (req, res, next) => {
 
     res.json({
       success: true,
-      data: { packages: packages && packages.length > 0 ? packages : DEFAULT_PACKAGES }
+      data: { packages: (packages && packages.length > 0 ? packages : DEFAULT_PACKAGES).map(withInsurancePlan) }
     });
   } catch (error) {
     next(error);
@@ -162,7 +163,7 @@ const getPackageById = async (req, res, next) => {
     }
     res.json({
       success: true,
-      data: { package: pkg }
+      data: { package: withInsurancePlan(pkg) }
     });
   } catch (error) {
     next(error);
@@ -378,8 +379,13 @@ const setPackageProducts = async (req, res, next) => {
  */
 const validateSelectedProducts = (pkg, selectedProducts) => {
   if (!pkg || !Array.isArray(pkg.includedProductIds)) return null;
+  // The package's insurance plan is always a valid choice alongside the
+  // admin-assigned products (see constants/insurancePlans.js).
   const allowed = new Set(pkg.includedProductIds);
-  const bad = (selectedProducts || []).filter((p) => !allowed.has(p?.id));
+  const insurance = getInsurancePlan(pkg.type);
+  if (insurance) allowed.add(insurance.id);
+  // Member pages submit the product slug as `productId`; accept `id` too.
+  const bad = (selectedProducts || []).filter((p) => !allowed.has(p?.productId || p?.id));
   if (bad.length) {
     return `${bad.map((p) => p?.name || p?.id || 'That product').join(', ')} is not available with ${pkg.name}. Please choose one of the listed products.`;
   }

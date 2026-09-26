@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
-import { getProductsForPackage, getSelectionMode } from './packageProductCatalog';
+import { getProductsForPackage, getSelectionMode, getAmountPayable } from './packageProductCatalog';
 import styles from './UpgradePackagePage.module.css';
 
 // Per-tier accent colors, matches the palette used on the Buy Package page.
@@ -231,7 +231,9 @@ const UpgradePackagePage = () => {
   // there is no "pay just the difference" discount — and credits 0 KBP.
   // The member only receives the higher capping ceiling and the target
   // tier's bundled product(s); no fresh referral/binary income is generated.
-  const amountPayable = selectedUpgrade?.price || 0;
+  // If the insurance plan was chosen as the product, its installment is
+  // payable instead of the package price.
+  const amountPayable = selectedUpgrade ? getAmountPayable(selectedUpgrade, selectedProducts) : 0;
 
   const handleCompleteUpgrade = async () => {
     if (!selectedUpgrade) return;
@@ -500,6 +502,15 @@ const UpgradePackagePage = () => {
                         <div className={styles.productItemInfo}>
                           <span className={styles.itemCat}>{product.category}</span>
                           <h4 className={styles.itemTitle}>{product.name}</h4>
+                          {product.isInsurance && (
+                            <>
+                              <span className={styles.itemProvider}>{product.provider}</span>
+                              <div className={styles.itemPolicyAmounts}>
+                                <span>Installment: ₹{product.installment?.toLocaleString('en-IN')}</span>
+                                <span>KSP: ₹{product.ksp?.toLocaleString('en-IN')}</span>
+                              </div>
+                            </>
+                          )}
                         </div>
                         <div className={styles.selectionCircle}>{isChecked ? '✓' : ''}</div>
                       </div>
@@ -534,7 +545,7 @@ const UpgradePackagePage = () => {
                     onClick={() => handleInitiateUpgrade(pkg)}
                   >
                     {hasSelection ? (
-                      <span>Upgrade to {pkg.name} (Pay ₹{pkg.price.toLocaleString()}) →</span>
+                      <span>Upgrade to {pkg.name} (Pay ₹{getAmountPayable(pkg, cardSelectedProducts).toLocaleString()}) →</span>
                     ) : (
                       <span>Select 1 Product to Upgrade</span>
                     )}
@@ -597,10 +608,17 @@ const UpgradePackagePage = () => {
                         <div className={styles.chosenProductDetails}>
                           <span className={styles.chosenCat}>{product.category}</span>
                           <h3 className={styles.chosenTitle}>{product.name}</h3>
-                          <div className={styles.chosenPrices}>
-                            <span><strong>KSP Price:</strong> ₹{product.ksp?.toLocaleString()}</span>
-                            {product.mrp && <span className={styles.chosenMrp}>(MRP: ₹{product.mrp?.toLocaleString()})</span>}
-                          </div>
+                          {product.isInsurance ? (
+                            <div className={styles.chosenPrices}>
+                              <span><strong>Installment:</strong> ₹{product.installment?.toLocaleString('en-IN')}</span>
+                              <span className={styles.chosenMrp}>({product.provider})</span>
+                            </div>
+                          ) : (
+                            <div className={styles.chosenPrices}>
+                              <span><strong>KSP Price:</strong> ₹{product.ksp?.toLocaleString()}</span>
+                              {product.mrp && <span className={styles.chosenMrp}>(MRP: ₹{product.mrp?.toLocaleString()})</span>}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -608,7 +626,11 @@ const UpgradePackagePage = () => {
 
                   <div className={styles.summaryTable}>
                     <div className={styles.summaryRow}>
-                      <span>Upgrade Amount Payable (Full Package Price)</span>
+                      <span>
+                        {amountPayable !== selectedUpgrade.price
+                          ? 'Upgrade Amount Payable (Insurance Installment)'
+                          : 'Upgrade Amount Payable (Full Package Price)'}
+                      </span>
                       <strong className={styles.payableAmount}>₹{amountPayable.toLocaleString()}</strong>
                     </div>
                     <div className={styles.summaryRow}>
