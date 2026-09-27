@@ -206,7 +206,17 @@ const AdminLayout = () => {
         </button>
         <span className={styles.brandTitle}>KUWIFR Admin</span>
         <div className={styles.mobileHeaderRight}>
-          <span className={styles.adminRolePill}>Super Admin</span>
+          {/* Shortcut to the account menu (Account / Change Password / Log
+              out) in the sidebar footer — the desktop header's Logout is
+              hidden on mobile. */}
+          <button
+            type="button"
+            className={styles.adminRolePill}
+            onClick={() => { setSidebarOpen(true); setAccountMenuOpen(true); }}
+            aria-label="Open account menu"
+          >
+            Super Admin ▾
+          </button>
         </div>
       </header>
 

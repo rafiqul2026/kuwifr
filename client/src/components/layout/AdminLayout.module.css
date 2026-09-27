@@ -7,6 +7,7 @@
 .layoutWrapper {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   background-color: #fdfaf5;
   width: 100%;
   overflow: hidden;
@@ -59,6 +60,8 @@
   padding: 4px 10px;
   border-radius: 20px;
   font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
 }
 
 /* Sidebar — PBW's sidebar is the SAME cream as the page (not a
@@ -74,6 +77,7 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   z-index: 50;
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -174,6 +178,7 @@
 
 .sidebarFooter {
   position: relative;
+  flex-shrink: 0;
   padding: 14px 16px;
   border-top: 1px solid #e5e5e5;
   background: #f9f5ea;
@@ -503,6 +508,7 @@
   flex-direction: column;
   min-width: 0;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   width: 100%;
 }
@@ -605,20 +611,31 @@
     display: none;
   }
 
+  /* dvh, not vh: on mobile browsers 100vh is the height with the address
+     bar hidden, which pushed the sidebar footer (admin account menu with
+     Log out) below the visible screen, out of reach. */
   .mainContent {
     height: calc(100vh - 56px);
+    height: calc(100dvh - 56px);
     margin-top: 56px;
     width: 100%;
   }
 
+  /* Sized by top/bottom (not a height) so it always ends at the bottom of
+     the visible screen. */
   .sidebar {
     position: fixed;
     top: 56px;
     left: 0;
     bottom: 0;
-    height: calc(100vh - 56px);
+    height: auto;
+    max-width: 85vw;
     transform: translateX(-100%);
     box-shadow: 10px 0 25px rgba(28, 42, 42, 0.12);
+  }
+
+  .sidebarFooter {
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
   }
 
   .sidebarOpen {
