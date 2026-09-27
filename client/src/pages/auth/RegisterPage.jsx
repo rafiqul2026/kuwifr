@@ -3,7 +3,12 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
+import api from '../../services/api';
 import Seo from '../../seo/Seo';
+
+// Same shape the server accepts (server/src/utils/sponsorLookup.js) —
+// anything else is "Incorrect" without a network round trip.
+const SPONSOR_CODE_PATTERN = /^[A-Z0-9_-]{3,30}$/;
 import styles from './AuthPages.module.css';
 
 /**
@@ -78,6 +83,42 @@ const RegisterPage = () => {
       setFormData((prev) => ({ ...prev, sponsorId: activeSponsor, binarySide: activeSide }));
     }
   }, [activeSponsor, activeSide]);
+
+  // Live Sponsor ID check: 'idle' | 'checking' | 'valid' | 'invalid' |
+  // 'inactive' | 'unavailable' (network/rate-limit — the server re-checks
+  // on submit anyway, so this never blocks registration).
+  const [sponsorCheck, setSponsorCheck] = useState('idle');
+
+  useEffect(() => {
+    const code = (formData.sponsorId || '').trim().toUpperCase();
+    if (!code) {
+      setSponsorCheck('idle');
+      return undefined;
+    }
+    if (!SPONSOR_CODE_PATTERN.test(code)) {
+      setSponsorCheck('invalid');
+      return undefined;
+    }
+
+    let cancelled = false;
+    setSponsorCheck('checking');
+    // Wait for a pause in typing before asking the server.
+    const timer = setTimeout(async () => {
+      try {
+        await api.get(`/api/users/verify-sponsor/${encodeURIComponent(code)}`);
+        if (!cancelled) setSponsorCheck('valid');
+      } catch (err) {
+        if (cancelled) return;
+        const status = err.response?.status;
+        setSponsorCheck(status === 404 ? 'invalid' : status === 400 ? 'inactive' : 'unavailable');
+      }
+    }, 450);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [formData.sponsorId]);
 
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -181,6 +222,16 @@ const RegisterPage = () => {
 
     if (!validateForm()) {
       showNotification('Please resolve all form errors before submitting', 'error');
+      return;
+    }
+
+    if (sponsorCheck === 'invalid' || sponsorCheck === 'inactive') {
+      showNotification(
+        sponsorCheck === 'inactive'
+          ? 'This Sponsor ID is inactive. Please enter a different Sponsor ID.'
+          : 'Incorrect Sponsor ID. Please check it and try again.',
+        'error'
+      );
       return;
     }
 
@@ -361,18 +412,33 @@ const RegisterPage = () => {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     placeholder="e.g. KFR123456"
-                    className={touched.sponsorId && errors.sponsorId ? styles.error : ''}
+                    className={
+                      (touched.sponsorId && errors.sponsorId) || sponsorCheck === 'invalid' || sponsorCheck === 'inactive'
+                        ? styles.error
+                        : ''
+                    }
                     disabled={loading || sponsorLocked}
                     autoCapitalize="characters"
+                    aria-describedby="sponsorId-status"
                   />
                 </div>
-                {sponsorLocked ? (
-                  <span className={styles.successMessage}>✅ Assigned via your referral link</span>
-                ) : (
-                  touched.sponsorId && errors.sponsorId && (
+                <div id="sponsorId-status" aria-live="polite">
+                  {touched.sponsorId && errors.sponsorId ? (
                     <span className={styles.errorMessage}>{errors.sponsorId}</span>
-                  )
-                )}
+                  ) : sponsorCheck === 'checking' ? (
+                    <span className={styles.checkingMessage}>Checking Sponsor ID…</span>
+                  ) : sponsorCheck === 'valid' ? (
+                    <span className={styles.successMessage}>
+                      ✅ Verified Sponsor ID{sponsorLocked ? ' · assigned via your referral link' : ''}
+                    </span>
+                  ) : sponsorCheck === 'invalid' ? (
+                    <span className={styles.errorMessage}>❌ Incorrect Sponsor ID</span>
+                  ) : sponsorCheck === 'inactive' ? (
+                    <span className={styles.errorMessage}>❌ This Sponsor ID is inactive</span>
+                  ) : sponsorCheck === 'unavailable' ? (
+                    <span className={styles.checkingMessage}>Couldn't verify right now — it will be checked when you submit.</span>
+                  ) : null}
+                </div>
               </div>
             </div>
 

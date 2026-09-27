@@ -144,6 +144,21 @@ app.use('/api/auth/register-downline', authLimiter);
 app.use('/api/auth/forgot-password', authLimiter);
 app.use('/api/auth/reset-password', authLimiter);
 
+// Public Sponsor ID check on the Register page — cap it so nobody can walk
+// the KFR###### ID space to list which member IDs exist. A real visitor
+// needs only a handful of checks.
+const sponsorCheckLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many Sponsor ID checks. Please try again in a few minutes.'
+  }
+});
+app.use('/api/users/verify-sponsor', sponsorCheckLimiter);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());

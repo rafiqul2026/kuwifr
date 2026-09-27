@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Wallet = require("../models/Wallet");
 const Referral = require("../models/Referral");
+const { findSponsorByCode } = require("../utils/sponsorLookup");
 const BinaryNode = require("../models/BinaryNode");
 const BinaryService = require("../services/binary.service");
 const EmailService = require("../services/email.service");
@@ -98,24 +99,19 @@ const register = async (req, res, next) => {
     });
 
     if (sponsorId) {
-      const cleanSponsorInput = sponsorId.trim();
-      const sponsor = await User.findOne({
-        $or: [
-          { memberId: { $regex: new RegExp(`^${cleanSponsorInput}$`, "i") } },
-          {
-            referralCode: { $regex: new RegExp(`^${cleanSponsorInput}$`, "i") },
-          },
-        ],
-      });
+      // Shared with the Register page's live Sponsor ID check, and escapes
+      // the input (it was previously dropped straight into a RegExp, so a
+      // Sponsor ID like ".*" matched an arbitrary member).
+      const { sponsor, error: sponsorError } = await findSponsorByCode(sponsorId);
 
-      if (!sponsor) {
+      if (sponsorError === "NOT_FOUND") {
         return res.status(404).json({
           success: false,
           message: "Sponsor User ID not found or invalid.",
         });
       }
 
-      if (["SUSPENDED", "BLOCKED", "DEACTIVATED"].includes(sponsor.status)) {
+      if (sponsorError === "INACTIVE") {
         return res.status(400).json({
           success: false,
           message: "Sponsor account is suspended or inactive.",

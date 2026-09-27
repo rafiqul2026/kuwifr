@@ -15,6 +15,7 @@ const FundService = require('../services/fund.service');
 const DownlineService = require('../services/downline.service');
 const cloudinary = require('../config/cloudinary');
 const { getBusinessDayStart, getBusinessWeekStart, getBusinessMonthStart } = require('../utils/businessDate');
+const { findSponsorByCode } = require('../utils/sponsorLookup');
 
 // ============================================================
 // 📦 5-TIER OFFICIAL PACKAGE KBP RESOLUTION
@@ -1352,18 +1353,18 @@ const verifySponsor = async (req, res, next) => {
     const cleanCode = rawCode.trim();
     if (!cleanCode) return res.status(400).json({ success: false, message: 'Sponsor Referral Code is required' });
 
-    const sponsor = await User.findOne({
-      $or: [
-        { memberId: { $regex: new RegExp(`^${cleanCode}$`, 'i') } },
-        { referralCode: { $regex: new RegExp(`^${cleanCode}$`, 'i') } },
-        { email: cleanCode.toLowerCase() },
-        { phoneNumber: cleanCode }
-      ]
-    }).select('fullName email memberId referralCode status role');
+    // Public (used by the Register page before the visitor has an account),
+    // so: the same lookup registration uses (Member ID / referral code only —
+    // no longer email/phone, which let anyone map a phone number to a name),
+    // and only the sponsor's ID comes back — no name/email/status, matching
+    // the Register page's "Sponsor ID & Side only, no sponsor name" rule.
+    const { sponsor, error } = await findSponsorByCode(cleanCode, 'memberId referralCode status');
 
-    if (!sponsor) return res.status(404).json({ success: false, message: 'Sponsor not found or inactive' });
-    if (['SUSPENDED', 'BLOCKED', 'DEACTIVATED'].includes(sponsor.status)) {
-      return res.status(400).json({ success: false, message: 'Sponsor account is inactive' });
+    if (error === 'NOT_FOUND') {
+      return res.status(404).json({ success: false, message: 'Incorrect Sponsor ID' });
+    }
+    if (error === 'INACTIVE') {
+      return res.status(400).json({ success: false, message: 'This Sponsor ID is inactive' });
     }
 
     res.json({
@@ -1371,11 +1372,8 @@ const verifySponsor = async (req, res, next) => {
       message: 'Sponsor verified successfully',
       data: {
         sponsor: {
-          fullName: sponsor.fullName,
-          email: sponsor.email,
           memberId: sponsor.memberId || sponsor.referralCode,
-          referralCode: sponsor.memberId || sponsor.referralCode,
-          status: sponsor.status
+          referralCode: sponsor.memberId || sponsor.referralCode
         }
       }
     });
