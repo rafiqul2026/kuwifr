@@ -9,10 +9,10 @@ const settingSchema = new mongoose.Schema(
       name: { type: String, default: 'KUWIFR Marketing Pvt Ltd' },
       supportEmail: { type: String, default: 'support@kuwifr.com' },
       supportPhone: { type: String, default: '+91 94350 11223' },
-      address: { type: String, default: 'GS Road, Christian Basti, Guwahati, Assam - 781005' },
-      cinNumber: { type: String, default: 'U51909AS2026PTC019821' },
-      panNumber: { type: String, default: 'AAECK1298P' },
-      gstNumber: { type: String, default: '18AAECK1298P1Z5' }
+      address: { type: String, default: 'Howly, Barpeta, Assam - 781316' },
+      cinNumber: { type: String, default: 'U46411AS2025PTC029055' },
+      panNumber: { type: String, default: 'AAMCK2431Q' },
+      gstNumber: { type: String, default: '18AAMCK2431Q1ZZ' }
     },
 
     // 2. Payment Gateway Configuration — manual-UPI bank/QR details a member

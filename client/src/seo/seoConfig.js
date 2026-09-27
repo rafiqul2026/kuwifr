@@ -21,7 +21,13 @@ export const COMPANY_LEGAL_NAME = 'KUWIFR SERVICES PVT LTD';
 // configured contact details for this business, not placeholders.
 export const COMPANY_EMAIL = 'support@kuwifr.com';
 export const COMPANY_PHONE = '+91 94350 11223';
-export const COMPANY_ADDRESS = 'GS Road, Christian Basti, Guwahati, Assam - 781005';
+export const COMPANY_ADDRESS = 'Howly, Barpeta, Assam - 781316';
+
+// Statutory registration numbers — printed on every member tax invoice
+// (see pages/member/OrdersPage.jsx).
+export const COMPANY_GSTIN = '18AAMCK2431Q1ZZ';
+export const COMPANY_PAN = 'AAMCK2431Q';
+export const COMPANY_CIN = 'U46411AS2025PTC029055';
 
 // Real social profile URLs go here once provided — deliberately empty
 // (never filled with placeholder facebook.com/instagram.com links) until

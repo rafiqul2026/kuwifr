@@ -800,15 +800,17 @@
   align-items: center;
 }
 
-.digitalSeal {
-  border: 1.5px solid #16a34a;
+/* "For <company>" above a blank signature space, per standard GST invoice layout */
+.signatoryCompany {
+  font-size: 10px;
+  color: #1c2a2a;
+  margin-bottom: 22px;
+}
+
+/* Offer (discount) amounts on the invoice */
+.offerCell {
   color: #16a34a;
-  font-size: 8px;
-  font-weight: 800;
-  padding: 2px 8px;
-  border-radius: 4px;
-  margin-bottom: 3px;
-  letter-spacing: 0.05em;
+  font-weight: 600;
 }
 
 .signatureBlock span {

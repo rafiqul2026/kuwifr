@@ -55,10 +55,10 @@ const INITIAL_STATE = {
     name: 'KUWIFR Marketing Pvt Ltd',
     supportEmail: 'support@kuwifr.com',
     supportPhone: '+91 94350 11223',
-    address: 'GS Road, Christian Basti, Guwahati, Assam - 781005',
-    cinNumber: 'U51909AS2026PTC019821',
-    panNumber: 'AAECK1298P',
-    gstNumber: '18AAECK1298P1Z5'
+    address: 'Howly, Barpeta, Assam - 781316',
+    cinNumber: 'U46411AS2025PTC029055',
+    panNumber: 'AAMCK2431Q',
+    gstNumber: '18AAMCK2431Q1ZZ'
   },
   payment: {
     gatewayEnabled: true,
@@ -915,7 +915,7 @@ const AdminSettingsPage = () => {
                       type="text"
                       value={settings.company.cinNumber}
                       onChange={(e) => handleFieldChange('company', 'cinNumber', e.target.value)}
-                      placeholder="e.g. U51909AS2026PTC019821"
+                      placeholder="e.g. U46411AS2025PTC029055"
                     />
                   </div>
 
@@ -925,7 +925,7 @@ const AdminSettingsPage = () => {
                       type="text"
                       value={settings.company.panNumber}
                       onChange={(e) => handleFieldChange('company', 'panNumber', e.target.value)}
-                      placeholder="e.g. AAECK1298P"
+                      placeholder="e.g. AAMCK2431Q"
                     />
                   </div>
 
@@ -935,7 +935,7 @@ const AdminSettingsPage = () => {
                       type="text"
                       value={settings.company.gstNumber}
                       onChange={(e) => handleFieldChange('company', 'gstNumber', e.target.value)}
-                      placeholder="e.g. 18AAECK1298P1Z5"
+                      placeholder="e.g. 18AAMCK2431Q1ZZ"
                     />
                   </div>
 

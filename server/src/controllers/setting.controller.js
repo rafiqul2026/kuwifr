@@ -10,10 +10,10 @@ const DEFAULT_SYSTEM_SETTINGS = {
     name: 'KUWIFR Marketing Pvt Ltd',
     supportEmail: 'support@kuwifr.com',
     supportPhone: '+91 94350 11223',
-    address: 'GS Road, Christian Basti, Guwahati, Assam - 781005',
-    cinNumber: 'U51909AS2026PTC019821',
-    panNumber: 'AAECK1298P',
-    gstNumber: '18AAECK1298P1Z5'
+    address: 'Howly, Barpeta, Assam - 781316',
+    cinNumber: 'U46411AS2025PTC029055',
+    panNumber: 'AAMCK2431Q',
+    gstNumber: '18AAMCK2431Q1ZZ'
   },
   payment: {
     gatewayEnabled: true,

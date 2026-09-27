@@ -74,6 +74,8 @@ const getMyOrders = async (req, res, next) => {
     const packageOrders = orders.filter(o => o.orderType === 'PACKAGE' || o.packageId);
     const repurchaseOrders = orders.filter(o => o.orderType === 'REPURCHASE' || (!o.packageId && o.items?.length > 0));
 
+    await attachInvoiceItems(userId, packageOrders, repurchaseOrders);
+
     res.json({
       success: true,
       data: {
@@ -86,6 +88,73 @@ const getMyOrders = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+/**
+ * Adds `invoiceItems` ([{ name, subtitle, qty, mrp, price }], unit amounts)
+ * to each order for the member's tax invoice (Products / MRP / Offer / GST /
+ * Total). Orders never stored the product's MRP, and a package Order only
+ * names the package — so the chosen product comes from the approved
+ * PackagePurchase and MRP from the live product catalog. Read-only: nothing
+ * is written back. Where an MRP can't be found, MRP = the amount charged
+ * (i.e. no offer shown) rather than guessing one.
+ */
+const attachInvoiceItems = async (userId, packageOrders, repurchaseOrders) => {
+  const RepurchaseProduct = require('../models/RepurchaseProduct');
+  const RepurchasePurchase = require('../models/RepurchasePurchase');
+
+  const [catalog, packagePurchases, repurchasePurchases] = await Promise.all([
+    RepurchaseProduct.find().select('id name mrp').lean(),
+    packageOrders.length
+      ? PackagePurchase.find({ user: userId, paymentStatus: 'COMPLETED', purchaseType: { $ne: 'UPGRADE' } })
+        .select('packageName transactionId selectedProducts selectedProduct isInsurance activationDate')
+        .lean()
+      : [],
+    repurchaseOrders.length
+      ? RepurchasePurchase.find({ orderId: { $in: repurchaseOrders.map((o) => o._id) } }).select('orderId items').lean()
+      : []
+  ]);
+
+  const mrpById = new Map(catalog.map((p) => [p.id, Number(p.mrp) || 0]));
+  const mrpByName = new Map(catalog.map((p) => [String(p.name).trim().toLowerCase(), Number(p.mrp) || 0]));
+  const lookupMrp = (productId, name) =>
+    (productId && mrpById.get(productId)) || mrpByName.get(String(name || '').trim().toLowerCase()) || 0;
+  // Never show an MRP below what was charged (that would be a negative offer).
+  const item = (name, subtitle, qty, mrp, price) => ({ name, subtitle, qty, price, mrp: Math.max(mrp || 0, price) });
+
+  // Package orders: match each to its approved purchase by the transaction
+  // reference the approval wrote into the order's status note, falling back
+  // to the package name for orders created before/outside that flow.
+  const usedPurchases = new Set();
+  packageOrders.forEach((order) => {
+    const note = (order.statusHistory || []).map((h) => h.note || '').join(' ');
+    const txn = (note.match(/Txn:\s*([^)\s]+)/) || [])[1];
+    const purchase =
+      packagePurchases.find((p) => txn && p.transactionId === txn) ||
+      packagePurchases.find((p) => !usedPurchases.has(String(p._id)) && p.packageName === order.packageName);
+    if (purchase) usedPurchases.add(String(purchase._id));
+
+    const amount = Number(order.totalAmount || order.price || 0);
+    const chosen = purchase?.selectedProducts?.[0] || purchase?.selectedProduct;
+    if (!chosen?.name) {
+      order.invoiceItems = [item(order.packageName || 'Membership Package', '', 1, 0, amount)];
+      return;
+    }
+    // Insurance "products" have no catalog MRP — the installment is the MRP.
+    const mrp = purchase.isInsurance ? amount : lookupMrp(chosen.productId, chosen.name);
+    order.invoiceItems = [item(chosen.name, order.packageName || '', 1, mrp, amount)];
+  });
+
+  const repurchaseByOrder = new Map(repurchasePurchases.map((p) => [String(p.orderId), p]));
+  repurchaseOrders.forEach((order) => {
+    const purchase = repurchaseByOrder.get(String(order._id));
+    const lines = purchase?.items?.length
+      ? purchase.items.map((it) => ({ productId: it.productId, name: it.name, qty: it.qty, price: it.ksp }))
+      : (order.products || []).map((it) => ({ name: it.name, qty: it.quantity, price: it.price }));
+    order.invoiceItems = lines.map((l) =>
+      item(l.name, '', Number(l.qty) || 1, lookupMrp(l.productId, l.name), Number(l.price) || 0)
+    );
+  });
 };
 
 const getOrderById = async (req, res, next) => {

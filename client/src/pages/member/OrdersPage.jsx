@@ -3,6 +3,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
+import {
+  COMPANY_LEGAL_NAME,
+  COMPANY_ADDRESS,
+  COMPANY_EMAIL,
+  COMPANY_GSTIN,
+  COMPANY_PAN,
+  COMPANY_CIN
+} from '../../seo/seoConfig';
 import styles from './OrdersPage.module.css';
 
 // Status pill color mapping — matches the token set used across every
@@ -38,6 +46,33 @@ const formatDate = (value) => {
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
+const formatINR = (n) =>
+  `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const formatAddress = (a) =>
+  a ? [a.street, a.city, a.state, a.pincode].filter(Boolean).join(', ') : '';
+
+// Line items + totals for the tax invoice. `invoiceItems` (unit amounts,
+// with the product's MRP) comes from GET /api/orders/my-orders; the
+// fallback only covers an order the server couldn't enrich — MRP is then
+// the amount charged, so no offer is shown rather than a made-up one.
+const buildInvoiceTotals = (order) => {
+  const items = order.invoiceItems?.length
+    ? order.invoiceItems
+    : order.invoiceType === 'PACKAGE'
+      ? [{ name: order.packageName || 'Membership Package', qty: 1, price: Number(order.totalAmount || order.price || 0) }]
+      : (order.products || []).map((p) => ({ name: p.name, qty: p.quantity || 1, price: Number(p.price || 0) }));
+  const normalized = items.map((it) => ({
+    ...it,
+    qty: Number(it.qty) || 1,
+    price: Number(it.price) || 0,
+    mrp: Math.max(Number(it.mrp) || 0, Number(it.price) || 0)
+  }));
+  const mrp = normalized.reduce((s, it) => s + it.mrp * it.qty, 0);
+  const total = normalized.reduce((s, it) => s + it.price * it.qty, 0);
+  return { items: normalized, mrp, offer: mrp - total, total };
+};
+
 const OrdersPage = () => {
   const { user } = useAuth();
   const { showNotification } = useNotification();
@@ -46,6 +81,7 @@ const OrdersPage = () => {
   const [packageOrders, setPackageOrders] = useState([]);
   const [repurchaseOrders, setRepurchaseOrders] = useState([]);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [billingProfile, setBillingProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -65,6 +101,7 @@ const OrdersPage = () => {
 
       if (res.data?.success && res.data.data) {
         const d = res.data.data;
+        setBillingProfile(d.user || null);
         setPackageOrders(d.packageOrders || []);
         setRepurchaseOrders(d.repurchaseOrders || []);
       } else {
@@ -99,6 +136,9 @@ const OrdersPage = () => {
       totalPaid
     };
   }, [packageOrders, repurchaseOrders]);
+
+  const billedTo = billingProfile || user;
+  const invoiceTotals = selectedInvoice ? buildInvoiceTotals(selectedInvoice) : null;
 
   if (loading) {
     return (
@@ -369,21 +409,22 @@ const OrdersPage = () => {
 
             {/* Formal Tax Invoice Sheet */}
             <div className={styles.printableInvoiceSheet}>
-              {/* Header Box */}
+              {/* Header: seller details + invoice meta */}
               <div className={styles.invoiceHeader}>
                 <div className={styles.companyInfo}>
                   <div className={styles.invoiceLogo}>
                     <img src="/logo.jpg" alt="KUWIFR" className={styles.brandLogoImg} />
                     <div>
-                      <h2>KUWIFR SERVICES PVT LTD</h2>
+                      <h2>{COMPANY_LEGAL_NAME}</h2>
                       <small className={styles.companyType}>KUWIFR Services Private Limited</small>
                     </div>
                   </div>
-                  <p>Corporate Hub: GS Road, Christian Basti, Guwahati, Assam - 781005, India</p>
+                  <p>Office Address: {COMPANY_ADDRESS}, India</p>
                   <p>
-                    GSTIN: <strong>18AAECK1298P1Z5</strong> | PAN: <strong>AAECK1298P</strong> | CIN: <strong>U51909AS2026PTC019821</strong>
+                    GSTIN: <strong>{COMPANY_GSTIN}</strong> | PAN: <strong>{COMPANY_PAN}</strong>
                   </p>
-                  <p>Official Support: <strong>support@kuwifr.com</strong> | Portal: <strong>www.kuwifr.in</strong></p>
+                  <p>CIN: <strong>{COMPANY_CIN}</strong></p>
+                  <p>Email: <strong>{COMPANY_EMAIL}</strong> | Web: <strong>www.kuwifr.in</strong></p>
                 </div>
 
                 <div className={styles.invoiceMetaRight}>
@@ -400,7 +441,7 @@ const OrdersPage = () => {
                       </tr>
                       <tr>
                         <td>Payment Mode:</td>
-                        <td>{selectedInvoice.paymentMethod || 'ONLINE GATEWAY'}</td>
+                        <td>{(selectedInvoice.paymentMethod || 'Online').replace(/_/g, ' ')}</td>
                       </tr>
                       <tr>
                         <td>Place of Supply:</td>
@@ -408,129 +449,107 @@ const OrdersPage = () => {
                       </tr>
                     </tbody>
                   </table>
-                  <div className={styles.statusStamp}>✓ PAID &amp; VERIFIED</div>
+                  <div className={styles.statusStamp}>✓ PAID</div>
                 </div>
               </div>
 
-              {/* Billed To & Supply Info */}
+              {/* Billed To */}
               <div className={styles.invoiceAddressGrid}>
                 <div className={styles.addressBox}>
-                  <div className={styles.addressBoxHeader}>BILLED TO / DISTRIBUTOR DETAILS</div>
+                  <div className={styles.addressBoxHeader}>BILLED TO</div>
                   <div className={styles.addressBoxContent}>
-                    <h4 className={styles.distributorName}>{user?.fullName || 'Distributor Member'}</h4>
-                    <p>Member ID: <strong className={styles.memberIdText}>{user?.memberId || 'N/A'}</strong></p>
-                    <p>Registered Email: {user?.email || 'N/A'}</p>
-                    <p>Contact Phone: {user?.phoneNumber || 'N/A'}</p>
-                    <p>Address: Assam, India</p>
+                    <h4 className={styles.distributorName}>{billedTo?.fullName || 'Member'}</h4>
+                    <p>Member ID: <strong className={styles.memberIdText}>{billedTo?.memberId || 'N/A'}</strong></p>
+                    {billedTo?.email && <p>Email: {billedTo.email}</p>}
+                    {billedTo?.phoneNumber && <p>Phone: {billedTo.phoneNumber}</p>}
+                    {formatAddress(billedTo?.address) && <p>Address: {formatAddress(billedTo.address)}</p>}
                   </div>
                 </div>
 
                 <div className={styles.addressBox}>
-                  <div className={styles.addressBoxHeader}>ORDER &amp; TRANSACTION SUMMARY</div>
+                  <div className={styles.addressBoxHeader}>ORDER DETAILS</div>
                   <div className={styles.addressBoxContent}>
-                    <p>Transaction Type: <strong>{selectedInvoice.invoiceType === 'PACKAGE' ? 'Membership Package Activation' : 'Repurchase Product Order'}</strong></p>
-                    <p>Order Reference: <strong>#{selectedInvoice._id}</strong></p>
-                    <p>Order Status: <strong style={{ color: '#16a34a' }}>COMPLETED / ACTIVE</strong></p>
-                    <p>Currency: <strong>INR (Indian Rupees - ₹)</strong></p>
+                    <p>Order Type: <strong>{selectedInvoice.invoiceType === 'PACKAGE' ? 'Package Purchase' : 'Repurchase Order'}</strong></p>
+                    <p>Order Ref: <strong>{selectedInvoice.orderNumber || `#${selectedInvoice._id}`}</strong></p>
+                    <p>Currency: <strong>INR (₹)</strong></p>
                   </div>
                 </div>
               </div>
 
-              {/* Itemized Table */}
+              {/* Items: Product / MRP / Offer / GST / Total Amount */}
               <div className={styles.invoiceTableWrap}>
                 <table className={styles.invoiceTable}>
                   <thead>
                     <tr>
-                      <th style={{ width: '4%' }}>#</th>
-                      <th style={{ width: '44%' }}>Item Description &amp; Specification</th>
-                      <th style={{ width: '14%' }}>Category / HSN</th>
-                      <th style={{ width: '12%', textAlign: 'center' }}>KBP Volume</th>
-                      <th style={{ width: '6%', textAlign: 'center' }}>Qty</th>
-                      <th style={{ width: '10%', textAlign: 'right' }}>Unit Price</th>
-                      <th style={{ width: '10%', textAlign: 'right' }}>Total (₹)</th>
+                      <th style={{ width: '5%' }}>#</th>
+                      <th style={{ width: '41%' }}>Product</th>
+                      <th style={{ width: '7%', textAlign: 'center' }}>Qty</th>
+                      <th style={{ width: '13%', textAlign: 'right' }}>MRP (₹)</th>
+                      <th style={{ width: '12%', textAlign: 'right' }}>Offer (₹)</th>
+                      <th style={{ width: '9%', textAlign: 'center' }}>GST</th>
+                      <th style={{ width: '13%', textAlign: 'right' }}>Total Amount (₹)</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedInvoice.invoiceType === 'PACKAGE' ? (
-                      <tr>
-                        <td>1</td>
+                    {invoiceTotals.items.map((it, idx) => (
+                      <tr key={idx}>
+                        <td>{idx + 1}</td>
                         <td>
-                          <div className={styles.itemNameMain}>{selectedInvoice.packageName || 'Membership Package'}</div>
-                          <div className={styles.itemSubDesc}>
-                            • Included Item: <strong>{selectedInvoice.selectedProduct?.name || 'Package Included Product'}</strong>
-                          </div>
-                          <div className={styles.itemSubDesc}>
-                            • Daily Binary Capping Ceiling: <strong>₹{selectedInvoice.dailyCap?.toLocaleString() || 1500} / Day</strong>
-                          </div>
+                          <div className={styles.itemNameMain}>{it.name}</div>
+                          {it.subtitle && <div className={styles.itemSubDesc}>{it.subtitle}</div>}
                         </td>
-                        <td>Activation / 9983</td>
-                        <td style={{ textAlign: 'center' }}><strong>⭐ {(selectedInvoice.kbpGenerated ?? selectedInvoice.products?.[0]?.kbp ?? 0).toLocaleString()} KBP</strong></td>
-                        <td style={{ textAlign: 'center' }}>1</td>
-                        <td style={{ textAlign: 'right' }}>₹{(selectedInvoice.price || selectedInvoice.totalAmount)?.toLocaleString()}</td>
-                        <td style={{ textAlign: 'right' }}><strong>₹{(selectedInvoice.price || selectedInvoice.totalAmount)?.toLocaleString()}</strong></td>
+                        <td style={{ textAlign: 'center' }}>{it.qty}</td>
+                        <td style={{ textAlign: 'right' }}>{formatINR(it.mrp * it.qty)}</td>
+                        <td style={{ textAlign: 'right' }} className={styles.offerCell}>
+                          {it.mrp > it.price ? `− ${formatINR((it.mrp - it.price) * it.qty)}` : '—'}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>Incl.</td>
+                        <td style={{ textAlign: 'right' }}><strong>{formatINR(it.price * it.qty)}</strong></td>
                       </tr>
-                    ) : (
-                      selectedInvoice.products?.map((it, idx) => (
-                        <tr key={idx}>
-                          <td>{idx + 1}</td>
-                          <td>
-                            <div className={styles.itemNameMain}>{it.name}</div>
-                          </td>
-                          <td>Repurchase</td>
-                          <td style={{ textAlign: 'center' }}><strong>⭐ {it.kbp?.toLocaleString()} KBP</strong></td>
-                          <td style={{ textAlign: 'center' }}>{it.quantity || 1}</td>
-                          <td style={{ textAlign: 'right' }}>₹{it.price?.toLocaleString()}</td>
-                          <td style={{ textAlign: 'right' }}><strong>₹{(it.price * (it.quantity || 1))?.toLocaleString()}</strong></td>
-                        </tr>
-                      ))
-                    )}
+                    ))}
                   </tbody>
                 </table>
               </div>
 
-              {/* Financial Calculation & Terms Summary */}
+              {/* Totals */}
               <div className={styles.invoiceFooterSection}>
                 <div className={styles.termsBox}>
-                  <h5>Terms &amp; Digital Declaration:</h5>
+                  <h5>Terms &amp; Declaration:</h5>
                   <ul>
-                    <li>This is a digitally generated tax invoice authorized under GST rules and requires no physical signature.</li>
-                    <li>Points (KBP) are credited instantly to upline binary networks for binary matching and Life Tension Free target funds.</li>
-                    {selectedInvoice.invoiceType === 'REPURCHASE' && (
-                      <li style={{ color: '#15803d', fontWeight: '700' }}>
-                        Self Repurchase Cashback (₹{(selectedInvoice.selfCashback || 0).toLocaleString()}) credited to your Repurchase Wallet.
-                      </li>
-                    )}
+                    <li>All prices are inclusive of GST.</li>
+                    <li>This is a computer-generated invoice and does not require a physical signature.</li>
+                    <li>Goods once sold will be exchanged or returned only as per company policy.</li>
                   </ul>
                 </div>
 
                 <div className={styles.calculationBox}>
                   <div className={styles.calcRow}>
-                    <span>Taxable Value (Net):</span>
-                    <strong>₹{(selectedInvoice.price || selectedInvoice.totalAmount)?.toLocaleString()}</strong>
+                    <span>Total MRP:</span>
+                    <span>{formatINR(invoiceTotals.mrp)}</span>
                   </div>
                   <div className={styles.calcRow}>
-                    <span>CGST (Inclusive / Exempted):</span>
-                    <span>₹0.00</span>
+                    <span>Offer Discount:</span>
+                    <span className={styles.offerCell}>{invoiceTotals.offer > 0 ? `− ${formatINR(invoiceTotals.offer)}` : formatINR(0)}</span>
                   </div>
                   <div className={styles.calcRow}>
-                    <span>SGST (Inclusive / Exempted):</span>
-                    <span>₹0.00</span>
+                    <span>GST:</span>
+                    <span>Included</span>
                   </div>
                   <div className={styles.grandTotalRow}>
-                    <span>Total Amount Paid:</span>
-                    <strong>₹{(selectedInvoice.price || selectedInvoice.totalAmount)?.toLocaleString()}</strong>
+                    <span>Total Amount:</span>
+                    <strong>{formatINR(invoiceTotals.total)}</strong>
                   </div>
                 </div>
               </div>
 
-              {/* Authorized Signatory Footer */}
+              {/* Signatory */}
               <div className={styles.authSignatoryRow}>
                 <div className={styles.thankYouBlock}>
-                  <p>Thank you for partnering with <strong>KUWIFR Global Network</strong>!</p>
-                  <small>For billing queries, email us at support@kuwifr.com</small>
+                  <p>Thank you for your purchase!</p>
+                  <small>For billing queries, email us at {COMPANY_EMAIL}</small>
                 </div>
                 <div className={styles.signatureBlock}>
-                  <div className={styles.digitalSeal}>KUWIFR DIGITAL VERIFIED</div>
+                  <strong className={styles.signatoryCompany}>For {COMPANY_LEGAL_NAME}</strong>
                   <span>Authorised Signatory</span>
                 </div>
               </div>
