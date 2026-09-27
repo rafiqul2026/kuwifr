@@ -3,14 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
-import {
-  COMPANY_LEGAL_NAME,
-  COMPANY_ADDRESS,
-  COMPANY_EMAIL,
-  COMPANY_GSTIN,
-  COMPANY_PAN,
-  COMPANY_CIN
-} from '../../seo/seoConfig';
+import { buildInvoiceHtml, printInvoice } from './invoiceDocument';
 import styles from './OrdersPage.module.css';
 
 // Status pill color mapping — matches the token set used across every
@@ -45,12 +38,6 @@ const formatDate = (value) => {
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
-
-const formatINR = (n) =>
-  `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-const formatAddress = (a) =>
-  a ? [a.street, a.city, a.state, a.pincode].filter(Boolean).join(', ') : '';
 
 // Line items + totals for the tax invoice. `invoiceItems` (unit amounts,
 // with the product's MRP) comes from GET /api/orders/my-orders; the
@@ -118,7 +105,7 @@ const OrdersPage = () => {
   };
 
   const handlePrintInvoice = () => {
-    window.print();
+    printInvoice({ order: selectedInvoice, totals: buildInvoiceTotals(selectedInvoice), billedTo: billingProfile || user });
   };
 
   // Real, derived-only summary numbers for the KPI strip — nothing here is
@@ -138,7 +125,9 @@ const OrdersPage = () => {
   }, [packageOrders, repurchaseOrders]);
 
   const billedTo = billingProfile || user;
-  const invoiceTotals = selectedInvoice ? buildInvoiceTotals(selectedInvoice) : null;
+  const invoiceHtml = selectedInvoice
+    ? buildInvoiceHtml({ order: selectedInvoice, totals: buildInvoiceTotals(selectedInvoice), billedTo })
+    : '';
 
   if (loading) {
     return (
@@ -400,159 +389,24 @@ const OrdersPage = () => {
           <div className={styles.invoiceModalContainer} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalActionsBar}>
               <button type="button" className={styles.printBtn} onClick={handlePrintInvoice}>
-                🖨️ Print / Save as PDF
+                ⬇️ Download / Print PDF
               </button>
               <button type="button" className={styles.closeBtn} onClick={() => setSelectedInvoice(null)}>
                 ✕ Close
               </button>
             </div>
 
-            {/* Formal Tax Invoice Sheet */}
-            <div className={styles.printableInvoiceSheet}>
-              {/* Header: seller details + invoice meta */}
-              <div className={styles.invoiceHeader}>
-                <div className={styles.companyInfo}>
-                  <div className={styles.invoiceLogo}>
-                    <img src="/logo.jpg" alt="KUWIFR" className={styles.brandLogoImg} />
-                    <div>
-                      <h2>{COMPANY_LEGAL_NAME}</h2>
-                      <small className={styles.companyType}>KUWIFR Services Private Limited</small>
-                    </div>
-                  </div>
-                  <p>Office Address: {COMPANY_ADDRESS}, India</p>
-                  <p>
-                    GSTIN: <strong>{COMPANY_GSTIN}</strong> | PAN: <strong>{COMPANY_PAN}</strong>
-                  </p>
-                  <p>CIN: <strong>{COMPANY_CIN}</strong></p>
-                  <p>Email: <strong>{COMPANY_EMAIL}</strong> | Web: <strong>www.kuwifr.in</strong></p>
-                </div>
-
-                <div className={styles.invoiceMetaRight}>
-                  <div className={styles.taxBadge}>TAX INVOICE</div>
-                  <table className={styles.invoiceMetaTable}>
-                    <tbody>
-                      <tr>
-                        <td>Invoice No:</td>
-                        <td><strong>{selectedInvoice.invoiceNumber || selectedInvoice.orderNumber || `INV-${selectedInvoice._id.slice(-6)}`}</strong></td>
-                      </tr>
-                      <tr>
-                        <td>Invoice Date:</td>
-                        <td>{formatDate(selectedInvoice.createdAt)}</td>
-                      </tr>
-                      <tr>
-                        <td>Payment Mode:</td>
-                        <td>{(selectedInvoice.paymentMethod || 'Online').replace(/_/g, ' ')}</td>
-                      </tr>
-                      <tr>
-                        <td>Place of Supply:</td>
-                        <td>Assam (18)</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                  <div className={styles.statusStamp}>✓ PAID</div>
-                </div>
-              </div>
-
-              {/* Billed To */}
-              <div className={styles.invoiceAddressGrid}>
-                <div className={styles.addressBox}>
-                  <div className={styles.addressBoxHeader}>BILLED TO</div>
-                  <div className={styles.addressBoxContent}>
-                    <h4 className={styles.distributorName}>{billedTo?.fullName || 'Member'}</h4>
-                    <p>Member ID: <strong className={styles.memberIdText}>{billedTo?.memberId || 'N/A'}</strong></p>
-                    {billedTo?.email && <p>Email: {billedTo.email}</p>}
-                    {billedTo?.phoneNumber && <p>Phone: {billedTo.phoneNumber}</p>}
-                    {formatAddress(billedTo?.address) && <p>Address: {formatAddress(billedTo.address)}</p>}
-                  </div>
-                </div>
-
-                <div className={styles.addressBox}>
-                  <div className={styles.addressBoxHeader}>ORDER DETAILS</div>
-                  <div className={styles.addressBoxContent}>
-                    <p>Order Type: <strong>{selectedInvoice.invoiceType === 'PACKAGE' ? 'Package Purchase' : 'Repurchase Order'}</strong></p>
-                    <p>Order Ref: <strong>{selectedInvoice.orderNumber || `#${selectedInvoice._id}`}</strong></p>
-                    <p>Currency: <strong>INR (₹)</strong></p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Items: Product / MRP / Offer / GST / Total Amount */}
-              <div className={styles.invoiceTableWrap}>
-                <table className={styles.invoiceTable}>
-                  <thead>
-                    <tr>
-                      <th style={{ width: '5%' }}>#</th>
-                      <th style={{ width: '41%' }}>Product</th>
-                      <th style={{ width: '7%', textAlign: 'center' }}>Qty</th>
-                      <th style={{ width: '13%', textAlign: 'right' }}>MRP (₹)</th>
-                      <th style={{ width: '12%', textAlign: 'right' }}>Offer (₹)</th>
-                      <th style={{ width: '9%', textAlign: 'center' }}>GST</th>
-                      <th style={{ width: '13%', textAlign: 'right' }}>Total Amount (₹)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {invoiceTotals.items.map((it, idx) => (
-                      <tr key={idx}>
-                        <td>{idx + 1}</td>
-                        <td>
-                          <div className={styles.itemNameMain}>{it.name}</div>
-                          {it.subtitle && <div className={styles.itemSubDesc}>{it.subtitle}</div>}
-                        </td>
-                        <td style={{ textAlign: 'center' }}>{it.qty}</td>
-                        <td style={{ textAlign: 'right' }}>{formatINR(it.mrp * it.qty)}</td>
-                        <td style={{ textAlign: 'right' }} className={styles.offerCell}>
-                          {it.mrp > it.price ? `− ${formatINR((it.mrp - it.price) * it.qty)}` : '—'}
-                        </td>
-                        <td style={{ textAlign: 'center' }}>Incl.</td>
-                        <td style={{ textAlign: 'right' }}><strong>{formatINR(it.price * it.qty)}</strong></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Totals */}
-              <div className={styles.invoiceFooterSection}>
-                <div className={styles.termsBox}>
-                  <h5>Terms &amp; Declaration:</h5>
-                  <ul>
-                    <li>All prices are inclusive of GST.</li>
-                    <li>This is a computer-generated invoice and does not require a physical signature.</li>
-                    <li>Goods once sold will be exchanged or returned only as per company policy.</li>
-                  </ul>
-                </div>
-
-                <div className={styles.calculationBox}>
-                  <div className={styles.calcRow}>
-                    <span>Total MRP:</span>
-                    <span>{formatINR(invoiceTotals.mrp)}</span>
-                  </div>
-                  <div className={styles.calcRow}>
-                    <span>Offer Discount:</span>
-                    <span className={styles.offerCell}>{invoiceTotals.offer > 0 ? `− ${formatINR(invoiceTotals.offer)}` : formatINR(0)}</span>
-                  </div>
-                  <div className={styles.calcRow}>
-                    <span>GST:</span>
-                    <span>Included</span>
-                  </div>
-                  <div className={styles.grandTotalRow}>
-                    <span>Total Amount:</span>
-                    <strong>{formatINR(invoiceTotals.total)}</strong>
-                  </div>
-                </div>
-              </div>
-
-              {/* Signatory */}
-              <div className={styles.authSignatoryRow}>
-                <div className={styles.thankYouBlock}>
-                  <p>Thank you for your purchase!</p>
-                  <small>For billing queries, email us at {COMPANY_EMAIL}</small>
-                </div>
-                <div className={styles.signatureBlock}>
-                  <strong className={styles.signatoryCompany}>For {COMPANY_LEGAL_NAME}</strong>
-                  <span>Authorised Signatory</span>
-                </div>
-              </div>
+            {/* The exact document that gets printed/downloaded (invoiceDocument.js) */}
+            <div className={styles.invoicePreviewScroll}>
+              <iframe
+                title="Tax invoice preview"
+                className={styles.invoicePreviewFrame}
+                srcDoc={invoiceHtml}
+                onLoad={(e) => {
+                  const doc = e.currentTarget.contentDocument;
+                  if (doc) e.currentTarget.style.height = `${doc.documentElement.scrollHeight}px`;
+                }}
+              />
             </div>
           </div>
         </div>
