@@ -1,13 +1,30 @@
 // client/src/components/layout/Footer.jsx
 import React, { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { FiDownload } from 'react-icons/fi';
 import OrderTrackingModal from '../public/OrderTrackingModal';
+import InstallAppHelpModal from '../common/InstallAppHelpModal';
+import { useInstallApp } from '../../utils/pwaInstall';
 import { useShop } from '../../context/ShopContext';
 import styles from './Footer.module.css';
 
 const Footer = () => {
   const navigate = useNavigate();
   const { products = [], categories = [] } = useShop() || {};
+
+  // Same "Download the App" (PWA install) as the member panel: the browser's
+  // native install prompt when it offers one, otherwise how-to steps.
+  // Hidden when already running as the installed app.
+  const { canPrompt, isInstalled, isIOS, promptInstall } = useInstallApp();
+  const [installHelpOpen, setInstallHelpOpen] = useState(false);
+
+  const handleInstallApp = async () => {
+    if (canPrompt) {
+      const outcome = await promptInstall();
+      if (outcome !== 'unavailable') return;
+    }
+    setInstallHelpOpen(true);
+  };
 
   // Real categories, most-populated first — replaces a hardcoded list
   // (Alkaline Water Devices, Designer Modern Sarees, etc.) that no longer
@@ -108,6 +125,16 @@ const Footer = () => {
                   YT
                 </a>
               </div>
+
+              {!isInstalled && (
+                <button type="button" className={styles.installAppBtn} onClick={handleInstallApp}>
+                  <span className={styles.installAppIcon} aria-hidden="true"><FiDownload /></span>
+                  <span className={styles.installAppText}>
+                    <strong>Download the App</strong>
+                    <small>Install KUWIFR on this device</small>
+                  </span>
+                </button>
+              )}
             </div>
 
             {/* Quick Links Column */}
@@ -361,6 +388,7 @@ const Footer = () => {
       </footer>
 
       {showTracker && <OrderTrackingModal onClose={() => setShowTracker(false)} />}
+      {installHelpOpen && <InstallAppHelpModal isIOS={isIOS} onClose={() => setInstallHelpOpen(false)} />}
     </>
   );
 };

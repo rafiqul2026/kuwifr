@@ -25,13 +25,11 @@ import {
   FiHeadphones,
   FiKey,
   FiLogOut,
-  FiDownload,
-  FiShare,
-  FiPlusSquare,
-  FiMoreVertical
+  FiDownload
 } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
 import { useInstallApp } from "../../utils/pwaInstall";
+import InstallAppHelpModal from "../common/InstallAppHelpModal";
 import styles from "./MemberLayout.module.css";
 
 // 🧭 FULL MEMBER NAVIGATION CONFIGURATION (Profile configured as Collapsible Dropdown)
@@ -644,41 +642,7 @@ const MemberLayout = () => {
       </div>
 
       {installHelpOpen && (
-        <div
-          className={styles.installModalOverlay}
-          onClick={() => setInstallHelpOpen(false)}
-          role="presentation"
-        >
-          <div
-            className={styles.installModal}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="install-app-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img src="/icons/icon-192.png" alt="KUWIFR" className={styles.installModalLogo} />
-            <h3 id="install-app-title">Download the KUWIFR App</h3>
-            {isIOS ? (
-              <ol className={styles.installSteps}>
-                <li>Open this page in <strong>Safari</strong>.</li>
-                <li>Tap the <strong>Share</strong> button <FiShare aria-hidden="true" />.</li>
-                <li>Choose <strong>Add to Home Screen</strong> <FiPlusSquare aria-hidden="true" />, then tap <strong>Add</strong>.</li>
-              </ol>
-            ) : (
-              <ol className={styles.installSteps}>
-                <li>Open this page in <strong>Chrome</strong> (or Edge / Samsung Internet).</li>
-                <li>Tap the browser menu <FiMoreVertical aria-hidden="true" />.</li>
-                <li>Choose <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li>
-              </ol>
-            )}
-            <p className={styles.installModalNote}>
-              The KUWIFR icon will appear on your home screen and open like a normal app.
-            </p>
-            <button type="button" className={styles.installModalClose} onClick={() => setInstallHelpOpen(false)}>
-              Got it
-            </button>
-          </div>
-        </div>
+        <InstallAppHelpModal isIOS={isIOS} onClose={() => setInstallHelpOpen(false)} />
       )}
     </div>
   );
