@@ -14,6 +14,7 @@ import {
   COMPANY_PAN,
   COMPANY_CIN
 } from '../../seo/seoConfig';
+import { openPrintableDocument, AUTO_PRINT_SCRIPT } from '../../utils/printDocument';
 
 const esc = (v) =>
   String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -177,17 +178,8 @@ export const buildInvoiceHtml = ({ order, totals, billedTo, forPrint = false }) 
        </div>`
     : '';
 
-  // Print once the logo has loaded, so it is never missing from the PDF.
-  const autoPrint = forPrint
-    ? `<script>
-         (function () {
-           var done = false;
-           function go() { if (done) return; done = true; setTimeout(function () { window.focus(); window.print(); }, 150); }
-           var img = document.querySelector('.brand img');
-           if (!img || img.complete) { go(); } else { img.onload = go; img.onerror = go; setTimeout(go, 2500); }
-         })();
-       </script>`
-    : '';
+  // Print once the logo (and fonts) have loaded, so nothing is missing from the PDF.
+  const autoPrint = forPrint ? AUTO_PRINT_SCRIPT : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -299,31 +291,7 @@ ${autoPrint}
 /**
  * Opens the invoice as its own page and brings up the print dialog, where
  * the member picks "Save as PDF". The browser suggests the page title
- * (invoice number) as the file name. Falls back to a hidden iframe if a
- * popup blocker stops the new window.
+ * (invoice number) as the file name.
  */
-export const printInvoice = (args) => {
-  const html = buildInvoiceHtml({ ...args, forPrint: true });
-  const win = window.open('', '_blank');
-  if (win) {
-    win.document.open();
-    win.document.write(html);
-    win.document.close();
-    return;
-  }
-
-  const frame = document.createElement('iframe');
-  frame.setAttribute('aria-hidden', 'true');
-  Object.assign(frame.style, { position: 'fixed', right: '0', bottom: '0', width: '0', height: '0', border: '0' });
-  document.body.appendChild(frame);
-  const doc = frame.contentDocument;
-  // Print-only copy: drop the toolbar/auto-print script, print from here.
-  doc.open();
-  doc.write(buildInvoiceHtml(args));
-  doc.close();
-  setTimeout(() => {
-    frame.contentWindow.focus();
-    frame.contentWindow.print();
-    setTimeout(() => frame.remove(), 60000);
-  }, 500);
-};
+export const printInvoice = (args) =>
+  openPrintableDocument(buildInvoiceHtml({ ...args, forPrint: true }), buildInvoiceHtml(args));

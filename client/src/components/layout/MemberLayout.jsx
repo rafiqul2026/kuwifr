@@ -6,6 +6,7 @@ import {
   FiGrid,
   FiUser,
   FiCreditCard,
+  FiUserCheck,
   FiDollarSign,
   FiTarget,
   FiShoppingBag,
@@ -49,7 +50,8 @@ const navItems = [
     isDropdown: true,
     subItems: [
       { id: "my_profile", label: "My Profile", icon: <FiUser />, path: "/member/profile" },
-      { id: "kyc_verification", label: "KYC Verification", icon: <FiCreditCard />, path: "/member/kyc" }
+      { id: "kyc_verification", label: "KYC Verification", icon: <FiCreditCard />, path: "/member/kyc" },
+      { id: "id_card", label: "My ID Card", icon: <FiUserCheck />, path: "/member/profile/id-card" }
     ]
   },
   { id: "wallet", label: "Wallet & Payouts", icon: <FiDollarSign />, path: "/member/wallet" },

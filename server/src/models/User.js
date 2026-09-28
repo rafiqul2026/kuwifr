@@ -154,6 +154,14 @@ const UserSchema = new mongoose.Schema(
     lifetimeIncome: { type: Number, default: 0 },
     directIncome: { type: Number, default: 0 },
     matchingIncome: { type: Number, default: 0 },
+    // "S/D/W/O" — son/daughter/wife of (father's or husband's name), entered
+    // under Profile > Personal Information and printed on the member ID card.
+    guardianName: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+      default: ''
+    },
     address: {
       street: String,
       city: String,

@@ -816,14 +816,28 @@ const getProfile = async (req, res, next) => {
 
 const updateProfile = async (req, res, next) => {
   try {
-    const { fullName, email, phoneNumber, address, bankDetails } = req.body;
+    const { fullName, email, phoneNumber, address, bankDetails, guardianName } = req.body;
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     if (fullName) user.fullName = fullName;
     if (email) user.email = email.toLowerCase().trim();
     if (phoneNumber) user.phoneNumber = phoneNumber;
-    if (address) user.address = address;
+    // Allowed to be cleared, so only skip when the field isn't sent at all.
+    if (guardianName !== undefined) user.guardianName = String(guardianName || '').trim().slice(0, 100);
+    if (address && typeof address === 'object') {
+      // The Profile page sends the PIN as `postalCode`, but the schema field
+      // is `pincode` — Mongoose silently dropped it, so PIN codes were never
+      // saved. Map it, and keep only the schema's own address fields.
+      const clean = (v) => String(v || '').trim().slice(0, 200);
+      user.address = {
+        street: clean(address.street),
+        city: clean(address.city),
+        state: clean(address.state),
+        pincode: clean(address.pincode ?? address.postalCode),
+        country: clean(address.country) || 'India'
+      };
+    }
     if (bankDetails) user.bankDetails = { ...user.bankDetails, ...bankDetails };
 
     await user.save();

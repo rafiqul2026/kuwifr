@@ -6,6 +6,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import DashboardPage from "../pages/member/DashboardPage";
 import ProfilePage from "../pages/member/ProfilePage";
 import KYCPage from "../pages/member/KYCPage";
+import IdCardPage from "../pages/member/IdCardPage";
 import WalletPage from "../pages/member/WalletPage";
 import BonanzaPage from "../pages/member/BonanzaPage";
 import RepurchasePage from "../pages/member/RepurchasePage";
@@ -36,6 +37,8 @@ const MemberRoutes = () => {
         <Route path="profile" element={<ProfilePage />} />
         <Route path="profile/kyc" element={<KYCPage />} />
         <Route path="kyc" element={<KYCPage />} />
+        <Route path="profile/id-card" element={<IdCardPage />} />
+        <Route path="id-card" element={<Navigate to="../profile/id-card" replace />} />
 
         {/* Financial & Team Routes */}
         <Route path="wallet" element={<WalletPage />} />

@@ -1,0 +1,184 @@
+/* client/src/pages/member/IdCardPage.module.css
+   Same member-portal tokens as the other pages (KYCPage.module.css):
+   teal #008080 primary, orange #fd9911 accent, #1c2a2a text,
+   #737373 muted, #e5e5e5 hairline borders. */
+.page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px 20px 60px;
+  box-sizing: border-box;
+  font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #1c2a2a;
+}
+
+.header {
+  margin-bottom: 16px;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #008080;
+  background: rgba(0, 128, 128, 0.08);
+  border: 1px solid rgba(0, 128, 128, 0.25);
+  padding: 3px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.header h1 {
+  margin: 10px 0 4px;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.header p {
+  margin: 0;
+  font-size: 13.5px;
+  color: #737373;
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  border-radius: 12px;
+  background: rgba(217, 119, 6, 0.08);
+  border: 1px solid rgba(217, 119, 6, 0.3);
+  font-size: 13px;
+  color: #92400e;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-bottom: 14px;
+}
+
+.hint {
+  font-size: 12px;
+  color: #737373;
+}
+
+.primaryBtn,
+.secondaryBtn {
+  font: inherit;
+  font-weight: 700;
+  font-size: 13.5px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  white-space: nowrap;
+}
+
+.primaryBtn {
+  padding: 11px 18px;
+  background: linear-gradient(135deg, #008080 0%, #006666 100%);
+  color: #ffffff;
+  border: 1px solid #006666;
+  box-shadow: 0 6px 16px rgba(0, 128, 128, 0.22);
+}
+
+.primaryBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(0, 128, 128, 0.3);
+}
+
+.secondaryBtn {
+  padding: 8px 14px;
+  background: #ffffff;
+  color: #92400e;
+  border: 1px solid rgba(217, 119, 6, 0.45);
+}
+
+.secondaryBtn:hover {
+  background: rgba(217, 119, 6, 0.08);
+}
+
+.primaryBtn:focus-visible,
+.secondaryBtn:focus-visible {
+  outline: 2px solid #fd9911;
+  outline-offset: 2px;
+}
+
+.previewFrame {
+  display: block;
+  width: 100%;
+  min-height: 560px;
+  border: 1px solid #e5e5e5;
+  border-radius: 16px;
+  background: #eef1f6;
+}
+
+.lockedCard {
+  text-align: center;
+  padding: 36px 22px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 16px;
+}
+
+.lockedIcon {
+  font-size: 36px;
+  margin-bottom: 8px;
+}
+
+.lockedCard h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.lockedCard p {
+  margin: 0 auto 18px;
+  max-width: 440px;
+  font-size: 13.5px;
+  color: #737373;
+  line-height: 1.5;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 60px 0;
+  color: #737373;
+  font-size: 13px;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(0, 128, 128, 0.15);
+  border-top-color: #008080;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 12px 4px 40px;
+  }
+
+  .notice {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .primaryBtn {
+    width: 100%;
+  }
+}

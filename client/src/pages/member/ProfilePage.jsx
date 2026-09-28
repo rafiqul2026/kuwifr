@@ -45,6 +45,7 @@ const ProfilePage = () => {
   // Form inputs
   const [formData, setFormData] = useState({
     fullName: '',
+    guardianName: '',
     email: '',
     phoneNumber: '',
     address: {
@@ -74,13 +75,15 @@ const ProfilePage = () => {
         setProfileData(u);
         setFormData({
           fullName: u.fullName || '',
+          guardianName: u.guardianName || '',
           email: u.email || '',
           phoneNumber: u.phoneNumber || '',
           address: {
             street: u.address?.street || '',
             city: u.address?.city || '',
             state: u.address?.state || '',
-            postalCode: u.address?.postalCode || '',
+            // Stored as `pincode` (server maps postalCode -> pincode on save).
+            postalCode: u.address?.pincode || u.address?.postalCode || '',
             country: u.address?.country || 'India'
           },
           bankDetails: {
@@ -384,6 +387,20 @@ const ProfilePage = () => {
                 onChange={handleInputChange}
                 className={`${styles.formInput} ${!isEditing ? styles.inputReadOnly : ''}`}
                 required
+              />
+            </div>
+
+            <div className={styles.inputGroup}>
+              <label>S/D/W/O (Father's / Husband's Name)</label>
+              <input
+                type="text"
+                name="guardianName"
+                disabled={!isEditing}
+                value={formData.guardianName}
+                onChange={handleInputChange}
+                maxLength={100}
+                placeholder={isEditing ? 'e.g. S/O Abdul Karim' : ''}
+                className={`${styles.formInput} ${!isEditing ? styles.inputReadOnly : ''}`}
               />
             </div>
 
