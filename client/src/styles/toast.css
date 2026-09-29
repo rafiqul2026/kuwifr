@@ -1,0 +1,170 @@
+/* client/src/styles/toast.css
+   KUWIFR notification toasts (react-toastify, see
+   context/NotificationContext.jsx): white card, solid round icon in the
+   type colour, dark title, quiet message, close button and a slim
+   progress line. Global because it styles the library's own elements. */
+
+:root {
+  --kfr-toast-success: #0f7b5a;
+  --kfr-toast-error: #dc2626;
+  --kfr-toast-warning: #d97706;
+  --kfr-toast-info: #008080;
+  --toastify-toast-width: 380px;
+  --toastify-z-index: 100000;
+}
+
+.Toastify__toast-container {
+  padding: 0;
+}
+
+.Toastify__toast-container--top-right {
+  top: 20px;
+  right: 20px;
+}
+
+.Toastify__toast.kfr-toast {
+  position: relative;
+  min-height: 0;
+  margin-bottom: 12px;
+  padding: 14px 12px 16px 14px;
+  background: #ffffff;
+  color: #1f2937;
+  border: 1px solid #eceef1;
+  border-radius: 14px;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.14), 0 2px 6px rgba(15, 23, 42, 0.06);
+  font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  align-items: flex-start;
+  overflow: hidden;
+}
+
+.kfr-toast .Toastify__toast-body {
+  margin: 0;
+  padding: 0;
+  align-items: flex-start;
+}
+
+.kfr-toast__content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.kfr-toast__icon {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
+}
+
+.kfr-toast__icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.kfr-toast__icon--success { background: var(--kfr-toast-success); }
+.kfr-toast__icon--error { background: var(--kfr-toast-error); }
+.kfr-toast__icon--warning { background: var(--kfr-toast-warning); }
+.kfr-toast__icon--info { background: var(--kfr-toast-info); }
+
+.kfr-toast__text {
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.kfr-toast__title {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #111827;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+/* A message with no title is shown as the single, slightly lighter line. */
+.kfr-toast__title--solo {
+  font-weight: 600;
+  padding-top: 4px;
+}
+
+.kfr-toast__message {
+  margin: 3px 0 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: #4b5563;
+  overflow-wrap: anywhere;
+}
+
+.kfr-toast__close {
+  flex-shrink: 0;
+  align-self: flex-start;
+  width: 28px;
+  height: 28px;
+  margin: -2px -2px 0 8px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.kfr-toast__close svg {
+  width: 17px;
+  height: 17px;
+}
+
+.kfr-toast__close:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.kfr-toast__close:focus-visible {
+  outline: 2px solid #008080;
+  outline-offset: 1px;
+}
+
+/* Slim time-remaining line in the type colour. */
+.kfr-toast .Toastify__progress-bar {
+  height: 3px;
+}
+
+.kfr-toast .Toastify__progress-bar--bg {
+  opacity: 0.12;
+}
+
+.kfr-toast--success .Toastify__progress-bar { background: var(--kfr-toast-success); }
+.kfr-toast--error .Toastify__progress-bar { background: var(--kfr-toast-error); }
+.kfr-toast--warning .Toastify__progress-bar { background: var(--kfr-toast-warning); }
+.kfr-toast--info .Toastify__progress-bar { background: var(--kfr-toast-info); }
+
+/* Phones: full-width cards near the top, clear of the notch. */
+@media (max-width: 480px) {
+  .Toastify__toast-container--top-right {
+    top: calc(10px + env(safe-area-inset-top));
+    left: 12px;
+    right: 12px;
+    width: auto;
+  }
+
+  .Toastify__toast.kfr-toast {
+    margin-bottom: 10px;
+    border-radius: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .Toastify__toast.kfr-toast {
+    animation-duration: 0.01ms !important;
+  }
+}

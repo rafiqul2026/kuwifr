@@ -72,7 +72,10 @@ export const AuthProvider = ({ children }) => {
         setUser(userData);
         setIsAuthenticated(true);
         setLoading(false);
-        showNotification('Login successful!', 'success');
+        const firstName = (userData?.fullName || '').trim().split(/\s+/)[0];
+        showNotification("You're signed in to your KUWIFR account.", 'success', {
+          title: firstName ? `Welcome back, ${firstName}!` : 'Welcome back!'
+        });
         return { success: true, data: response.data.data };
       }
       return { success: false, message: 'Login failed' };
@@ -135,7 +138,9 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem('token');
       localStorage.removeItem('authToken');
       delete api.defaults.headers.common['Authorization'];
-      showNotification('Logged out successfully', 'info');
+      showNotification('Your session has ended safely. See you again soon!', 'success', {
+        title: "You've been signed out"
+      });
     }
   };
 
