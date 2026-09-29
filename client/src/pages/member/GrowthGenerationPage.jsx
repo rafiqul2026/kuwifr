@@ -6,6 +6,30 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './GrowthGenerationPage.module.css';
 
+// Node colour per package tier — same palette as the package cards on
+// PackagesPage.jsx (THEME_COLORS). Keyed by the stable Package.type code the
+// API sends as packageType; falls back to the package name for older data.
+const PACKAGE_TIERS = [
+  { type: 'STARTER', label: 'Starter', className: 'pkgStarter' },
+  { type: 'GROWTH', label: 'Growth', className: 'pkgGrowth' },
+  { type: 'LIFE_SAFE', label: 'Life Safe', className: 'pkgLifeSafe' },
+  { type: 'LIFE_SAFE_ELITE', label: 'Life Safe Elite', className: 'pkgElite' },
+  { type: 'TITANIUM', label: 'Titanium', className: 'pkgTitanium' }
+];
+
+const packageTierOf = (node) => {
+  const type = String(node?.packageType || '').toUpperCase();
+  const byType = PACKAGE_TIERS.find((t) => t.type === type);
+  if (byType) return byType;
+  const name = String(node?.currentPackage || '').toUpperCase();
+  if (name.includes('ELITE')) return PACKAGE_TIERS[3];
+  if (name.includes('LIFE SAFE')) return PACKAGE_TIERS[2];
+  if (name.includes('TITANIUM')) return PACKAGE_TIERS[4];
+  if (name.includes('GROWTH')) return PACKAGE_TIERS[1];
+  if (name.includes('STARTER')) return PACKAGE_TIERS[0];
+  return null;
+};
+
 /**
  * Modern Slim Curved Connector matching enterprise genealogy layouts (1.2px)
  */
@@ -68,6 +92,8 @@ const GrowthGenerationNode = ({ node, onNodeClick, onVacantClick, onMouseEnter, 
   // genuinely open ones — so the tree reads as a complete binary structure
   // rather than stopping wherever a child happens to already exist.
   const showChildRow = !isVacant && !isMore;
+  const tier = !isVacant && !isMore ? packageTierOf(node) : null;
+  const tierClass = !isVacant && !isMore ? styles[tier ? tier.className : 'pkgNone'] : '';
 
   const handleClick = (e) => {
     e.stopPropagation();
@@ -91,7 +117,7 @@ const GrowthGenerationNode = ({ node, onNodeClick, onVacantClick, onMouseEnter, 
     <div className={styles.treeBranchContainer}>
       {/* Node Identity Card */}
       <div
-        className={`${styles.nodeBox} ${isVacant ? styles.nodeVacant : ''} ${isMore ? styles.nodeMore : ''} ${!isVacant && !isMore ? styles.nodeActive : ''}`}
+        className={`${styles.nodeBox} ${isVacant ? styles.nodeVacant : ''} ${isMore ? styles.nodeMore : ''} ${!isVacant && !isMore ? styles.nodeActive : ''} ${tierClass}`}
         onClick={handleClick}
         onMouseEnter={(e) => !isVacant && !isMore && onMouseEnter(e, node)}
         onMouseLeave={onMouseLeave}
@@ -100,7 +126,7 @@ const GrowthGenerationNode = ({ node, onNodeClick, onVacantClick, onMouseEnter, 
             ? 'This position already has a member — click to expand and view them'
             : isVacant
               ? 'Open Position — click to register a new member here'
-              : `Click to view ${node.fullName}'s growth generation`
+              : `${node.fullName} — ${tier ? tier.label + ' Package' : 'No active package'}. Click to view their growth generation`
         }
       >
         <div className={styles.avatarPill}>
@@ -406,6 +432,20 @@ const GrowthGenerationPage = () => {
                 this always consistent with what's already on screen. */}
             <span>{formatKBP(Math.min(rootNode?.leftKbp || 0, rootNode?.rightKbp || 0))}</span>
           </div>
+        </div>
+
+        {/* Colour key: each member's node is tinted by the package they hold. */}
+        <div className={styles.packageLegend} aria-label="Package colour key">
+          {PACKAGE_TIERS.map((t) => (
+            <span key={t.type} className={`${styles.legendItem} ${styles[t.className]}`}>
+              <span className={styles.legendSwatch} aria-hidden="true" />
+              {t.label}
+            </span>
+          ))}
+          <span className={`${styles.legendItem} ${styles.pkgNone}`}>
+            <span className={styles.legendSwatch} aria-hidden="true" />
+            No Package
+          </span>
         </div>
 
         {/* Zoom Controls — fit a big/deep tree into view instead of forcing

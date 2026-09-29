@@ -688,6 +688,10 @@ class BinaryService {
       // status pill (● INACTIVE) and their Package field visibly
       // contradicted each other on the same tooltip.
       packageName: user?.activePackageId?.name || 'No Active Package',
+      // Stable Package.type code (STARTER / GROWTH / LIFE_SAFE /
+      // LIFE_SAFE_ELITE / TITANIUM) — the Growth Generation tree colours
+      // each node by it, so a renamed package keeps its colour.
+      packageType: user?.activePackageId?.type || null,
       personalKbp,
       repurchaseKbp,
       status: user?.status || 'ACTIVE',

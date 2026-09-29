@@ -637,6 +637,7 @@ const toDisplayNode = (node, isRoot = false) => {
     email: node.email,
     status: node.status,
     currentPackage: node.packageName,
+    packageType: node.packageType || null,
     personalKbp: node.personalKbp || 0,
     repurchaseKbp: node.repurchaseKbp || 0,
     sponsorId: node.sponsorId,
