@@ -563,6 +563,7 @@
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   max-height: 90vh;
+  max-height: 90dvh; /* phones: stay clear of the browser toolbar */
   display: flex;
   flex-direction: column;
 }
@@ -649,8 +650,12 @@
 }
 
 .modalBody {
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 18px 20px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .sponsorHeroBox {

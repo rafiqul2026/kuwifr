@@ -393,6 +393,7 @@
   justify-content: center;
   z-index: 999;
   padding: 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
 
 .modalContent {
@@ -403,8 +404,24 @@
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   overflow: hidden;
   max-height: 90vh;
+  /* dvh: on phones 90vh is measured with the address bar hidden, so the
+     popup's bottom (the Create / Save button) could sit under the browser
+     toolbar. */
+  max-height: 90dvh;
   display: flex;
   flex-direction: column;
+}
+
+/* The <form> between the header and footer must take the remaining height
+   and be allowed to shrink (min-height: 0) — otherwise it grows to fit all
+   the fields, .modalContent's overflow:hidden clips it, the body never gets
+   a scrollbar, and on a phone the fields below the fold and the Create
+   button were unreachable. */
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .modalHeader {
@@ -413,6 +430,7 @@
   align-items: center;
   padding: 20px 24px;
   border-bottom: 1px solid #e5e5e5;
+  flex-shrink: 0;
 }
 
 .modalHeader h2 {
@@ -438,8 +456,12 @@
 }
 
 .modalBody {
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 20px 24px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .formGrid {
@@ -451,6 +473,21 @@
 @media (max-width: 580px) {
   .formGrid {
     grid-template-columns: 1fr;
+  }
+
+  .modalOverlay {
+    padding: 10px;
+  }
+
+  .modalHeader,
+  .modalBody,
+  .modalFooter {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .modalFooter > button {
+    flex: 1;
   }
 }
 
@@ -500,6 +537,7 @@
   padding: 16px 24px;
   border-top: 1px solid #e5e5e5;
   background: #f3f3f3;
+  flex-shrink: 0;
 }
 
 .cancelBtn {

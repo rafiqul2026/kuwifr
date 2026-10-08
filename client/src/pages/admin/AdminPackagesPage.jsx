@@ -423,7 +423,7 @@ const AdminPackagesPage = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} className={styles.modalForm}>
               <div className={styles.modalBody}>
                 <div className={styles.formGrid}>
                   <div className={styles.formGroup}>
