@@ -912,24 +912,160 @@
   font-weight: 600;
   cursor: pointer;
 }
-/* Inspect popup: Edit Profile / Set New Password buttons */
-.accountActionBtn {
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: 1px solid rgba(0, 128, 128, 0.35);
-  background: rgba(0, 128, 128, 0.06);
-  color: #006666;
-  font-size: 13px;
+/* ============================================================
+   INSPECT POPUP FOOTER
+   Row 1: account actions (Edit Profile / Set New Password), equal width.
+   Row 2: Status select on the left; Delete + Done on the right.
+   Phones: everything stacks into full-width, evenly spaced buttons.
+   ============================================================ */
+.inspectFooter {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 20px 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  border-top: 1px solid #e5e5e5;
+  background: #f7f7f5;
+}
+
+.inspectActionsRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.inspectBottomRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #e0e0dc;
+}
+
+.inspectEndButtons {
+  display: flex;
+  gap: 10px;
+}
+
+.inspectActionBtn,
+.inspectDeleteBtn,
+.inspectDoneBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 9px 16px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13.5px;
   font-weight: 700;
-  cursor: pointer;
+  line-height: 1.2;
   white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
-.accountActionBtn:hover {
-  background: rgba(0, 128, 128, 0.12);
+.inspectActionBtn {
+  width: 100%;
+  background: #ffffff;
+  color: #006666;
+  border: 1px solid rgba(0, 128, 128, 0.35);
+  box-shadow: 0 1px 2px rgba(28, 42, 42, 0.05);
 }
 
-.accountActionBtn:focus-visible {
+.inspectActionBtn:hover {
+  background: rgba(0, 128, 128, 0.06);
+  border-color: #008080;
+  box-shadow: 0 4px 10px rgba(0, 128, 128, 0.12);
+  transform: translateY(-1px);
+}
+
+.inspectDeleteBtn {
+  background: #ffffff;
+  color: #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.35);
+}
+
+.inspectDeleteBtn:hover {
+  background: #fef2f2;
+  border-color: #dc2626;
+}
+
+.inspectDoneBtn {
+  min-width: 96px;
+  background: #1c2a2a;
+  color: #ffffff;
+  border: 1px solid #1c2a2a;
+}
+
+.inspectDoneBtn:hover {
+  background: #2c3d3d;
+}
+
+.inspectActionBtn:focus-visible,
+.inspectDeleteBtn:focus-visible,
+.inspectDoneBtn:focus-visible,
+.inspectStatusSelect:focus-visible {
   outline: 2px solid #fd9911;
   outline-offset: 2px;
+}
+
+.inspectStatus {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #525252;
+}
+
+.inspectStatusSelect {
+  min-height: 40px;
+  min-width: 140px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #d4d4d4;
+  background: #ffffff;
+  color: #1c2a2a;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.inspectStatusSelect:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+@media (max-width: 560px) {
+  .inspectFooter {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .inspectActionsRow {
+    grid-template-columns: 1fr;
+  }
+
+  .inspectBottomRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .inspectStatus {
+    justify-content: space-between;
+  }
+
+  .inspectStatusSelect {
+    flex: 1;
+  }
+
+  .inspectEndButtons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
 }

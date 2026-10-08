@@ -595,43 +595,47 @@ const AdminMembersPage = () => {
               </div>
             </div>
 
-            {/* Modal Footer */}
-            <div className={styles.modalFooter}>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <span style={{ fontSize: '13px', color: '#64748b' }}>Status:</span>
-                <select
-                  disabled={updatingId === selectedMember._id}
-                  value={selectedMember.status || 'INACTIVE'}
-                  onChange={(e) => handleStatusChange(selectedMember._id, e.target.value)}
-                  className={styles.statusSelect}
-                >
-                  <option value="ACTIVE">Active</option>
-                  <option value="INACTIVE">Inactive</option>
-                  <option value="SUSPENDED">Suspend</option>
-                  <option value="DEACTIVATED">Deactivate</option>
-                </select>
+            {/* Modal Footer — account actions on top, status + delete/done
+                below; stacks to full-width buttons on phones. */}
+            <div className={styles.inspectFooter}>
+              <div className={styles.inspectActionsRow}>
+                <button type="button" onClick={() => setEditTarget(selectedMember)} className={styles.inspectActionBtn}>
+                  <span aria-hidden="true">✏️</span> Edit Profile
+                </button>
+                <button type="button" onClick={() => setPasswordTarget(selectedMember)} className={styles.inspectActionBtn}>
+                  <span aria-hidden="true">🔑</span> Set New Password
+                </button>
               </div>
 
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button onClick={() => setEditTarget(selectedMember)} className={styles.accountActionBtn}>
-                  ✏️ Edit Profile
-                </button>
-                <button onClick={() => setPasswordTarget(selectedMember)} className={styles.accountActionBtn}>
-                  🔑 Set New Password
-                </button>
-                <button
-                  onClick={() => openDeleteConfirm(selectedMember)}
-                  className={styles.deleteBtn}
-                  title="Permanently delete this member"
-                >
-                  🗑️ Delete Member
-                </button>
-                <button
-                  onClick={() => setSelectedMember(null)}
-                  className={styles.closeModalBtn}
-                >
-                  Done
-                </button>
+              <div className={styles.inspectBottomRow}>
+                <label className={styles.inspectStatus}>
+                  <span>Status</span>
+                  <select
+                    disabled={updatingId === selectedMember._id}
+                    value={selectedMember.status || 'INACTIVE'}
+                    onChange={(e) => handleStatusChange(selectedMember._id, e.target.value)}
+                    className={styles.inspectStatusSelect}
+                  >
+                    <option value="ACTIVE">Active</option>
+                    <option value="INACTIVE">Inactive</option>
+                    <option value="SUSPENDED">Suspend</option>
+                    <option value="DEACTIVATED">Deactivate</option>
+                  </select>
+                </label>
+
+                <div className={styles.inspectEndButtons}>
+                  <button
+                    type="button"
+                    onClick={() => openDeleteConfirm(selectedMember)}
+                    className={styles.inspectDeleteBtn}
+                    title="Permanently delete this member"
+                  >
+                    <span aria-hidden="true">🗑️</span> Delete Member
+                  </button>
+                  <button type="button" onClick={() => setSelectedMember(null)} className={styles.inspectDoneBtn}>
+                    Done
+                  </button>
+                </div>
               </div>
             </div>
           </div>
