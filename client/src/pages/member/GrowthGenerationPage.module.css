@@ -693,6 +693,7 @@
 .pkgLifeSafe { --pkg: #6366f1; --pkg-bg: #eef2ff; }
 .pkgElite { --pkg: #008080; --pkg-bg: #ecfdf8; }
 .pkgTitanium { --pkg: #f08c00; --pkg-bg: #fff7e8; }
+.pkgOther { --pkg: #475569; --pkg-bg: #f1f5f9; }
 .pkgNone { --pkg: #a3a3a3; --pkg-bg: #fafafa; }
 
 .nodeActive.pkgStandard,
@@ -701,6 +702,7 @@
 .nodeActive.pkgLifeSafe,
 .nodeActive.pkgElite,
 .nodeActive.pkgTitanium,
+.nodeActive.pkgOther,
 .nodeActive.pkgNone {
   background: var(--pkg-bg);
   border: 1.5px solid var(--pkg);
@@ -713,6 +715,7 @@
 .nodeActive.pkgLifeSafe .avatarPill,
 .nodeActive.pkgElite .avatarPill,
 .nodeActive.pkgTitanium .avatarPill,
+.nodeActive.pkgOther .avatarPill,
 .nodeActive.pkgNone .avatarPill {
   background: var(--pkg);
   color: #ffffff;
@@ -732,6 +735,7 @@
 .nodeActive.pkgLifeSafe:hover,
 .nodeActive.pkgElite:hover,
 .nodeActive.pkgTitanium:hover,
+.nodeActive.pkgOther:hover,
 .nodeActive.pkgNone:hover {
   border-color: var(--pkg);
   box-shadow: inset 0 3px 0 var(--pkg), 0 6px 14px rgba(28, 42, 42, 0.12);

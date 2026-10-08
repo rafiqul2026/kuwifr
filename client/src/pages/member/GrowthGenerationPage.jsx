@@ -30,6 +30,11 @@ const packageTierOf = (node) => {
   if (name.includes('GROWTH')) return byKey('GROWTH');
   if (name.includes('STARTER')) return byKey('STARTER');
   if (name.includes('STANDARD')) return byKey('STANDARD');
+  // Any other (admin-created) package: still an active package, just not
+  // one of the named tiers — never shown as 'No Package'.
+  if (type || (name && name !== 'NO ACTIVE PACKAGE')) {
+    return { type: type || 'OTHER', label: node?.currentPackage || 'Other', className: 'pkgOther' };
+  }
   return null;
 };
 
@@ -129,7 +134,7 @@ const GrowthGenerationNode = ({ node, onNodeClick, onVacantClick, onMouseEnter, 
             ? 'This position already has a member — click to expand and view them'
             : isVacant
               ? 'Open Position — click to register a new member here'
-              : `${node.fullName} — ${tier ? tier.label + ' Package' : 'No active package'}. Click to view their growth generation`
+              : `${node.fullName} — ${tier ? (/package/i.test(tier.label) ? tier.label : tier.label + ' Package') : 'No active package'}. Click to view their growth generation`
         }
       >
         <div className={styles.avatarPill}>
@@ -448,6 +453,10 @@ const GrowthGenerationPage = () => {
           <span className={`${styles.legendItem} ${styles.pkgNone}`}>
             <span className={styles.legendSwatch} aria-hidden="true" />
             No Package
+          </span>
+          <span className={`${styles.legendItem} ${styles.pkgOther}`}>
+            <span className={styles.legendSwatch} aria-hidden="true" />
+            Other Package
           </span>
         </div>
 

@@ -184,67 +184,102 @@ const getPackageById = async (req, res, next) => {
   }
 };
 
+// "standard plus" / "Standard-Plus" -> "STANDARD_PLUS"; a leading digit
+// gets a PKG_ prefix so the code always starts with a letter.
+const normalizeTypeCode = (value) => {
+  const code = String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 40);
+  return /^[0-9]/.test(code) ? `PKG_${code}`.slice(0, 40) : code;
+};
+
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const collapseSpaces = (s) => String(s || '').trim().replace(/\s+/g, ' ');
+
+// Validates the numeric fields that were sent; returns an error message or null.
+const validatePackageNumbers = (fields) => {
+  const labels = {
+    price: 'Price',
+    kbp: 'KBP points',
+    dailyCap: 'Daily binary cap',
+    weeklyCap: 'Weekly cap',
+    monthlyCap: 'Monthly cap'
+  };
+  for (const [key, label] of Object.entries(labels)) {
+    if (fields[key] === undefined) continue;
+    const n = fields[key];
+    if (!Number.isFinite(n) || n < 0) return `${label} must be a number of 0 or more.`;
+  }
+  if (fields.price !== undefined && fields.price <= 0) return 'Price must be greater than 0.';
+  return null;
+};
+
+// Another package (optionally excluding one) with the same name — ignoring
+// case and extra spaces — or the same type code.
+const findConflictingPackage = (name, type, excludeId) => {
+  const or = [];
+  if (name) or.push({ name: new RegExp(`^\\s*${escapeRegex(name).replace(/ /g, '\\s+')}\\s*$`, 'i') });
+  if (type) or.push({ type });
+  if (or.length === 0) return null;
+  const query = { $or: or };
+  if (excludeId) query._id = { $ne: excludeId };
+  return Package.findOne(query).select('name type').lean();
+};
+
 /**
  * Admin: Create a new package
  * POST /api/packages
  */
 const createPackage = async (req, res, next) => {
   try {
-    const {
-      name,
-      packageName,
-      type,
-      packageType,
-      price,
-      kbp,
-      kbpPoints,
-      dailyCap,
-      dailyBinaryCap,
-      directBonus,
-      directSponsorBonus,
-      weeklyCap,
-      monthlyCap,
-      description,
-      entitlements,
-      isActive,
-      status,
-      badge,
-      displayBadge,
-      isPopular
-    } = req.body;
+    const b = req.body || {};
+    const resolvedName = collapseSpaces(b.name || b.packageName);
+    const resolvedPrice = Number(b.price);
+    const resolvedKbp = Number(b.kbp !== undefined && b.kbp !== '' ? b.kbp : b.kbpPoints);
 
-    const resolvedName = (name || packageName || '').trim();
-    const resolvedPrice = Number(price);
-    const resolvedKbp = Number(kbp !== undefined ? kbp : kbpPoints);
-
-    if (!resolvedName || isNaN(resolvedPrice) || isNaN(resolvedKbp)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Package Name, Price, and KBP points are required.'
-      });
+    if (!resolvedName) {
+      return res.status(400).json({ success: false, message: 'Package name is required.' });
+    }
+    if (b.price === undefined || b.price === '' || (b.kbp ?? b.kbpPoints ?? '') === '') {
+      return res.status(400).json({ success: false, message: 'Price and KBP points are required.' });
     }
 
-    const resolvedType = (type || packageType || resolvedName.replace(/\s+/g, '_')).toUpperCase();
+    // Type code: the one typed in Admin, else derived from the name.
+    const resolvedType = normalizeTypeCode(b.type || b.packageType || resolvedName);
+    if (!resolvedType) {
+      return res.status(400).json({ success: false, message: 'Enter a package type code, e.g. STANDARD_PLUS.' });
+    }
 
-    const existing = await Package.findOne({
-      $or: [{ name: resolvedName }, { type: resolvedType }]
+    const num = (v, fallback) => (v === undefined || v === '' ? fallback : Number(v));
+    const resolvedDailyCap = num(b.dailyCap !== undefined ? b.dailyCap : b.dailyBinaryCap, resolvedPrice);
+    const resolvedWeeklyCap = num(b.weeklyCap, resolvedDailyCap * 7);
+    const resolvedMonthlyCap = num(b.monthlyCap, resolvedDailyCap * 30);
+
+    const numberError = validatePackageNumbers({
+      price: resolvedPrice,
+      kbp: resolvedKbp,
+      dailyCap: resolvedDailyCap,
+      weeklyCap: resolvedWeeklyCap,
+      monthlyCap: resolvedMonthlyCap
     });
+    if (numberError) return res.status(400).json({ success: false, message: numberError });
 
+    const existing = await findConflictingPackage(resolvedName, resolvedType);
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: `Package with name "${resolvedName}" or type "${resolvedType}" already exists.`
+        message: existing.type === resolvedType
+          ? `A package with type code "${resolvedType}" already exists (${existing.name}). Use a different type code.`
+          : `A package named "${existing.name}" already exists. Use a different name or edit that package.`
       });
     }
 
-    const resolvedDailyCap = Number(dailyCap !== undefined ? dailyCap : (dailyBinaryCap !== undefined ? dailyBinaryCap : resolvedPrice));
-    // 🌟 Strictly calculate direct bonus as 10% of package KBP value
-    const resolvedDirectBonus = resolvedKbp * 0.10;
-    const resolvedWeeklyCap = Number(weeklyCap !== undefined ? weeklyCap : resolvedDailyCap * 7);
-    const resolvedMonthlyCap = Number(monthlyCap !== undefined ? monthlyCap : resolvedDailyCap * 30);
-    const resolvedDesc = description || entitlements || '';
-    const resolvedBadge = displayBadge || badge || '';
-    const resolvedIsActive = status ? (status === 'ACTIVE' || status === 'Active (Visible)') : (isActive !== undefined ? Boolean(isActive) : true);
+    const resolvedIsActive = b.status
+      ? (b.status === 'ACTIVE' || b.status === 'Active (Visible)')
+      : (b.isActive !== undefined ? Boolean(b.isActive) : true);
 
     const newPackage = await Package.create({
       name: resolvedName,
@@ -252,19 +287,17 @@ const createPackage = async (req, res, next) => {
       price: resolvedPrice,
       kbp: resolvedKbp,
       dailyCap: resolvedDailyCap,
-      directBonus: resolvedDirectBonus,
       weeklyCap: resolvedWeeklyCap,
       monthlyCap: resolvedMonthlyCap,
-      description: resolvedDesc,
-      badge: resolvedBadge,
-      status: resolvedIsActive ? 'ACTIVE' : 'INACTIVE',
+      description: collapseSpaces(b.description || b.entitlements),
+      badge: collapseSpaces(b.displayBadge || b.badge),
       isActive: resolvedIsActive,
-      isPopular: Boolean(isPopular)
+      isPopular: Boolean(b.isPopular)
     });
 
     res.status(201).json({
       success: true,
-      message: 'Package created successfully',
+      message: `${newPackage.name} created successfully`,
       data: { package: newPackage }
     });
   } catch (error) {
@@ -273,7 +306,7 @@ const createPackage = async (req, res, next) => {
 };
 
 /**
- * Admin: Update an existing package
+ * Admin: Update package
  * PUT /api/packages/:id
  */
 const updatePackage = async (req, res, next) => {
@@ -288,32 +321,50 @@ const updatePackage = async (req, res, next) => {
       });
     }
 
-    const b = req.body;
+    const b = req.body || {};
     const updates = {};
+    const has = (v) => v !== undefined && v !== '';
 
-    if (b.name !== undefined || b.packageName !== undefined) updates.name = (b.name || b.packageName).trim();
-    if (b.type !== undefined || b.packageType !== undefined) updates.type = (b.type || b.packageType).toUpperCase();
-    if (b.price !== undefined) updates.price = Number(b.price);
-    if (b.kbp !== undefined || b.kbpPoints !== undefined) {
-      updates.kbp = Number(b.kbp !== undefined ? b.kbp : b.kbpPoints);
-      // Automatically update direct bonus to 10% of new KBP value
-      updates.directBonus = updates.kbp * 0.10;
+    if (has(b.name) || has(b.packageName)) updates.name = collapseSpaces(b.name || b.packageName);
+    if (has(b.type) || has(b.packageType)) updates.type = normalizeTypeCode(b.type || b.packageType);
+    if (has(b.price)) updates.price = Number(b.price);
+    if (has(b.kbp) || has(b.kbpPoints)) updates.kbp = Number(has(b.kbp) ? b.kbp : b.kbpPoints);
+    if (has(b.dailyCap) || has(b.dailyBinaryCap)) updates.dailyCap = Number(has(b.dailyCap) ? b.dailyCap : b.dailyBinaryCap);
+    if (has(b.weeklyCap)) updates.weeklyCap = Number(b.weeklyCap);
+    if (has(b.monthlyCap)) updates.monthlyCap = Number(b.monthlyCap);
+    if (b.description !== undefined || b.entitlements !== undefined) {
+      updates.description = collapseSpaces(b.description !== undefined ? b.description : b.entitlements);
     }
-    if (b.dailyCap !== undefined || b.dailyBinaryCap !== undefined) updates.dailyCap = Number(b.dailyCap !== undefined ? b.dailyCap : b.dailyBinaryCap);
-    if (b.weeklyCap !== undefined) updates.weeklyCap = Number(b.weeklyCap);
-    if (b.monthlyCap !== undefined) updates.monthlyCap = Number(b.monthlyCap);
-    if (b.description !== undefined || b.entitlements !== undefined) updates.description = b.description !== undefined ? b.description : b.entitlements;
-    if (b.badge !== undefined || b.displayBadge !== undefined) updates.badge = b.displayBadge !== undefined ? b.displayBadge : b.badge;
+    if (b.badge !== undefined || b.displayBadge !== undefined) {
+      updates.badge = collapseSpaces(b.displayBadge !== undefined ? b.displayBadge : b.badge);
+    }
 
     if (b.status !== undefined) {
-      updates.status = b.status;
       updates.isActive = b.status === 'ACTIVE' || b.status === 'Active (Visible)';
     } else if (b.isActive !== undefined) {
       updates.isActive = Boolean(b.isActive);
-      updates.status = updates.isActive ? 'ACTIVE' : 'INACTIVE';
+    }
+    if (b.isPopular !== undefined) updates.isPopular = Boolean(b.isPopular);
+
+    if (updates.name === '') {
+      return res.status(400).json({ success: false, message: 'Package name cannot be empty.' });
+    }
+    if (updates.type !== undefined && !updates.type) {
+      return res.status(400).json({ success: false, message: 'Enter a valid package type code, e.g. STANDARD_PLUS.' });
     }
 
-    if (b.isPopular !== undefined) updates.isPopular = Boolean(b.isPopular);
+    const numberError = validatePackageNumbers(updates);
+    if (numberError) return res.status(400).json({ success: false, message: numberError });
+
+    const conflict = await findConflictingPackage(updates.name, updates.type, pkg._id);
+    if (conflict) {
+      return res.status(400).json({
+        success: false,
+        message: updates.type && conflict.type === updates.type
+          ? `Type code "${updates.type}" is already used by ${conflict.name}.`
+          : `Another package is already named "${conflict.name}".`
+      });
+    }
 
     const updatedPackage = await Package.findByIdAndUpdate(id, { $set: updates }, {
       new: true,

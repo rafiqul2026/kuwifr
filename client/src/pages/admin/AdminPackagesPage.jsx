@@ -187,30 +187,21 @@ const AdminPackagesPage = () => {
     e.preventDefault();
     try {
       setSubmitting(true);
-      if (editingPkg) {
-        let res;
-        try {
-          res = await api.put(`/api/admin/packages/${editingPkg._id}`, formData);
-        } catch (e) {
-          res = await api.put(`/api/packages/${editingPkg._id}`, formData);
-        }
-        if (res.data?.success) {
-          fetchPackages();
-          setModalOpen(false);
-        }
-      } else {
-        let res;
-        try {
-          res = await api.post('/api/admin/packages', formData);
-        } catch (e) {
-          res = await api.post('/api/packages', formData);
-        }
-        if (res.data?.success) {
-          fetchPackages();
-          setModalOpen(false);
-        }
+      // One request (/api/packages and /api/admin/packages are the same
+      // router). It used to retry on the other URL after ANY error — a real
+      // validation error was simply re-submitted — and showed "success"
+      // even when the server didn't confirm it.
+      const res = editingPkg
+        ? await api.put(`/api/packages/${editingPkg._id}`, formData)
+        : await api.post('/api/packages', formData);
+
+      if (!res.data?.success) {
+        showNotification(res.data?.message || 'Failed to save package settings', 'error');
+        return;
       }
-      showNotification(editingPkg ? 'Package updated successfully' : 'Package created successfully', 'success');
+      fetchPackages();
+      setModalOpen(false);
+      showNotification(res.data.message || (editingPkg ? 'Package updated successfully' : 'Package created successfully'), 'success');
     } catch (err) {
       showNotification(err.response?.data?.message || 'Failed to save package settings', 'error');
     } finally {
@@ -447,6 +438,9 @@ const AdminPackagesPage = () => {
                       onChange={(e) => setFormData({ ...formData, type: e.target.value.toUpperCase() })}
                       className={styles.input}
                     />
+                    <small className={styles.fieldHint}>
+                      Optional — letters, numbers and _ only. Left empty, it&apos;s made from the name.
+                    </small>
                   </div>
 
                   <div className={styles.formGroup}>

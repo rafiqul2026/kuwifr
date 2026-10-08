@@ -11,14 +11,23 @@ const PackageSchema = new mongoose.Schema({
     unique: true,  // ← This automatically creates an index
     trim: true
   },
+  // Optional — an empty description used to fail the whole save with a bare
+  // "Validation Error" from Admin > Packages > Create.
   description: {
     type: String,
-    required: true
+    trim: true,
+    default: ''
   },
+  // Stable tier code (STANDARD, STARTER, GROWTH, LIFE_SAFE, LIFE_SAFE_ELITE,
+  // TITANIUM, ...). Was a fixed enum of the original tiers, which made it
+  // impossible to create any new package from the admin panel; now any
+  // well-formed code is accepted (package.controller.js normalizes input).
   type: {
     type: String,
-    enum: ['STANDARD', 'STARTER', 'GROWTH', 'LIFE_SAFE', 'LIFE_SAFE_ELITE', 'TITANIUM'],
-    required: true,
+    required: [true, 'Package type code is required'],
+    trim: true,
+    uppercase: true,
+    match: [/^[A-Z][A-Z0-9_]{1,39}$/, 'Package type code must start with a letter and use only letters, numbers and underscores (e.g. LIFE_SAFE_ELITE).'],
     unique: true  // ← This automatically creates an index
   },
 
