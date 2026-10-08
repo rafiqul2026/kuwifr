@@ -21,7 +21,7 @@ class RankService {
         kuwiStarRequirements: {
           directSponsors: 3,
           kbpRequired: 3000,
-          timeLimit: 15,
+          timeLimit: 0, // no time limit
         },
         starsRequired: 0,
         reward: "Diary + Pen",
@@ -257,8 +257,9 @@ class RankService {
    *
    * Business rule (KUWIFR compensation plan): "Rank and Reward starts from
    * 1st Pair Matching only" + "2:1 or 1:2 Pair Matching, but Member has to
-   * be Required 3 Direct Sponsor under the Left and Right side" within a
-   * time limit (default 15 days) from joining. Thresholds are read live from
+   * be Required 3 Direct Sponsor under the Left and Right side". There is
+   * NO time limit (the former 15-days-from-joining window was removed,
+   * Oct 2026). Thresholds are read live from
    * the KUWI_STAR Rank document (kuwiStarRequirements) so an admin can change
    * them from the admin panel without a code change — they are NOT hardcoded.
    */
@@ -283,7 +284,6 @@ class RankService {
     // Pull dynamic requirements from the KUWI_STAR rank document (admin-editable).
     const starRank = await Rank.findOne({ code: "KUWI_STAR" });
     const requiredDirects = starRank?.kuwiStarRequirements?.directSponsors ?? 3;
-    const timeLimitDays = starRank?.kuwiStarRequirements?.timeLimit ?? 15;
 
     // Rank & Reward starts from 1st Pair Matching only — a first pair must
     // have actually formed in the real binary tree (2:1 or 1:2), not merely
@@ -309,16 +309,6 @@ class RankService {
       (leftDirects >= 1 && rightDirects >= 2);
     if (!hasSplitRatio) {
       return false;
-    }
-
-    // Check time limit from joining (0 / falsy disables the time limit).
-    if (timeLimitDays) {
-      const daysSinceJoin = Math.floor(
-        (Date.now() - new Date(user.joinedDate || user.createdAt)) / (1000 * 60 * 60 * 24),
-      );
-      if (daysSinceJoin > timeLimitDays) {
-        return false;
-      }
     }
 
     return true;
@@ -387,8 +377,8 @@ class RankService {
       return false;
     }
 
-    // Entry gate ("Rank and Reward starts from 1st Pair Matching only" +
-    // the 15-day Kuwi Star window): applies ONLY to the member being
+    // Entry gate ("Rank and Reward starts from 1st Pair Matching only";
+    // no time limit): applies ONLY to the member being
     // evaluated for their OWN rank here — NOT to how their downline members
     // are counted as stars (SalaryService.checkIsKuwiStar alone handles
     // that, deliberately without this stricter gate; see its docstring).
@@ -549,7 +539,7 @@ class RankService {
    *
    * WHY THIS CHANGED (again): the previous version re-derived "current
    * rank" from scratch on every call — re-running the full live entry gate
-   * (self 3-direct/2:1-1:2/KBP check, 1st-pair-match, 15-day window) and
+   * (self 3-direct/2:1-1:2/KBP check, 1st-pair-match; no time limit) and
    * the Left/Right star balance check every single time. But
    * RankAchievement is explicitly modeled as permanent ("once achieved,
    * ranks are permanent" — see the schema comment), and checkAndAwardRanks

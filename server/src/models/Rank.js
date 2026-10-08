@@ -44,9 +44,12 @@ const RankSchema = new mongoose.Schema({
       type: Number,
       default: 3000
     },
+    // Days from joining to qualify for Kuwi Star. No longer enforced
+    // anywhere (business rule: Kuwi Star has no time limit); kept so
+    // existing Rank documents still read cleanly.
     timeLimit: {
       type: Number,
-      default: 15
+      default: 0
     }
   },
   starsRequired: {

@@ -21,15 +21,8 @@ const REAL_ORDER_MATCH = {
   ]
 };
 
-// "Uncommon Ranks and Rewards" — the Kuwi Star's 15-day qualification
-// window (3 directs, 2:1/1:2 split, >=3,000 KBP, all within 15 days of the
-// member's own join date) is enforced ONLY for members who join on or
-// after this date. Existing members who joined earlier are grandfathered —
-// their qualification, once met, has no deadline. This avoids retroactively
-// stripping already-earned Kuwi Star status (and everything built on it —
-// every higher rank depends on downline members counting as verified
-// stars) for a deadline the system never actually enforced before now.
-const KUWI_STAR_TIME_LIMIT_ENFORCED_FROM = new Date('2026-09-10T00:00:00.000Z');
+// Kuwi Star has NO time limit (business rule, Oct 2026): the former
+// "15 days from the date of joining" window is no longer enforced for anyone.
 
 /**
  * 📦 5-Tier Official Package KBP Resolution
@@ -60,9 +53,9 @@ const resolveUserKbp = (userDoc) => {
  * member's own status and, via countVerifiedSubtreeStars() below, once per
  * DOWNLINE member to decide whether THEY count as one of someone else's
  * Left/Right stars. It deliberately does NOT include the "1st Pair
- * Matching" or "15-day window" conditions — those describe when a member
+ * Matching" condition — that describes when a member
  * becomes eligible for THEIR OWN rank (see
- * RankService.checkSelfEntryGate below, which layers them on top of this
+ * RankService.checkSelfEntryGate below, which layers it on top of this
  * check) and were briefly folded in here directly. That broke downline star
  * counting network-wide: a downline member who genuinely meets the
  * 3-direct/ratio/KBP bar but hasn't personally triggered their own binary
@@ -109,20 +102,12 @@ const checkIsKuwiStar = async (userId) => {
  *   - "Rank and Reward starts from 1st Pair Matching only": the member must
  *     already have at least one real binary pair match (BinaryNode.pairCount
  *     >= 1).
- *   - "Time Limit: 15 days from the date of joining": only enforced for
- *     members who join on/after KUWI_STAR_TIME_LIMIT_ENFORCED_FROM above;
- *     earlier members are grandfathered (no deadline).
+ *   - No time limit: the former "15 days from the date of joining" window
+ *     was removed (business rule, Oct 2026).
  */
 const checkKuwiStarSelfEntryGate = async (userId) => {
   const node = await BinaryNode.findOne({ userId }).select('pairCount').lean();
   if (!node || (node.pairCount || 0) < 1) return false;
-
-  const user = await User.findById(userId).select('joinedDate createdAt').lean();
-  const joinedDate = new Date(user?.joinedDate || user?.createdAt || 0);
-  if (joinedDate >= KUWI_STAR_TIME_LIMIT_ENFORCED_FROM) {
-    const daysSinceJoin = Math.floor((Date.now() - joinedDate.getTime()) / (1000 * 60 * 60 * 24));
-    if (daysSinceJoin > 15) return false;
-  }
 
   return true;
 };

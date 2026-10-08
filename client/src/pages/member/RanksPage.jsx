@@ -280,7 +280,7 @@ const RanksPage = () => {
     const conditions = {
       1: {
         requirement: "2:1 or 1:2 — that means 3 Direct Joining, Minimum 3,000 KBP",
-        timeLimit: "Time Limit: 15 days from the date of joining",
+        timeLimit: "No Time Limit",
         salary: null
       },
       2: {
