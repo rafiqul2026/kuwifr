@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
+import { EditMemberProfileModal, ResetMemberPasswordModal } from './AdminMemberAccountModals';
 import styles from './AdminMembersPage.module.css';
 
 const AdminMembersPage = () => {
@@ -17,6 +18,9 @@ const AdminMembersPage = () => {
   const [updatingId, setUpdatingId] = useState(null);
   const [copiedField, setCopiedField] = useState(null);
   const [gotoPageInput, setGotoPageInput] = useState('');
+  // Edit Profile / Set New Password popups (AdminMemberAccountModals.jsx).
+  const [editTarget, setEditTarget] = useState(null);
+  const [passwordTarget, setPasswordTarget] = useState(null);
 
   // Permanent member deletion — a typed-confirmation modal (must type the
   // member's exact ID) instead of a plain Yes/No, since this destroys real
@@ -608,7 +612,13 @@ const AdminMembersPage = () => {
                 </select>
               </div>
 
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button onClick={() => setEditTarget(selectedMember)} className={styles.accountActionBtn}>
+                  ✏️ Edit Profile
+                </button>
+                <button onClick={() => setPasswordTarget(selectedMember)} className={styles.accountActionBtn}>
+                  🔑 Set New Password
+                </button>
                 <button
                   onClick={() => openDeleteConfirm(selectedMember)}
                   className={styles.deleteBtn}
@@ -626,6 +636,24 @@ const AdminMembersPage = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {editTarget && (
+        <EditMemberProfileModal
+          member={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSaved={(updated) => {
+            setEditTarget(null);
+            if (updated) {
+              setMembers((prev) => prev.map((m) => (m._id === updated._id ? { ...m, ...updated } : m)));
+              setSelectedMember((prev) => (prev && prev._id === updated._id ? { ...prev, ...updated } : prev));
+            }
+          }}
+        />
+      )}
+
+      {passwordTarget && (
+        <ResetMemberPasswordModal member={passwordTarget} onClose={() => setPasswordTarget(null)} />
       )}
 
       {/* Delete Confirmation Modal — typed member-ID confirmation, not just

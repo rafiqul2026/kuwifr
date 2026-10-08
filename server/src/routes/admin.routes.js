@@ -34,6 +34,10 @@ router.get('/users/:id', adminController.getUserById);
 
 router.put('/users/:id/status', adminController.updateUserStatus);
 router.put('/members/:id/status', adminController.updateUserStatus);
+// Edit a member's profile details / set a new password (admin only — this
+// router is behind auth + adminAuth above). Both are audit-logged.
+router.put('/members/:id/profile', adminController.updateMemberProfile);
+router.post('/members/:id/reset-password', adminController.resetMemberPassword);
 
 // Permanent, irreversible member deletion — refuses to run unless the
 // member has zero downline (see adminController.deleteMember for the full

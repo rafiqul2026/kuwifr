@@ -665,10 +665,198 @@ const initializeSystem = async (req, res, next) => {
   }
 };
 
+// Fields an admin may edit on a member's profile. Member ID, sponsor,
+// binary placement, status, package and income are deliberately NOT here:
+// they drive the tree and payouts and have their own controlled flows.
+const ADMIN_EDITABLE_BANK_FIELDS = ['accountName', 'accountNumber', 'bankName', 'ifscCode', 'panNumber', 'upiId'];
+const ADMIN_EDITABLE_ADDRESS_FIELDS = ['street', 'city', 'state', 'pincode', 'country'];
+
+const clip = (v, max = 200) => String(v ?? '').trim().slice(0, max);
+
+const profileSnapshot = (u) => ({
+  fullName: u.fullName,
+  email: u.email,
+  phoneNumber: u.phoneNumber,
+  guardianName: u.guardianName || '',
+  address: { ...(u.address?.toObject ? u.address.toObject() : u.address || {}) },
+  bankDetails: { ...(u.bankDetails?.toObject ? u.bankDetails.toObject() : u.bankDetails || {}) }
+});
+
+/**
+ * Admin: edit a member's profile details.
+ * PUT /api/admin/members/:id/profile
+ *   body { fullName?, email?, phoneNumber?, guardianName?, address?: {...}, bankDetails?: {...} }
+ */
+const updateMemberProfile = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid member id.' });
+    }
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ success: false, message: 'Member not found.' });
+    if ((user.role || 'MEMBER') !== 'MEMBER') {
+      return res.status(403).json({ success: false, message: 'Admin accounts cannot be edited from Members.' });
+    }
+
+    const b = req.body || {};
+    const before = profileSnapshot(user);
+
+    if (b.fullName !== undefined) {
+      const name = clip(b.fullName, 100);
+      if (name.length < 2) return res.status(400).json({ success: false, message: 'Full name must be at least 2 characters.' });
+      user.fullName = name;
+    }
+    if (b.email !== undefined) {
+      const email = clip(b.email, 120).toLowerCase();
+      if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+      user.email = email;
+    }
+    if (b.phoneNumber !== undefined) {
+      const phone = clip(b.phoneNumber, 20).replace(/\D/g, '');
+      if (!/^[0-9]{10}$/.test(phone)) return res.status(400).json({ success: false, message: 'Phone number must be 10 digits.' });
+      user.phoneNumber = phone;
+    }
+    if (b.guardianName !== undefined) user.guardianName = clip(b.guardianName, 100);
+
+    if (b.address && typeof b.address === 'object') {
+      const current = before.address || {};
+      const next = { ...current };
+      ADMIN_EDITABLE_ADDRESS_FIELDS.forEach((f) => {
+        const incoming = f === 'pincode' ? (b.address.pincode ?? b.address.postalCode) : b.address[f];
+        if (incoming !== undefined) next[f] = clip(incoming);
+      });
+      if (!next.country) next.country = 'India';
+      user.address = next;
+    }
+
+    if (b.bankDetails && typeof b.bankDetails === 'object') {
+      const current = before.bankDetails || {};
+      const next = { ...current };
+      ADMIN_EDITABLE_BANK_FIELDS.forEach((f) => {
+        if (b.bankDetails[f] !== undefined) {
+          const v = clip(b.bankDetails[f], 60);
+          next[f] = ['ifscCode', 'panNumber'].includes(f) ? v.toUpperCase() : v;
+        }
+      });
+      user.bankDetails = next;
+    }
+
+    await user.save();
+    const after = profileSnapshot(user);
+
+    await logAdminAction({
+      req,
+      action: 'MEMBER_PROFILE_UPDATED',
+      module: 'MEMBERS',
+      targetId: user._id,
+      previousData: { memberId: user.memberId, ...before },
+      newData: { memberId: user.memberId, ...after }
+    });
+
+    const updated = await User.findById(id)
+      .select('-password -resetPasswordToken -resetPasswordExpire')
+      .populate('sponsorId', 'fullName memberId email phoneNumber')
+      .populate('activePackageId', 'name price kbp')
+      .lean();
+
+    res.json({ success: true, message: `${user.fullName}'s profile was updated.`, data: { user: updated } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Readable random password: no look-alike characters (0/O, 1/l/I).
+const generatePassword = (length = 10) => {
+  const crypto = require('crypto');
+  const sets = ['ABCDEFGHJKMNPQRSTUVWXYZ', 'abcdefghjkmnpqrstuvwxyz', '23456789', '@#$%&*'];
+  const all = sets.join('');
+  const pick = (chars) => chars[crypto.randomInt(chars.length)];
+  const chars = sets.map(pick); // at least one of each kind
+  while (chars.length < length) chars.push(pick(all));
+  for (let i = chars.length - 1; i > 0; i -= 1) {
+    const j = crypto.randomInt(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join('');
+};
+
+/**
+ * Admin: set a new password for a member (passwords are stored only as
+ * bcrypt hashes, so an existing password can never be viewed — this is the
+ * supported way to give a member access again).
+ * POST /api/admin/members/:id/reset-password
+ *   body { password? }  — omitted/empty: a strong password is generated.
+ * Returns the new password ONCE so the admin can share it. Signs the member
+ * out of every existing session. The password is never written to the
+ * audit log.
+ */
+const resetMemberPassword = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid member id.' });
+    }
+    const user = await User.findById(id).select('+password');
+    if (!user) return res.status(404).json({ success: false, message: 'Member not found.' });
+    if ((user.role || 'MEMBER') !== 'MEMBER') {
+      return res.status(403).json({ success: false, message: 'Admin account passwords cannot be changed from Members.' });
+    }
+
+    const typed = typeof req.body?.password === 'string' ? req.body.password : '';
+    const newPassword = typed.trim() ? typed : generatePassword();
+    if (newPassword.length < 8 || newPassword.length > 64) {
+      return res.status(400).json({ success: false, message: 'Password must be 8 to 64 characters.' });
+    }
+    if (/\s/.test(newPassword)) {
+      return res.status(400).json({ success: false, message: 'Password cannot contain spaces.' });
+    }
+
+    user.password = newPassword; // hashed by the User pre-save hook
+    user.tokenVersion = (user.tokenVersion || 0) + 1; // sign out existing sessions
+    await user.save();
+
+    await logAdminAction({
+      req,
+      action: 'MEMBER_PASSWORD_RESET',
+      module: 'MEMBERS',
+      targetId: user._id,
+      newData: { memberId: user.memberId, generated: !typed.trim() }
+    });
+
+    try {
+      const Notification = require('../models/Notification');
+      await Notification.create({
+        userId: user._id,
+        type: 'SECURITY',
+        priority: 'HIGH',
+        title: 'Your password was changed',
+        message: 'A KUWIFR admin set a new password for your account. If you did not request this, contact support.',
+        icon: '🔑',
+        color: '#d97706',
+        action: '/member/profile',
+        actionLabel: 'Go to Profile'
+      });
+    } catch (notifErr) {
+      console.error(`Password-reset notification failed for ${user.memberId}:`, notifErr.message);
+    }
+
+    res.json({
+      success: true,
+      message: `New password set for ${user.fullName} (${user.memberId}). Share it with the member securely.`,
+      data: { memberId: user.memberId, password: newPassword }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getAllUsers,
   getUserById,
+  updateMemberProfile,
+  resetMemberPassword,
   searchMembersForActivation,
   updateUserStatus,
   deleteMember,

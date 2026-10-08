@@ -1,0 +1,312 @@
+/* client/src/pages/admin/AdminMemberAccountModals.module.css
+   Admin > Members: Edit Profile / Set New Password popups. Same admin
+   tokens as the rest of the panel (teal #008080, #1c2a2a text, #e5e5e5
+   borders). Header and footer stay pinned; the body scrolls (works on
+   phones — see the AdminPackagesPage modal fix). */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(28, 42, 42, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.modal {
+  width: 100%;
+  max-width: 640px;
+  max-height: 90vh;
+  max-height: 90dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+  color: #1c2a2a;
+  font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.modalSmall {
+  max-width: 460px;
+}
+
+.header {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 22px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.header p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #737373;
+}
+
+.mono {
+  font-family: "Geist Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-weight: 700;
+  color: #008080;
+}
+
+.iconBtn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid #e5e5e5;
+  background: #ffffff;
+  color: #525252;
+  cursor: pointer;
+}
+
+.form {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 16px 22px 20px;
+}
+
+.section {
+  margin: 14px 0 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #008080;
+}
+
+.section:first-child {
+  margin-top: 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #525252;
+}
+
+.field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #d4d4d4;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 500;
+  font-size: 14px;
+  color: #1c2a2a;
+  background: #ffffff;
+}
+
+.field input:focus {
+  outline: none;
+  border-color: #008080;
+  box-shadow: 0 0 0 3px rgba(0, 128, 128, 0.12);
+}
+
+.note {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: #737373;
+  line-height: 1.5;
+}
+
+.info {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(0, 128, 128, 0.07);
+  border: 1px solid rgba(0, 128, 128, 0.2);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #1c4a4a;
+}
+
+.muted {
+  color: #737373;
+  font-size: 13px;
+}
+
+.error {
+  color: #dc2626;
+  font-size: 13px;
+}
+
+.choices {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.choice span {
+  display: flex;
+  flex-direction: column;
+  font-size: 13.5px;
+}
+
+.choice small {
+  font-size: 11.5px;
+  color: #737373;
+}
+
+.choiceOn {
+  border-color: #008080;
+  background: rgba(0, 128, 128, 0.05);
+}
+
+.pwRow {
+  display: flex;
+  gap: 8px;
+}
+
+.successBox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px;
+  border-radius: 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.successBox span {
+  width: 100%;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #15803d;
+}
+
+.successBox strong {
+  flex: 1;
+  font-size: 20px;
+  letter-spacing: 0.04em;
+  color: #14532d;
+  word-break: break-all;
+}
+
+.copyBtn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #15803d;
+  background: #15803d;
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.footer {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 22px;
+  border-top: 1px solid #e5e5e5;
+  background: #f7f7f5;
+}
+
+.primaryBtn,
+.secondaryBtn {
+  padding: 10px 16px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.primaryBtn {
+  background: #008080;
+  border: 1px solid #006666;
+  color: #ffffff;
+}
+
+.primaryBtn:hover:not(:disabled) {
+  background: #006666;
+}
+
+.secondaryBtn {
+  background: #ffffff;
+  border: 1px solid #d4d4d4;
+  color: #1c2a2a;
+}
+
+.primaryBtn:disabled,
+.secondaryBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.primaryBtn:focus-visible,
+.secondaryBtn:focus-visible,
+.iconBtn:focus-visible,
+.copyBtn:focus-visible {
+  outline: 2px solid #fd9911;
+  outline-offset: 2px;
+}
+
+@media (max-width: 580px) {
+  .overlay {
+    padding: 10px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .header,
+  .body,
+  .footer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .footer > button {
+    flex: 1;
+  }
+}
