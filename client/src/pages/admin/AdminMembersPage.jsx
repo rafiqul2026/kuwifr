@@ -477,9 +477,9 @@ const AdminMembersPage = () => {
 
       {/* Inspect Member Modal */}
       {selectedMember && (
-        <div className={styles.modalOverlay} onClick={() => setSelectedMember(null)}>
-          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
+        <div className={`${styles.modalOverlay} ${styles.inspectOverlay}`} onClick={() => setSelectedMember(null)}>
+          <div className={`${styles.modalContent} ${styles.inspectContent}`} onClick={(e) => e.stopPropagation()}>
+            <div className={`${styles.modalHeader} ${styles.inspectHeader}`}>
               <div className={styles.modalHeaderInfo}>
                 <div className={styles.avatarLarge}>
                   {(selectedMember.fullName || 'U')[0].toUpperCase()}
@@ -506,7 +506,7 @@ const AdminMembersPage = () => {
                 >
                   👁️ View Full Profile
                 </button>
-                <button onClick={() => setSelectedMember(null)} className={styles.closeBtn}>
+                <button onClick={() => setSelectedMember(null)} className={styles.closeBtn} aria-label="Close">
                   ✕
                 </button>
               </div>
@@ -598,45 +598,45 @@ const AdminMembersPage = () => {
             {/* Modal Footer — account actions on top, status + delete/done
                 below; stacks to full-width buttons on phones. */}
             <div className={styles.inspectFooter}>
-              <div className={styles.inspectActionsRow}>
-                <button type="button" onClick={() => setEditTarget(selectedMember)} className={styles.inspectActionBtn}>
-                  <span aria-hidden="true">✏️</span> Edit Profile
-                </button>
-                <button type="button" onClick={() => setPasswordTarget(selectedMember)} className={styles.inspectActionBtn}>
-                  <span aria-hidden="true">🔑</span> Set New Password
-                </button>
-              </div>
+              <button type="button" onClick={() => setEditTarget(selectedMember)} className={`${styles.inspectActionBtn} ${styles.areaEdit}`}>
+                <span aria-hidden="true">✏️</span>
+                <span>Edit Profile</span>
+              </button>
+              <button type="button" onClick={() => setPasswordTarget(selectedMember)} className={`${styles.inspectActionBtn} ${styles.areaPassword}`}>
+                <span aria-hidden="true">🔑</span>
+                <span className={styles.labelLong}>Set New Password</span>
+                <span className={styles.labelShort}>Password</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => openDeleteConfirm(selectedMember)}
+                className={`${styles.inspectDeleteBtn} ${styles.areaDelete}`}
+                title="Permanently delete this member"
+              >
+                <span aria-hidden="true">🗑️</span>
+                <span className={styles.labelLong}>Delete Member</span>
+                <span className={styles.labelShort}>Delete</span>
+              </button>
 
-              <div className={styles.inspectBottomRow}>
-                <label className={styles.inspectStatus}>
-                  <span>Status</span>
-                  <select
-                    disabled={updatingId === selectedMember._id}
-                    value={selectedMember.status || 'INACTIVE'}
-                    onChange={(e) => handleStatusChange(selectedMember._id, e.target.value)}
-                    className={styles.inspectStatusSelect}
-                  >
-                    <option value="ACTIVE">Active</option>
-                    <option value="INACTIVE">Inactive</option>
-                    <option value="SUSPENDED">Suspend</option>
-                    <option value="DEACTIVATED">Deactivate</option>
-                  </select>
-                </label>
+              <label className={`${styles.inspectStatus} ${styles.areaStatus}`}>
+                <span>Status</span>
+                <select
+                  disabled={updatingId === selectedMember._id}
+                  value={selectedMember.status || 'INACTIVE'}
+                  onChange={(e) => handleStatusChange(selectedMember._id, e.target.value)}
+                  className={styles.inspectStatusSelect}
+                  aria-label="Member status"
+                >
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                  <option value="SUSPENDED">Suspend</option>
+                  <option value="DEACTIVATED">Deactivate</option>
+                </select>
+              </label>
 
-                <div className={styles.inspectEndButtons}>
-                  <button
-                    type="button"
-                    onClick={() => openDeleteConfirm(selectedMember)}
-                    className={styles.inspectDeleteBtn}
-                    title="Permanently delete this member"
-                  >
-                    <span aria-hidden="true">🗑️</span> Delete Member
-                  </button>
-                  <button type="button" onClick={() => setSelectedMember(null)} className={styles.inspectDoneBtn}>
-                    Done
-                  </button>
-                </div>
-              </div>
+              <button type="button" onClick={() => setSelectedMember(null)} className={`${styles.inspectDoneBtn} ${styles.areaDone}`}>
+                Done
+              </button>
             </div>
           </div>
         </div>
