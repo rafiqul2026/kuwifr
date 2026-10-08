@@ -17,7 +17,7 @@ const PackageSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['STARTER', 'GROWTH', 'LIFE_SAFE', 'LIFE_SAFE_ELITE', 'TITANIUM'],
+    enum: ['STANDARD', 'STARTER', 'GROWTH', 'LIFE_SAFE', 'LIFE_SAFE_ELITE', 'TITANIUM'],
     required: true,
     unique: true  // ← This automatically creates an index
   },

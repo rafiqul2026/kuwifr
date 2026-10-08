@@ -531,7 +531,7 @@ const DashboardPage = () => {
             <div className={styles.noticeIconBox}>⚡</div>
             <div className={styles.noticeTextBox}>
               <h4>Account Currently INACTIVE</h4>
-              <p>Purchase any 1 of our 5 packages to activate your account and start earning binary matching income.</p>
+              <p>Purchase any 1 of our packages to activate your account and start earning binary matching income.</p>
             </div>
             <Link to="/member/packages" className={styles.noticeActionBtn}>
               Activate Account →

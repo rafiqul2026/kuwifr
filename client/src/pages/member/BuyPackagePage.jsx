@@ -82,7 +82,7 @@ const BuyPackagePage = () => {
             <p>
               {user?.status === 'ACTIVE'
                 ? `✅ Your Member ID (${user?.memberId}) is Verified and Active. You are fully eligible for binary pair matching & repurchase overrides.`
-                : `⚠️ Your Member ID (${user?.memberId}) is currently INACTIVE. Purchase any 1 of the 5 packages below to activate your ID and unlock earnings.`}
+                : `⚠️ Your Member ID (${user?.memberId}) is currently INACTIVE. Purchase any 1 of the packages below to activate your ID and unlock earnings.`}
             </p>
           </div>
         </div>

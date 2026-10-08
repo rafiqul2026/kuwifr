@@ -247,6 +247,7 @@ export default function AdminPackageSalesReport() {
             className={styles.filterSelect}
           >
             <option value="ALL">All Packages</option>
+            <option value="Standard Package">Standard Package</option>
             <option value="Starter Package">Starter Package</option>
             <option value="Growth Package">Growth Package</option>
             <option value="Life Safe Package">Life Safe Package</option>

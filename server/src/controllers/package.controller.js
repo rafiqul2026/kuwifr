@@ -18,6 +18,20 @@ const { withInsurancePlan, getInsurancePlan } = require('../constants/insuranceP
 // that KBP figure — it is always derived, never a separate source of truth.
 const DEFAULT_PACKAGES = [
   {
+    name: 'Standard Package',
+    type: 'STANDARD',
+    price: 1000,
+    kbp: 600,
+    dailyCap: 1000,
+    directBonus: 60, // 10% of 600 KBP
+    weeklyCap: 7000,
+    monthlyCap: 30000,
+    description: 'Affordable entry package to activate your KUWIFR ID and start earning.',
+    badge: 'Entry Plan',
+    isActive: true,
+    isPopular: false
+  },
+  {
     name: 'Starter Package',
     type: 'STARTER',
     price: 1500,

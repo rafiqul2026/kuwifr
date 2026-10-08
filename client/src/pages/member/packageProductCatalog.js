@@ -14,6 +14,7 @@
 // exactly how the previous demo tiers lined up (Starter ₹1,500 → 1,500 KSP
 // items, Growth ₹5,000 → 5,000 KSP items, etc.), just backed by real data.
 export const SELECTION_MODE = {
+  STANDARD: 'ONE',
   STARTER: 'ONE',
   GROWTH: 'ONE',
   LIFE_SAFE: 'ONE',

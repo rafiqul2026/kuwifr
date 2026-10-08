@@ -10,6 +10,7 @@ import styles from './GrowthGenerationPage.module.css';
 // PackagesPage.jsx (THEME_COLORS). Keyed by the stable Package.type code the
 // API sends as packageType; falls back to the package name for older data.
 const PACKAGE_TIERS = [
+  { type: 'STANDARD', label: 'Standard', className: 'pkgStandard' },
   { type: 'STARTER', label: 'Starter', className: 'pkgStarter' },
   { type: 'GROWTH', label: 'Growth', className: 'pkgGrowth' },
   { type: 'LIFE_SAFE', label: 'Life Safe', className: 'pkgLifeSafe' },
@@ -22,11 +23,13 @@ const packageTierOf = (node) => {
   const byType = PACKAGE_TIERS.find((t) => t.type === type);
   if (byType) return byType;
   const name = String(node?.currentPackage || '').toUpperCase();
-  if (name.includes('ELITE')) return PACKAGE_TIERS[3];
-  if (name.includes('LIFE SAFE')) return PACKAGE_TIERS[2];
-  if (name.includes('TITANIUM')) return PACKAGE_TIERS[4];
-  if (name.includes('GROWTH')) return PACKAGE_TIERS[1];
-  if (name.includes('STARTER')) return PACKAGE_TIERS[0];
+  const byKey = (key) => PACKAGE_TIERS.find((t) => t.type === key);
+  if (name.includes('ELITE')) return byKey('LIFE_SAFE_ELITE');
+  if (name.includes('LIFE SAFE')) return byKey('LIFE_SAFE');
+  if (name.includes('TITANIUM')) return byKey('TITANIUM');
+  if (name.includes('GROWTH')) return byKey('GROWTH');
+  if (name.includes('STARTER')) return byKey('STARTER');
+  if (name.includes('STANDARD')) return byKey('STANDARD');
   return null;
 };
 

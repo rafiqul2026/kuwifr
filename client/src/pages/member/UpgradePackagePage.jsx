@@ -9,6 +9,7 @@ import styles from './UpgradePackagePage.module.css';
 
 // Per-tier accent colors, matches the palette used on the Buy Package page.
 const THEME_COLORS = {
+  STANDARD: '#db2777',
   STARTER: '#16a34a',
   GROWTH: '#3b82f6',
   LIFE_SAFE: '#6366f1',

@@ -687,6 +687,7 @@
    A tier class sets --pkg (main colour) and --pkg-bg (light tint);
    members with no active package are neutral grey.
    ============================================================ */
+.pkgStandard { --pkg: #db2777; --pkg-bg: #fdf2f8; }
 .pkgStarter { --pkg: #16a34a; --pkg-bg: #f0fdf4; }
 .pkgGrowth { --pkg: #3b82f6; --pkg-bg: #eff6ff; }
 .pkgLifeSafe { --pkg: #6366f1; --pkg-bg: #eef2ff; }
@@ -694,6 +695,7 @@
 .pkgTitanium { --pkg: #f08c00; --pkg-bg: #fff7e8; }
 .pkgNone { --pkg: #a3a3a3; --pkg-bg: #fafafa; }
 
+.nodeActive.pkgStandard,
 .nodeActive.pkgStarter,
 .nodeActive.pkgGrowth,
 .nodeActive.pkgLifeSafe,
@@ -705,6 +707,7 @@
   box-shadow: inset 0 3px 0 var(--pkg);
 }
 
+.nodeActive.pkgStandard .avatarPill,
 .nodeActive.pkgStarter .avatarPill,
 .nodeActive.pkgGrowth .avatarPill,
 .nodeActive.pkgLifeSafe .avatarPill,
@@ -723,6 +726,7 @@
   color: #737373;
 }
 
+.nodeActive.pkgStandard:hover,
 .nodeActive.pkgStarter:hover,
 .nodeActive.pkgGrowth:hover,
 .nodeActive.pkgLifeSafe:hover,

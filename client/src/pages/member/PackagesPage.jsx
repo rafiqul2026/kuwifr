@@ -11,6 +11,7 @@ import styles from './PackagesPage.module.css';
 // documented chart hues (green/blue/indigo) used elsewhere in the redesign
 // to keep each tier visually distinct without reaching for a foreign palette.
 const THEME_COLORS = {
+  STANDARD: '#db2777',
   STARTER: '#16a34a',
   GROWTH: '#3b82f6',
   LIFE_SAFE: '#6366f1',

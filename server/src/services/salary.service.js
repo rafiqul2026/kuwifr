@@ -48,6 +48,7 @@ const resolveUserKbp = (userDoc) => {
   if (pkgName.includes('ELITE')) return 10000;
   if (pkgName.includes('LIFESAFE') || pkgName.includes('LIFE SAFE')) return 7500;
   if (pkgName.includes('GROWTH')) return 5000;
+  if (pkgName.includes('STANDARD')) return 600;
   return 1000; // Starter Package default
 };
 
