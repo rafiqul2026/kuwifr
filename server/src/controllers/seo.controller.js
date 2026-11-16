@@ -1,7 +1,9 @@
 // server/src/controllers/seo.controller.js
 const RepurchaseProduct = require('../models/RepurchaseProduct');
 
-const SITE_URL = 'https://kuwifr.in';
+// The live site serves from www (kuwifr.in 308-redirects there), so every
+// canonical / sitemap URL must use www to avoid redirecting canonicals.
+const SITE_URL = 'https://www.kuwifr.in';
 
 /**
  * GET /robots.txt

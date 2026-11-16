@@ -2,9 +2,21 @@
 import React from 'react';
 import styles from './SlideOver.module.css';
 import { useShop } from '../../context/ShopContext';
+import { useNavigate } from 'react-router-dom';
+import { setRepurchasePrefill, REPURCHASE_PATH } from '../../utils/repurchasePrefill';
 
 const CartSlideOver = () => {
   const { isCartOpen, setIsCartOpen, cart, updateQuantity, removeFromCart, cartSubtotal } = useShop();
+  const navigate = useNavigate();
+
+  // Real orders are placed in the member Repurchase Store (payment is
+  // verified there). Hand the bag over to it; login comes first if needed.
+  // This button used to just show alert('Proceeding to Secure Checkout').
+  const handleCheckout = () => {
+    setRepurchasePrefill(cart.map((item) => ({ id: item.id, quantity: item.quantity })));
+    setIsCartOpen(false);
+    navigate(REPURCHASE_PATH);
+  };
 
   if (!isCartOpen) return null;
 
@@ -52,7 +64,7 @@ const CartSlideOver = () => {
               <span>Subtotal:</span>
               <strong>₹{cartSubtotal.toLocaleString()}</strong>
             </div>
-            <button className={styles.checkoutBtn} onClick={() => alert('Proceeding to Secure Checkout')}>
+            <button className={styles.checkoutBtn} onClick={handleCheckout}>
               Proceed to Checkout
             </button>
           </div>

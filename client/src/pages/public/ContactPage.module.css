@@ -55,7 +55,7 @@
   border-radius: 16px;
 }
 
-.infoCard h3 {
+.infoCard h2 {
   font-size: 1.4rem;
   font-weight: 700;
   margin-bottom: 0.35rem;
@@ -183,4 +183,10 @@
   .formRow {
     grid-template-columns: 1fr;
   }
+}
+.infoItem a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }

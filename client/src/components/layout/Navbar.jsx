@@ -252,7 +252,7 @@ const Navbar = () => {
                 {isAuthenticated ? '👤 Go to My Account' : '🔐 Sign In / Register'}
               </Link>
               <div className={styles.drawerContactHint}>
-                <span>Assam, India • Support: +91-9876543210</span>
+                <span>Assam, India • Support: +91 94350 11223</span>
               </div>
             </div>
           </div>

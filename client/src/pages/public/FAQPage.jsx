@@ -31,7 +31,7 @@ const FAQ_CATEGORIES = [
       },
       {
         question: 'How can I track my shipment?',
-        answer: 'You can track your parcel in real-time by clicking the "Track Order" button in the website header or footer and entering your unique Order ID (e.g., ORD123456).'
+        answer: 'Sign in to your KUWIFR account and open My Orders (also linked as "Track my orders" in the website menu and footer) to see the status of each order and download its invoice.'
       }
     ]
   },

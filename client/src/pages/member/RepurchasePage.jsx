@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
+import { takeRepurchasePrefill } from '../../utils/repurchasePrefill';
 import styles from './RepurchasePage.module.css';
 // Reuses the exact same manual-UPI QR / UTR / screenshot checkout modal
 // already proven for Buy Package (PackagesPage.jsx) — same look, same
@@ -202,7 +203,24 @@ const RepurchasePage = () => {
         api.get('/api/funds/repurchase-kbp-summary').catch(() => ({ data: { success: false } }))
       ]);
 
-      if (prodRes.data?.success) setProducts(prodRes.data.data.products || []);
+      if (prodRes.data?.success) {
+        const list = prodRes.data.data.products || [];
+        setProducts(list);
+        // Products the member picked on the public storefront (Buy Now /
+        // bag) before signing in — pre-fill the order with them.
+        const prefill = takeRepurchasePrefill();
+        if (prefill.length) {
+          const available = new Set(list.map((p) => p.id));
+          const seeded = {};
+          prefill.forEach((i) => { if (available.has(i.id)) seeded[i.id] = i.quantity; });
+          const n = Object.keys(seeded).length;
+          if (n) {
+            setCart(seeded);
+            setActiveTab('store');
+            showNotification(`${n} product${n === 1 ? '' : 's'} from the shop added to your order. Review and checkout below.`, 'info');
+          }
+        }
+      }
       if (statsRes.data?.success) {
         setLevelStats(statsRes.data.data.levels || []);
         setDirectCount(statsRes.data.data.directCount || 0);

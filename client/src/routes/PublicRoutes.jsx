@@ -1,36 +1,39 @@
 // client/src/routes/PublicRoutes.jsx
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
+import { lazyRoute, RouteFallback } from '../utils/lazyRoute';
 
-// Public Pages
+// Homepage + 404 load immediately; every other public page is fetched on
+// demand so the homepage downloads as little code as possible.
 import HomePage from '../pages/public/HomePage';
-import ShopPage from '../pages/public/ShopPage';
-import ProductDetailPage from '../pages/public/ProductDetailPage';
-import AboutPage from '../pages/public/AboutPage';
-import ContactPage from '../pages/public/ContactPage';
-import BlogPage from '../pages/public/BlogPage';
-import FAQPage from '../pages/public/FAQPage';
-import TermsPage from '../pages/public/TermsPage';
-import PrivacyPage from '../pages/public/PrivacyPage';
-import DisclaimerPage from '../pages/public/DisclaimerPage';
-import ShippingPolicyPage from '../pages/public/ShippingPolicyPage';
-import RefundPolicyPage from '../pages/public/RefundPolicyPage';
-import HowItWorksPage from '../pages/public/HowItWorksPage';
-import PaymentInfoPage from '../pages/public/PaymentInfoPage';
-import SellerVerificationPage from '../pages/public/SellerVerificationPage';
-import GrievancePage from '../pages/public/GrievancePage';
-import CustomerSupportPage from '../pages/public/CustomerSupportPage';
-import WarrantyPage from '../pages/public/WarrantyPage';
 import NotFoundPage from '../pages/public/NotFoundPage';
+const ShopPage = lazyRoute(() => import('../pages/public/ShopPage'));
+const ProductDetailPage = lazyRoute(() => import('../pages/public/ProductDetailPage'));
+const AboutPage = lazyRoute(() => import('../pages/public/AboutPage'));
+const ContactPage = lazyRoute(() => import('../pages/public/ContactPage'));
+const BlogPage = lazyRoute(() => import('../pages/public/BlogPage'));
+const FAQPage = lazyRoute(() => import('../pages/public/FAQPage'));
+const TermsPage = lazyRoute(() => import('../pages/public/TermsPage'));
+const PrivacyPage = lazyRoute(() => import('../pages/public/PrivacyPage'));
+const DisclaimerPage = lazyRoute(() => import('../pages/public/DisclaimerPage'));
+const ShippingPolicyPage = lazyRoute(() => import('../pages/public/ShippingPolicyPage'));
+const RefundPolicyPage = lazyRoute(() => import('../pages/public/RefundPolicyPage'));
+const HowItWorksPage = lazyRoute(() => import('../pages/public/HowItWorksPage'));
+const PaymentInfoPage = lazyRoute(() => import('../pages/public/PaymentInfoPage'));
+const SellerVerificationPage = lazyRoute(() => import('../pages/public/SellerVerificationPage'));
+const GrievancePage = lazyRoute(() => import('../pages/public/GrievancePage'));
+const CustomerSupportPage = lazyRoute(() => import('../pages/public/CustomerSupportPage'));
+const WarrantyPage = lazyRoute(() => import('../pages/public/WarrantyPage'));
 
 
 const PublicRoutes = () => {
   return (
     <>
       <Header />
-      <main>
+      <main id="main-content" tabIndex={-1}>
+        <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           {/* Previously mounted directly in App.jsx, bypassing this
@@ -58,6 +61,7 @@ const PublicRoutes = () => {
               signal (a "soft 404" — see NotFoundPage.jsx's comment). */}
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
+        </Suspense>
       </main>
       <Footer />
     </>

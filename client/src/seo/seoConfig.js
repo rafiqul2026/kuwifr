@@ -12,7 +12,9 @@
 // updated in the database, keep this file in sync by hand, since the client
 // has no live settings API call wired up for public pages.
 
-export const SITE_URL = 'https://kuwifr.in';
+// www is the live host (https://kuwifr.in 308-redirects to it) — canonical
+// URLs must point at the final URL, never at a redirect.
+export const SITE_URL = 'https://www.kuwifr.in';
 export const SITE_NAME = 'KUWIFR';
 export const SITE_TAGLINE = 'Health, Wellness & Lifestyle Essentials';
 export const COMPANY_LEGAL_NAME = 'KUWIFR SERVICES PVT LTD';
@@ -48,3 +50,6 @@ export const buildCanonical = (path = '/') => {
   const clean = path.startsWith('/') ? path : `/${path}`;
   return `${SITE_URL}${clean === '/' ? '' : clean.replace(/\/+$/, '')}` || SITE_URL;
 };
+
+// Dial-able form of COMPANY_PHONE for tel: links.
+export const COMPANY_PHONE_TEL = `+${COMPANY_PHONE.replace(/\D/g, '')}`;

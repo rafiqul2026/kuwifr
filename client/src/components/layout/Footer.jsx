@@ -1,20 +1,58 @@
 // client/src/components/layout/Footer.jsx
+//
+// Public site footer. Company details come from seo/seoConfig.js (mirrors
+// the configured company settings). No social links are shown until the
+// business provides its real profile URLs (SOCIAL_PROFILES).
 import React, { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiDownload } from 'react-icons/fi';
-import OrderTrackingModal from '../public/OrderTrackingModal';
+import { FiDownload, FiMail, FiPhone, FiMapPin, FiChevronRight } from 'react-icons/fi';
 import InstallAppHelpModal from '../common/InstallAppHelpModal';
+import NewsletterForm from '../public/NewsletterForm';
 import { useInstallApp } from '../../utils/pwaInstall';
 import { useShop } from '../../context/ShopContext';
+import {
+  COMPANY_LEGAL_NAME,
+  COMPANY_EMAIL,
+  COMPANY_PHONE,
+  COMPANY_PHONE_TEL,
+  COMPANY_ADDRESS,
+  COMPANY_CIN,
+  COMPANY_GSTIN,
+  SOCIAL_PROFILES
+} from '../../seo/seoConfig';
 import styles from './Footer.module.css';
+
+const COMPANY_LINKS = [
+  { label: 'About Us', to: '/about' },
+  { label: 'How It Works', to: '/how-it-works' },
+  { label: 'Shop', to: '/shop' },
+  { label: 'Blog', to: '/blog' },
+  { label: 'FAQ', to: '/faq' },
+  { label: 'Contact Us', to: '/contact' }
+];
+
+const HELP_LINKS = [
+  { label: 'Customer Support', to: '/customer-support' },
+  { label: 'Track my orders', to: '/member/orders' },
+  { label: 'Shipping Policy', to: '/shipping-policy' },
+  { label: 'Refund & Returns', to: '/refund-policy' },
+  { label: 'Warranty', to: '/warranty' },
+  { label: 'Payment Information', to: '/payment-info' },
+  { label: 'Grievance Redressal', to: '/grievance' },
+  { label: 'Seller Verification', to: '/seller-verification' }
+];
+
+const LEGAL_LINKS = [
+  { label: 'Privacy Policy', to: '/privacy' },
+  { label: 'Terms & Conditions', to: '/terms' },
+  { label: 'Disclaimer', to: '/disclaimer' }
+];
 
 const Footer = () => {
   const navigate = useNavigate();
-  const { products = [], categories = [] } = useShop() || {};
+  const { products = [], categories = [], setActiveCategoryFilter } = useShop() || {};
 
-  // Same "Download the App" (PWA install) as the member panel: the browser's
-  // native install prompt when it offers one, otherwise how-to steps.
-  // Hidden when already running as the installed app.
+  // Same "Download the App" (PWA install) as the member panel.
   const { canPrompt, isInstalled, isIOS, promptInstall } = useInstallApp();
   const [installHelpOpen, setInstallHelpOpen] = useState(false);
 
@@ -26,368 +64,130 @@ const Footer = () => {
     setInstallHelpOpen(true);
   };
 
-  // Real categories, most-populated first — replaces a hardcoded list
-  // (Alkaline Water Devices, Designer Modern Sarees, etc.) that no longer
-  // matches this catalog's real category names.
   const topCategories = useMemo(() => {
     const counts = {};
     products.forEach((p) => {
       if (p.category) counts[p.category] = (counts[p.category] || 0) + 1;
     });
-    return [...categories].sort((a, b) => (counts[b] || 0) - (counts[a] || 0)).slice(0, 6);
+    return categories.filter((c) => counts[c]).sort((a, b) => counts[b] - counts[a]).slice(0, 6);
   }, [categories, products]);
 
-  // Mobile Accordion state
-  const [openSections, setOpenSections] = useState({
-    quick: false,
-    categories: false,
-    policies: false
-  });
-
-  // State for Order Tracking Modal
-  const [showTracker, setShowTracker] = useState(false);
-
-  const toggleSection = (key) => {
-    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  const goToCategory = (cat) => {
+    if (typeof setActiveCategoryFilter === 'function') setActiveCategoryFilter(cat);
+    navigate(`/shop?category=${encodeURIComponent(cat)}`);
   };
 
-  const handleScrollToProducts = (e) => {
-    e.preventDefault();
-    if (window.location.pathname !== '/') {
-      navigate('/');
-      setTimeout(() => {
-        const el = document.getElementById('products');
-        if (el) el.scrollIntoView({ behavior: 'smooth' });
-      }, 120);
-    } else {
-      const el = document.getElementById('products');
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  const handleOpenTracker = (e) => {
-    e.preventDefault();
-    setShowTracker(true);
-  };
+  const year = new Date().getFullYear();
 
   return (
     <>
-      <footer className={styles.footerEdgeToEdge}>
-        {/* 1. Main Navigation Block (Full Viewport) */}
-        <div className={styles.footerMain}>
-          <div className={styles.footerFluidGrid}>
-            {/* Brand Column */}
+      <footer className={styles.footer}>
+        <div className={styles.inner}>
+          <div className={styles.grid}>
             <div className={styles.brandCol}>
-              <Link to="/" className={styles.brandLogo}>
-                <img src="/logo.jpg" alt="KUWIFR" className={styles.logoImg} />
+              <Link to="/" className={styles.brand} aria-label="KUWIFR home">
+                <img src="/logo-96.webp" alt="KUWIFR" width="36" height="36" loading="lazy" />
               </Link>
-              <p className={styles.brandDescription}>
-                India's premier digital storefront providing certified wellness essentials,
-                antioxidant alkaline water devices, designer fashion, and sustainable clean mobility.
+              <p className={styles.about}>
+                {COMPANY_LEGAL_NAME} brings health &amp; wellness products, alkaline water devices, fashion and
+                everyday essentials to customers across India, with a member programme for those who want to
+                build a business with us.
               </p>
 
-              {/* Social Media Rounded Buttons */}
-              <div className={styles.socialRow}>
-                <a
-                  href="https://facebook.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className={styles.socialBtn}
-                  aria-label="Facebook"
-                >
-                  FB
-                </a>
-                <a
-                  href="https://instagram.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className={styles.socialBtn}
-                  aria-label="Instagram"
-                >
-                  IG
-                </a>
-                <a
-                  href="https://twitter.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className={styles.socialBtn}
-                  aria-label="Twitter"
-                >
-                  X
-                </a>
-                <a
-                  href="https://youtube.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className={styles.socialBtn}
-                  aria-label="YouTube"
-                >
-                  YT
-                </a>
-              </div>
+              <ul className={styles.contactList}>
+                <li>
+                  <FiPhone aria-hidden="true" />
+                  <a href={`tel:${COMPANY_PHONE_TEL}`}>{COMPANY_PHONE}</a>
+                </li>
+                <li>
+                  <FiMail aria-hidden="true" />
+                  <a href={`mailto:${COMPANY_EMAIL}`}>{COMPANY_EMAIL}</a>
+                </li>
+                <li>
+                  <FiMapPin aria-hidden="true" />
+                  <span>{COMPANY_ADDRESS}</span>
+                </li>
+              </ul>
+
+              <NewsletterForm />
+
+
+              {SOCIAL_PROFILES.length > 0 && (
+                <ul className={styles.social} aria-label="KUWIFR on social media">
+                  {SOCIAL_PROFILES.map((url) => (
+                    <li key={url}>
+                      <a href={url} target="_blank" rel="noopener noreferrer">{new URL(url).hostname.replace('www.', '')}</a>
+                    </li>
+                  ))}
+                </ul>
+              )}
 
               {!isInstalled && (
-                <button type="button" className={styles.installAppBtn} onClick={handleInstallApp}>
-                  <span className={styles.installAppIcon} aria-hidden="true"><FiDownload /></span>
-                  <span className={styles.installAppText}>
-                    <strong>Download the App</strong>
-                    <small>Install KUWIFR on this device</small>
-                  </span>
+                <button type="button" className={styles.installBtn} onClick={handleInstallApp}>
+                  <FiDownload aria-hidden="true" /> Install the KUWIFR app
                 </button>
               )}
             </div>
 
-            {/* Quick Links Column */}
-            <div className={styles.navCol}>
-              <div
-                className={styles.colHeaderMobile}
-                onClick={() => toggleSection('quick')}
-                role="button"
-                tabIndex={0}
-              >
-                <h4 className={styles.colHeading}>Quick Links</h4>
-                <span className={styles.accordionIcon}>
-                  {openSections.quick ? '−' : '+'}
-                </span>
-              </div>
-              <ul
-                className={`${styles.navLinksList} ${
-                  openSections.quick ? styles.navLinksListOpen : ''
-                }`}
-              >
-                <li>
-                  <Link to="/">
-                    <span className={styles.dot}></span>Home
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/about">
-                    <span className={styles.dot}></span>About Us
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/contact">
-                    <span className={styles.dot}></span>Contact Us
-                  </Link>
-                </li>
-                <li>
-                  <a href="#products" onClick={handleScrollToProducts}>
-                    <span className={styles.dot}></span>All Products
-                  </a>
-                </li>
-                <li>
-                  <Link to="/blog">
-                    <span className={styles.dot}></span>Blogs
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/faq">
-                    <span className={styles.dot}></span>Shopping FAQs
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            {/* Categories Column */}
-            <div className={styles.navCol}>
-              <div
-                className={styles.colHeaderMobile}
-                onClick={() => toggleSection('categories')}
-                role="button"
-                tabIndex={0}
-              >
-                <h4 className={styles.colHeading}>Categories</h4>
-                <span className={styles.accordionIcon}>
-                  {openSections.categories ? '−' : '+'}
-                </span>
-              </div>
-              <ul
-                className={`${styles.navLinksList} ${
-                  openSections.categories ? styles.navLinksListOpen : ''
-                }`}
-              >
-                {topCategories.map((cat) => (
-                  <li key={cat}>
-                    <Link to={`/shop?category=${encodeURIComponent(cat)}`}>
-                      <span className={styles.dot}></span>{cat}
-                    </Link>
-                  </li>
+            <nav className={styles.col} aria-labelledby="footer-company">
+              <h2 id="footer-company" className={styles.colTitle}>Company</h2>
+              <ul>
+                {COMPANY_LINKS.map((l) => (
+                  <li key={l.to}><Link to={l.to}>{l.label}</Link></li>
                 ))}
               </ul>
-            </div>
+            </nav>
 
-            {/* Help & Policies Column */}
-            <div className={styles.navCol}>
-              <div
-                className={styles.colHeaderMobile}
-                onClick={() => toggleSection('policies')}
-                role="button"
-                tabIndex={0}
-              >
-                <h4 className={styles.colHeading}>Help & Policies</h4>
-                <span className={styles.accordionIcon}>
-                  {openSections.policies ? '−' : '+'}
-                </span>
-              </div>
-              <ul
-                className={`${styles.navLinksList} ${
-                  openSections.policies ? styles.navLinksListOpen : ''
-                }`}
-              >
-                <li>
-                  <Link to="/terms">
-                    <span className={styles.dot}></span>Terms & Conditions
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/privacy">
-                    <span className={styles.dot}></span>Privacy Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/disclaimer">
-                    <span className={styles.dot}></span>Disclaimer
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/shipping-policy">
-                    <span className={styles.dot}></span>Shipping Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/refund-policy">
-                    <span className={styles.dot}></span>Refund Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/payment-info">
-                    <span className={styles.dot}></span>Payment Information
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/warranty">
-                    <span className={styles.dot}></span>Warranty Information
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/how-it-works">
-                    <span className={styles.dot}></span>How It Works
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/seller-verification">
-                    <span className={styles.dot}></span>Direct Seller Information
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/grievance">
-                    <span className={styles.dot}></span>Grievance Redressal
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/customer-support">
-                    <span className={styles.dot}></span>Customer Support
-                  </Link>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={handleOpenTracker}
-                    className={styles.trackerBtnLink}
-                  >
-                    <span className={styles.dot}></span>Track Order
-                  </button>
-                </li>
+            {topCategories.length > 0 && (
+              <nav className={styles.col} aria-labelledby="footer-shop">
+                <h2 id="footer-shop" className={styles.colTitle}>Shop</h2>
+                <ul>
+                  {topCategories.map((cat) => (
+                    <li key={cat}>
+                      <button type="button" className={styles.linkBtn} onClick={() => goToCategory(cat)}>{cat}</button>
+                    </li>
+                  ))}
+                  <li><Link to="/shop" className={styles.allLink}>All products <FiChevronRight aria-hidden="true" /></Link></li>
+                </ul>
+              </nav>
+            )}
+
+            <nav className={styles.col} aria-labelledby="footer-help">
+              <h2 id="footer-help" className={styles.colTitle}>Help</h2>
+              <ul>
+                {HELP_LINKS.map((l) => (
+                  <li key={l.to}><Link to={l.to}>{l.label}</Link></li>
+                ))}
               </ul>
-            </div>
-          </div>
-        </div>
+            </nav>
 
-        {/* 2. Middle Contact & Verified Payment Strip */}
-        <div className={styles.contactPaymentStrip}>
-          <div className={styles.contactPaymentFluid}>
-            <div className={styles.contactGroup}>
-              <span className={styles.contactItem}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                </svg>
-                <a href="tel:+919435011223">+91 94350 11223</a>
-              </span>
-
-              <span className={styles.contactItem}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect width="20" height="16" x="2" y="4" rx="2" />
-                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-                </svg>
-                <a href="mailto:support@kuwifr.com">support@kuwifr.com</a>
-              </span>
-
-              <span className={styles.contactItem}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-                <span>Guwahati, Assam, India</span>
-              </span>
-            </div>
-
-            {/* Official Payment Representations */}
-            <div className={styles.paymentMethods}>
-              <div className={styles.payBadge} title="UPI">
-                <svg width="40" height="18" viewBox="0 0 120 50" fill="none">
-                  <path d="M15 10L35 25L15 40V10Z" fill="#097939" />
-                  <path d="M35 10L55 25L35 40V10Z" fill="#ED7524" />
-                  <text x="60" y="32" fill="#000000" fontFamily="sans-serif" fontWeight="900" fontSize="24">UPI</text>
-                </svg>
-              </div>
-
-              <div className={styles.payBadge} title="Razorpay">
-                <svg width="58" height="18" viewBox="0 0 140 40" fill="none">
-                  <path d="M25 5L10 35H20L30 15L25 5Z" fill="#0C2340" />
-                  <path d="M32 5L20 28H28L38 8L32 5Z" fill="#3395FF" />
-                  <text x="42" y="27" fill="#0C2340" fontFamily="sans-serif" fontWeight="800" fontSize="20">Razorpay</text>
-                </svg>
-              </div>
-
-              <div className={styles.payBadge} title="RuPay">
-                <svg width="50" height="18" viewBox="0 0 120 40" fill="none">
-                  <text x="5" y="28" fill="#1A365D" fontFamily="sans-serif" fontWeight="900" fontSize="22" fontStyle="italic">RuPay</text>
-                  <path d="M85 8L105 20L95 32H85L95 20L85 8Z" fill="#F37021" />
-                  <path d="M98 8L118 20L108 32H98L108 20L98 8Z" fill="#0072BC" />
-                </svg>
-              </div>
-
-              <div className={styles.payBadge} title="VISA">
-                <svg width="38" height="18" viewBox="0 0 100 40" fill="none">
-                  <text x="5" y="30" fill="#1A1F71" fontFamily="sans-serif" fontWeight="900" fontSize="28" fontStyle="italic">VISA</text>
-                </svg>
-              </div>
-
-              <div className={styles.payBadge} title="MasterCard">
-                <svg width="34" height="18" viewBox="0 0 80 50" fill="none">
-                  <circle cx="28" cy="25" r="22" fill="#EB001B" />
-                  <circle cx="52" cy="25" r="22" fill="#F79E1B" fillOpacity="0.85" />
-                </svg>
-              </div>
-
-              <div className={styles.payBadge} title="Net Banking">
-                <svg width="68" height="18" viewBox="0 0 150 40" fill="none">
-                  <rect x="5" y="8" width="22" height="24" rx="4" fill="#0F172A" />
-                  <path d="M10 14h12M10 20h12M10 26h8" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
-                  <text x="34" y="26" fill="#0F172A" fontFamily="sans-serif" fontWeight="700" fontSize="16">NetBanking</text>
-                </svg>
+            <div className={styles.col}>
+              <h2 className={styles.colTitle}>Members</h2>
+              <p className={styles.memberText}>Manage your orders, packages, income and KYC from the Customer Panel.</p>
+              <div className={styles.memberActions}>
+                <Link to="/login" className={styles.memberPrimary}>Customer Login</Link>
+                <Link to="/register" className={styles.memberSecondary}>Join KUWIFR</Link>
               </div>
             </div>
           </div>
         </div>
 
-        {/* 3. Bottom Legal Copyright Strip */}
-        <div className={styles.copyrightStrip}>
-          <p>© {new Date().getFullYear()} KUWIFR Services Pvt Ltd. All rights reserved.</p>
+        <div className={styles.bottom}>
+          <div className={styles.bottomInner}>
+            <p className={styles.legalLine}>
+              © {year} {COMPANY_LEGAL_NAME}. All rights reserved.
+              <span className={styles.reg}>CIN: {COMPANY_CIN}</span>
+              <span className={styles.reg}>GSTIN: {COMPANY_GSTIN}</span>
+            </p>
+            <ul className={styles.legalLinks}>
+              {LEGAL_LINKS.map((l) => (
+                <li key={l.to}><Link to={l.to}>{l.label}</Link></li>
+              ))}
+            </ul>
+          </div>
         </div>
       </footer>
 
-      {showTracker && <OrderTrackingModal onClose={() => setShowTracker(false)} />}
       {installHelpOpen && <InstallAppHelpModal isIOS={isIOS} onClose={() => setInstallHelpOpen(false)} />}
     </>
   );

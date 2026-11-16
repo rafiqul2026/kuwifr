@@ -30,3 +30,41 @@
   --text-muted: #94a3b8;
   --border: #334155;
 }
+/* ------------------------------------------------------------------
+   KUWIFR brand tokens — taken from the Customer Panel (Member
+   Dashboard / MemberLayout), so the public site and the panel share
+   one visual identity. Used by the public header, footer and homepage.
+   ------------------------------------------------------------------ */
+:root {
+  --kw-bg: #fdfaf5;          /* warm canvas */
+  --kw-surface: #ffffff;     /* cards */
+  --kw-surface-alt: #f6f3ec; /* alternate section band */
+  --kw-ink: #1c2a2a;         /* primary text */
+  --kw-ink-soft: #3d4b4b;
+  --kw-muted: #5f6b6b;       /* secondary text (AA on bg) */
+  --kw-border: #e5e5e5;
+  --kw-border-strong: #d6d3cc;
+  --kw-primary: #008080;     /* teal */
+  --kw-primary-hover: #006666;
+  --kw-primary-deep: #043c3c;
+  --kw-primary-tint: #e6f4f4;
+  --kw-accent: #fd9911;      /* orange */
+  --kw-accent-deep: #a35200; /* AA (5.6:1) for small text on the cream canvas */
+  --kw-accent-tint: #fff4e5;
+  --kw-danger: #b91c1c;
+  --kw-success: #15803d;
+  --kw-radius: 14px;
+  --kw-radius-sm: 10px;
+  --kw-font: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --kw-container: 1200px;
+  --kw-gutter: 16px;
+  --kw-header-h: 64px;
+  --kw-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (min-width: 768px) {
+  :root {
+    --kw-gutter: 24px;
+    --kw-header-h: 72px;
+  }
+}

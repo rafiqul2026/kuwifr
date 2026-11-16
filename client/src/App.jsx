@@ -1,5 +1,5 @@
 // client/src/App.jsx
-import React from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 // Context Providers
@@ -15,15 +15,16 @@ import WishlistSlideOver from './components/public/WishlistSlideOver';
 // Public & Auth Pages
 import PublicRoutes from './routes/PublicRoutes';
 import LoginPage from './pages/auth/LoginPage';
-import RegisterPage from './pages/auth/RegisterPage';
-import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
-import ResetPasswordPage from './pages/auth/ResetPasswordPage';
-import VerifyEmailPage from './pages/auth/VerifyEmailPage';
-
-// Protected Dashboards
-import MemberRoutes from './routes/MemberRoutes';
-import AdminRoutes from './routes/AdminRoutes';
 import ProtectedRoute from './routes/ProtectedRoute';
+import { lazyRoute, RouteFallback } from './utils/lazyRoute';
+
+// Loaded on demand (code splitting) — public visitors don't download these.
+const RegisterPage = lazyRoute(() => import('./pages/auth/RegisterPage'));
+const ForgotPasswordPage = lazyRoute(() => import('./pages/auth/ForgotPasswordPage'));
+const ResetPasswordPage = lazyRoute(() => import('./pages/auth/ResetPasswordPage'));
+const VerifyEmailPage = lazyRoute(() => import('./pages/auth/VerifyEmailPage'));
+const MemberRoutes = lazyRoute(() => import('./routes/MemberRoutes'));
+const AdminRoutes = lazyRoute(() => import('./routes/AdminRoutes'));
 
 import './App.css';
 
@@ -83,6 +84,8 @@ function App() {
                 <CartSlideOver />
                 <WishlistSlideOver />
 
+                <Suspense fallback={<RouteFallback fullScreen />}>
+
                 <Routes>
                   {/* Public Auth Routes */}
                   <Route path="/login" element={<LoginPage />} />
@@ -126,6 +129,7 @@ function App() {
                   {/* Public Storefront Catch-All */}
                   <Route path="/*" element={<PublicRoutes />} />
                 </Routes>
+                </Suspense>
               </div>
             </BrowserRouter>
           </ShopProvider>

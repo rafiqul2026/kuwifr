@@ -80,7 +80,7 @@ const RefundPolicyPage = () => {
           <div className={styles.section}>
             <h2>6. Customer Care Support</h2>
             <p>
-              For return tracking updates or questions regarding usage instructions, contact us at <strong>support@kuwifr.com</strong> or call <strong>+91-9876543210</strong> (Mon - Sat, 9:30 AM to 6:30 PM).
+              For return tracking updates or questions regarding usage instructions, contact us at <strong>support@kuwifr.com</strong> or call <strong>+91 94350 11223</strong> (Mon - Sat, 9:30 AM to 6:30 PM).
             </p>
           </div>
         </div>

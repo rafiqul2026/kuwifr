@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import './ProductShowcase.css';
 import { useShop } from '../../context/ShopContext';
 import ProductModal from './ProductModal';
-import OrderTrackingModal from './OrderTrackingModal';
+import { cdnImage, cdnSrcSet } from '../../utils/imageUrl';
 
 // `showHeader` defaults to true (ShopPage, where this is the page's own
 // primary heading). HomePage passes false: it already renders its own
@@ -13,7 +13,9 @@ import OrderTrackingModal from './OrderTrackingModal';
 // twice, plus the extra heading's own margin/padding compounded into a
 // large empty gap on mobile between the two (see the mobile screenshot
 // this was reported from).
-const ProductShowcase = ({ showHeader = true }) => {
+// `limit` (homepage) caps how many products are shown and adds a "View all"
+// link to /shop; omitted on the Shop page, which lists everything.
+const ProductShowcase = ({ showHeader = true, limit, showTrackOrder = true }) => {
   const {
     activeCategoryFilter,
     setActiveCategoryFilter,
@@ -26,7 +28,6 @@ const ProductShowcase = ({ showHeader = true }) => {
   } = useShop();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [showTracker, setShowTracker] = useState(false);
 
   // Category tabs derived from the real catalog's actual categories —
   // replaces a hardcoded 5-category list (HEALTH_SUPPLEMENT,
@@ -50,6 +51,7 @@ const ProductShowcase = ({ showHeader = true }) => {
     <section className="kuwifr-store-section" id="products">
       <div className="kuwifr-store-container">
         {/* Header */}
+        {(showHeader || showTrackOrder) && (
         <div className="kuwifr-store-header" style={!showHeader ? { justifyContent: 'flex-end' } : undefined}>
           {showHeader && (
             <div>
@@ -58,10 +60,15 @@ const ProductShowcase = ({ showHeader = true }) => {
               <p className="kuwifr-store-subtitle">Handpicked premium wellness, lifestyle, and clean tech essentials.</p>
             </div>
           )}
-          <button className="kuwifr-track-btn" onClick={() => setShowTracker(true)}>
-            📦 Track Order
-          </button>
+          {/* Orders are visible to the signed-in member only (no public
+              lookup API), so this opens My Orders — login first if needed. */}
+          {showTrackOrder && (
+            <Link to="/member/orders" className="kuwifr-track-btn">
+              📦 Track Order
+            </Link>
+          )}
         </div>
+        )}
 
         {/* Controls */}
         <div className="kuwifr-controls-bar">
@@ -103,7 +110,7 @@ const ProductShowcase = ({ showHeader = true }) => {
           <>
             {/* Product Grid */}
             <div className="kuwifr-products-grid">
-              {filteredProducts.map((product) => {
+              {(limit ? filteredProducts.slice(0, limit) : filteredProducts).map((product) => {
                 const isWishlisted = wishlist?.some((w) => w.id === product.id);
                 const discountPercent =
                   product.mrp > 0 ? Math.round(((product.mrp - product.ksp) / product.mrp) * 100) : 0;
@@ -126,7 +133,7 @@ const ProductShowcase = ({ showHeader = true }) => {
 
                       <Link to={`/product/${product.id}`} aria-label={product.name}>
                         {product.image ? (
-                          <img src={product.image} alt={product.name} loading="lazy" />
+                          <img src={cdnImage(product.image, 400)} srcSet={cdnSrcSet(product.image, 400)} alt={product.name} loading="lazy" decoding="async" />
                         ) : (
                           <div className="kuwifr-card-img-placeholder" aria-hidden="true">
                             🛍️
@@ -172,6 +179,17 @@ const ProductShowcase = ({ showHeader = true }) => {
               })}
             </div>
 
+            {limit && filteredProducts.length > limit && (
+              <div className="kuwifr-view-all-row">
+                <Link
+                  to={activeCategoryFilter && activeCategoryFilter !== "ALL" ? `/shop?category=${encodeURIComponent(activeCategoryFilter)}` : "/shop"}
+                  className="kuwifr-view-all-link"
+                >
+                  View all {filteredProducts.length} products →
+                </Link>
+              </div>
+            )}
+
             {/* Empty States */}
             {filteredProducts.length === 0 && products.length > 0 && (
               <div className="kuwifr-empty-state">
@@ -197,10 +215,6 @@ const ProductShowcase = ({ showHeader = true }) => {
       {/* Popups & Modals */}
       {selectedProduct && (
         <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} />
-      )}
-
-      {showTracker && (
-        <OrderTrackingModal onClose={() => setShowTracker(false)} />
       )}
     </section>
   );

@@ -1,128 +1,98 @@
 // client/src/components/public/ProductModal.jsx
-import React, { useState } from 'react';
+//
+// "Buy Now" from the public storefront. Real orders are placed from a
+// KUWIFR account in the Repurchase Store (payment is verified there and a
+// tax invoice is issued), so this hands the product and quantity over to
+// that flow — signing in first when needed. It previously showed an
+// "Order Placed Successfully" screen with a random order number while
+// nothing was saved or sent anywhere.
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { setRepurchasePrefill, REPURCHASE_PATH } from '../../utils/repurchasePrefill';
 import styles from './ProductModal.module.css';
 
 const ProductModal = ({ product, onClose }) => {
   const [quantity, setQuantity] = useState(1);
-  const [checkoutStep, setCheckoutStep] = useState('DETAILS');
-  const [paymentMethod, setPaymentMethod] = useState('ONLINE');
-  const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    address: '',
-    pincode: '',
-    couponCode: ''
-  });
-  const [createdOrderNumber, setCreatedOrderNumber] = useState('');
+  const { isAuthenticated, user } = useAuth();
+  const navigate = useNavigate();
+  const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes((user?.role || '').toUpperCase());
 
-  const totalAmount = product.ksp * quantity;
+  const totalAmount = Number(product.ksp || 0) * quantity;
 
-  const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
-  const handleOrderSubmit = (e) => {
-    e.preventDefault();
-    const generatedOrderNo = 'ORD' + Math.floor(100000 + Math.random() * 900000);
-    setCreatedOrderNumber(generatedOrderNo);
-    setCheckoutStep('SUCCESS');
+  const goToOrder = () => {
+    setRepurchasePrefill([{ id: product.id, quantity }]);
+    onClose();
+    navigate(REPURCHASE_PATH);
   };
 
   return (
-    <div className={styles.overlay}>
-      <div className={styles.modal}>
-        <button className={styles.closeBtn} onClick={onClose}>✕</button>
+    <div className={styles.overlay} onClick={onClose}>
+      <div
+        className={styles.modal}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="product-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">✕</button>
 
-        {checkoutStep === 'DETAILS' && (
-          <div className={styles.modalGrid}>
-            <div className={styles.modalImg}>
-              <img src={product.image} alt={product.name} />
-            </div>
-
-            <div className={styles.modalInfo}>
-              <span className={styles.badge}>{product.categoryLabel}</span>
-              <h2>{product.name}</h2>
-              <p className={styles.modalDesc}>{product.description}</p>
-
-              <div className={styles.priceTag}>
-                <span className={styles.modalKsp}>₹{product.ksp.toLocaleString()}</span>
-                <span className={styles.modalMrp}>₹{product.mrp.toLocaleString()}</span>
-                <span className={styles.kbp}>Free Express Delivery</span>
-              </div>
-
-              <div className={styles.qtyControl}>
-                <span>Quantity:</span>
-                <button onClick={() => setQuantity(Math.max(1, quantity - 1))}>-</button>
-                <span>{quantity}</span>
-                <button onClick={() => setQuantity(quantity + 1)}>+</button>
-              </div>
-
-              <div className={styles.modalTotal}>
-                <span>Total Amount:</span>
-                <strong>₹{totalAmount.toLocaleString()}</strong>
-              </div>
-
-              <button className={styles.proceedBtn} onClick={() => setCheckoutStep('FORM')}>
-                Proceed to Checkout
-              </button>
-            </div>
+        <div className={styles.modalGrid}>
+          <div className={styles.modalImg}>
+            {product.image ? <img src={product.image} alt={product.name} /> : <span aria-hidden="true">🛍️</span>}
           </div>
-        )}
 
-        {checkoutStep === 'FORM' && (
-          <form className={styles.checkoutForm} onSubmit={handleOrderSubmit}>
-            <h3>Delivery & Payment Details</h3>
+          <div className={styles.modalInfo}>
+            {(product.categoryLabel || product.category) && (
+              <span className={styles.badge}>{product.categoryLabel || product.category}</span>
+            )}
+            <h2 id="product-modal-title">{product.name}</h2>
+            {product.description && <p className={styles.modalDesc}>{product.description}</p>}
+
+            <div className={styles.priceTag}>
+              <span className={styles.modalKsp}>₹{Number(product.ksp || 0).toLocaleString('en-IN')}</span>
+              {Number(product.mrp) > Number(product.ksp) && (
+                <span className={styles.modalMrp}>₹{Number(product.mrp).toLocaleString('en-IN')}</span>
+              )}
+            </div>
+
+            <div className={styles.qtyControl}>
+              <span id="qty-label">Quantity:</span>
+              <button type="button" aria-label="Decrease quantity" onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1}>-</button>
+              <span aria-live="polite" aria-labelledby="qty-label">{quantity}</span>
+              <button type="button" aria-label="Increase quantity" onClick={() => setQuantity(Math.min(99, quantity + 1))}>+</button>
+            </div>
+
+            <div className={styles.modalTotal}>
+              <span>Total Amount:</span>
+              <strong>₹{totalAmount.toLocaleString('en-IN')}</strong>
+            </div>
+
             <p className={styles.subtext}>
-              Ordering: <strong>{product.name}</strong> (Qty: {quantity}) - Total: ₹{totalAmount.toLocaleString()}
+              Orders are placed from your KUWIFR account, so we can verify your payment and issue a tax invoice.
+              {!isAuthenticated && ' Sign in (or join) and this product will be added to your order.'}
             </p>
 
-            <div className={styles.formGrid}>
-              <input type="text" name="fullName" placeholder="Full Name *" required onChange={handleInputChange} />
-              <input type="email" name="email" placeholder="Email Address *" required onChange={handleInputChange} />
-              <input type="tel" name="phone" placeholder="10-Digit Mobile Number *" required pattern="[0-9]{10}" onChange={handleInputChange} />
-              <input type="text" name="pincode" placeholder="Pincode *" required onChange={handleInputChange} />
-              <textarea name="address" placeholder="Full Shipping Address *" className={styles.fullSpan} required onChange={handleInputChange}></textarea>
-              <input type="text" name="couponCode" placeholder="Promo Code / Gift Voucher (Optional)" className={styles.fullSpan} onChange={handleInputChange} />
-            </div>
-
-            <div className={styles.paymentSelect}>
-              <label>Select Payment Mode:</label>
-              <div className={styles.paymentOptions}>
-                <button
-                  type="button"
-                  className={paymentMethod === 'ONLINE' ? styles.activePay : ''}
-                  onClick={() => setPaymentMethod('ONLINE')}
-                >
-                  💳 Razorpay / Cards / UPI (Instant)
-                </button>
-                <button
-                  type="button"
-                  className={paymentMethod === 'OFFLINE' ? styles.activePay : ''}
-                  onClick={() => setPaymentMethod('OFFLINE')}
-                >
-                  📱 UPI QR / Manual Upload
-                </button>
-              </div>
-            </div>
-
-            <div className={styles.formActions}>
-              <button type="button" className={styles.backBtn} onClick={() => setCheckoutStep('DETAILS')}>Back</button>
-              <button type="submit" className={styles.confirmBtn}>Complete Order (₹{totalAmount.toLocaleString()})</button>
-            </div>
-          </form>
-        )}
-
-        {checkoutStep === 'SUCCESS' && (
-          <div className={styles.successScreen}>
-            <div className={styles.successIcon}>🎉</div>
-            <h3>Order Placed Successfully!</h3>
-            <p>Your Order Tracking ID is:</p>
-            <div className={styles.orderNumberBadge}>{createdOrderNumber}</div>
-            <p className={styles.subtext}>You can use this Order ID to track your parcel status anytime from the home page.</p>
-            <button className={styles.proceedBtn} onClick={onClose}>Back to Store</button>
+            {isAdmin ? (
+              <p className={styles.subtext}>You are signed in as an admin. Sign in with a member account to place orders.</p>
+            ) : (
+              <button type="button" className={styles.proceedBtn} onClick={goToOrder}>
+                {isAuthenticated ? 'Continue to order' : 'Sign in to order'}
+              </button>
+            )}
+            {!isAuthenticated && (
+              <p className={styles.subtext}>
+                New to KUWIFR? <Link to="/register" onClick={onClose}>Create an account</Link>
+              </p>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

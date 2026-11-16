@@ -157,7 +157,7 @@ const STYLES = `
  */
 export const buildInvoiceHtml = ({ order, totals, billedTo, forPrint = false }) => {
   const invoiceNo = invoiceNumberOf(order);
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://kuwifr.in';
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.kuwifr.in';
   const address = formatAddress(billedTo?.address);
 
   const rows = totals.items.map((it, i) => `

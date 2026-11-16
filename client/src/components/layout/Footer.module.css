@@ -1,392 +1,282 @@
-/* client/src/components/layout/Footer.module.css */
-
-/* Full-Screen Edge-to-Edge Footer View (No 100vw blowout) */
-.footerEdgeToEdge {
-  background-color: #0b1329;
-  color: #94a3b8;
-  font-size: 0.9rem;
-  width: 100%;
-  max-width: 100%;
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  overflow-x: hidden;
+/* Public footer — Customer Panel palette (deep teal band). */
+.footer {
+  background: var(--kw-primary-deep);
+  color: #cfe3e3;
+  font-family: var(--kw-font);
+  font-size: 14.5px;
+  line-height: 1.6;
 }
 
-.footerMain {
-  padding: 56px 0 28px 0;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.footerFluidGrid {
-  width: 100%;
-  max-width: 1400px;
-  padding: 0 clamp(16px, 4vw, 48px);
+.inner {
+  max-width: var(--kw-container);
   margin: 0 auto;
+  padding: 56px var(--kw-gutter) 40px;
+}
+
+.grid {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 1.2fr 1.2fr;
-  gap: clamp(20px, 3vw, 40px);
-  box-sizing: border-box;
+  grid-template-columns: 1fr;
+  gap: 36px;
 }
 
-/* Brand Column */
-.brandCol {
-  min-width: 0;
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .brandCol {
+    grid-column: 1 / -1;
+  }
 }
 
-.brandLogo {
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: 1.6fr 1fr 1fr 1fr 1.2fr;
+    gap: 32px;
+  }
+
+  .brandCol {
+    grid-column: auto;
+  }
+}
+
+.brand {
   display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  text-decoration: none;
-  margin-bottom: 14px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: #ffffff;
 }
 
-.logoImg {
-  height: 44px;
-  width: 44px;
-  border-radius: 50%;
-  object-fit: cover;
+.brand img {
   display: block;
+  height: 36px;
+  width: auto;
 }
 
-.brandDescription {
-  line-height: 1.65;
-  color: #94a3b8;
-  font-size: 13px;
-  margin: 0 0 18px 0;
-  max-width: 360px;
+.about {
+  margin: 16px 0 18px;
+  max-width: 420px;
+  color: #b8d3d3;
 }
 
-.socialRow {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.socialBtn {
-  width: 38px;
-  height: 38px;
-  border-radius: 8px;
-  background: #1e293b;
-  color: #cbd5e1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-  font-size: 11px;
-  font-weight: 750;
-  transition: all 0.2s ease;
-}
-
-.socialBtn:hover {
-  background: #2563eb;
-  color: #ffffff;
-  transform: translateY(-2px);
-}
-
-/* "Download the App" (PWA install) — same orange button as the member
-   panel sidebar, sized for the footer's brand column. */
-.installAppBtn {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  max-width: 300px;
-  margin-top: 20px;
-  padding: 11px 14px;
-  background: linear-gradient(135deg, #fdb44b 0%, #fd9911 55%, #e8850a 100%);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 12px;
-  color: #ffffff;
-  text-align: left;
-  font-family: inherit;
-  cursor: pointer;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.installAppBtn:hover,
-.installAppBtn:active {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.34);
-}
-
-.installAppBtn:focus-visible {
-  outline: 2px solid #ffffff;
-  outline-offset: 2px;
-}
-
-.installAppIcon {
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.installAppIcon svg {
-  width: 17px;
-  height: 17px;
-}
-
-.installAppText {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.25;
-  min-width: 0;
-}
-
-.installAppText strong {
-  font-size: 13.5px;
-  font-weight: 700;
-}
-
-.installAppText small {
-  font-size: 11px;
-  opacity: 0.9;
-}
-
-/* Navigation Columns */
-.navCol {
-  min-width: 0;
-}
-
-.colHeading {
-  color: #ffffff;
-  font-size: 15px;
-  font-weight: 750;
-  margin: 0 0 16px 0;
-  letter-spacing: -0.01em;
-}
-
-.colHeaderMobile {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.accordionIcon {
-  display: none;
-  font-size: 18px;
-  font-weight: 700;
-  color: #60a5fa;
-}
-
-.navLinksList {
+.contactList {
   list-style: none;
+  margin: 0 0 18px;
   padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 10px;
 }
 
-.navLinksList a {
-  color: #94a3b8;
-  text-decoration: none;
-  transition: all 0.15s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
+.contactList li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
 }
 
-/* Track Order Button Trigger */
-.trackerBtnLink {
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  color: #94a3b8;
-  font-family: inherit;
-  font-size: 13px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.15s ease;
-  text-align: left;
-}
-
-.dot {
-  width: 5px;
-  height: 5px;
-  background-color: #475569;
-  border-radius: 50%;
+.contactList svg {
   flex-shrink: 0;
-  transition: all 0.2s ease;
+  margin-top: 4px;
+  color: var(--kw-accent);
 }
 
-.navLinksList a:hover,
-.trackerBtnLink:hover {
+.contactList a,
+.contactList span {
   color: #ffffff;
-  transform: translateX(4px);
+  text-decoration: none;
+  overflow-wrap: anywhere;
 }
 
-.navLinksList a:hover .dot,
-.trackerBtnLink:hover .dot {
-  background-color: #38bdf8;
-  transform: scale(1.4);
+.contactList a:hover {
+  text-decoration: underline;
 }
 
-/* Middle Contact & Payment Strip */
-.contactPaymentStrip {
-  padding: 18px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.contactPaymentFluid {
-  width: 100%;
-  max-width: 1400px;
-  padding: 0 clamp(16px, 4vw, 48px);
-  margin: 0 auto;
+.social {
+  list-style: none;
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 0;
+}
+
+.social a {
+  display: inline-flex;
+  min-height: 36px;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
-  box-sizing: border-box;
-}
-
-.contactGroup {
-  display: flex;
-  gap: 18px;
-  flex-wrap: wrap;
-  color: #cbd5e1;
-  font-weight: 500;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  color: #ffffff;
   font-size: 13px;
+  text-decoration: none;
 }
 
-.contactItem {
+.installBtn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--kw-radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-.contactItem svg {
-  color: #64748b;
-  flex-shrink: 0;
+.installBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
-.contactItem a {
-  color: #cbd5e1;
+.colTitle {
+  margin: 0 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+.col ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.col a,
+.linkBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #b8d3d3;
+  font: inherit;
+  text-align: left;
   text-decoration: none;
+  cursor: pointer;
+}
+
+.col a:hover,
+.linkBtn:hover {
+  color: #ffffff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.allLink {
+  color: var(--kw-accent) !important;
   font-weight: 600;
 }
 
-.contactItem a:hover {
-  color: #60a5fa;
+.memberText {
+  margin: 0 0 14px;
+  color: #b8d3d3;
 }
 
-/* Payment Badges - Responsive Wrapping */
-.paymentMethods {
+.memberActions {
   display: flex;
-  align-items: center;
-  gap: 6px;
   flex-wrap: wrap;
-  max-width: 100%;
+  gap: 8px;
 }
 
-.payBadge {
-  background: #ffffff;
-  padding: 3px 6px;
-  border-radius: 4px;
-  display: flex;
+.col .memberPrimary,
+.col .memberSecondary {
+  display: inline-flex !important;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  cursor: default;
-  transition: transform 0.2s ease;
-  flex-shrink: 0;
+  min-height: 42px !important;
+  padding: 0 16px !important;
+  border-radius: var(--kw-radius-sm);
+  font-weight: 600;
+  text-decoration: none !important;
 }
 
-.payBadge:hover {
-  transform: translateY(-2px);
+.col .memberPrimary {
+  background: var(--kw-accent);
+  color: #1c1300 !important;
 }
 
-/* Bottom Legal Strip */
-.copyrightStrip {
-  text-align: center;
-  padding: 20px 16px;
-  font-size: 12px;
-  color: #64748b;
-  width: 100%;
-  box-sizing: border-box;
+.col .memberPrimary:hover {
+  background: #fdac3f;
 }
 
-.copyrightStrip p {
+.col .memberSecondary {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff !important;
+}
+
+.col .memberSecondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.bottom {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.bottomInner {
+  max-width: var(--kw-container);
+  margin: 0 auto;
+  padding: 18px var(--kw-gutter) calc(18px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+  color: #9fc1c1;
+}
+
+@media (min-width: 900px) {
+  .bottomInner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.legalLine {
   margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 14px;
+  row-gap: 2px;
 }
 
-/* ==================== TABLET & MOBILE BREAKPOINTS ==================== */
-@media (max-width: 1024px) {
-  .footerFluidGrid {
-    grid-template-columns: 1fr 1fr;
-  }
+.reg {
+  white-space: nowrap;
 }
 
-@media (max-width: 680px) {
-  .footerMain {
-    padding: 32px 0 14px 0;
-  }
+.legalLinks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
 
-  .footerFluidGrid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-    padding: 0 16px;
-  }
+.legalLinks a {
+  color: #cfe3e3;
+  text-decoration: none;
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+}
 
-  .colHeaderMobile {
-    cursor: pointer;
-    padding: 12px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  }
+.legalLinks a:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
 
-  .colHeading {
-    margin: 0;
-    font-size: 14px;
-  }
-
-  .accordionIcon {
-    display: inline-block;
-  }
-
-  /* Accordion collapse logic */
-  .navLinksList {
-    display: none;
-    padding-top: 10px;
-    padding-bottom: 8px;
-    padding-left: 4px;
-  }
-
-  .navLinksListOpen {
-    display: flex;
-  }
-
-  .contactPaymentFluid {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 14px;
-    padding: 0 16px;
-  }
-
-  .contactGroup {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .paymentMethods {
-    width: 100%;
-    justify-content: flex-start;
-    gap: 6px;
-  }
+.footer a:focus-visible,
+.footer button:focus-visible {
+  outline: 3px solid var(--kw-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
 }

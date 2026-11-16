@@ -1,21 +1,36 @@
 // client/src/components/layout/Header.jsx
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+//
+// Public site header (every storefront page). Styled with the Customer
+// Panel's palette (see --kw-* tokens in styles/variables.css).
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { FiSearch, FiHeart, FiShoppingBag, FiUser, FiMenu, FiX, FiChevronDown, FiChevronRight, FiPackage, FiLogOut, FiGrid } from 'react-icons/fi';
 import { useShop } from '../../context/ShopContext';
 import { useAuth } from '../../context/AuthContext';
-import OrderTrackingModal from '../public/OrderTrackingModal';
+import { cdnImage } from '../../utils/imageUrl';
 import styles from './Header.module.css';
+
+const NAV_LINKS = [
+  { label: 'Home', to: '/', end: true },
+  { label: 'Shop', to: '/shop' },
+  { label: 'About Us', to: '/about' },
+  { label: 'How It Works', to: '/how-it-works' },
+  { label: 'FAQ', to: '/faq' },
+  { label: 'Contact', to: '/contact' }
+];
+
+// Orders are only visible to the signed-in member (there is no public
+// order-lookup API), so "Track Order" opens My Orders — the login screen
+// appears first when needed.
+const TRACK_ORDER_PATH = '/member/orders';
 
 const Header = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchSuggestions, setSearchSuggestions] = useState([]);
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
-  const [showTracker, setShowTracker] = useState(false);
 
-  const shopContext = useShop ? useShop() : {};
   const {
     products,
     categories = [],
@@ -23,516 +38,399 @@ const Header = () => {
     wishlistCount = 0,
     setIsCartOpen,
     setIsWishlistOpen,
-    setActiveCategoryFilter,
-    activeCategoryFilter = 'ALL'
-  } = shopContext;
-
-  // Search suggestions source — the real, admin-managed catalog fetched
-  // once in ShopContext, shared by every storefront component.
-  const safeProducts = useMemo(() => (Array.isArray(products) ? products : []), [products]);
-
-  // Top real categories (by how many products are in each) drive the
-  // header's quick-nav shortcuts and the mobile drawer's "Featured
-  // Collections" list — replaces a hardcoded set of category labels
-  // (Alkaline Water Devices, Designer Modern Sarees, etc.) that no longer
-  // match this catalog's real category names.
-  const topCategories = useMemo(() => {
-    const counts = {};
-    safeProducts.forEach((p) => {
-      if (p.category) counts[p.category] = (counts[p.category] || 0) + 1;
-    });
-    return categories
-      .filter((c) => counts[c])
-      .sort((a, b) => counts[b] - counts[a])
-      .slice(0, 6);
-  }, [categories, safeProducts]);
-
-  const { user, isAuthenticated, logout } = useAuth
-    ? useAuth()
-    : { user: null, isAuthenticated: false, logout: () => {} };
+    setActiveCategoryFilter
+  } = useShop();
+  const { user, isAuthenticated, logout } = useAuth();
 
   const navigate = useNavigate();
   const location = useLocation();
   const searchRef = useRef(null);
   const accountRef = useRef(null);
+  const hamburgerRef = useRef(null);
+  const drawerRef = useRef(null);
 
-  // Compute exact destination URL according to authentication state & user role
-  const portalPath = useMemo(() => {
-    if (!isAuthenticated) return '/login';
-    const role = (user?.role || '').toUpperCase();
-    if (role === 'ADMIN' || role === 'SUPER_ADMIN') return '/admin/dashboard';
-    return '/member/dashboard';
-  }, [isAuthenticated, user]);
+  const safeProducts = useMemo(() => (Array.isArray(products) ? products : []), [products]);
+
+  // Real categories, most-stocked first, for the drawer's shortcuts.
+  const topCategories = useMemo(() => {
+    const counts = {};
+    safeProducts.forEach((p) => {
+      if (p.category) counts[p.category] = (counts[p.category] || 0) + 1;
+    });
+    return categories.filter((c) => counts[c]).sort((a, b) => counts[b] - counts[a]).slice(0, 6);
+  }, [categories, safeProducts]);
+
+  const role = (user?.role || '').toUpperCase();
+  const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const portalPath = !isAuthenticated ? '/login' : isAdmin ? '/admin/dashboard' : '/member/dashboard';
+  const portalLabel = !isAuthenticated ? 'Customer Login' : isAdmin ? 'Admin Panel' : 'My Dashboard';
+
+  const suggestions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return safeProducts
+      .filter((p) => p.name?.toLowerCase().includes(q) || p.category?.toLowerCase().includes(q))
+      .slice(0, 5);
+  }, [searchQuery, safeProducts]);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 15);
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Close drawers & clean queries on route change
+  // Close menus on navigation.
   useEffect(() => {
     setMobileMenuOpen(false);
     setSearchOpen(false);
     setShowAccountDropdown(false);
     setSearchQuery('');
-    setSearchSuggestions([]);
-  }, [location.pathname]);
+  }, [location.pathname, location.search]);
 
-  // Click outside to dismiss menus
+  // Click outside closes the search flyout and account menu.
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (searchRef.current && !searchRef.current.contains(event.target)) {
-        setSearchSuggestions([]);
-      }
-      if (accountRef.current && !accountRef.current.contains(event.target)) {
-        setShowAccountDropdown(false);
-      }
+    const onDown = (e) => {
+      if (searchRef.current && !searchRef.current.contains(e.target)) setSearchOpen(false);
+      if (accountRef.current && !accountRef.current.contains(e.target)) setShowAccountDropdown(false);
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
   }, []);
 
-  // Prevent background scroll when mobile menu is open
+  // Escape closes whatever is open.
   useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (mobileMenuOpen) {
+        setMobileMenuOpen(false);
+        hamburgerRef.current?.focus();
+      }
+      setSearchOpen(false);
+      setShowAccountDropdown(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [mobileMenuOpen]);
+
+  // Drawer: lock page scroll, move focus in, keep Tab inside.
+  useEffect(() => {
+    if (!mobileMenuOpen) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const drawer = drawerRef.current;
+    drawer?.querySelector('button, a, input')?.focus();
+    const trap = (e) => {
+      if (e.key !== 'Tab' || !drawer) return;
+      const els = drawer.querySelectorAll('a[href], button:not([disabled]), input');
+      if (!els.length) return;
+      const first = els[0];
+      const last = els[els.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    drawer?.addEventListener('keydown', trap);
     return () => {
-      document.body.style.overflow = '';
+      document.body.style.overflow = prev;
+      drawer?.removeEventListener('keydown', trap);
     };
   }, [mobileMenuOpen]);
 
-  // Live search filtering with stable dependencies
-  useEffect(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (q.length >= 2) {
-      const matches = safeProducts
-        .filter(
-          (p) =>
-            p.name?.toLowerCase().includes(q) ||
-            p.category?.toLowerCase().includes(q)
-        )
-        .slice(0, 5);
-      setSearchSuggestions(matches);
-    } else {
-      setSearchSuggestions([]);
-    }
-  }, [searchQuery, safeProducts]);
-
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/shop?search=${encodeURIComponent(searchQuery.trim())}`);
-      setSearchOpen(false);
-      setMobileMenuOpen(false);
-      setSearchSuggestions([]);
-      setSearchQuery('');
-    }
-  };
-
-  const handleNavClick = (categoryName) => {
-    if (typeof setActiveCategoryFilter === 'function') {
-      setActiveCategoryFilter(categoryName);
-    }
+  const closeDrawer = useCallback(() => {
     setMobileMenuOpen(false);
+    hamburgerRef.current?.focus();
+  }, []);
 
-    if (location.pathname === '/') {
-      const el = document.getElementById('products');
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth' });
-        return;
-      }
-    }
-
-    if (categoryName === 'ALL') {
-      navigate('/shop');
-    } else {
-      navigate(`/shop?category=${encodeURIComponent(categoryName)}`);
-    }
+  const submitSearch = (e) => {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    if (!q) return;
+    navigate(`/shop?search=${encodeURIComponent(q)}`);
   };
 
-  const navItems = [
-    { label: 'Home', action: () => navigate('/') },
-    { label: 'Shop All', action: () => handleNavClick('ALL'), key: 'ALL' },
-    ...topCategories.slice(0, 3).map((cat) => ({
-      label: cat,
-      action: () => handleNavClick(cat),
-      key: cat
-    }))
-  ];
+  const goToCategory = (cat) => {
+    if (typeof setActiveCategoryFilter === 'function') setActiveCategoryFilter(cat);
+    navigate(`/shop?category=${encodeURIComponent(cat)}`);
+  };
+
+  const handleLogout = () => {
+    setShowAccountDropdown(false);
+    setMobileMenuOpen(false);
+    if (logout) logout();
+    navigate('/login');
+  };
+
+  const searchForm = (id, autoFocus) => (
+    <form onSubmit={submitSearch} className={styles.searchForm} role="search">
+      <label htmlFor={id} className={styles.srOnly}>Search products</label>
+      <FiSearch className={styles.searchIcon} aria-hidden="true" />
+      <input
+        id={id}
+        type="search"
+        placeholder="Search products…"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        className={styles.searchInput}
+        autoComplete="off"
+        autoFocus={autoFocus}
+        enterKeyHint="search"
+      />
+    </form>
+  );
 
   return (
     <>
-      {/* 1. Top Announcement Bar */}
+      <a href="#main-content" className={styles.skipLink}>Skip to main content</a>
+
+      {/* Shipping terms are the published Shipping Policy (/shipping-policy). */}
       <div className={styles.announcementBar}>
-        <div className={styles.announcementText}>
-          ✨ Free Express Shipping on All Orders Above ₹999 | 100% Genuine Guaranteed
-        </div>
+        <p>
+          Free shipping on prepaid orders of ₹999 and above.{' '}
+          <Link to="/shipping-policy">Shipping policy</Link>
+        </p>
       </div>
 
-      {/* 2. Full-Width Header */}
       <header className={`${styles.header} ${scrolled ? styles.headerScrolled : ''}`}>
-        <div className={styles.navContainer}>
-          <div className={styles.navLeft}>
-            <button
-              className={styles.mobileHamburger}
-              onClick={() => setMobileMenuOpen(true)}
-              aria-label="Open Navigation Menu"
-            >
-              <span className={styles.hamburgerBar}></span>
-              <span className={styles.hamburgerBar}></span>
-              <span className={styles.hamburgerBar}></span>
-            </button>
+        <div className={styles.inner}>
+          <button
+            ref={hamburgerRef}
+            type="button"
+            className={styles.hamburger}
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Open menu"
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-nav"
+          >
+            <FiMenu aria-hidden="true" />
+          </button>
 
-            <Link to="/" className={styles.brandLogo} aria-label="KUWIFR Home">
-              <img src="/logo.jpg" alt="KUWIFR" className={styles.logoImg} />
-            </Link>
-          </div>
+          <Link to="/" className={styles.brand} aria-label="KUWIFR home">
+            <img src="/logo-48.webp" srcSet="/logo-48.webp 1x, /logo-96.webp 2x" alt="KUWIFR" className={styles.logo} width="40" height="40" />
+          </Link>
 
-          <nav className={styles.desktopNav} aria-label="Main Navigation">
-            {navItems.map((item, idx) => (
-              <button
-                key={idx}
-                onClick={item.action}
-                className={`${styles.navItemBtn} ${
-                  (item.key && activeCategoryFilter === item.key) ||
-                  (item.label === 'Home' && location.pathname === '/')
-                    ? styles.navItemActive
-                    : ''
-                }`}
+          <nav className={styles.desktopNav} aria-label="Main">
+            {NAV_LINKS.map((l) => (
+              <NavLink
+                key={l.to}
+                to={l.to}
+                end={l.end}
+                className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
               >
-                {item.label}
-              </button>
+                {l.label}
+              </NavLink>
             ))}
           </nav>
 
-          <div className={styles.actionGroup}>
-            {/* Search */}
-            <div className={styles.searchWrapper} ref={searchRef}>
-              {searchOpen ? (
-                <div className={styles.searchFlyout}>
-                  <form onSubmit={handleSearchSubmit} className={styles.searchForm}>
-                    <span className={styles.searchIconInside}>🔍</span>
-                    <input
-                      type="text"
-                      placeholder="Search store..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className={styles.searchInput}
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchOpen(false);
-                        setSearchSuggestions([]);
-                      }}
-                      className={styles.searchCloseBtn}
-                      aria-label="Close search"
-                    >
-                      ✕
-                    </button>
-                  </form>
-
-                  {searchSuggestions.length > 0 && (
-                    <div className={styles.suggestionsCard}>
-                      <div className={styles.suggestionsHeader}>Matching Products</div>
-                      {searchSuggestions.map((prod) => (
-                        <div
-                          key={prod.id || prod._id}
-                          className={styles.suggestionRow}
-                          onClick={() => {
-                            navigate(`/product/${prod.id || prod._id}`);
-                            setSearchOpen(false);
-                            setSearchSuggestions([]);
-                          }}
-                        >
-                          {prod.image ? (
-                            <img
-                              src={prod.image}
-                              alt={prod.name}
-                              className={styles.suggestionThumb}
-                            />
-                          ) : (
-                            <div className={styles.suggestionThumb} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', fontSize: '16px' }} aria-hidden="true">
-                              🛍️
-                            </div>
-                          )}
-                          <div className={styles.suggestionInfo}>
-                            <div className={styles.suggestionName}>{prod.name}</div>
-                            <div className={styles.suggestionPrice}>
-                              ₹{(prod.ksp || 0).toLocaleString()}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      <button
-                        onClick={handleSearchSubmit}
-                        className={styles.viewAllResultsBtn}
-                      >
-                        View all results →
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <button
-                  onClick={() => setSearchOpen(true)}
-                  className={styles.actionIconBtn}
-                  aria-label="Search"
-                  title="Search Store"
-                >
-                  <svg width="21" height="21" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </button>
-              )}
-            </div>
-
-            {/* Wishlist */}
-            <button
-              onClick={() => setIsWishlistOpen && setIsWishlistOpen(true)}
-              className={`${styles.actionIconBtn} ${styles.desktopOnlyIcon}`}
-              aria-label={`Wishlist (${wishlistCount} items)`}
-              title="View Wishlist"
-            >
-              <svg width="21" height="21" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-              {wishlistCount > 0 && <span className={styles.countBadge}>{wishlistCount}</span>}
-            </button>
-
-            {/* Cart */}
-            <button
-              onClick={() => setIsCartOpen && setIsCartOpen(true)}
-              className={styles.actionIconBtn}
-              aria-label={`Cart (${cartCount} items)`}
-              title="View Cart"
-            >
-              <svg width="21" height="21" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-              </svg>
-              {cartCount > 0 && <span className={styles.countBadge}>{cartCount}</span>}
-            </button>
-
-            {/* Account Trigger & Dropdown */}
-            <div className={`${styles.accountWrapper} ${styles.desktopOnlyIcon}`} ref={accountRef}>
+          <div className={styles.actions}>
+            <div className={styles.searchWrap} ref={searchRef}>
               <button
-                onClick={() => setShowAccountDropdown(!showAccountDropdown)}
-                className={styles.accountTrigger}
-                aria-expanded={showAccountDropdown}
-                aria-label="Account Menu"
+                type="button"
+                className={styles.iconBtn}
+                onClick={() => setSearchOpen((o) => !o)}
+                aria-label="Search products"
+                aria-expanded={searchOpen}
               >
-                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                <span className={styles.accountLabel}>
-                  {isAuthenticated ? (user?.fullName?.split(' ')[0] || 'Account') : 'Sign In'}
-                </span>
-                <span className={styles.dropdownCaret}>▾</span>
+                <FiSearch aria-hidden="true" />
               </button>
-
-              {showAccountDropdown && (
-                <div className={styles.accountDropdownCard}>
-                  <div className={styles.accountCardHeader}>
-                    <span className={styles.welcomeText}>Welcome to KUWIFR</span>
-                    <p className={styles.welcomeSub}>Manage your account, orders & tracking</p>
-                  </div>
-
-                  {!isAuthenticated ? (
-                    <div className={styles.authActionRow}>
-                      <Link to="/login" className={styles.loginCardBtn}>
-                        Sign In
-                      </Link>
-                      <Link to="/register" className={styles.registerCardBtn}>
-                        Register
-                      </Link>
-                    </div>
-                  ) : (
-                    <div className={styles.userProfilePill}>
-                      <div className={styles.userInitials}>
-                        {(user?.fullName || 'U')[0].toUpperCase()}
-                      </div>
-                      <div className={styles.userDetails}>
-                        <div className={styles.userNameText}>{user?.fullName || 'Distributor'}</div>
-                        <span className={styles.userRoleText}>{user?.role || 'MEMBER'}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className={styles.cardDivider}></div>
-
-                  <div className={styles.dropdownMenuList}>
-                    <Link
-                      to={portalPath}
-                      className={styles.dropdownItem}
-                      onClick={() => setShowAccountDropdown(false)}
-                    >
-                      <span>📊</span>
-                      <span>
-                        {!isAuthenticated
-                          ? 'Sign In / Member Portal'
-                          : user?.role === 'ADMIN'
-                          ? 'Admin Portal'
-                          : 'Member Dashboard'}
-                      </span>
-                    </Link>
-
-                    <button
-                      onClick={() => {
-                        setShowAccountDropdown(false);
-                        setShowTracker(true);
-                      }}
-                      className={styles.dropdownItem}
-                    >
-                      <span>📦</span>
-                      <span>Track Your Order</span>
-                    </button>
-
-                    {isAuthenticated && (
-                      <>
-                        <div className={styles.cardDivider}></div>
-                        <button
-                          onClick={() => {
-                            if (logout) logout();
-                            setShowAccountDropdown(false);
-                            navigate('/login');
-                          }}
-                          className={`${styles.dropdownItem} ${styles.logoutItem}`}
-                        >
-                          <span>🚪</span>
-                          <span>Log Out</span>
+              {searchOpen && (
+                <div className={styles.searchFlyout}>
+                  {searchForm('header-search', true)}
+                  {suggestions.length > 0 && (
+                    <ul className={styles.suggestions} aria-label="Matching products">
+                      {suggestions.map((p) => (
+                        <li key={p.id || p._id}>
+                          <Link to={`/product/${p.id || p._id}`} className={styles.suggestion}>
+                            {p.image ? (
+                              <img src={cdnImage(p.image, 80)} alt="" className={styles.suggestionThumb} loading="lazy" width="40" height="40" />
+                            ) : (
+                              <span className={styles.suggestionThumb} aria-hidden="true"><FiPackage /></span>
+                            )}
+                            <span className={styles.suggestionText}>
+                              <span>{p.name}</span>
+                              <small>₹{Number(p.ksp || 0).toLocaleString('en-IN')}</small>
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                      <li>
+                        <button type="button" className={styles.viewAll} onClick={submitSearch}>
+                          View all results <FiChevronRight aria-hidden="true" />
                         </button>
-                      </>
-                    )}
-                  </div>
+                      </li>
+                    </ul>
+                  )}
+                  {searchQuery.trim().length >= 2 && suggestions.length === 0 && (
+                    <p className={styles.noResults}>No products match “{searchQuery.trim()}”. Press Enter to search the shop.</p>
+                  )}
                 </div>
               )}
             </div>
+
+            <button
+              type="button"
+              className={`${styles.iconBtn} ${styles.hideSm}`}
+              onClick={() => setIsWishlistOpen && setIsWishlistOpen(true)}
+              aria-label={`Wishlist, ${wishlistCount} item${wishlistCount === 1 ? '' : 's'}`}
+            >
+              <FiHeart aria-hidden="true" />
+              {wishlistCount > 0 && <span className={styles.badge}>{wishlistCount}</span>}
+            </button>
+
+            <button
+              type="button"
+              className={styles.iconBtn}
+              onClick={() => setIsCartOpen && setIsCartOpen(true)}
+              aria-label={`Cart, ${cartCount} item${cartCount === 1 ? '' : 's'}`}
+            >
+              <FiShoppingBag aria-hidden="true" />
+              {cartCount > 0 && <span className={styles.badge}>{cartCount}</span>}
+            </button>
+
+            {/* Phones: one-tap access to Customer Login / dashboard */}
+            <Link to={portalPath} className={`${styles.iconBtn} ${styles.showSmOnly}`} aria-label={portalLabel}>
+              <FiUser aria-hidden="true" />
+            </Link>
+
+            {isAuthenticated ? (
+              <div className={`${styles.account} ${styles.hideMd}`} ref={accountRef}>
+                <button
+                  type="button"
+                  className={styles.accountBtn}
+                  onClick={() => setShowAccountDropdown((o) => !o)}
+                  aria-expanded={showAccountDropdown}
+                  aria-haspopup="true"
+                >
+                  <span className={styles.avatar} aria-hidden="true">{(user?.fullName || 'U')[0].toUpperCase()}</span>
+                  <span className={styles.accountName}>{user?.fullName?.split(' ')[0] || 'Account'}</span>
+                  <FiChevronDown aria-hidden="true" />
+                </button>
+                {showAccountDropdown && (
+                  <div className={styles.dropdown}>
+                    <div className={styles.dropdownHead}>
+                      <strong>{user?.fullName || 'Member'}</strong>
+                      <small>{user?.memberId || role || 'MEMBER'}</small>
+                    </div>
+                    <Link to={portalPath} className={styles.dropdownItem}>
+                      <FiGrid aria-hidden="true" /> {portalLabel}
+                    </Link>
+                    {!isAdmin && (
+                      <Link to={TRACK_ORDER_PATH} className={styles.dropdownItem}>
+                        <FiPackage aria-hidden="true" /> My Orders
+                      </Link>
+                    )}
+                    <button type="button" className={`${styles.dropdownItem} ${styles.dropdownDanger}`} onClick={handleLogout}>
+                      <FiLogOut aria-hidden="true" /> Log out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <Link to="/login" className={`${styles.loginBtn} ${styles.hideMd}`}>
+                  <FiUser aria-hidden="true" /> Customer Login
+                </Link>
+                <Link to="/register" className={`${styles.ctaBtn} ${styles.hideLg}`}>
+                  Join KUWIFR
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
 
-      {/* 3. Mobile Navigation Drawer */}
+      {/* Mobile / tablet drawer */}
       {mobileMenuOpen && (
-        <div
-          className={styles.drawerOverlay}
-          onClick={() => setMobileMenuOpen(false)}
-          aria-hidden="true"
-        >
-          <aside
-            className={styles.drawerSidebar}
+        <div className={styles.overlay} onClick={closeDrawer}>
+          <div
+            id="mobile-nav"
+            ref={drawerRef}
+            className={styles.drawer}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Site menu"
             onClick={(e) => e.stopPropagation()}
-            aria-label="Mobile Navigation"
           >
-            <div className={styles.drawerHeader}>
-              <Link to="/" className={styles.brandLogo} onClick={() => setMobileMenuOpen(false)}>
-                <img src="/logo.jpg" alt="KUWIFR" className={styles.logoImg} />
+            <div className={styles.drawerHead}>
+              <Link to="/" className={styles.brand} aria-label="KUWIFR home">
+                <img src="/logo-48.webp" srcSet="/logo-48.webp 1x, /logo-96.webp 2x" alt="KUWIFR" className={styles.logo} width="40" height="40" />
               </Link>
-              <button
-                onClick={() => setMobileMenuOpen(false)}
-                className={styles.drawerCloseBtn}
-                aria-label="Close menu"
-              >
-                ✕
+              <button type="button" className={styles.iconBtn} onClick={closeDrawer} aria-label="Close menu">
+                <FiX aria-hidden="true" />
               </button>
             </div>
 
-            <form onSubmit={handleSearchSubmit} className={styles.drawerSearchForm}>
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={styles.drawerSearchInput}
-              />
-              <button type="submit" className={styles.drawerSearchSubmit} aria-label="Search">
-                🔍
-              </button>
-            </form>
+            <div className={styles.drawerBody}>
+              <div className={styles.drawerSearch}>{searchForm('drawer-search', false)}</div>
 
-            <div className={styles.drawerScrollBody}>
-              <div className={styles.drawerSectionLabel}>Main Store</div>
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  navigate('/');
-                }}
-                className={styles.drawerNavLink}
-              >
-                <span>🏠 Home</span>
-                <span className={styles.drawerArrow}>›</span>
-              </button>
-
-              <button
-                onClick={() => handleNavClick('ALL')}
-                className={styles.drawerNavLink}
-              >
-                <span>🛍️ Shop All Products</span>
-                <span className={styles.drawerArrow}>›</span>
-              </button>
-
-              <div className={styles.drawerSectionLabel} style={{ marginTop: '18px' }}>
-                Featured Collections
-              </div>
-              {topCategories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => handleNavClick(cat)}
-                  className={styles.drawerCategoryBtn}
-                >
-                  🛍️ {cat}
-                </button>
-              ))}
-
-              <div className={styles.drawerSectionLabel} style={{ marginTop: '18px' }}>
-                User Services
-              </div>
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  setShowTracker(true);
-                }}
-                className={styles.drawerCategoryBtn}
-              >
-                📦 Track Order
-              </button>
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  if (setIsWishlistOpen) setIsWishlistOpen(true);
-                }}
-                className={styles.drawerCategoryBtn}
-              >
-                ♡ My Wishlist ({wishlistCount})
-              </button>
-
-              {/* Login / Portal CTA Button */}
-              <div className={styles.drawerAuthInlineWrapper}>
-                <Link
-                  to={portalPath}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={styles.drawerAuthBtn}
-                >
-                  {isAuthenticated
-                    ? user?.role === 'ADMIN'
-                      ? '🛡️ Access Admin Portal'
-                      : '👤 Access Member Dashboard'
-                    : '🔐 Login / Access Account'}
+              <div className={styles.drawerAuth}>
+                <Link to={portalPath} className={styles.drawerPrimary}>
+                  {isAuthenticated ? <FiGrid aria-hidden="true" /> : <FiUser aria-hidden="true" />} {portalLabel}
                 </Link>
+                {!isAuthenticated && (
+                  <Link to="/register" className={styles.drawerSecondary}>Join KUWIFR</Link>
+                )}
               </div>
+
+              <nav aria-label="Mobile">
+                <p className={styles.drawerLabel}>Menu</p>
+                <ul className={styles.drawerList}>
+                  {NAV_LINKS.map((l) => (
+                    <li key={l.to}>
+                      <NavLink
+                        to={l.to}
+                        end={l.end}
+                        className={({ isActive }) => `${styles.drawerLink} ${isActive ? styles.drawerLinkActive : ''}`}
+                      >
+                        {l.label} <FiChevronRight aria-hidden="true" />
+                      </NavLink>
+                    </li>
+                  ))}
+                </ul>
+
+                {topCategories.length > 0 && (
+                  <>
+                    <p className={styles.drawerLabel}>Shop by category</p>
+                    <ul className={styles.drawerList}>
+                      {topCategories.map((cat) => (
+                        <li key={cat}>
+                          <button type="button" className={styles.drawerLink} onClick={() => goToCategory(cat)}>
+                            {cat} <FiChevronRight aria-hidden="true" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+
+                <p className={styles.drawerLabel}>Your account</p>
+                <ul className={styles.drawerList}>
+                  <li>
+                    <Link to={TRACK_ORDER_PATH} className={styles.drawerLink}>
+                      <span><FiPackage aria-hidden="true" /> Track my orders</span> <FiChevronRight aria-hidden="true" />
+                    </Link>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      className={styles.drawerLink}
+                      onClick={() => { setMobileMenuOpen(false); if (setIsWishlistOpen) setIsWishlistOpen(true); }}
+                    >
+                      <span><FiHeart aria-hidden="true" /> Wishlist ({wishlistCount})</span> <FiChevronRight aria-hidden="true" />
+                    </button>
+                  </li>
+                  {isAuthenticated && (
+                    <li>
+                      <button type="button" className={`${styles.drawerLink} ${styles.dropdownDanger}`} onClick={handleLogout}>
+                        <span><FiLogOut aria-hidden="true" /> Log out</span>
+                      </button>
+                    </li>
+                  )}
+                </ul>
+              </nav>
             </div>
-          </aside>
+          </div>
         </div>
       )}
-
-      {/* 4. Order Tracking Modal */}
-      {showTracker && <OrderTrackingModal onClose={() => setShowTracker(false)} />}
     </>
   );
 };

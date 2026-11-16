@@ -58,7 +58,8 @@ const AdminLayout = () => {
     { label: 'Notifications', path: '/admin/notifications', icon: '📣' },
     { label: 'Settings', path: '/admin/settings', icon: '⚙️' },
     { label: 'Audit Logs', path: '/admin/audit', icon: '🛡️' },
-    { label: 'Support Tickets', path: '/admin/support', icon: '🎧' }
+    { label: 'Support Tickets', path: '/admin/support', icon: '🎧' },
+    { label: 'Contact Messages', path: '/admin/contact-messages', icon: '✉️' }
   ];
 
   // Personal admin alert inbox unread count — powers the header bell badge,

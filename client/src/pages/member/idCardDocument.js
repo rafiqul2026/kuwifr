@@ -199,7 +199,7 @@ const STYLES = `
  * @param {boolean} [p.forPrint] adds the Print / Close toolbar and opens the print dialog once loaded
  */
 export const buildIdCardHtml = ({ member, forPrint = false }) => {
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://kuwifr.in';
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.kuwifr.in';
   const photo = member?.profileImage?.url;
   const rows = idCardFields(member)
     .map((f) => `
