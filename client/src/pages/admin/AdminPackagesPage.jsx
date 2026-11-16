@@ -689,6 +689,7 @@ const AdminPackagesPage = () => {
               min={1}
               max={MAX_QTY}
               value={item.quantity}
+              onFocus={(e) => e.target.select()}
               onChange={(e) => setItemQty(uid, item.productId, e.target.value)}
               aria-label="Quantity"
             />
