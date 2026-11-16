@@ -10,12 +10,6 @@
 //     (member Packages / Repurchase checkout)
 // If a policy page changes, update the matching line here.
 import {
-  FiShoppingBag,
-  FiUsers,
-  FiRepeat,
-  FiBriefcase,
-  FiHeadphones,
-  FiFileText,
   FiShield,
   FiCheckCircle,
   FiTruck,
@@ -24,51 +18,6 @@ import {
   FiCreditCard,
   FiBarChart2
 } from 'react-icons/fi';
-
-export const SERVICES = [
-  {
-    icon: FiShoppingBag,
-    title: 'Online store',
-    text: 'Health & wellness products, alkaline water devices, fashion and everyday essentials, delivered across India.',
-    cta: 'Browse the shop',
-    to: '/shop'
-  },
-  {
-    icon: FiUsers,
-    title: 'Member business programme',
-    text: 'Join with a package that includes products, earn KBP (Kuwi Business Points) and grow with a team under our published income plan.',
-    cta: 'See how it works',
-    to: '/how-it-works'
-  },
-  {
-    icon: FiRepeat,
-    title: 'Repurchase store',
-    text: 'Members reorder the products they use from their account and earn repurchase KBP on every verified order.',
-    cta: 'Open the store',
-    to: '/member/repurchase'
-  },
-  {
-    icon: FiBriefcase,
-    title: 'Franchise programme',
-    text: 'Members can apply to become a KUWIFR franchise directly from their account; our team reviews each application.',
-    cta: 'Apply from your account',
-    to: '/member/franchise'
-  },
-  {
-    icon: FiFileText,
-    title: 'Orders & GST invoices',
-    text: 'Follow every order in My Orders and download its tax invoice, issued under our registered GSTIN.',
-    cta: 'Go to My Orders',
-    to: '/member/orders'
-  },
-  {
-    icon: FiHeadphones,
-    title: 'Customer support',
-    text: 'Raise a ticket from your account, call us, or send a message — every request reaches our support team.',
-    cta: 'Get support',
-    to: '/customer-support'
-  }
-];
 
 export const WHY_CHOOSE = [
   {

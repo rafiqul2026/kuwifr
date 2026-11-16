@@ -6,7 +6,7 @@
 // ./home/homeContent.js; company facts in seo/seoConfig.js.
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { FiArrowRight, FiCheck, FiPhone, FiMail, FiMapPin, FiClock, FiFileText, FiShield, FiTruck, FiGrid, FiUser } from 'react-icons/fi';
+import { FiArrowRight, FiCheck, FiPhone, FiMail, FiMapPin, FiShield, FiGrid, FiUser } from 'react-icons/fi';
 import styles from './HomePage.module.css';
 import ProductShowcase from '../../components/public/ProductShowcase';
 import ContactForm from '../../components/public/ContactForm';
@@ -25,7 +25,7 @@ import {
 import { cdnImage, cdnSrcSet } from '../../utils/imageUrl';
 import { useShop } from '../../context/ShopContext';
 import { useAuth } from '../../context/AuthContext';
-import { SERVICES, WHY_CHOOSE, STEPS, PANEL_FEATURES, FAQS } from './home/homeContent';
+import { WHY_CHOOSE, STEPS, PANEL_FEATURES, FAQS } from './home/homeContent';
 
 const PANEL_MENU = ['Dashboard', 'Packages', 'My Orders', 'Repurchase', 'Income', 'Team', 'KYC & ID card', 'Support'];
 
@@ -77,7 +77,7 @@ const HomePage = () => {
       <section className={styles.hero} aria-labelledby="hero-title">
         <div className={styles.container}>
           <div className={styles.heroGrid}>
-            <div className={styles.heroCopy}>
+            <div>
               <p className={styles.heroEyebrow}>
                 <span className={styles.dot} aria-hidden="true" /> {COMPANY_LEGAL_NAME} · Assam, India
               </p>
@@ -145,67 +145,6 @@ const HomePage = () => {
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* ---------------- TRUST STRIP ---------------- */}
-      <section className={styles.trust} aria-label="Company facts">
-        <div className={styles.container}>
-          <ul className={styles.trustGrid}>
-            <li>
-              <FiShield aria-hidden="true" />
-              <div>
-                <strong>Private limited company</strong>
-                <span>Incorporated in Assam · CIN {COMPANY_CIN}</span>
-              </div>
-            </li>
-            <li>
-              <FiFileText aria-hidden="true" />
-              <div>
-                <strong>GST-registered invoices</strong>
-                <span>GSTIN {COMPANY_GSTIN}</span>
-              </div>
-            </li>
-            <li>
-              <FiTruck aria-hidden="true" />
-              <div>
-                <strong>Free shipping from ₹999</strong>
-                <span>On prepaid orders · <Link to="/shipping-policy">Policy</Link></span>
-              </div>
-            </li>
-            <li>
-              <FiClock aria-hidden="true" />
-              <div>
-                <strong>Support Mon – Sat</strong>
-                <span>9:30 AM – 6:30 PM · <a href={`tel:${COMPANY_PHONE_TEL}`}>{COMPANY_PHONE}</a></span>
-              </div>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      {/* ---------------- SERVICES ---------------- */}
-      <section id="services" className={styles.section} aria-labelledby="services-title">
-        <div className={styles.container}>
-          <SectionHead
-            id="services-title"
-            eyebrow="What we offer"
-            title="One company for your products, orders and member business"
-            text="Whether you are buying for your family or building a business with KUWIFR, everything runs through one account."
-          />
-          <ul className={styles.serviceGrid}>
-            {SERVICES.map(({ icon: Icon, title, text, cta, to }) => (
-              <li key={title} className={styles.serviceCard}>
-                <span className={styles.iconBox} aria-hidden="true"><Icon /></span>
-                <h3>{title}</h3>
-                <p>{text}</p>
-                <Link to={to} className={styles.cardLink}>
-                  {cta} <FiArrowRight aria-hidden="true" />
-                  <span className={styles.srOnly}> — {title}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
         </div>
       </section>
 
@@ -376,7 +315,7 @@ const HomePage = () => {
       <section id="contact" className={`${styles.section} ${styles.sectionAlt}`} aria-labelledby="contact-title">
         <div className={styles.container}>
           <div className={styles.contactGrid}>
-            <div className={styles.contactInfo}>
+            <div>
               <SectionHead
                 id="contact-title"
                 eyebrow="Contact us"

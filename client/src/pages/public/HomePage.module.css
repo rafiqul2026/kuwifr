@@ -15,15 +15,6 @@
   padding: 0 var(--kw-gutter);
 }
 
-.srOnly {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-
 /* ---------- Shared ---------- */
 .section {
   padding: 56px 0;
@@ -126,13 +117,11 @@
 }
 
 .textLink svg,
-.cardLink svg,
 .btnPrimary svg {
   transition: transform 0.2s var(--kw-ease);
 }
 
 .textLink:hover svg,
-.cardLink:hover svg,
 .btnPrimary:hover svg {
   transform: translateX(3px);
 }
@@ -455,177 +444,6 @@
   color: var(--kw-muted);
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
-}
-
-/* ---------- Trust strip ---------- */
-.trust {
-  background: var(--kw-surface);
-  border-top: 1px solid var(--kw-border);
-  border-bottom: 1px solid var(--kw-border);
-}
-
-.trustGrid {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: 1fr;
-}
-
-@media (min-width: 640px) {
-  .trustGrid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (min-width: 1024px) {
-  .trustGrid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-.trustGrid li {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 18px 4px;
-  min-width: 0;
-}
-
-.trustGrid li + li {
-  border-top: 1px solid var(--kw-border);
-}
-
-@media (min-width: 640px) {
-  .trustGrid li + li {
-    border-top: none;
-  }
-
-  .trustGrid li:nth-child(n + 3) {
-    border-top: 1px solid var(--kw-border);
-  }
-}
-
-@media (min-width: 1024px) {
-  .trustGrid li {
-    padding: 22px 20px;
-  }
-
-  .trustGrid li:first-child {
-    padding-left: 0;
-  }
-
-  .trustGrid li:nth-child(n + 3) {
-    border-top: none;
-  }
-
-  .trustGrid li + li {
-    border-left: 1px solid var(--kw-border);
-  }
-}
-
-.trustGrid svg {
-  flex-shrink: 0;
-  margin-top: 2px;
-  font-size: 20px;
-  color: var(--kw-primary);
-}
-
-.trustGrid div {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.trustGrid strong {
-  font-size: 14.5px;
-  font-weight: 600;
-}
-
-.trustGrid span {
-  font-size: 13px;
-  color: var(--kw-muted);
-  overflow-wrap: anywhere;
-}
-
-.trustGrid a {
-  color: var(--kw-primary-hover);
-  font-weight: 600;
-}
-
-/* ---------- Services ---------- */
-.serviceGrid {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
-}
-
-@media (min-width: 640px) {
-  .serviceGrid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (min-width: 1024px) {
-  .serviceGrid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-  }
-}
-
-.serviceCard {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  padding: 24px;
-  border: 1px solid var(--kw-border);
-  border-radius: var(--kw-radius);
-  background: var(--kw-surface);
-  transition: border-color 0.2s ease, transform 0.2s var(--kw-ease), box-shadow 0.2s ease;
-}
-
-.serviceCard:hover {
-  border-color: #b7dede;
-  transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(4, 60, 60, 0.06);
-}
-
-.serviceCard h3 {
-  margin: 18px 0 8px;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-.serviceCard p {
-  margin: 0 0 18px;
-  flex: 1;
-  font-size: 15px;
-  line-height: 1.6;
-  color: var(--kw-muted);
-}
-
-.cardLink {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  margin-bottom: -10px;
-  color: var(--kw-primary-hover);
-  font-size: 15px;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-/* Whole card clickable via the link's stretched hit area */
-.cardLink::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: var(--kw-radius);
 }
 
 /* ---------- Categories ---------- */
@@ -1193,7 +1011,6 @@
   }
 }
 
-.trustGrid a[href^="tel:"],
 .contactList a[href^="tel:"] {
   white-space: nowrap;
 }
