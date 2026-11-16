@@ -213,67 +213,12 @@
   text-align: center;
 }
 
-.loginBtn,
-.ctaBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 42px;
-  padding: 0 16px;
-  border-radius: var(--kw-radius-sm);
-  font-size: 14px;
-  font-weight: 600;
-  text-decoration: none;
-  white-space: nowrap;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.loginBtn {
-  border: 1px solid var(--kw-border-strong);
-  background: var(--kw-surface);
-  color: var(--kw-ink);
-}
-
-.loginBtn:hover {
-  border-color: var(--kw-primary);
-  color: var(--kw-primary-hover);
-}
-
-.ctaBtn {
-  background: var(--kw-primary);
-  color: #ffffff;
-}
-
-.ctaBtn:hover {
-  background: var(--kw-primary-hover);
-}
-
 .hideSm {
   display: none;
 }
 
 @media (min-width: 480px) {
   .hideSm {
-    display: inline-flex;
-  }
-}
-
-.hideMd {
-  display: none !important;
-}
-
-@media (min-width: 768px) {
-  .hideMd {
-    display: inline-flex !important;
-  }
-}
-
-.hideLg {
-  display: none;
-}
-
-@media (min-width: 1200px) {
-  .hideLg {
     display: inline-flex;
   }
 }
@@ -681,17 +626,152 @@
   }
 }
 
-/* Login / dashboard icon shown only below 768px (the full button shows above) */
-.showSmOnly {
-  display: inline-flex;
+.logo {
+  border-radius: 8px;
+}
+
+/* ---- Single account button (Login / Join for visitors) ---- */
+.labelMd {
+  display: none;
 }
 
 @media (min-width: 768px) {
-  .showSmOnly {
-    display: none;
+  .labelMd {
+    display: inline;
   }
 }
 
-.logo {
-  border-radius: 8px;
+.authBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--kw-ink);
+  font: inherit;
+  font-size: 20px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.authBtn:hover {
+  background: var(--kw-primary-tint);
+  color: var(--kw-primary-hover);
+}
+
+@media (min-width: 768px) {
+  .authBtn {
+    width: auto;
+    height: 42px;
+    padding: 0 14px 0 16px;
+    margin-left: 6px;
+    background: var(--kw-primary);
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .authBtn:hover {
+    background: var(--kw-primary-hover);
+    color: #ffffff;
+  }
+
+  .authBtn > svg:first-child {
+    font-size: 16px;
+  }
+}
+
+.chevron {
+  font-size: 15px;
+  transition: transform 0.2s var(--kw-ease);
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+/* Signed-in button: avatar only on phones */
+@media (max-width: 767px) {
+  .accountBtn {
+    width: 44px;
+    height: 44px;
+    min-height: 0;
+    padding: 0;
+    justify-content: center;
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .accountBtn .chevron {
+    display: none;
+  }
+
+  .dropdown {
+    width: min(260px, calc(100vw - 2 * var(--kw-gutter)));
+  }
+}
+
+.authItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 10px;
+  color: var(--kw-ink);
+  text-decoration: none;
+}
+
+.authItem:hover,
+.authItem:focus-visible {
+  background: var(--kw-bg);
+}
+
+.authItem span:last-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.authItem strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.authItem small {
+  font-size: 12.5px;
+  color: var(--kw-muted);
+}
+
+.authItem:hover strong {
+  color: var(--kw-primary-hover);
+}
+
+.authIcon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--kw-primary-tint);
+  color: var(--kw-primary-hover);
+  font-size: 17px;
+}
+
+.authIconAccent {
+  background: var(--kw-accent-tint);
+  color: var(--kw-accent-deep);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
 }

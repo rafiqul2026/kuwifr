@@ -4,7 +4,7 @@
 // Panel's palette (see --kw-* tokens in styles/variables.css).
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { FiSearch, FiHeart, FiShoppingBag, FiUser, FiMenu, FiX, FiChevronDown, FiChevronRight, FiPackage, FiLogOut, FiGrid } from 'react-icons/fi';
+import { FiSearch, FiHeart, FiShoppingBag, FiUser, FiMenu, FiX, FiChevronDown, FiChevronRight, FiPackage, FiLogOut, FiGrid, FiLogIn, FiUserPlus } from 'react-icons/fi';
 import { useShop } from '../../context/ShopContext';
 import { useAuth } from '../../context/AuthContext';
 import { cdnImage } from '../../utils/imageUrl';
@@ -286,26 +286,27 @@ const Header = () => {
               {cartCount > 0 && <span className={styles.badge}>{cartCount}</span>}
             </button>
 
-            {/* Phones: one-tap access to Customer Login / dashboard */}
-            <Link to={portalPath} className={`${styles.iconBtn} ${styles.showSmOnly}`} aria-label={portalLabel}>
-              <FiUser aria-hidden="true" />
-            </Link>
-
+            {/* One account button for every screen size: signed-out visitors
+                get Customer Login + Join KUWIFR in its menu; members get
+                their dashboard, orders and log out. On phones only the
+                icon/avatar shows. */}
             {isAuthenticated ? (
-              <div className={`${styles.account} ${styles.hideMd}`} ref={accountRef}>
+              <div className={styles.account} ref={accountRef}>
                 <button
                   type="button"
                   className={styles.accountBtn}
                   onClick={() => setShowAccountDropdown((o) => !o)}
                   aria-expanded={showAccountDropdown}
                   aria-haspopup="true"
+                  aria-controls="account-menu"
+                  aria-label={`Account menu for ${user?.fullName || 'member'}`}
                 >
                   <span className={styles.avatar} aria-hidden="true">{(user?.fullName || 'U')[0].toUpperCase()}</span>
-                  <span className={styles.accountName}>{user?.fullName?.split(' ')[0] || 'Account'}</span>
-                  <FiChevronDown aria-hidden="true" />
+                  <span className={`${styles.accountName} ${styles.labelMd}`}>{user?.fullName?.split(' ')[0] || 'Account'}</span>
+                  <FiChevronDown aria-hidden="true" className={`${styles.chevron} ${showAccountDropdown ? styles.chevronOpen : ''}`} />
                 </button>
                 {showAccountDropdown && (
-                  <div className={styles.dropdown}>
+                  <div className={styles.dropdown} id="account-menu">
                     <div className={styles.dropdownHead}>
                       <strong>{user?.fullName || 'Member'}</strong>
                       <small>{user?.memberId || role || 'MEMBER'}</small>
@@ -325,14 +326,43 @@ const Header = () => {
                 )}
               </div>
             ) : (
-              <>
-                <Link to="/login" className={`${styles.loginBtn} ${styles.hideMd}`}>
-                  <FiUser aria-hidden="true" /> Customer Login
-                </Link>
-                <Link to="/register" className={`${styles.ctaBtn} ${styles.hideLg}`}>
-                  Join KUWIFR
-                </Link>
-              </>
+              <div className={styles.account} ref={accountRef}>
+                <button
+                  type="button"
+                  className={styles.authBtn}
+                  onClick={() => setShowAccountDropdown((o) => !o)}
+                  aria-expanded={showAccountDropdown}
+                  aria-haspopup="true"
+                  aria-controls="account-menu"
+                  aria-label="Login or join KUWIFR"
+                >
+                  <FiUser aria-hidden="true" />
+                  <span className={styles.labelMd}>Login / Join</span>
+                  <FiChevronDown aria-hidden="true" className={`${styles.chevron} ${styles.labelMd} ${showAccountDropdown ? styles.chevronOpen : ''}`} />
+                </button>
+                {showAccountDropdown && (
+                  <div className={styles.dropdown} id="account-menu">
+                    <div className={styles.dropdownHead}>
+                      <strong>Welcome to KUWIFR</strong>
+                      <small>Sign in or create your member account</small>
+                    </div>
+                    <Link to="/login" className={styles.authItem}>
+                      <span className={styles.authIcon} aria-hidden="true"><FiLogIn /></span>
+                      <span>
+                        <strong>Customer Login</strong>
+                        <small>Open your Customer Panel</small>
+                      </span>
+                    </Link>
+                    <Link to="/register" className={styles.authItem}>
+                      <span className={`${styles.authIcon} ${styles.authIconAccent}`} aria-hidden="true"><FiUserPlus /></span>
+                      <span>
+                        <strong>Join KUWIFR</strong>
+                        <small>Create a new member account</small>
+                      </span>
+                    </Link>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
