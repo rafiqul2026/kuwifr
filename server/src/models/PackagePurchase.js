@@ -43,7 +43,10 @@ const packagePurchaseSchema = new mongoose.Schema(
       name: String,
       category: String,
       price: Number,
-      image: String
+      image: String,
+      quantity: { type: Number, default: 1 },
+      optionKey: String,
+      groupName: String
     },
     selectedProducts: [
       {
@@ -54,7 +57,13 @@ const packagePurchaseSchema = new mongoose.Schema(
         name: String,
         category: String,
         price: Number,
-        image: String
+        image: String,
+        // How many units of this product the member receives.
+        quantity: { type: Number, default: 1 },
+        // Which package choice (Package.productOptions[].key) this line
+        // came from; lines sharing a groupName were picked as one bundle.
+        optionKey: String,
+        groupName: String
       }
     ],
     paymentMethod: {

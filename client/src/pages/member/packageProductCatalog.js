@@ -37,6 +37,96 @@ const normalizeProduct = (p) => ({
   image: p.images?.[0]?.url || ''
 });
 
+export const withQty = (name, qty) => (Number(qty) > 1 ? `${name} × ${qty}` : name);
+
+const describeItems = (items) => items.map((i) => withQty(i.name, i.quantity)).join(' + ');
+
+/**
+ * The package's explicit product choices — [{ key, kind: 'PRODUCT'|'GROUP',
+ * name, items: [{ productId, quantity }] }] — or null when the package uses
+ * the automatic default. Mirrors getPackageOptions in
+ * server/src/utils/packageOptions.js (packages saved before product groups
+ * existed only have includedProductIds: single products, quantity 1).
+ */
+export const getPackageOptions = (pkg) => {
+  if (Array.isArray(pkg?.productOptions)) {
+    return pkg.productOptions.map((o) => ({
+      key: o.key,
+      kind: o.kind === 'GROUP' ? 'GROUP' : 'PRODUCT',
+      name: o.name || '',
+      items: (o.items || []).map((i) => ({ productId: i.productId, quantity: Number(i.quantity) || 1 }))
+    }));
+  }
+  if (Array.isArray(pkg?.includedProductIds)) {
+    return pkg.includedProductIds.map((id) => ({
+      key: `p:${id}`,
+      kind: 'PRODUCT',
+      name: '',
+      items: [{ productId: id, quantity: 1 }]
+    }));
+  }
+  return null;
+};
+
+/**
+ * Turns the member's chosen option(s) into the `selectedProducts` lines the
+ * purchase / upgrade APIs expect — a product group expands into one line
+ * per product. The server re-derives names, prices and quantities from the
+ * package's options; optionKey tells it which choice was picked.
+ */
+export const toPurchaseLines = (chosen = []) =>
+  chosen.flatMap((p) => {
+    if (p.isGroup) {
+      return p.items.map((i) => ({
+        productId: i.id,
+        name: i.name,
+        category: i.category,
+        price: i.ksp,
+        image: i.image,
+        quantity: i.quantity,
+        optionKey: p.optionKey,
+        groupName: p.name
+      }));
+    }
+    return [{
+      productId: p.id,
+      name: p.baseName || p.name,
+      category: p.category,
+      price: p.quantity > 1 ? Number(p.ksp) / p.quantity : p.ksp,
+      image: p.image,
+      quantity: p.quantity || 1,
+      ...(p.optionKey ? { optionKey: p.optionKey } : {})
+    }];
+  });
+
+/**
+ * Human-readable summary of stored purchase lines, e.g.
+ * "Hair Combo (Shampoo × 2 + Turmeric Powder)" or "Sugar Care × 2".
+ */
+export const describePurchaseLines = (lines = []) => {
+  const parts = [];
+  const groups = new Map();
+  lines.forEach((l) => {
+    if (l?.groupName) {
+      const key = l.optionKey || l.groupName;
+      if (!groups.has(key)) {
+        groups.set(key, { name: l.groupName, items: [] });
+        parts.push(groups.get(key));
+      }
+      groups.get(key).items.push(l);
+    } else if (l) {
+      parts.push(l);
+    }
+  });
+  return parts
+    .map((p) => (p.items
+      ? (p.items.map((i) => i.name).join(' + ') === p.name
+          ? describeItems(p.items)
+          : `${p.name} (${describeItems(p.items)})`)
+      : withQty(p.name, p.quantity)))
+    .join(' + ');
+};
+
 /**
  * Real, admin-managed products whose price matches this package's tier.
  * `repurchaseProducts` is the array from GET /api/repurchase/products
@@ -51,13 +141,48 @@ export const getProductsForPackage = (pkg, repurchaseProducts = []) => {
 
   // Admin's explicit choice (Admin > Packages > Products) wins when one has
   // been set — including an empty list, meaning "offer nothing". Order
-  // follows the order the admin arranged them in.
-  if (Array.isArray(pkg?.includedProductIds)) {
+  // follows the order the admin arranged them in. Each choice is a single
+  // product (with a quantity) or a product group picked as one unit.
+  const options = getPackageOptions(pkg);
+  if (options) {
     const byId = new Map(repurchaseProducts.map((p) => [p.id, p]));
-    return pkg.includedProductIds
-      .map((id) => byId.get(id))
+    return options
+      .map((opt) => {
+        const items = opt.items.map((i) => {
+          const p = byId.get(i.productId);
+          return p ? { ...normalizeProduct(p), quantity: i.quantity } : null;
+        });
+        // A choice with an inactive/deleted product can't be fulfilled —
+        // hide it (the server would reject it anyway).
+        if (items.length === 0 || items.some((x) => !x)) return null;
+
+        if (opt.kind === 'GROUP') {
+          return {
+            id: opt.key,
+            optionKey: opt.key,
+            isGroup: true,
+            name: opt.name || items.map((i) => i.name).join(' + '),
+            category: 'Product Group',
+            image: items.find((i) => i.image)?.image || '',
+            ksp: items.reduce((s, i) => s + Number(i.ksp || 0) * i.quantity, 0),
+            mrp: items.reduce((s, i) => s + Number(i.mrp || 0) * i.quantity, 0) || undefined,
+            items,
+            contents: describeItems(items)
+          };
+        }
+
+        const [item] = items;
+        return {
+          ...item,
+          optionKey: opt.key,
+          name: withQty(item.name, item.quantity),
+          baseName: item.name,
+          ksp: Number(item.ksp || 0) * item.quantity,
+          mrp: item.mrp ? Number(item.mrp) * item.quantity : item.mrp,
+          contents: item.quantity > 1 ? `${item.quantity} units` : ''
+        };
+      })
       .filter(Boolean)
-      .map(normalizeProduct)
       .concat(insurance);
   }
 

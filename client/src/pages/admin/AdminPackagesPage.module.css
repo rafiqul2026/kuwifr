@@ -737,3 +737,271 @@
   color: #737373;
   line-height: 1.4;
 }
+
+/* ---- Package "Products" modal: quantities + product groups ---- */
+.prodSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.prodSectionHead .prodSectionTitle {
+  margin: 0;
+}
+
+.prodListTall {
+  max-height: 420px;
+}
+
+.prodGroupNewBtn,
+.groupAddBtn {
+  flex-shrink: 0;
+  background: #ffffff;
+  color: #008080;
+  border: 1px solid #008080;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.prodGroupNewBtn:hover,
+.groupAddBtn:hover {
+  background: #e6f4f4;
+}
+
+.prodLinkBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #008080;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.prodRowActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.qtyStepper {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid #d4d4d4;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #ffffff;
+  height: 30px;
+}
+
+.qtyStepper button {
+  width: 28px;
+  border: none;
+  background: #f5f5f5;
+  color: #1c2a2a;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.qtyStepper button:hover:not(:disabled) {
+  background: #e6f4f4;
+  color: #008080;
+}
+
+.qtyStepper button:disabled {
+  color: #c4c4c4;
+  cursor: not-allowed;
+}
+
+.qtyStepper input {
+  width: 38px;
+  border: none;
+  border-left: 1px solid #e5e5e5;
+  border-right: 1px solid #e5e5e5;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1c2a2a;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.qtyStepper input::-webkit-outer-spin-button,
+.qtyStepper input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.orderBtns {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.orderBtns button {
+  width: 22px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid #e5e5e5;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #737373;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.orderBtns button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.groupCard {
+  border: 1px solid #b2dcdc;
+  border-radius: 10px;
+  background: #f4fbfb;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.groupCardActive {
+  border-color: #008080;
+  box-shadow: 0 0 0 2px rgba(0, 128, 128, 0.15);
+}
+
+.groupHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.groupBadge {
+  flex-shrink: 0;
+  background: #008080;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  border-radius: 6px;
+  padding: 3px 7px;
+}
+
+.groupNameInput {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid #d4d4d4;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1c2a2a;
+  background: #ffffff;
+}
+
+.groupItems {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.groupItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+}
+
+.groupItem .prodThumb {
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+}
+
+.groupItemRemove {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #dc2626;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.groupItemRemove:hover {
+  background: #fef2f2;
+}
+
+.groupHint {
+  padding: 10px;
+  text-align: center;
+  font-size: 12px;
+  color: #737373;
+  border: 1px dashed #b2dcdc;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.groupFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #525252;
+}
+
+.groupWarn {
+  color: #b45309;
+  font-style: normal;
+  font-weight: 600;
+}
+
+@media (max-width: 560px) {
+  .prodRowWrap {
+    flex-wrap: wrap;
+  }
+
+  .prodRowWrap .prodInfo {
+    flex: 1 1 calc(100% - 100px);
+  }
+
+  .prodRowWrap .prodRowActions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .groupHead {
+    flex-wrap: wrap;
+  }
+
+  .groupNameInput {
+    flex: 1 1 100%;
+    order: 3;
+  }
+
+  .groupHead .prodRemoveBtn {
+    margin-left: auto;
+  }
+
+  .prodListTall {
+    max-height: none;
+  }
+}

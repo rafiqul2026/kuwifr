@@ -78,6 +78,26 @@ const PackageSchema = new mongoose.Schema({
     default: undefined
   },
 
+  // The admin's explicit product choices with quantities and product
+  // groups (see utils/packageOptions.js). When set, this is the source of
+  // truth and includedProductIds is kept in sync as the flat list of every
+  // product it mentions (for older readers). Same `default: undefined`
+  // rule as above: unset = automatic / legacy list.
+  productOptions: {
+    type: [{
+      _id: false,
+      key: { type: String, required: true },
+      kind: { type: String, enum: ['PRODUCT', 'GROUP'], required: true },
+      name: { type: String, trim: true, default: '' },
+      items: [{
+        _id: false,
+        productId: { type: String, required: true },
+        quantity: { type: Number, min: 1, max: 99, default: 1 }
+      }]
+    }],
+    default: undefined
+  },
+
   // Features and Benefits
   features: [String],
   benefits: [String],

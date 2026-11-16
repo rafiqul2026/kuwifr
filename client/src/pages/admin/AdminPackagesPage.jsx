@@ -3,6 +3,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './AdminPackagesPage.module.css';
+import { getPackageOptions } from '../member/packageProductCatalog';
+
+const MAX_QTY = 99; // matches server/src/utils/packageOptions.js
 
 const AdminPackagesPage = () => {
   const { showNotification } = useNotification ? useNotification() : {
@@ -20,25 +23,35 @@ const AdminPackagesPage = () => {
   const [productsPkg, setProductsPkg] = useState(null); // package being edited
   const [catalog, setCatalog] = useState([]); // all Repurchase Store products
   const [catalogLoading, setCatalogLoading] = useState(false);
-  const [assignedIds, setAssignedIds] = useState([]); // working list
+  // Working list of choices. Each is a single product or a product group:
+  // { uid, key?, kind: 'PRODUCT'|'GROUP', name, items: [{ productId, quantity }] }
+  const [options, setOptions] = useState([]);
+  const [addTarget, setAddTarget] = useState(null); // null = add as single product, else a group's uid
   const [productSearch, setProductSearch] = useState('');
   const [savingProducts, setSavingProducts] = useState(false);
+
+  const newUid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const clampQty = (n) => Math.min(MAX_QTY, Math.max(1, Math.round(Number(n) || 1)));
 
   const openProductsModal = async (pkg) => {
     setProductsPkg(pkg);
     setProductSearch('');
+    setAddTarget(null);
     setCatalogLoading(true);
     try {
       const res = await api.get('/api/repurchase/admin/products');
       const products = res.data?.data?.products || [];
       setCatalog(products);
-      // Start from the admin's saved list; if none was ever set, show the
-      // automatic default (active products priced at this package's KSP) so
-      // they can see and tweak what members currently get.
-      setAssignedIds(
-        Array.isArray(pkg.includedProductIds)
-          ? pkg.includedProductIds
-          : products.filter((p) => p.isActive !== false && Number(p.ksp) === Number(pkg.price)).map((p) => p.id)
+      // Start from the admin's saved choices; if none were ever set, show
+      // the automatic default (active products priced at this package's
+      // KSP) so they can see and tweak what members currently get.
+      const saved = getPackageOptions(pkg);
+      setOptions(
+        saved
+          ? saved.map((o) => ({ ...o, uid: newUid() }))
+          : products
+              .filter((p) => p.isActive !== false && Number(p.ksp) === Number(pkg.price))
+              .map((p) => ({ uid: newUid(), kind: 'PRODUCT', name: '', items: [{ productId: p.id, quantity: 1 }] }))
       );
     } catch (err) {
       showNotification('Could not load the product catalog.', 'error');
@@ -48,13 +61,74 @@ const AdminPackagesPage = () => {
     }
   };
 
+  const updateOption = (uid, fn) => setOptions((prev) => prev.map((o) => (o.uid === uid ? fn(o) : o)));
+
+  const setItemQty = (uid, productId, qty) =>
+    updateOption(uid, (o) => ({
+      ...o,
+      items: o.items.map((i) => (i.productId === productId ? { ...i, quantity: clampQty(qty) } : i))
+    }));
+
+  const removeOption = (uid) => {
+    setOptions((prev) => prev.filter((o) => o.uid !== uid));
+    if (addTarget === uid) setAddTarget(null);
+  };
+
+  const removeGroupItem = (uid, productId) =>
+    updateOption(uid, (o) => ({ ...o, items: o.items.filter((i) => i.productId !== productId) }));
+
+  const addProduct = (productId) => {
+    if (addTarget) {
+      updateOption(addTarget, (o) => (o.items.some((i) => i.productId === productId)
+        ? o
+        : { ...o, items: [...o.items, { productId, quantity: 1 }] }));
+    } else {
+      setOptions((prev) => [...prev, { uid: newUid(), kind: 'PRODUCT', name: '', items: [{ productId, quantity: 1 }] }]);
+    }
+  };
+
+  const addGroup = () => {
+    const uid = newUid();
+    const groupCount = options.filter((o) => o.kind === 'GROUP').length;
+    setOptions((prev) => [...prev, { uid, kind: 'GROUP', name: `Combo ${groupCount + 1}`, items: [] }]);
+    setAddTarget(uid);
+    setProductSearch('');
+  };
+
+  // Up / down arrows: the order here is the order members see.
+  const moveOption = (uid, dir) =>
+    setOptions((prev) => {
+      const i = prev.findIndex((o) => o.uid === uid);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= prev.length) return prev;
+      const next = [...prev];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+
   const saveProducts = async ({ reset = false } = {}) => {
     if (!productsPkg) return;
+    if (!reset) {
+      const badGroup = options.find((o) => o.kind === 'GROUP' && o.items.length < 2);
+      if (badGroup) {
+        showNotification(`"${badGroup.name || 'Product group'}" needs at least 2 products. Add more or remove the group.`, 'warning');
+        setAddTarget(badGroup.uid);
+        return;
+      }
+    }
     setSavingProducts(true);
     try {
       const res = await api.put(
         `/api/packages/${productsPkg._id}/products`,
-        reset ? { reset: true } : { productIds: assignedIds }
+        reset
+          ? { reset: true }
+          : {
+              options: options.map((o) => ({
+                kind: o.kind,
+                ...(o.kind === 'GROUP' ? { name: o.name.trim(), key: o.key } : {}),
+                items: o.items.map((i) => ({ productId: i.productId, quantity: clampQty(i.quantity) }))
+              }))
+            }
       );
       showNotification(res.data?.message || 'Package products updated.', 'success');
       setProductsPkg(null);
@@ -571,30 +645,82 @@ const AdminPackagesPage = () => {
         </div>
       )}
 
-      {/* Products modal — pick which catalog products members can choose
-          when buying / upgrading to this package. */}
+      {/* Products modal — choose what members can pick when buying /
+          upgrading to this package: single products (with a quantity) and
+          product groups (several products, each with a quantity, picked
+          as one choice). */}
       {productsPkg && (() => {
         const byId = new Map(catalog.map((p) => [p.id, p]));
-        const assigned = assignedIds.map((id) => byId.get(id) || { id, name: id, missing: true });
+        const lookup = (id) => byId.get(id) || { id, name: id, missing: true };
+        const target = addTarget ? options.find((o) => o.uid === addTarget) : null;
+        const takenIds = new Set(
+          target
+            ? target.items.map((i) => i.productId)
+            : options.filter((o) => o.kind === 'PRODUCT').map((o) => o.items[0]?.productId)
+        );
         const q = productSearch.trim().toLowerCase();
         const available = catalog.filter(
           (p) =>
-            !assignedIds.includes(p.id) &&
+            !takenIds.has(p.id) &&
             (!q || [p.name, p.id, p.category].some((v) => String(v || '').toLowerCase().includes(q)))
         );
-        const isCustom = Array.isArray(productsPkg.includedProductIds);
+        const isCustom = Array.isArray(productsPkg.productOptions) || Array.isArray(productsPkg.includedProductIds);
+        const singlesCount = options.filter((o) => o.kind === 'PRODUCT').length;
+        const groupsCount = options.length - singlesCount;
+        const inr = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
+
+        const thumb = (p) => (p.images?.[0]?.url
+          ? <img src={p.images[0].url} alt="" className={styles.prodThumb} />
+          : <div className={styles.prodThumb}>📦</div>);
+
+        const stepper = (uid, item, label) => (
+          <div className={styles.qtyStepper} role="group" aria-label={`Quantity of ${label}`}>
+            <button
+              type="button"
+              aria-label="Decrease quantity"
+              disabled={item.quantity <= 1}
+              onClick={() => setItemQty(uid, item.productId, item.quantity - 1)}
+            >
+              −
+            </button>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={MAX_QTY}
+              value={item.quantity}
+              onChange={(e) => setItemQty(uid, item.productId, e.target.value)}
+              aria-label="Quantity"
+            />
+            <button
+              type="button"
+              aria-label="Increase quantity"
+              disabled={item.quantity >= MAX_QTY}
+              onClick={() => setItemQty(uid, item.productId, item.quantity + 1)}
+            >
+              +
+            </button>
+          </div>
+        );
+
+        const orderButtons = (uid, idx) => (
+          <div className={styles.orderBtns}>
+            <button type="button" aria-label="Move up" disabled={idx === 0} onClick={() => moveOption(uid, -1)}>▲</button>
+            <button type="button" aria-label="Move down" disabled={idx === options.length - 1} onClick={() => moveOption(uid, 1)}>▼</button>
+          </div>
+        );
 
         return (
           <div className={styles.modalOverlay} onClick={() => !savingProducts && setProductsPkg(null)}>
-            <div className={styles.modalContent} style={{ maxWidth: 720 }} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalContent} style={{ maxWidth: 760 }} onClick={(e) => e.stopPropagation()}>
               <div className={styles.modalHeader}>
                 <div>
                   <h2>Products in {productsPkg.name}</h2>
                   <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-                    Members choose one of these when they buy or upgrade to this package.{' '}
+                    Members choose one of these when they buy or upgrade to this package. A product group counts as one choice.{' '}
                     {isCustom
                       ? 'Currently a custom list.'
-                      : `Currently automatic (products priced at ₹${(productsPkg.price || 0).toLocaleString('en-IN')}).`}
+                      : `Currently automatic (products priced at ${inr(productsPkg.price)}).`}
                   </p>
                 </div>
                 <button onClick={() => setProductsPkg(null)} className={styles.closeBtn}>✕</button>
@@ -605,42 +731,132 @@ const AdminPackagesPage = () => {
                   <p>Loading products...</p>
                 ) : (
                   <>
-                    <h3 className={styles.prodSectionTitle}>
-                      Included in this package ({assigned.length})
-                    </h3>
-                    {assigned.length === 0 ? (
+                    <div className={styles.prodSectionHead}>
+                      <h3 className={styles.prodSectionTitle}>
+                        Included in this package ({singlesCount} product{singlesCount === 1 ? '' : 's'}
+                        {groupsCount ? `, ${groupsCount} group${groupsCount === 1 ? '' : 's'}` : ''})
+                      </h3>
+                      <button type="button" className={styles.prodGroupNewBtn} onClick={addGroup}>
+                        + New product group
+                      </button>
+                    </div>
+
+                    {options.length === 0 ? (
                       <div className={styles.prodEmpty}>
-                        No products — members won't be able to buy this package until you add at least one.
+                        No products — members won't be able to buy this package until you add at least one product or group.
                       </div>
                     ) : (
-                      <div className={styles.prodList}>
-                        {assigned.map((p) => (
-                          <div key={p.id} className={styles.prodRow}>
-                            {p.images?.[0]?.url ? (
-                              <img src={p.images[0].url} alt="" className={styles.prodThumb} />
-                            ) : (
-                              <div className={styles.prodThumb}>📦</div>
-                            )}
-                            <div className={styles.prodInfo}>
-                              <strong>{p.name}</strong>
-                              <small>
-                                {p.missing ? 'No longer in the catalog' : `${p.category} · KSP ₹${Number(p.ksp).toLocaleString('en-IN')}`}
-                                {p.isActive === false ? ' · inactive (hidden from members)' : ''}
-                              </small>
+                      <div className={`${styles.prodList} ${styles.prodListTall}`}>
+                        {options.map((o, idx) => {
+                          if (o.kind === 'PRODUCT') {
+                            const item = o.items[0];
+                            const p = lookup(item.productId);
+                            return (
+                              <div key={o.uid} className={`${styles.prodRow} ${styles.prodRowWrap}`}>
+                                {orderButtons(o.uid, idx)}
+                                {thumb(p)}
+                                <div className={styles.prodInfo}>
+                                  <strong>{p.name}</strong>
+                                  <small>
+                                    {p.missing ? 'No longer in the catalog' : `${p.category} · KSP ${inr(p.ksp)}`}
+                                    {!p.missing && item.quantity > 1 ? ` · total ${inr(p.ksp * item.quantity)}` : ''}
+                                    {p.isActive === false ? ' · inactive (hidden from members)' : ''}
+                                  </small>
+                                </div>
+                                <div className={styles.prodRowActions}>
+                                  {stepper(o.uid, item, p.name)}
+                                  <button type="button" className={styles.prodRemoveBtn} onClick={() => removeOption(o.uid)}>
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          const total = o.items.reduce((s, i) => s + Number(lookup(i.productId).ksp || 0) * i.quantity, 0);
+                          const units = o.items.reduce((s, i) => s + i.quantity, 0);
+                          const isTarget = addTarget === o.uid;
+                          return (
+                            <div key={o.uid} className={`${styles.groupCard} ${isTarget ? styles.groupCardActive : ''}`}>
+                              <div className={styles.groupHead}>
+                                {orderButtons(o.uid, idx)}
+                                <span className={styles.groupBadge}>Group</span>
+                                <input
+                                  type="text"
+                                  className={styles.groupNameInput}
+                                  value={o.name}
+                                  maxLength={80}
+                                  placeholder="Group name, e.g. Hair Care Combo"
+                                  onChange={(e) => updateOption(o.uid, (g) => ({ ...g, name: e.target.value }))}
+                                  aria-label="Product group name"
+                                />
+                                <button type="button" className={styles.prodRemoveBtn} onClick={() => removeOption(o.uid)}>
+                                  Remove group
+                                </button>
+                              </div>
+
+                              {o.items.length === 0 ? (
+                                <div className={styles.groupHint}>Add at least 2 products to this group from the list below.</div>
+                              ) : (
+                                <div className={styles.groupItems}>
+                                  {o.items.map((item) => {
+                                    const p = lookup(item.productId);
+                                    return (
+                                      <div key={item.productId} className={`${styles.groupItem} ${styles.prodRowWrap}`}>
+                                        {thumb(p)}
+                                        <div className={styles.prodInfo}>
+                                          <strong>{p.name}</strong>
+                                          <small>
+                                            {p.missing ? 'No longer in the catalog' : `KSP ${inr(p.ksp)}`}
+                                            {p.isActive === false ? ' · inactive' : ''}
+                                          </small>
+                                        </div>
+                                        <div className={styles.prodRowActions}>
+                                          {stepper(o.uid, item, p.name)}
+                                          <button
+                                            type="button"
+                                            className={styles.groupItemRemove}
+                                            aria-label={`Remove ${p.name} from group`}
+                                            onClick={() => removeGroupItem(o.uid, item.productId)}
+                                          >
+                                            ✕
+                                          </button>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              <div className={styles.groupFoot}>
+                                <span>
+                                  {o.items.length} product{o.items.length === 1 ? '' : 's'} · {units} unit{units === 1 ? '' : 's'} · total KSP {inr(total)}
+                                  {o.items.length === 1 && <em className={styles.groupWarn}> · add 1 more product</em>}
+                                </span>
+                                <button
+                                  type="button"
+                                  className={styles.groupAddBtn}
+                                  onClick={() => { setAddTarget(isTarget ? null : o.uid); setProductSearch(''); }}
+                                >
+                                  {isTarget ? 'Done adding' : '+ Add products'}
+                                </button>
+                              </div>
                             </div>
-                            <button
-                              type="button"
-                              className={styles.prodRemoveBtn}
-                              onClick={() => setAssignedIds((prev) => prev.filter((x) => x !== p.id))}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
 
-                    <h3 className={styles.prodSectionTitle} style={{ marginTop: 18 }}>Add a product</h3>
+                    <div className={styles.prodSectionHead} style={{ marginTop: 18 }}>
+                      <h3 className={styles.prodSectionTitle}>
+                        {target ? `Add products to "${target.name || 'Product group'}"` : 'Add a product'}
+                      </h3>
+                      {target && (
+                        <button type="button" className={styles.prodLinkBtn} onClick={() => setAddTarget(null)}>
+                          Add single products instead
+                        </button>
+                      )}
+                    </div>
                     <input
                       type="text"
                       placeholder="Search by name, ID, or category..."
@@ -654,24 +870,16 @@ const AdminPackagesPage = () => {
                       ) : (
                         available.map((p) => (
                           <div key={p.id} className={styles.prodRow}>
-                            {p.images?.[0]?.url ? (
-                              <img src={p.images[0].url} alt="" className={styles.prodThumb} />
-                            ) : (
-                              <div className={styles.prodThumb}>📦</div>
-                            )}
+                            {thumb(p)}
                             <div className={styles.prodInfo}>
                               <strong>{p.name}</strong>
                               <small>
-                                {p.category} · KSP ₹{Number(p.ksp).toLocaleString('en-IN')}
+                                {p.category} · KSP {inr(p.ksp)}
                                 {p.isActive === false ? ' · inactive' : ''}
                               </small>
                             </div>
-                            <button
-                              type="button"
-                              className={styles.prodAddBtn}
-                              onClick={() => setAssignedIds((prev) => [...prev, p.id])}
-                            >
-                              + Add
+                            <button type="button" className={styles.prodAddBtn} onClick={() => addProduct(p.id)}>
+                              {target ? '+ Add to group' : '+ Add'}
                             </button>
                           </div>
                         ))

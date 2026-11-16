@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
-import { getProductsForPackage, getSelectionMode, getAmountPayable } from './packageProductCatalog';
+import { getProductsForPackage, getSelectionMode, getAmountPayable, toPurchaseLines, describePurchaseLines } from './packageProductCatalog';
 import styles from './UpgradePackagePage.module.css';
 
 // Per-tier accent colors, matches the palette used on the Buy Package page.
@@ -257,13 +257,7 @@ const UpgradePackagePage = () => {
     try {
       const payload = {
         packageId: selectedUpgrade._id,
-        selectedProducts: selectedProducts.map((p) => ({
-          productId: p.id,
-          name: p.name,
-          category: p.category,
-          price: p.ksp,
-          image: p.image
-        })),
+        selectedProducts: toPurchaseLines(selectedProducts),
         paymentMethod,
         transactionId: utrNumber.trim(),
         paymentProof: proofPreview
@@ -277,7 +271,7 @@ const UpgradePackagePage = () => {
           ...res.data.data,
           amountPayable,
           targetName: selectedUpgrade.name,
-          productNames: selectedProducts.map((p) => p.name).join(' + ')
+          productNames: describePurchaseLines(res.data.data?.selectedProducts) || selectedProducts.map((p) => p.name).join(' + ')
         });
         setModalStep('SUCCESS');
       } else {
@@ -509,6 +503,7 @@ const UpgradePackagePage = () => {
                         <div className={styles.productItemInfo}>
                           <span className={styles.itemCat}>{product.category}</span>
                           <h4 className={styles.itemTitle}>{product.name}</h4>
+                          {product.contents && <span className={styles.itemContents}>{product.contents}</span>}
                           {product.isInsurance && (
                             <>
                               <span className={styles.itemProvider}>{product.provider}</span>
@@ -615,6 +610,7 @@ const UpgradePackagePage = () => {
                         <div className={styles.chosenProductDetails}>
                           <span className={styles.chosenCat}>{product.category}</span>
                           <h3 className={styles.chosenTitle}>{product.name}</h3>
+                          {product.contents && <span className={styles.itemContents}>{product.contents}</span>}
                           {product.isInsurance ? (
                             <div className={styles.chosenPrices}>
                               <span><strong>Installment:</strong> ₹{product.installment?.toLocaleString('en-IN')}</span>

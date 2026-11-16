@@ -1336,3 +1336,13 @@
   font-weight: 700;
   color: #008080;
 }
+
+/* Product group contents / quantity line under a product choice */
+.itemContents {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #0f766e;
+  font-weight: 600;
+}

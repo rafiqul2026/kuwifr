@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
-import { getProductsForPackage, getSelectionMode, getAmountPayable } from './packageProductCatalog';
+import { getProductsForPackage, getSelectionMode, getAmountPayable, toPurchaseLines, describePurchaseLines } from './packageProductCatalog';
 import styles from './PackagesPage.module.css';
 
 // PBW Foundation token palette — teal primary, orange accent, plus the
@@ -270,13 +270,7 @@ const PackagesPage = () => {
         packagePrice: activePkg.price,
         kbpPoints: activePkg.kbp,
         dailyBinaryCap: activePkg.dailyCap,
-        selectedProducts: activeProducts.map((p) => ({
-          productId: p.id,
-          name: p.name,
-          category: p.category,
-          price: p.ksp,
-          image: p.image
-        })),
+        selectedProducts: toPurchaseLines(activeProducts),
         paymentMethod,
         transactionId: utrNumber.trim(),
         paymentProof: proofPreview
@@ -464,6 +458,7 @@ const PackagesPage = () => {
                         <div className={styles.productItemInfo}>
                           <span className={styles.itemCat}>{product.category}</span>
                           <h4 className={styles.itemTitle}>{product.name}</h4>
+                          {product.contents && <span className={styles.itemContents}>{product.contents}</span>}
                           {product.isInsurance ? (
                             <>
                               <span className={styles.itemProvider}>{product.provider}</span>
@@ -576,6 +571,7 @@ const PackagesPage = () => {
                         <div className={styles.chosenProductDetails}>
                           <span className={styles.chosenCat}>{product.category}</span>
                           <h3 className={styles.chosenTitle}>{product.name}</h3>
+                          {product.contents && <span className={styles.itemContents}>{product.contents}</span>}
                           {product.isInsurance ? (
                             <div className={styles.chosenPrices}>
                               <span><strong>Installment:</strong> ₹{product.installment?.toLocaleString('en-IN')}</span>
@@ -908,7 +904,7 @@ const PackagesPage = () => {
                   </div>
                   <div className={styles.receiptRow}>
                     <span>Bundled Product{successReceipt?.selectedProducts?.length > 1 ? 's' : ''}:</span>
-                    <strong>{successReceipt?.selectedProducts?.map((p) => p.name).join(' + ') || successReceipt?.selectedProduct?.name}</strong>
+                    <strong>{describePurchaseLines(successReceipt?.selectedProducts) || successReceipt?.selectedProduct?.name}</strong>
                   </div>
                   <div className={styles.receiptRow}>
                     <span>Submitted UTR / Ref:</span>

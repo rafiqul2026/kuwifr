@@ -7,6 +7,11 @@ const Order = require('../models/Order');
 const BinaryService = require('../services/binary.service');
 const IncomeService = require('../services/income.service');
 const { withInsurancePlan, getInsurancePlan } = require('../constants/insurancePlans');
+const {
+  normalizeOptionsInput,
+  allProductIds,
+  resolveSelectedProducts: resolveSelectedProductsForPackage
+} = require('../utils/packageOptions');
 
 // Income caps (dailyCap/weeklyCap/monthlyCap) — the Rupee capping value
 // itself is correct as-is and must NOT be scaled. What members see as
@@ -402,20 +407,30 @@ const setPackageProducts = async (req, res, next) => {
     }
 
     if (req.body?.reset === true) {
-      await Package.updateOne({ _id: pkg._id }, { $unset: { includedProductIds: 1 } });
+      await Package.updateOne({ _id: pkg._id }, { $unset: { includedProductIds: 1, productOptions: 1 } });
       return res.json({
         success: true,
         message: `${pkg.name} now uses the automatic product list (products priced at ₹${pkg.price.toLocaleString('en-IN')}).`,
-        data: { packageId: pkg._id, includedProductIds: null }
+        data: { packageId: pkg._id, includedProductIds: null, productOptions: null }
       });
     }
 
-    const { productIds } = req.body || {};
-    if (!Array.isArray(productIds) || productIds.some((x) => typeof x !== 'string')) {
-      return res.status(400).json({ success: false, message: 'productIds must be an array of product ids.' });
+    // New shape: { options: [{ kind, name?, key?, items: [{ productId, quantity }] }] }
+    // Legacy shape: { productIds: [...] } -> single products, quantity 1.
+    let rawOptions = req.body?.options;
+    if (rawOptions === undefined) {
+      const { productIds } = req.body || {};
+      if (!Array.isArray(productIds) || productIds.some((x) => typeof x !== 'string')) {
+        return res.status(400).json({ success: false, message: 'Send options (or productIds) as an array.' });
+      }
+      rawOptions = [...new Set(productIds.map((x) => x.trim()).filter(Boolean))]
+        .map((productId) => ({ kind: 'PRODUCT', items: [{ productId, quantity: 1 }] }));
     }
 
-    const uniqueIds = [...new Set(productIds.map((x) => x.trim()).filter(Boolean))];
+    const { error, options } = normalizeOptionsInput(rawOptions);
+    if (error) return res.status(400).json({ success: false, message: error });
+
+    const uniqueIds = allProductIds(options);
     const RepurchaseProduct = require('../models/RepurchaseProduct');
     const found = await RepurchaseProduct.find({ id: { $in: uniqueIds } }).select('id').lean();
     const foundSet = new Set(found.map((p) => p.id));
@@ -424,11 +439,20 @@ const setPackageProducts = async (req, res, next) => {
       return res.status(400).json({ success: false, message: `Unknown product id(s): ${missing.join(', ')}` });
     }
 
-    await Package.updateOne({ _id: pkg._id }, { $set: { includedProductIds: uniqueIds } });
+    await Package.updateOne(
+      { _id: pkg._id },
+      { $set: { productOptions: options, includedProductIds: uniqueIds } },
+      { runValidators: true }
+    );
+    const groups = options.filter((o) => o.kind === 'GROUP').length;
+    const singles = options.length - groups;
+    const parts = [];
+    if (singles) parts.push(`${singles} product${singles === 1 ? '' : 's'}`);
+    if (groups) parts.push(`${groups} product group${groups === 1 ? '' : 's'}`);
     res.json({
       success: true,
-      message: `${pkg.name} now offers ${uniqueIds.length} product${uniqueIds.length === 1 ? '' : 's'}.`,
-      data: { packageId: pkg._id, includedProductIds: uniqueIds }
+      message: `${pkg.name} now offers ${parts.join(' and ') || 'no products'}.`,
+      data: { packageId: pkg._id, includedProductIds: uniqueIds, productOptions: options }
     });
   } catch (error) {
     next(error);
@@ -442,20 +466,13 @@ const setPackageProducts = async (req, res, next) => {
  * behaviour (no server-side product check). Returns an error message string,
  * or null when the selection is fine.
  */
-const validateSelectedProducts = (pkg, selectedProducts) => {
-  if (!pkg || !Array.isArray(pkg.includedProductIds)) return null;
-  // The package's insurance plan is always a valid choice alongside the
-  // admin-assigned products (see constants/insurancePlans.js).
-  const allowed = new Set(pkg.includedProductIds);
-  const insurance = getInsurancePlan(pkg.type);
-  if (insurance) allowed.add(insurance.id);
-  // Member pages submit the product slug as `productId`; accept `id` too.
-  const bad = (selectedProducts || []).filter((p) => !allowed.has(p?.productId || p?.id));
-  if (bad.length) {
-    return `${bad.map((p) => p?.name || p?.id || 'That product').join(', ')} is not available with ${pkg.name}. Please choose one of the listed products.`;
-  }
-  return null;
-};
+//
+// The selection must match exactly one of the package's choices (a single
+// product or a whole product group), or the package's insurance plan.
+// Returns { error } or { products } — the authoritative product lines
+// (with quantities) to store on the purchase. See utils/packageOptions.js.
+const resolveSelectedProducts = (pkg, selectedProducts) =>
+  resolveSelectedProductsForPackage(pkg, selectedProducts, pkg ? getInsurancePlan(pkg.type) : null);
 
 /**
  * Admin: Toggle active status
@@ -654,7 +671,7 @@ module.exports = {
   createPackage,
   updatePackage,
   setPackageProducts,
-  validateSelectedProducts,
+  resolveSelectedProducts,
   togglePackageStatus,
   deletePackage,
   purchasePackage

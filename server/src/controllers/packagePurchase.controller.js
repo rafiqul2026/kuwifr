@@ -34,7 +34,7 @@ exports.completePackagePurchase = async (req, res) => {
     // Accept either the current `selectedProducts` array or the legacy
     // singular `selectedProduct` (older client builds) — normalize to both
     // so any code still reading the singular field keeps working.
-    const productsArray = Array.isArray(selectedProducts) && selectedProducts.length > 0
+    let productsArray = Array.isArray(selectedProducts) && selectedProducts.length > 0
       ? selectedProducts
       : (selectedProduct ? [selectedProduct] : []);
 
@@ -45,15 +45,18 @@ exports.completePackagePurchase = async (req, res) => {
       });
     }
 
-    // If the admin has assigned an explicit product list to this package
-    // (Admin > Packages > Products), the chosen product must be on it.
+    // If the admin has assigned explicit product choices to this package
+    // (Admin > Packages > Products), the selection must be one of them —
+    // a single product or a whole product group. The stored lines (names,
+    // prices, quantities) then come from the database, not the client.
     let chosenPkg = null;
     if (mongoose.Types.ObjectId.isValid(packageId)) {
-      chosenPkg = await Package.findById(packageId).select('name type price kbp dailyCap includedProductIds').lean();
-      const productError = require('./package.controller').validateSelectedProducts(chosenPkg, productsArray);
-      if (productError) {
-        return res.status(400).json({ success: false, message: productError });
+      chosenPkg = await Package.findById(packageId).select('name type price kbp dailyCap includedProductIds productOptions').lean();
+      const resolved = await require('./package.controller').resolveSelectedProducts(chosenPkg, productsArray);
+      if (resolved.error) {
+        return res.status(400).json({ success: false, message: resolved.error });
       }
+      productsArray = resolved.products;
     }
 
     // Amount payable is computed here, never taken from the client: the
@@ -139,7 +142,7 @@ exports.completePackageUpgrade = async (req, res) => {
       });
     }
 
-    const productsArray = Array.isArray(selectedProducts) && selectedProducts.length > 0
+    let productsArray = Array.isArray(selectedProducts) && selectedProducts.length > 0
       ? selectedProducts
       : (selectedProduct ? [selectedProduct] : []);
 
@@ -179,10 +182,11 @@ exports.completePackageUpgrade = async (req, res) => {
       });
     }
 
-    const upgradeProductError = require('./package.controller').validateSelectedProducts(targetPkg, productsArray);
-    if (upgradeProductError) {
-      return res.status(400).json({ success: false, message: upgradeProductError });
+    const resolvedUpgrade = await require('./package.controller').resolveSelectedProducts(targetPkg, productsArray);
+    if (resolvedUpgrade.error) {
+      return res.status(400).json({ success: false, message: resolvedUpgrade.error });
     }
+    productsArray = resolvedUpgrade.products;
 
     const existingTxn = await PackagePurchase.findOne({ transactionId: transactionId.trim() });
     if (existingTxn) {

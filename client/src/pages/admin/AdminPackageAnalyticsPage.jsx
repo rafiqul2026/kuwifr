@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './AdminPackageAnalyticsPage.module.css';
+import { describePurchaseLines } from '../member/packageProductCatalog';
 
 const AdminPackageAnalyticsPage = () => {
   const { showNotification } = useNotification();
@@ -351,7 +352,7 @@ const AdminPackageAnalyticsPage = () => {
                     <td>
                       {(() => {
                         const productLabel = item.selectedProducts?.length > 0
-                          ? item.selectedProducts.map((p) => p.name).join(' + ')
+                          ? describePurchaseLines(item.selectedProducts)
                           : (item.selectedProduct?.name || 'Direct Package');
                         return (
                           <span className={styles.productNameText} title={productLabel}>
