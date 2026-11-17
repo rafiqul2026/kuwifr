@@ -8,9 +8,7 @@ import { getPackageOptions } from '../member/packageProductCatalog';
 const MAX_QTY = 99; // matches server/src/utils/packageOptions.js
 
 const AdminPackagesPage = () => {
-  const { showNotification } = useNotification ? useNotification() : {
-    showNotification: (msg, type) => console.log(`[${type}] ${msg}`)
-  };
+  const { showNotification } = useNotification();
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -48,7 +46,7 @@ const AdminPackagesPage = () => {
       const saved = getPackageOptions(pkg);
       setOptions(
         saved
-          ? saved.map((o) => ({ ...o, uid: newUid() }))
+          ? saved.map((o) => ({ ...o, price: typeof o.price === 'number' ? String(o.price) : '', uid: newUid() }))
           : products
               .filter((p) => p.isActive !== false && Number(p.ksp) === Number(pkg.price))
               .map((p) => ({ uid: newUid(), kind: 'PRODUCT', name: '', items: [{ productId: p.id, quantity: 1 }] }))
@@ -90,7 +88,7 @@ const AdminPackagesPage = () => {
   const addGroup = () => {
     const uid = newUid();
     const groupCount = options.filter((o) => o.kind === 'GROUP').length;
-    setOptions((prev) => [...prev, { uid, kind: 'GROUP', name: `Combo ${groupCount + 1}`, items: [] }]);
+    setOptions((prev) => [...prev, { uid, kind: 'GROUP', name: `Combo ${groupCount + 1}`, price: '', items: [] }]);
     setAddTarget(uid);
     setProductSearch('');
   };
@@ -115,6 +113,13 @@ const AdminPackagesPage = () => {
         setAddTarget(badGroup.uid);
         return;
       }
+      const badPrice = options.find(
+        (o) => o.kind === 'GROUP' && o.price !== '' && o.price !== undefined && !(Number.isInteger(Number(o.price)) && Number(o.price) >= 1)
+      );
+      if (badPrice) {
+        showNotification(`Combo price for "${badPrice.name || 'Product group'}" must be a whole number of rupees (1 or more), or left empty.`, 'warning');
+        return;
+      }
     }
     setSavingProducts(true);
     try {
@@ -125,7 +130,9 @@ const AdminPackagesPage = () => {
           : {
               options: options.map((o) => ({
                 kind: o.kind,
-                ...(o.kind === 'GROUP' ? { name: o.name.trim(), key: o.key } : {}),
+                ...(o.kind === 'GROUP'
+                  ? { name: o.name.trim(), key: o.key, price: o.price === '' || o.price === undefined ? null : Number(o.price) }
+                  : {}),
                 items: o.items.map((i) => ({ productId: i.productId, quantity: clampQty(i.quantity) }))
               }))
             }
@@ -829,9 +836,63 @@ const AdminPackagesPage = () => {
                                 </div>
                               )}
 
+                              {/* Optional combo price — what members see for this group
+                                  instead of the products' total KSP. */}
+                              {(() => {
+                                const priceNum = o.price === '' || o.price === undefined ? null : Number(o.price);
+                                const priceId = `combo-price-${o.uid}`;
+                                const saving = priceNum !== null ? total - priceNum : 0;
+                                return (
+                                  <div className={styles.comboPriceRow}>
+                                    <label htmlFor={priceId} className={styles.comboPriceLabel}>
+                                      Combo price
+                                      <span>Optional — members see this instead of the total</span>
+                                    </label>
+                                    <div className={styles.comboPriceInput}>
+                                      <span aria-hidden="true">₹</span>
+                                      <input
+                                        id={priceId}
+                                        type="text"
+                                        inputMode="numeric"
+                                        autoComplete="off"
+                                        placeholder={total ? String(total) : 'e.g. 3000'}
+                                        value={o.price ?? ''}
+                                        onChange={(e) => {
+                                          const digits = e.target.value.replace(/[^\d]/g, '').replace(/^0+/, '').slice(0, 8);
+                                          updateOption(o.uid, (g) => ({ ...g, price: digits }));
+                                        }}
+                                        aria-describedby={`${priceId}-note`}
+                                      />
+                                      {priceNum !== null && (
+                                        <button
+                                          type="button"
+                                          className={styles.comboPriceClear}
+                                          onClick={() => updateOption(o.uid, (g) => ({ ...g, price: '' }))}
+                                          aria-label="Clear combo price"
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
+                                    </div>
+                                    <span id={`${priceId}-note`} className={styles.comboPriceNote}>
+                                      {priceNum === null
+                                        ? `Uses the total KSP ${inr(total)}`
+                                        : saving > 0
+                                          ? <span className={styles.comboSave}>Members save {inr(saving)} ({Math.round((saving / total) * 100)}% off {inr(total)})</span>
+                                          : saving === 0
+                                            ? 'Same as the total KSP'
+                                            : <span className={styles.comboWarn}>{inr(-saving)} more than buying these separately</span>}
+                                    </span>
+                                  </div>
+                                );
+                              })()}
+
                               <div className={styles.groupFoot}>
                                 <span>
                                   {o.items.length} product{o.items.length === 1 ? '' : 's'} · {units} unit{units === 1 ? '' : 's'} · total KSP {inr(total)}
+                                  {o.price !== '' && o.price !== undefined && (
+                                    <> · <strong className={styles.comboFinal}>combo {inr(Number(o.price))}</strong></>
+                                  )}
                                   {o.items.length === 1 && <em className={styles.groupWarn}> · add 1 more product</em>}
                                 </span>
                                 <button

@@ -16,6 +16,7 @@ const MAX_GROUP_ITEMS = 20;
 const MIN_QTY = 1;
 const MAX_QTY = 99;
 const MAX_GROUP_NAME = 80;
+const MAX_COMBO_PRICE = 10000000;
 
 const productKey = (productId) => `p:${productId}`;
 const randomGroupKey = () => `g:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -33,6 +34,7 @@ const getPackageOptions = (pkg) => {
       key: o.key,
       kind: o.kind === 'GROUP' ? 'GROUP' : 'PRODUCT',
       name: o.name || '',
+      price: o.kind === 'GROUP' && typeof o.price === 'number' ? o.price : null,
       items: (o.items || []).map((i) => ({ productId: i.productId, quantity: Number(i.quantity) || 1 }))
     }));
   }
@@ -100,7 +102,17 @@ const normalizeOptionsInput = (input) => {
       let key = typeof raw.key === 'string' && /^g:[a-z0-9]{4,40}$/.test(raw.key) ? raw.key : randomGroupKey();
       while (usedKeys.has(key)) key = randomGroupKey();
       usedKeys.add(key);
-      options.push({ key, kind, name, items });
+      // Optional combo price (whole rupees). Empty = the group's KSP is the
+      // sum of its products, as before.
+      let price = null;
+      if (raw.price !== undefined && raw.price !== null && raw.price !== '') {
+        const p = Number(raw.price);
+        if (!Number.isInteger(p) || p < 1 || p > MAX_COMBO_PRICE) {
+          return { error: `${label}: combo price must be a whole number of rupees (1 or more).` };
+        }
+        price = p;
+      }
+      options.push({ key, kind, name, items, price });
     }
   }
 
@@ -170,7 +182,8 @@ const resolveSelectedProducts = async (pkg, selected, insurancePlan) => {
         image: d.images?.[0]?.url || '',
         quantity: i.quantity,
         optionKey: option.key,
-        groupName
+        groupName,
+        ...(option.kind === 'GROUP' && typeof option.price === 'number' ? { groupPrice: option.price } : {})
       };
     })
   };

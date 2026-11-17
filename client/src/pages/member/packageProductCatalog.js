@@ -54,6 +54,8 @@ export const getPackageOptions = (pkg) => {
       key: o.key,
       kind: o.kind === 'GROUP' ? 'GROUP' : 'PRODUCT',
       name: o.name || '',
+      // GROUP only: admin-set combo price (null = sum of the products' KSP).
+      price: o.kind === 'GROUP' && typeof o.price === 'number' ? o.price : null,
       items: (o.items || []).map((i) => ({ productId: i.productId, quantity: Number(i.quantity) || 1 }))
     }));
   }
@@ -159,17 +161,28 @@ export const getProductsForPackage = (pkg, repurchaseProducts = []) => {
         if (items.length === 0 || items.some((x) => !x)) return null;
 
         if (opt.kind === 'GROUP') {
+          const regularKsp = items.reduce((s, i) => s + Number(i.ksp || 0) * i.quantity, 0);
+          const totalMrp = items.reduce((s, i) => s + Number(i.mrp || 0) * i.quantity, 0);
+          const comboPrice = typeof opt.price === 'number' ? opt.price : null;
+          const savings = comboPrice !== null ? regularKsp - comboPrice : 0;
           return {
             id: opt.key,
             optionKey: opt.key,
             isGroup: true,
             name: opt.name || items.map((i) => i.name).join(' + '),
-            category: 'Product Group',
+            category: comboPrice !== null ? 'Combo Offer' : 'Product Group',
             image: items.find((i) => i.image)?.image || '',
-            ksp: items.reduce((s, i) => s + Number(i.ksp || 0) * i.quantity, 0),
-            mrp: items.reduce((s, i) => s + Number(i.mrp || 0) * i.quantity, 0) || undefined,
+            // The combo price the admin set, otherwise the products' total.
+            ksp: comboPrice !== null ? comboPrice : regularKsp,
+            regularKsp,
+            comboPrice,
+            // Struck-through comparison price: the higher of the products'
+            // total MRP and their regular KSP total.
+            mrp: Math.max(totalMrp, comboPrice !== null ? regularKsp : 0) || undefined,
             items,
-            contents: describeItems(items)
+            contents: savings > 0
+              ? `${describeItems(items)} · Combo saves ₹${savings.toLocaleString('en-IN')}`
+              : describeItems(items)
           };
         }
 

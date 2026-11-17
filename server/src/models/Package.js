@@ -89,6 +89,9 @@ const PackageSchema = new mongoose.Schema({
       key: { type: String, required: true },
       kind: { type: String, enum: ['PRODUCT', 'GROUP'], required: true },
       name: { type: String, trim: true, default: '' },
+      // GROUP only: optional combo price (rupees) shown to members instead
+      // of the sum of the products' KSP. null = use the sum.
+      price: { type: Number, min: 1, default: null },
       items: [{
         _id: false,
         productId: { type: String, required: true },
