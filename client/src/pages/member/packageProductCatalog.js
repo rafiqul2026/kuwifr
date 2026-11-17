@@ -176,6 +176,7 @@ export const getProductsForPackage = (pkg, repurchaseProducts = []) => {
             ksp: comboPrice !== null ? comboPrice : regularKsp,
             regularKsp,
             comboPrice,
+            comboSavings: savings > 0 ? savings : 0,
             // Struck-through comparison price: the higher of the products'
             // total MRP and their regular KSP total.
             mrp: Math.max(totalMrp, comboPrice !== null ? regularKsp : 0) || undefined,

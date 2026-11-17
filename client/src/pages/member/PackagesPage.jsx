@@ -5,6 +5,7 @@ import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import { getProductsForPackage, getSelectionMode, getAmountPayable, toPurchaseLines, describePurchaseLines } from './packageProductCatalog';
+import ComboItems from '../../components/member/ComboItems';
 import styles from './PackagesPage.module.css';
 
 // PBW Foundation token palette — teal primary, orange accent, plus the
@@ -447,18 +448,26 @@ const PackagesPage = () => {
                           className={styles.radioBtn}
                         />
 
-                        <div className={styles.productThumbnail}>
-                          {product.image ? (
-                            <img src={product.image} alt={product.name} />
-                          ) : (
-                            <span aria-hidden="true">{product.isInsurance ? '🛡️' : '📦'}</span>
-                          )}
-                        </div>
+                        {/* A combo lists each product with its own photo
+                            below, so it skips the single thumbnail. */}
+                        {!product.isGroup && (
+                          <div className={styles.productThumbnail}>
+                            {product.image ? (
+                              <img src={product.image} alt={product.name} />
+                            ) : (
+                              <span aria-hidden="true">{product.isInsurance ? '🛡️' : '📦'}</span>
+                            )}
+                          </div>
+                        )}
 
                         <div className={styles.productItemInfo}>
                           <span className={styles.itemCat}>{product.category}</span>
                           <h4 className={styles.itemTitle}>{product.name}</h4>
-                          {product.contents && <span className={styles.itemContents}>{product.contents}</span>}
+                          {product.isGroup ? (
+                            <ComboItems items={product.items} savings={product.comboSavings} />
+                          ) : (
+                            product.contents && <span className={styles.itemContents}>{product.contents}</span>
+                          )}
                           {product.isInsurance ? (
                             <>
                               <span className={styles.itemProvider}>{product.provider}</span>
@@ -557,7 +566,7 @@ const PackagesPage = () => {
                         style={idx > 0 ? { marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #e5e5e5' } : undefined}
                         key={product.id || idx}
                       >
-                        {product.image ? (
+                        {product.isGroup ? null : product.image ? (
                           <img
                             src={product.image}
                             alt={product.name}
@@ -568,10 +577,14 @@ const PackagesPage = () => {
                             {product.isInsurance ? '🛡️' : '📦'}
                           </div>
                         )}
-                        <div className={styles.chosenProductDetails}>
+                        <div className={styles.chosenProductDetails} style={product.isGroup ? { flex: 1, minWidth: 0 } : undefined}>
                           <span className={styles.chosenCat}>{product.category}</span>
                           <h3 className={styles.chosenTitle}>{product.name}</h3>
-                          {product.contents && <span className={styles.itemContents}>{product.contents}</span>}
+                          {product.isGroup ? (
+                            <ComboItems items={product.items} savings={product.comboSavings} size="lg" />
+                          ) : (
+                            product.contents && <span className={styles.itemContents}>{product.contents}</span>
+                          )}
                           {product.isInsurance ? (
                             <div className={styles.chosenPrices}>
                               <span><strong>Installment:</strong> ₹{product.installment?.toLocaleString('en-IN')}</span>
