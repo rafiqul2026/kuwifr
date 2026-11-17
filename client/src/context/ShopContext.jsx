@@ -22,7 +22,9 @@ const normalizeProduct = (p) => ({
   image: p.images?.[0]?.url || '',
   images: p.images || [],
   description: p.description || '',
-  inStock: p.isActive !== false,
+  // Admin-managed stock: null = not tracked (always available).
+  stock: typeof p.stock === 'number' ? p.stock : null,
+  inStock: p.isActive !== false && !(typeof p.stock === 'number' && p.stock <= 0),
   tag: p.tag || ''
 });
 

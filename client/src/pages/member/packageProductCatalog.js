@@ -150,6 +150,8 @@ export const getProductsForPackage = (pkg, repurchaseProducts = []) => {
       .map((opt) => {
         const items = opt.items.map((i) => {
           const p = byId.get(i.productId);
+          // Not enough admin-managed stock for this quantity -> unavailable.
+          if (p && typeof p.stock === 'number' && p.stock < i.quantity) return null;
           return p ? { ...normalizeProduct(p), quantity: i.quantity } : null;
         });
         // A choice with an inactive/deleted product can't be fulfilled —
@@ -189,7 +191,7 @@ export const getProductsForPackage = (pkg, repurchaseProducts = []) => {
   // Otherwise the automatic default: same-KSP products.
   const price = Number(pkg?.price || 0);
   return repurchaseProducts
-    .filter((p) => Number(p.ksp) === price)
+    .filter((p) => Number(p.ksp) === price && !(typeof p.stock === 'number' && p.stock <= 0))
     .map(normalizeProduct)
     .concat(insurance);
 };

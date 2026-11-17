@@ -16,7 +16,23 @@ const INITIAL_FORM = {
   ksp: '',
   kbp: '',
   sortOrder: '0',
-  isActive: true
+  isActive: true,
+  // Stock: off = not tracked (unlimited). stockBase = stock when the form
+  // opened, so the server applies the edit as a +/- adjustment.
+  trackStock: false,
+  stock: '0',
+  stockBase: '',
+  lowStockThreshold: '5'
+};
+
+const MAX_STOCK = 1000000;
+
+// 'untracked' | 'out' | 'low' | 'in'
+const stockStatus = (stock, threshold = 5) => {
+  if (typeof stock !== 'number') return 'untracked';
+  if (stock <= 0) return 'out';
+  if (stock <= threshold) return 'low';
+  return 'in';
 };
 
 const suggestProductId = () => `kfr-p${Date.now().toString().slice(-6)}`;
@@ -107,7 +123,11 @@ const AdminRepurchaseProductsPage = () => {
       ksp: String(product.ksp ?? ''),
       kbp: String(product.kbp ?? ''),
       sortOrder: String(product.sortOrder ?? 0),
-      isActive: product.isActive !== false
+      isActive: product.isActive !== false,
+      trackStock: typeof product.stock === 'number',
+      stock: String(typeof product.stock === 'number' ? product.stock : 0),
+      stockBase: typeof product.stock === 'number' ? String(product.stock) : '',
+      lowStockThreshold: String(product.lowStockThreshold ?? 5)
     });
     setExistingImages(product.images || []);
     setRemovedImageIds([]);
@@ -140,6 +160,23 @@ const AdminRepurchaseProductsPage = () => {
     setRemovedImageIds((prev) => [...prev, publicId]);
   };
 
+  // ---- Stock quantity controls ----
+  const clampStock = (n) => Math.min(MAX_STOCK, Math.max(0, Math.round(Number(n) || 0)));
+
+  const adjustStock = (delta) =>
+    setFormData((prev) => ({ ...prev, stock: String(clampStock((parseInt(prev.stock, 10) || 0) + delta)) }));
+
+  const handleStockInput = (e) => {
+    // Digits only; empty is allowed while typing (validated on save).
+    const raw = e.target.value.replace(/[^\d]/g, '').slice(0, 7);
+    setFormData((prev) => ({ ...prev, stock: raw === '' ? '' : String(clampStock(raw)) }));
+  };
+
+  const handleStockKeyDown = (e) => {
+    if (e.key === 'ArrowUp') { e.preventDefault(); adjustStock(e.shiftKey ? 10 : 1); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); adjustStock(e.shiftKey ? -10 : -1); }
+  };
+
   const handleRemoveNewImage = (index) => {
     setNewImageFiles((prev) => prev.filter((_, i) => i !== index));
     setNewImagePreviews((prev) => prev.filter((_, i) => i !== index));
@@ -157,6 +194,12 @@ const AdminRepurchaseProductsPage = () => {
     fd.append('kbp', formData.kbp);
     fd.append('sortOrder', formData.sortOrder || '0');
     fd.append('isActive', String(formData.isActive));
+    fd.append('trackStock', String(formData.trackStock));
+    if (formData.trackStock) {
+      fd.append('stock', String(parseInt(formData.stock, 10) || 0));
+      if (editingProduct && formData.stockBase !== '') fd.append('stockBase', formData.stockBase);
+    }
+    fd.append('lowStockThreshold', String(parseInt(formData.lowStockThreshold, 10) || 0));
     if (removedImageIds.length) fd.append('removeImageIds', JSON.stringify(removedImageIds));
     newImageFiles.forEach((file) => fd.append('images', file));
     return fd;
@@ -176,15 +219,22 @@ const AdminRepurchaseProductsPage = () => {
       showNotification('MRP, KSP, and KBP are all required.', 'warning');
       return;
     }
+    if (formData.trackStock) {
+      const qty = Number(formData.stock);
+      if (formData.stock === '' || !Number.isInteger(qty) || qty < 0 || qty > MAX_STOCK) {
+        showNotification('Stock quantity must be a whole number from 0 to 1,000,000.', 'warning');
+        return;
+      }
+    }
 
     setIsSubmitting(true);
     try {
       const fd = buildFormData();
       if (editingProduct) {
-        await api.put(`/api/repurchase/admin/products/${editingProduct._id}`, fd, {
+        const res = await api.put(`/api/repurchase/admin/products/${editingProduct._id}`, fd, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
-        showNotification('Product updated.', 'success');
+        showNotification(res.data?.message || 'Product updated.', 'success');
       } else {
         await api.post('/api/repurchase/admin/products', fd, {
           headers: { 'Content-Type': 'multipart/form-data' }
@@ -293,7 +343,18 @@ const AdminRepurchaseProductsPage = () => {
                   <span className={styles.ksp}>₹{Number(product.ksp).toLocaleString('en-IN')}</span>
                   <span className={styles.mrp}>₹{Number(product.mrp).toLocaleString('en-IN')}</span>
                 </div>
-                <span className={styles.kbpBadge}>⭐ {Number(product.kbp).toLocaleString('en-IN')} KBP</span>
+                <div className={styles.badgeRow}>
+                  <span className={styles.kbpBadge}>⭐ {Number(product.kbp).toLocaleString('en-IN')} KBP</span>
+                  {(() => {
+                    const st = stockStatus(product.stock, product.lowStockThreshold ?? 5);
+                    if (st === 'untracked') return <span className={`${styles.stockChip} ${styles.stock_untracked}`}>Stock not tracked</span>;
+                    return (
+                      <span className={`${styles.stockChip} ${styles[`stock_${st}`]}`}>
+                        {st === 'out' ? 'Out of stock' : `${Number(product.stock).toLocaleString('en-IN')} in stock${st === 'low' ? ' · Low' : ''}`}
+                      </span>
+                    );
+                  })()}
+                </div>
               </div>
 
               <div className={styles.cardActions}>
@@ -454,6 +515,122 @@ const AdminRepurchaseProductsPage = () => {
                     <label htmlFor="repProdActive">Active (visible on Member Repurchase Store)</label>
                   </div>
                 </div>
+
+                {/* ---- Stock quantity ---- */}
+                {(() => {
+                  const qty = parseInt(formData.stock, 10) || 0;
+                  const threshold = parseInt(formData.lowStockThreshold, 10) || 0;
+                  const status = formData.trackStock ? stockStatus(qty, threshold) : 'untracked';
+                  const base = formData.stockBase === '' ? null : Number(formData.stockBase);
+                  const change = base === null || formData.stock === '' ? 0 : qty - base;
+                  return (
+                    <div className={`${styles.formGroup} ${styles.spanFull} ${styles.stockBox}`}>
+                      <div className={styles.stockHead}>
+                        <div>
+                          <span className={styles.stockTitle} id="stockTitle">Stock Quantity</span>
+                          <span className={styles.stockSub}>
+                            Units available to sell. Deducted automatically when you approve an order.
+                          </span>
+                        </div>
+                        <label className={styles.switch}>
+                          <input
+                            type="checkbox"
+                            role="switch"
+                            checked={formData.trackStock}
+                            onChange={(e) => setFormData({ ...formData, trackStock: e.target.checked })}
+                            aria-describedby="stockTitle"
+                          />
+                          <span className={styles.switchTrack} aria-hidden="true"><span /></span>
+                          <span>Track stock</span>
+                        </label>
+                      </div>
+
+                      {formData.trackStock ? (
+                        <>
+                          <div className={styles.stockRow}>
+                            <div className={styles.stepper} role="group" aria-labelledby="stockTitle">
+                              <button
+                                type="button"
+                                onClick={() => adjustStock(-1)}
+                                disabled={qty <= 0}
+                                aria-label="Decrease stock by 1"
+                              >
+                                −
+                              </button>
+                              <input
+                                id="stockQty"
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete="off"
+                                value={formData.stock}
+                                onChange={handleStockInput}
+                                onKeyDown={handleStockKeyDown}
+                                onFocus={(e) => e.target.select()}
+                                onBlur={() => formData.stock === '' && setFormData((p) => ({ ...p, stock: '0' }))}
+                                aria-label="Stock quantity"
+                                aria-describedby="stockHelp"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => adjustStock(1)}
+                                disabled={qty >= MAX_STOCK}
+                                aria-label="Increase stock by 1"
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            <div className={styles.quickAdjust} aria-label="Quick adjust">
+                              {[-10, 10, 50, 100].map((d) => (
+                                <button
+                                  key={d}
+                                  type="button"
+                                  onClick={() => adjustStock(d)}
+                                  disabled={d < 0 ? qty <= 0 : qty >= MAX_STOCK}
+                                >
+                                  {d > 0 ? `+${d}` : d}
+                                </button>
+                              ))}
+                            </div>
+
+                            <span className={`${styles.stockStatus} ${styles[`stock_${status}`]}`} aria-live="polite">
+                              {status === 'out' ? 'Out of stock' : status === 'low' ? 'Low stock' : 'In stock'}
+                            </span>
+                          </div>
+
+                          <div className={styles.stockFoot}>
+                            <span id="stockHelp" className={styles.stockHint}>
+                              {editingProduct && base !== null && change !== 0
+                                ? `Currently ${base} → will be ${qty} (${change > 0 ? '+' : ''}${change}).`
+                                : 'Use − / + or type a number. Arrow keys work too (Shift = ±10).'}
+                            </span>
+                            <label className={styles.thresholdField}>
+                              Low-stock alert at
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={formData.lowStockThreshold}
+                                onChange={(e) =>
+                                  setFormData({ ...formData, lowStockThreshold: e.target.value.replace(/[^\d]/g, '').slice(0, 6) })
+                                }
+                                aria-label="Low-stock alert threshold"
+                              />
+                            </label>
+                          </div>
+                          {status === 'out' && (
+                            <p className={styles.stockWarn}>
+                              At 0, members will see this product as Out of Stock and can't order it.
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <p className={styles.stockHint}>
+                          Not tracked — this product can always be ordered. Turn on “Track stock” to set a quantity.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div className={`${styles.formGroup} ${styles.spanFull}`}>
                   <label>Product Photos ({MAX_IMAGES - remainingSlots}/{MAX_IMAGES})</label>

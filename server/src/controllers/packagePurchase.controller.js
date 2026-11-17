@@ -7,6 +7,7 @@ const Order = require('../models/Order');
 const Notification = require('../models/Notification');
 const IncomeService = require('../services/income.service');
 const { getAmountPayable } = require('../constants/insurancePlans');
+const { checkStock, deductStock } = require('../utils/stock');
 
 // 1. Member: Submit Package Purchase Request (Requires Admin/Payment Approval)
 exports.completePackagePurchase = async (req, res) => {
@@ -57,6 +58,10 @@ exports.completePackagePurchase = async (req, res) => {
         return res.status(400).json({ success: false, message: resolved.error });
       }
       productsArray = resolved.products;
+      const stockError = await checkStock(productsArray.map((p) => ({ productId: p.productId, qty: p.quantity || 1 })));
+      if (stockError) {
+        return res.status(400).json({ success: false, message: `${stockError} Please choose another product.` });
+      }
     }
 
     // Amount payable is computed here, never taken from the client: the
@@ -187,6 +192,10 @@ exports.completePackageUpgrade = async (req, res) => {
       return res.status(400).json({ success: false, message: resolvedUpgrade.error });
     }
     productsArray = resolvedUpgrade.products;
+    const upgradeStockError = await checkStock(productsArray.map((p) => ({ productId: p.productId, qty: p.quantity || 1 })));
+    if (upgradeStockError) {
+      return res.status(400).json({ success: false, message: `${upgradeStockError} Please choose another product.` });
+    }
 
     const existingTxn = await PackagePurchase.findOne({ transactionId: transactionId.trim() });
     if (existingTxn) {
@@ -333,6 +342,20 @@ exports.approvePackagePurchase = async (req, res) => {
         success: false,
         message: `Could not match "${purchase.packageName || purchase.packageId}" to a package in the master catalog. Verify the package still exists under Admin > Packages, then try approving again.`
       });
+    }
+
+    // Hand over the package's product(s): take them out of stock (tracked
+    // products only; the insurance plan isn't a stocked product). Inside
+    // this transaction — if a product is short, nothing is deducted and
+    // the request stays pending.
+    const stockResult = await deductStock(
+      (purchase.selectedProducts || []).map((p) => ({ productId: p.productId, qty: p.quantity || 1 })),
+      session
+    );
+    if (stockResult.error) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ success: false, message: stockResult.error });
     }
 
     const authoritativePrice = resolvedPackage.price || purchase.packagePrice;

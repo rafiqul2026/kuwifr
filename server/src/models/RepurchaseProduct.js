@@ -68,6 +68,25 @@ const repurchaseProductSchema = new mongoose.Schema(
         publicId: { type: String, required: true }
       }
     ],
+    // Units in stock, managed from Admin > Products. `null` = stock not
+    // tracked (unlimited) — the default, so existing products behave
+    // exactly as before until an admin turns tracking on. Deducted when an
+    // admin approves a repurchase or package order (see utils/stock.js).
+    stock: {
+      type: Number,
+      default: null,
+      min: [0, 'Stock cannot be negative'],
+      validate: {
+        validator: (v) => v === null || Number.isInteger(v),
+        message: 'Stock must be a whole number'
+      }
+    },
+    // "Low stock" warning threshold shown to admins.
+    lowStockThreshold: {
+      type: Number,
+      default: 5,
+      min: 0
+    },
     isActive: {
       type: Boolean,
       default: true

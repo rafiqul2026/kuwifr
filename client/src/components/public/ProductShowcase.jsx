@@ -165,14 +165,20 @@ const ProductShowcase = ({ showHeader = true, limit, showTrackOrder = true }) =>
                         {discountPercent > 0 && <span className="kuwifr-discount-badge">{discountPercent}% OFF</span>}
                       </div>
 
-                      <div className="kuwifr-card-actions">
-                        <button className="kuwifr-btn-buy" onClick={() => setSelectedProduct(product)}>
-                          Buy Now
-                        </button>
-                        <button className="kuwifr-btn-cart" onClick={() => addToCart(product)}>
-                          Add to Bag
-                        </button>
-                      </div>
+                      {product.inStock === false ? (
+                        <div className="kuwifr-card-actions">
+                          <button className="kuwifr-btn-buy kuwifr-btn-oos" disabled>Out of stock</button>
+                        </div>
+                      ) : (
+                        <div className="kuwifr-card-actions">
+                          <button className="kuwifr-btn-buy" onClick={() => setSelectedProduct(product)}>
+                            Buy Now
+                          </button>
+                          <button className="kuwifr-btn-cart" onClick={() => addToCart(product)}>
+                            Add to Bag
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

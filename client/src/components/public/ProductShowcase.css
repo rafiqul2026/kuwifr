@@ -593,3 +593,13 @@
   outline: 3px solid rgba(0, 128, 128, 0.4);
   outline-offset: 2px;
 }
+
+/* Admin set this product's stock to 0 */
+.kuwifr-btn-oos,
+.kuwifr-btn-oos:hover {
+  background: #f3f3f3 !important;
+  color: #5f6b6b !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}

@@ -8,6 +8,7 @@ const Order = require('../models/Order');
 const Notification = require('../models/Notification');
 const RepurchasePurchase = require('../models/RepurchasePurchase');
 const RepurchaseProduct = require('../models/RepurchaseProduct');
+const { checkStock, deductStock } = require('../utils/stock');
 const cloudinary = require('../config/cloudinary');
 
 const MAX_PRODUCT_IMAGES = 4;
@@ -108,6 +109,11 @@ const submitRepurchasePurchase = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'No valid products found in cart.' });
     }
 
+    const stockError = await checkStock(purchasedItems.map((it) => ({ productId: it.productId, qty: it.qty })));
+    if (stockError) {
+      return res.status(400).json({ success: false, message: `${stockError} Please lower the quantity and try again.` });
+    }
+
     const user = await User.findById(userId).select('memberId fullName');
     if (!user) {
       return res.status(404).json({ success: false, message: 'Member not found' });
@@ -171,6 +177,19 @@ const approveRepurchasePurchase = async (req, res, next) => {
       await session.abortTransaction();
       session.endSession();
       return res.status(404).json({ success: false, message: 'Member associated with this purchase not found' });
+    }
+
+    // Take the ordered units out of stock (tracked products only). Runs in
+    // this transaction: if any product is short, nothing is deducted and
+    // the order stays pending.
+    const stockResult = await deductStock(
+      purchase.items.map((it) => ({ productId: it.productId, qty: it.qty })),
+      session
+    );
+    if (stockResult.error) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ success: false, message: stockResult.error });
     }
 
     const SettingsService = require('../services/settings.service');
@@ -438,6 +457,42 @@ const getAdminRepurchaseProducts = async (req, res, next) => {
   }
 };
 
+const MAX_STOCK = 1000000;
+
+/**
+ * Parses the stock fields sent by Admin > Products (multipart text fields):
+ *   trackStock: 'true' | 'false'   — omitted = leave stock unchanged
+ *   stock:      whole number 0..1,000,000 (when tracking)
+ *   stockBase:  the stock value the admin's form started from, so an edit
+ *               is applied as a +/- adjustment and never overwrites units
+ *               taken by approvals while the form was open
+ *   lowStockThreshold: whole number (optional)
+ * Returns { error } or { stock: null | { track, value, base }, lowStockThreshold }.
+ */
+const parseStockFields = (body = {}) => {
+  const out = { stock: null, lowStockThreshold: undefined };
+  if (body.lowStockThreshold !== undefined && body.lowStockThreshold !== '') {
+    const t = Number(body.lowStockThreshold);
+    if (!Number.isInteger(t) || t < 0 || t > MAX_STOCK) {
+      return { error: 'Low-stock alert must be a whole number of 0 or more.' };
+    }
+    out.lowStockThreshold = t;
+  }
+  if (body.trackStock === undefined) return out;
+  const track = body.trackStock === true || body.trackStock === 'true';
+  if (!track) {
+    out.stock = { track: false };
+    return out;
+  }
+  const value = Number(body.stock);
+  if (body.stock === undefined || body.stock === '' || !Number.isInteger(value) || value < 0 || value > MAX_STOCK) {
+    return { error: 'Stock quantity must be a whole number from 0 to 1,000,000.' };
+  }
+  const base = body.stockBase === undefined || body.stockBase === '' ? null : Number(body.stockBase);
+  out.stock = { track: true, value, base: Number.isInteger(base) ? base : null };
+  return out;
+};
+
 /**
  * Admin: Create a new Repurchase Store product, with up to 4 original
  * product photos uploaded straight to Cloudinary (multipart `images` field
@@ -461,6 +516,11 @@ const createRepurchaseProduct = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'MRP, KSP, and KBP are all required.' });
     }
 
+    const stockFields = parseStockFields(req.body);
+    if (stockFields.error) {
+      return res.status(400).json({ success: false, message: stockFields.error });
+    }
+
     const normalizedId = String(id).trim().toLowerCase();
     const existing = await RepurchaseProduct.findOne({ id: normalizedId });
     if (existing) {
@@ -482,6 +542,8 @@ const createRepurchaseProduct = async (req, res, next) => {
       kbp: Number(kbp),
       sortOrder: Number(sortOrder) || 0,
       isActive: isActive === undefined ? true : isActive === 'true' || isActive === true,
+      stock: stockFields.stock && stockFields.stock.track ? stockFields.stock.value : null,
+      ...(stockFields.lowStockThreshold !== undefined ? { lowStockThreshold: stockFields.lowStockThreshold } : {}),
       images
     });
 
@@ -506,7 +568,13 @@ const updateRepurchaseProduct = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Product not found.' });
     }
 
+    const stockFields = parseStockFields(req.body);
+    if (stockFields.error) {
+      return res.status(400).json({ success: false, message: stockFields.error });
+    }
+
     const { name, category, description, tag, mrp, ksp, kbp, sortOrder, isActive, removeImageIds } = req.body;
+    if (stockFields.lowStockThreshold !== undefined) product.lowStockThreshold = stockFields.lowStockThreshold;
     if (name !== undefined) product.name = name.trim();
     if (category !== undefined) product.category = category.trim();
     if (description !== undefined) product.description = description.trim();
@@ -545,8 +613,34 @@ const updateRepurchaseProduct = async (req, res, next) => {
       product.images.push(...uploads.map((u) => ({ url: u.secure_url, publicId: u.public_id })));
     }
 
+    const wasTracked = typeof product.stock === 'number';
     await product.save();
-    res.json({ success: true, message: 'Product updated.', data: { product } });
+
+    // Stock is written separately, atomically — never via product.save() —
+    // so an order approval deducting units at the same moment isn't lost.
+    let stockNote = '';
+    const s = stockFields.stock;
+    if (s && !s.track) {
+      await RepurchaseProduct.updateOne({ _id: product._id }, { $set: { stock: null } });
+    } else if (s && s.track) {
+      if (wasTracked && s.base !== null) {
+        const delta = s.value - s.base;
+        if (delta !== 0) {
+          // Apply the admin's +/- change to the CURRENT stock (floor at 0).
+          await RepurchaseProduct.updateOne({ _id: product._id }, [
+            { $set: { stock: { $max: [0, { $add: [{ $ifNull: ['$stock', 0] }, delta] }] } } }
+          ]);
+        }
+      } else {
+        await RepurchaseProduct.updateOne({ _id: product._id }, { $set: { stock: s.value } });
+      }
+    }
+
+    const fresh = await RepurchaseProduct.findById(product._id);
+    if (s && s.track && wasTracked && s.base !== null && fresh.stock !== s.value) {
+      stockNote = ` Stock is now ${fresh.stock} — orders approved while you were editing were taken into account.`;
+    }
+    res.json({ success: true, message: `Product updated.${stockNote}`, data: { product: fresh } });
   } catch (error) {
     next(error);
   }

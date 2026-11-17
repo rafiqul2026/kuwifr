@@ -210,9 +210,15 @@ const RepurchasePage = () => {
         // bag) before signing in — pre-fill the order with them.
         const prefill = takeRepurchasePrefill();
         if (prefill.length) {
-          const available = new Set(list.map((p) => p.id));
+          const byId = new Map(list.map((p) => [p.id, p]));
           const seeded = {};
-          prefill.forEach((i) => { if (available.has(i.id)) seeded[i.id] = i.quantity; });
+          prefill.forEach((i) => {
+            const p = byId.get(i.id);
+            if (!p) return;
+            const cap = typeof p.stock === 'number' ? p.stock : Infinity;
+            const qty = Math.min(i.quantity, cap);
+            if (qty > 0) seeded[i.id] = qty;
+          });
           const n = Object.keys(seeded).length;
           if (n) {
             setCart(seeded);
@@ -247,10 +253,21 @@ const RepurchasePage = () => {
     }
   };
 
+  // Stock set by admins (null = not tracked / unlimited).
+  const stockOf = (prodId) => {
+    const p = products.find((x) => x.id === prodId);
+    return p && typeof p.stock === 'number' ? p.stock : Infinity;
+  };
+
   const handleQuantityChange = (prodId, delta) => {
+    const available = stockOf(prodId);
+    if (delta > 0 && (cart[prodId] || 0) + delta > available) {
+      showNotification(available <= 0 ? 'This product is out of stock.' : `Only ${available} in stock.`, 'warning');
+      return;
+    }
     setCart((prev) => {
       const current = prev[prodId] || 0;
-      const next = Math.max(0, current + delta);
+      const next = Math.max(0, Math.min(available, current + delta));
       if (next === 0) {
         const copy = { ...prev };
         delete copy[prodId];
@@ -604,12 +621,28 @@ const RepurchasePage = () => {
                       </div>
                     </div>
 
+                    {(() => {
+                      const tracked = typeof prod.stock === 'number';
+                      const low = tracked && prod.stock > 0 && prod.stock <= (prod.lowStockThreshold ?? 5);
+                      return low ? <p className={styles.stockNote}>Only {prod.stock} left in stock</p> : null;
+                    })()}
                     <div className={styles.cardAction}>
-                      {cart[prod.id] ? (
+                      {typeof prod.stock === 'number' && prod.stock <= 0 ? (
+                        <button type="button" className={`${styles.addCartBtn} ${styles.outOfStockBtn}`} disabled>
+                          Out of stock
+                        </button>
+                      ) : cart[prod.id] ? (
                         <div className={styles.qtyControl}>
                           <button type="button" onClick={() => handleQuantityChange(prod.id, -1)} aria-label="Decrease quantity">−</button>
                           <span className={styles.qtyNumber}>{cart[prod.id]}</span>
-                          <button type="button" onClick={() => handleQuantityChange(prod.id, 1)} aria-label="Increase quantity">+</button>
+                          <button
+                            type="button"
+                            onClick={() => handleQuantityChange(prod.id, 1)}
+                            aria-label="Increase quantity"
+                            disabled={typeof prod.stock === 'number' && cart[prod.id] >= prod.stock}
+                          >
+                            +
+                          </button>
                         </div>
                       ) : (
                         <button
