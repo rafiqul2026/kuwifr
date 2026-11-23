@@ -39,6 +39,11 @@ import AdminContactMessagesPage from '../pages/admin/AdminContactMessagesPage';
 import AdminMemberDetailPage from '../pages/admin/AdminMemberDetailPage';
 import AdminOrderDetailPage from '../pages/admin/AdminOrderDetailPage';
 import AdminTransactionsPage from '../pages/admin/AdminTransactionsPage';
+import AdminKbpReportPage from '../pages/admin/AdminKbpReportPage';
+import AdminIncomePayoutsPage from '../pages/admin/AdminIncomePayoutsPage';
+import AdminFranchiseInventoryPage from '../pages/admin/AdminFranchiseInventoryPage';
+import AdminFranchiseReportsPage from '../pages/admin/AdminFranchiseReportsPage';
+import AdminSponsorChangePage from '../pages/admin/AdminSponsorChangePage';
 
 const AdminRoutes = () => {
   return (
@@ -84,6 +89,11 @@ const AdminRoutes = () => {
         <Route path="income-history" element={<AdminIncomeHistoryPage />} />
         <Route path="support" element={<AdminSupportPage />} />
         <Route path="contact-messages" element={<AdminContactMessagesPage />} />
+        <Route path="kbp-report" element={<AdminKbpReportPage />} />
+        <Route path="income-payouts" element={<AdminIncomePayoutsPage />} />
+        <Route path="franchise-inventory" element={<AdminFranchiseInventoryPage />} />
+        <Route path="franchise-reports" element={<AdminFranchiseReportsPage />} />
+        <Route path="sponsor-change" element={<AdminSponsorChangePage />} />
 
         {/* Catch-all fallback */}
         <Route path="*" element={<Navigate to="dashboard" replace />} />

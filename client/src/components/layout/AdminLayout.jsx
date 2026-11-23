@@ -28,7 +28,12 @@ import {
   FiMail,
   FiSettings,
   FiShield,
-  FiChevronDown
+  FiChevronDown,
+  FiLayers,
+  FiShuffle,
+  FiArchive,
+  FiPieChart,
+  FiDollarSign
 } from 'react-icons/fi';
 import styles from './AdminLayout.module.css';
 
@@ -49,8 +54,18 @@ const NAV_GROUPS = [
     title: 'Members & Network',
     items: [
       { label: 'Members', path: '/admin/members', icon: FiUsers },
-      { label: 'Ranks', path: '/admin/ranks', icon: FiAward },
-      { label: 'Franchise', path: '/admin/franchise', icon: FiBriefcase }
+      { label: 'KBP Report', path: '/admin/kbp-report', icon: FiLayers },
+      { label: 'Sponsor Change', path: '/admin/sponsor-change', icon: FiShuffle },
+      { label: 'Ranks', path: '/admin/ranks', icon: FiAward }
+    ]
+  },
+  {
+    key: 'franchise',
+    title: 'Franchise',
+    items: [
+      { label: 'Franchises', path: '/admin/franchise', icon: FiBriefcase },
+      { label: 'Franchise Inventory', path: '/admin/franchise-inventory', icon: FiArchive },
+      { label: 'Franchise Reports', path: '/admin/franchise-reports', icon: FiPieChart }
     ]
   },
   {
@@ -75,6 +90,7 @@ const NAV_GROUPS = [
     key: 'finance',
     title: 'Finance',
     items: [
+      { label: 'Income & Payouts', path: '/admin/income-payouts', icon: FiDollarSign },
       { label: 'Transactions', path: '/admin/transactions', icon: FiCreditCard },
       { label: 'Withdrawals', path: '/admin/withdrawals', icon: FiArrowUpCircle },
       { label: 'Income History', path: '/admin/income-history', icon: FiFileText },

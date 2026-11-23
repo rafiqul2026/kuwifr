@@ -21,6 +21,21 @@ if (auth) router.use(auth);
 if (adminAuth) router.use(adminAuth);
 
 router.get('/dashboard', adminController.getDashboardStats);
+
+// ---- Admin insights & operations (see controllers/adminInsights.controller.js) ----
+const insights = require('../controllers/adminInsights.controller');
+router.get('/insights/kbp', insights.getKbpReport);
+router.get('/insights/income-payouts', insights.getIncomePayoutsReport);
+router.get('/insights/income-payouts/summary', insights.getIncomePayoutsSummary);
+router.get('/insights/income-payouts/member/:userId', insights.getMemberIncomeHistory);
+router.get('/franchise-inventory', insights.getFranchiseInventoryOverview);
+router.get('/franchise-inventory/:franchiseId', insights.getFranchiseInventory);
+router.post('/franchise-inventory/:franchiseId/entries', insights.createFranchiseStockEntry);
+router.post('/franchise-inventory/entries/:entryId/void', insights.voidFranchiseStockEntry);
+router.get('/franchise-reports', insights.getFranchiseReports);
+router.post('/sponsor-change/preview', insights.previewSponsorChange);
+router.post('/sponsor-change', insights.executeSponsorChange);
+router.get('/sponsor-change/history', insights.getSponsorChangeHistory);
 router.get('/users', adminController.getAllUsers);
 router.get('/members', adminController.getAllUsers);
 router.get('/members/search', adminController.searchMembersForActivation);

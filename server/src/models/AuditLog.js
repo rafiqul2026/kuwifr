@@ -38,6 +38,26 @@ const auditLogSchema = new mongoose.Schema(
     metadata: {
       type: mongoose.Schema.Types.Mixed,
       default: {}
+    },
+    // Written by utils/auditLogger.js#logAdminAction. Previously missing
+    // from the schema, so Mongoose's strict mode silently dropped them and
+    // audit entries lost what was changed and on which record.
+    targetId: {
+      type: String,
+      default: null,
+      index: true
+    },
+    previousData: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null
+    },
+    newData: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null
+    },
+    status: {
+      type: String,
+      default: 'SUCCESS'
     }
   },
   {

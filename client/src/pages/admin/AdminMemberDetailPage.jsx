@@ -156,7 +156,13 @@ const AdminMemberDetailPage = () => {
           >
             {loggingIn ? 'Opening dashboard…' : '🔑 Login as Member'}
           </button>
-          <span className={styles.loginAsHint}>Opens the member dashboard</span>
+          <button
+            type="button"
+            className={styles.changeSponsorLink}
+            onClick={() => navigate(`/admin/sponsor-change?member=${encodeURIComponent(user.memberId || '')}`)}
+          >
+            🔀 Change sponsor
+          </button>
         </div>
         <div className={styles.statusControl}>
           <label>Change Status</label>
