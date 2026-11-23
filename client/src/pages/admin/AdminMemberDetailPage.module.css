@@ -116,6 +116,48 @@
   gap: 4px;
 }
 
+/* Login as Member */
+.loginAsControl {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 180px;
+}
+
+.loginAsBtn {
+  height: 40px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 10px;
+  background: #0f766e;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(15, 118, 110, 0.25);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.loginAsBtn:hover:not(:disabled) {
+  background: #115e59;
+  transform: translateY(-1px);
+}
+
+.loginAsBtn:disabled {
+  background: #a3a3a3;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.loginAsHint {
+  font-size: 10.5px;
+  color: #a3a3a3;
+  font-weight: 600;
+}
+
 .statusControl label {
   font-size: 10.5px;
   font-weight: 700;
@@ -318,6 +360,12 @@
 
   .statusControl {
     width: 100%;
+  }
+
+  .loginAsControl {
+    width: 100%;
+    align-items: stretch;
+    margin-right: 0;
   }
 
   .statusControl select {

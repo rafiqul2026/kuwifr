@@ -1,5 +1,7 @@
 // server/src/controllers/auth.controller.js
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
+const { logAdminAction } = require("../utils/auditLogger");
 const User = require("../models/User");
 const Wallet = require("../models/Wallet");
 const Referral = require("../models/Referral");
@@ -15,6 +17,42 @@ const EmailService = require("../services/email.service");
 const generateToken = (userId, tokenVersion = 0) => {
   return jwt.sign({ userId, tokenVersion }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+  });
+};
+
+// Admin "Login as Member" sessions are deliberately short-lived and carry
+// who started them, so the member portal can show a "Return to Admin"
+// banner and the session can be traced back to the admin.
+const IMPERSONATION_TTL = process.env.IMPERSONATION_EXPIRES_IN || "2h";
+const ADMIN_ROLES = ["ADMIN", "SUPER_ADMIN"];
+const BLOCKED_STATUSES = ["SUSPENDED", "DEACTIVATED", "BLOCKED"];
+
+const generateImpersonationToken = (member, admin) => {
+  return jwt.sign(
+    {
+      userId: member._id,
+      tokenVersion: member.tokenVersion || 0,
+      impersonatedBy: String(admin._id),
+      impersonatorTokenVersion: admin.tokenVersion || 0,
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: IMPERSONATION_TTL }
+  );
+};
+
+// The admin behind an impersonation token must still be a live, unchanged
+// admin account (role, status and tokenVersion all re-checked).
+const isValidImpersonator = (admin, impersonatorTokenVersion) =>
+  !!admin &&
+  ADMIN_ROLES.includes((admin.role || "").toUpperCase()) &&
+  !BLOCKED_STATUSES.includes(admin.status) &&
+  (impersonatorTokenVersion || 0) === (admin.tokenVersion || 0);
+
+const clearTokenCookie = (res) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
   });
 };
 
@@ -525,7 +563,23 @@ const refreshToken = async (req, res, next) => {
         });
     }
 
-    const newToken = generateToken(user._id, user.tokenVersion || 0);
+    // An admin "Login as Member" session must never be refreshed into a
+    // normal 7-day member session — reissue it with the same impersonation
+    // claims (and the same short lifetime) instead.
+    let newToken;
+    if (decoded.impersonatedBy) {
+      const admin = await User.findById(decoded.impersonatedBy);
+      if (!isValidImpersonator(admin, decoded.impersonatorTokenVersion)) {
+        clearTokenCookie(res);
+        return res.status(401).json({
+          success: false,
+          message: "Admin session ended. Please log in again.",
+        });
+      }
+      newToken = generateImpersonationToken(user, admin);
+    } else {
+      newToken = generateToken(user._id, user.tokenVersion || 0);
+    }
     setTokenCookie(res, newToken);
 
     const userResponse = user.toObject();
@@ -827,13 +881,151 @@ const getCurrentUser = async (req, res, next) => {
     const userResponse = user.toObject();
     delete userResponse.password;
 
-    res.json({ success: true, data: { user: userResponse } });
+    let impersonation = null;
+    if (req.impersonatedBy) {
+      const admin = await User.findById(req.impersonatedBy).select("fullName email");
+      impersonation = {
+        adminId: String(req.impersonatedBy),
+        adminName: admin?.fullName || "Administrator",
+        adminEmail: admin?.email || null,
+      };
+    }
+
+    res.json({ success: true, data: { user: userResponse, impersonation } });
   } catch (error) {
     next(error);
   }
 };
 
+// ============ ADMIN: LOGIN AS MEMBER ============
+// POST /api/admin/members/:id/impersonate  (behind auth + adminAuth)
+const impersonateMember = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: "Invalid member id." });
+    }
+    if (req.impersonatedBy) {
+      return res.status(400).json({
+        success: false,
+        message: "Return to the admin panel before logging in as another member.",
+      });
+    }
+
+    const member = await User.findById(id)
+      .populate("activePackageId", "name type price kbp dailyCap")
+      .populate("sponsorId", "fullName memberId");
+    if (!member) {
+      return res.status(404).json({ success: false, message: "Member not found." });
+    }
+    if ((member.role || "MEMBER").toUpperCase() !== "MEMBER") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin accounts cannot be opened with Login as Member.",
+      });
+    }
+    if (BLOCKED_STATUSES.includes(member.status)) {
+      return res.status(403).json({
+        success: false,
+        message: `This member is ${member.status}. Change the status before logging in as them.`,
+      });
+    }
+
+    const admin = req.user;
+    const token = generateImpersonationToken(member, admin);
+    setTokenCookie(res, token);
+
+    await logAdminAction({
+      req,
+      action: "MEMBER_IMPERSONATION_START",
+      module: "MEMBERS",
+      targetId: member._id,
+      newData: { memberId: member.memberId, fullName: member.fullName },
+    });
+
+    const userResponse = member.toObject();
+    delete userResponse.password;
+
+    res.json({
+      success: true,
+      message: `Logged in as ${member.fullName} (${member.memberId}).`,
+      data: {
+        token,
+        user: userResponse,
+        impersonation: {
+          adminId: String(admin._id),
+          adminName: admin.fullName || "Administrator",
+          adminEmail: admin.email || null,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ============ RETURN TO ADMIN ============
+// POST /api/auth/impersonation/stop  (behind auth, with an impersonation token)
+const stopImpersonation = async (req, res, next) => {
+  try {
+    if (!req.impersonatedBy) {
+      return res.status(400).json({
+        success: false,
+        message: "This session is not an admin Login as Member session.",
+      });
+    }
+
+    const admin = await User.findById(req.impersonatedBy);
+    if (!isValidImpersonator(admin, req.impersonatorTokenVersion)) {
+      clearTokenCookie(res);
+      return res.status(401).json({
+        success: false,
+        message: "Admin session ended. Please log in again.",
+      });
+    }
+
+    const member = req.user;
+    const token = generateToken(admin._id, admin.tokenVersion || 0);
+    setTokenCookie(res, token);
+
+    await logAdminAction({
+      req: { user: admin, headers: req.headers, socket: req.socket },
+      action: "MEMBER_IMPERSONATION_END",
+      module: "MEMBERS",
+      targetId: member._id,
+      newData: { memberId: member.memberId },
+    });
+
+    const adminResponse = admin.toObject();
+    delete adminResponse.password;
+
+    res.json({
+      success: true,
+      message: "Returned to admin panel.",
+      data: { token, user: adminResponse, memberId: String(member._id) },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Blocks account-security actions while an admin is viewing as a member, so
+// "Login as Member" can never be used to change the member's password.
+const blockDuringImpersonation = (req, res, next) => {
+  if (req.impersonatedBy) {
+    return res.status(403).json({
+      success: false,
+      message: "Not allowed while an admin is logged in as this member.",
+    });
+  }
+  next();
+};
+
 module.exports = {
+  impersonateMember,
+  stopImpersonation,
+  blockDuringImpersonation,
   register,
   login,
   logout,

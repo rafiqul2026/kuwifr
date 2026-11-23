@@ -64,6 +64,12 @@ const auth = async (req, res, next) => {
     // Attach user to request
     req.user = user;
     req.userId = user._id;
+    // Set only for admin "Login as Member" sessions (see
+    // auth.controller.js#impersonateMember).
+    if (decoded.impersonatedBy) {
+      req.impersonatedBy = decoded.impersonatedBy;
+      req.impersonatorTokenVersion = decoded.impersonatorTokenVersion || 0;
+    }
 
     next();
   } catch (error) {

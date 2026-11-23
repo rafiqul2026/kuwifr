@@ -10,6 +10,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
+import { useAuth } from '../../context/AuthContext';
 import styles from './AdminMemberDetailPage.module.css';
 
 const formatINR = (val) =>
@@ -34,6 +35,8 @@ const AdminMemberDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [loggingIn, setLoggingIn] = useState(false);
+  const { startImpersonation } = useAuth();
 
   const fetchMember = useCallback(async () => {
     try {
@@ -71,6 +74,23 @@ const AdminMemberDetailPage = () => {
       showNotification(err.response?.data?.message || 'Failed to update status.', 'error');
     } finally {
       setUpdatingStatus(false);
+    }
+  };
+
+  const handleLoginAsMember = async () => {
+    const u = data?.user;
+    if (!u || loggingIn) return;
+    const ok = window.confirm(
+      `Log in as ${u.fullName || 'this member'} (${u.memberId || ''})?\n\n` +
+      'You will see their Member Dashboard exactly as they do. Use "Return to Admin" at the top of the dashboard to come back.'
+    );
+    if (!ok) return;
+    setLoggingIn(true);
+    const result = await startImpersonation(id);
+    if (result.success) {
+      navigate('/member/dashboard', { replace: true });
+    } else {
+      setLoggingIn(false);
     }
   };
 
@@ -123,6 +143,20 @@ const AdminMemberDetailPage = () => {
             </span>
           </div>
           <p className={styles.contactLine}>{user.email} · {user.phoneNumber || 'No phone on file'}</p>
+        </div>
+        <div className={styles.loginAsControl}>
+          <button
+            type="button"
+            className={styles.loginAsBtn}
+            onClick={handleLoginAsMember}
+            disabled={loggingIn || ['SUSPENDED', 'DEACTIVATED', 'BLOCKED'].includes(user.status)}
+            title={['SUSPENDED', 'DEACTIVATED', 'BLOCKED'].includes(user.status)
+              ? `Member is ${user.status} — change the status first`
+              : `Open ${user.fullName || 'this member'}'s dashboard`}
+          >
+            {loggingIn ? 'Opening dashboard…' : '🔑 Login as Member'}
+          </button>
+          <span className={styles.loginAsHint}>Opens the member dashboard</span>
         </div>
         <div className={styles.statusControl}>
           <label>Change Status</label>

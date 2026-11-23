@@ -38,6 +38,9 @@ router.put('/members/:id/status', adminController.updateUserStatus);
 // router is behind auth + adminAuth above). Both are audit-logged.
 router.put('/members/:id/profile', adminController.updateMemberProfile);
 router.post('/members/:id/reset-password', adminController.resetMemberPassword);
+// Admin "Login as Member" — opens the member's dashboard in a short-lived,
+// audit-logged session. See auth.controller.js#impersonateMember.
+router.post('/members/:id/impersonate', require('../controllers/auth.controller').impersonateMember);
 
 // Permanent, irreversible member deletion — refuses to run unless the
 // member has zero downline (see adminController.deleteMember for the full

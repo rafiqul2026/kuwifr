@@ -616,6 +616,57 @@
   margin-left: 0;
 }
 
+/* Admin "Login as Member" banner */
+.impersonationBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #78350f;
+  font-size: 13px;
+}
+
+.impersonationText {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.impersonationBtn {
+  height: 34px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 8px;
+  background: #78350f;
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.impersonationBtn:hover:not(:disabled) {
+  background: #92400e;
+}
+
+.impersonationBtn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+@media (max-width: 600px) {
+  .impersonationBtn {
+    width: 100%;
+  }
+}
+
 /* ============================================================
    4. MOBILE BACKDROP OVERLAY
    ============================================================ */

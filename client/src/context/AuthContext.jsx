@@ -17,7 +17,20 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // Set while an admin is using "Login as Member": { adminId, adminName, adminEmail }
+  const [impersonation, setImpersonation] = useState(null);
   const { showNotification } = useNotification();
+
+  const applySession = (token, userData, impersonationData = null) => {
+    if (token) {
+      localStorage.setItem('token', token);
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    }
+    setUser(userData);
+    setImpersonation(impersonationData);
+    setIsAuthenticated(true);
+    setLoading(false);
+  };
 
   // ============ CHECK AUTH SESSION ============
   const checkAuth = useCallback(async () => {
@@ -35,6 +48,7 @@ export const AuthProvider = ({ children }) => {
       const response = await api.get('/api/auth/me');
       if (response.data?.success && response.data?.data?.user) {
         setUser(response.data.data.user);
+        setImpersonation(response.data.data.impersonation || null);
         setIsAuthenticated(true);
       } else {
         setUser(null);
@@ -132,11 +146,54 @@ export const AuthProvider = ({ children }) => {
       await api.post('/api/auth/logout').catch(() => {});
     } finally {
       setUser(null);
+      setImpersonation(null);
       setIsAuthenticated(false);
       localStorage.removeItem('token');
       localStorage.removeItem('authToken');
       delete api.defaults.headers.common['Authorization'];
       showNotification("You've been signed out", 'success');
+    }
+  };
+
+  // ============ ADMIN: LOGIN AS MEMBER ============
+  const startImpersonation = async (memberObjectId) => {
+    try {
+      const response = await api.post(`/api/admin/members/${memberObjectId}/impersonate`);
+      if (response.data?.success) {
+        const { token, user: memberData, impersonation: info } = response.data.data;
+        applySession(token, memberData, info);
+        showNotification(response.data.message || 'Logged in as member.', 'success');
+        return { success: true };
+      }
+      return { success: false, message: 'Could not log in as this member.' };
+    } catch (error) {
+      const message = error.response?.data?.message || 'Could not log in as this member.';
+      showNotification(message, 'error');
+      return { success: false, message };
+    }
+  };
+
+  // ============ RETURN TO ADMIN ============
+  const stopImpersonation = async () => {
+    try {
+      const response = await api.post('/api/auth/impersonation/stop');
+      if (response.data?.success) {
+        const { token, user: adminData, memberId } = response.data.data;
+        applySession(token, adminData, null);
+        showNotification('Back in the admin panel.', 'success');
+        return { success: true, memberId };
+      }
+      return { success: false };
+    } catch (error) {
+      // Admin session can't be restored (expired / revoked) — sign out fully.
+      setUser(null);
+      setImpersonation(null);
+      setIsAuthenticated(false);
+      localStorage.removeItem('token');
+      localStorage.removeItem('authToken');
+      delete api.defaults.headers.common['Authorization'];
+      showNotification(error.response?.data?.message || 'Admin session ended. Please log in again.', 'warning');
+      return { success: false, expired: true };
     }
   };
 
@@ -156,7 +213,10 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateUser,
-    checkAuth
+    checkAuth,
+    impersonation,
+    startImpersonation,
+    stopImpersonation
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

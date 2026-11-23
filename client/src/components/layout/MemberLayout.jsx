@@ -84,7 +84,20 @@ const MemberLayout = () => {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(true);
   const [packageDropdownOpen, setPackageDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, logout, impersonation, stopImpersonation } = useAuth();
+  const [returningToAdmin, setReturningToAdmin] = useState(false);
+
+  const handleReturnToAdmin = async () => {
+    if (returningToAdmin) return;
+    setReturningToAdmin(true);
+    const result = await stopImpersonation();
+    if (result.success) {
+      navigate(result.memberId ? `/admin/members/${result.memberId}` : "/admin/members", { replace: true });
+    } else {
+      setReturningToAdmin(false);
+      if (result.expired) navigate("/admin/login", { replace: true });
+    }
+  };
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -456,6 +469,26 @@ const MemberLayout = () => {
 
       {/* Main Content Outlet */}
       <main className={`${styles.mainContent} ${!sidebarOpen ? styles.expanded : ""}`}>
+        {impersonation && (
+          <div className={styles.impersonationBanner} role="status">
+            <span className={styles.impersonationText}>
+              <FiKey aria-hidden="true" />
+              <span>
+                Admin view — you are logged in as{" "}
+                <strong>{user?.fullName || "this member"}</strong>
+                {user?.memberId ? ` (${user.memberId})` : ""}
+              </span>
+            </span>
+            <button
+              type="button"
+              className={styles.impersonationBtn}
+              onClick={handleReturnToAdmin}
+              disabled={returningToAdmin}
+            >
+              {returningToAdmin ? "Returning…" : "← Return to Admin"}
+            </button>
+          </div>
+        )}
         <Outlet />
       </main>
 

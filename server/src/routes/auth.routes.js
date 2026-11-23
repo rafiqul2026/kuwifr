@@ -13,7 +13,9 @@ const {
   changePasswordWithOTP,
   changePasswordDirect,
   registerDownlineMember,
-  getDownlineSpotInfo
+  getDownlineSpotInfo,
+  stopImpersonation,
+  blockDuringImpersonation
 } = require('../controllers/auth.controller');
 const { auth } = require('../middleware/auth');
 
@@ -35,11 +37,14 @@ router.post('/reset-password', resetPasswordWithOTP);
 // ============ PROTECTED AUTH ROUTES ============
 router.get('/me', auth, getCurrentUser);
 router.post('/logout', auth, logout);
-router.post('/change-password/send-otp', auth, sendChangePasswordOTP);
-router.post('/change-password/verify', auth, changePasswordWithOTP);
+// Password changes are blocked while an admin is "logged in as" the member.
+router.post('/change-password/send-otp', auth, blockDuringImpersonation, sendChangePasswordOTP);
+router.post('/change-password/verify', auth, blockDuringImpersonation, changePasswordWithOTP);
 // Member Profile page's real "Change Password" form — current password +
 // new password, no OTP. See auth.controller.js#changePasswordDirect.
-router.post('/change-password', auth, changePasswordDirect);
+router.post('/change-password', auth, blockDuringImpersonation, changePasswordDirect);
+// Admin "Login as Member" -> back to the admin's own session.
+router.post('/impersonation/stop', auth, stopImpersonation);
 // Growth Generation "Open Spot" registration — a logged-in member registers a
 // new downline member at an exact open binary spot in their own tree.
 router.get('/register-downline/spot', auth, getDownlineSpotInfo);
