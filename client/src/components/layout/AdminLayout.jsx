@@ -1,11 +1,107 @@
 // client/src/components/layout/AdminLayout.jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
+import {
+  FiGrid,
+  FiBell,
+  FiBarChart2,
+  FiUsers,
+  FiAward,
+  FiBriefcase,
+  FiPackage,
+  FiCheckCircle,
+  FiTrendingUp,
+  FiShoppingBag,
+  FiShoppingCart,
+  FiRefreshCw,
+  FiCreditCard,
+  FiArrowUpCircle,
+  FiFileText,
+  FiDatabase,
+  FiTarget,
+  FiSend,
+  FiHeadphones,
+  FiMail,
+  FiSettings,
+  FiShield,
+  FiChevronDown
+} from 'react-icons/fi';
 import styles from './AdminLayout.module.css';
+
+// Admin sidebar, grouped by area of work. `badge` names a live pending
+// count shown on that item (see badgeFor in the component).
+const NAV_GROUPS = [
+  {
+    key: 'overview',
+    title: 'Overview',
+    items: [
+      { label: 'Dashboard', path: '/admin/dashboard', icon: FiGrid },
+      { label: 'Alerts', path: '/admin/alerts', icon: FiBell, badge: 'alerts' },
+      { label: 'Reports', path: '/admin/reports', icon: FiBarChart2 }
+    ]
+  },
+  {
+    key: 'network',
+    title: 'Members & Network',
+    items: [
+      { label: 'Members', path: '/admin/members', icon: FiUsers },
+      { label: 'Ranks', path: '/admin/ranks', icon: FiAward },
+      { label: 'Franchise', path: '/admin/franchise', icon: FiBriefcase }
+    ]
+  },
+  {
+    key: 'packages',
+    title: 'Packages',
+    items: [
+      { label: 'Packages', path: '/admin/packages', icon: FiPackage },
+      { label: 'Payment Verification', path: '/admin/package-sales', icon: FiCheckCircle, badge: 'payments' },
+      { label: 'Package Sales Report', path: '/admin/package-sales-report', icon: FiTrendingUp }
+    ]
+  },
+  {
+    key: 'store',
+    title: 'Store & Orders',
+    items: [
+      { label: 'Products', path: '/admin/products', icon: FiShoppingBag },
+      { label: 'Orders', path: '/admin/orders', icon: FiShoppingCart },
+      { label: 'Repurchase Verification', path: '/admin/repurchase-sales', icon: FiRefreshCw, badge: 'repurchase' }
+    ]
+  },
+  {
+    key: 'finance',
+    title: 'Finance',
+    items: [
+      { label: 'Transactions', path: '/admin/transactions', icon: FiCreditCard },
+      { label: 'Withdrawals', path: '/admin/withdrawals', icon: FiArrowUpCircle },
+      { label: 'Income History', path: '/admin/income-history', icon: FiFileText },
+      { label: 'Funds', path: '/admin/funds', icon: FiDatabase }
+    ]
+  },
+  {
+    key: 'engagement',
+    title: 'Marketing & Support',
+    items: [
+      { label: 'Campaigns', path: '/admin/campaigns', icon: FiTarget },
+      { label: 'Notifications', path: '/admin/notifications', icon: FiSend },
+      { label: 'Support Tickets', path: '/admin/support', icon: FiHeadphones },
+      { label: 'Contact Messages', path: '/admin/contact-messages', icon: FiMail }
+    ]
+  },
+  {
+    key: 'system',
+    title: 'System',
+    items: [
+      { label: 'Settings', path: '/admin/settings', icon: FiSettings },
+      { label: 'Audit Logs', path: '/admin/audit', icon: FiShield }
+    ]
+  }
+];
+
+const NAV_COLLAPSE_KEY = 'kuwifr.adminNav.collapsed';
 
 const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -36,31 +132,39 @@ const AdminLayout = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [accountMenuOpen]);
 
-  // Navigation Items for Admin Suite
-  const navItems = [
-    { label: 'Dashboard', path: '/admin/dashboard', icon: '📊' },
-    { label: 'Members', path: '/admin/members', icon: '👥' },
-    { label: 'Packages', path: '/admin/packages', icon: '📦' },
-    { label: 'Payment Verification', path: '/admin/package-sales', icon: '✅' },
-    { label: 'Package Sales Report', path: '/admin/package-sales-report', icon: '📈' },
-    { label: 'Repurchase Verification', path: '/admin/repurchase-sales', icon: '🛍️' },
-    { label: 'Products', path: '/admin/products', icon: '📦' },
-    { label: 'Orders', path: '/admin/orders', icon: '🛒' },
-    { label: 'Transactions', path: '/admin/transactions', icon: '💳' },
-    { label: 'Withdrawals', path: '/admin/withdrawals', icon: '💸' },
-    { label: 'Income History', path: '/admin/income-history', icon: '🧾' },
-    { label: 'Ranks', path: '/admin/ranks', icon: '🏆' },
-    { label: 'Funds', path: '/admin/funds', icon: '🏦' },
-    { label: 'Franchise', path: '/admin/franchise', icon: '🏢' },
-    { label: 'Reports', path: '/admin/reports', icon: '📑' },
-    { label: 'Campaigns', path: '/admin/campaigns', icon: '🎯' },
-    { label: 'Alerts', path: '/admin/alerts', icon: '🔔' },
-    { label: 'Notifications', path: '/admin/notifications', icon: '📣' },
-    { label: 'Settings', path: '/admin/settings', icon: '⚙️' },
-    { label: 'Audit Logs', path: '/admin/audit', icon: '🛡️' },
-    { label: 'Support Tickets', path: '/admin/support', icon: '🎧' },
-    { label: 'Contact Messages', path: '/admin/contact-messages', icon: '✉️' }
-  ];
+  const location = useLocation();
+
+  // Collapsed sections, remembered per browser. The section holding the
+  // current page is always shown open regardless.
+  const [collapsedGroups, setCollapsedGroups] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(NAV_COLLAPSE_KEY) || '{}') || {};
+    } catch {
+      return {};
+    }
+  });
+
+  const toggleGroup = (key) => {
+    setCollapsedGroups((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      try {
+        localStorage.setItem(NAV_COLLAPSE_KEY, JSON.stringify(next));
+      } catch {
+        // Storage unavailable (private mode) — collapse just won't persist.
+      }
+      return next;
+    });
+  };
+
+  const isPathActive = (path) =>
+    location.pathname === path || location.pathname.startsWith(`${path}/`);
+
+  const badgeFor = (badgeKey) => {
+    if (badgeKey === 'payments') return pendingPayments;
+    if (badgeKey === 'repurchase') return pendingRepurchasePayments;
+    if (badgeKey === 'alerts') return unreadAlerts;
+    return 0;
+  };
 
   // Personal admin alert inbox unread count — powers the header bell badge,
   // matching PBW Foundation's header notification bell. Polled the same
@@ -240,26 +344,61 @@ const AdminLayout = () => {
           <span className={styles.badgePanel}>Admin Suite</span>
         </div>
 
-        <nav className={styles.navMenu}>
-          {navItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) =>
-                `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`
-              }
-            >
-              <span className={styles.navIcon}>{item.icon}</span>
-              <span className={styles.navLabel}>{item.label}</span>
-              {item.path === '/admin/package-sales' && pendingPayments > 0 && (
-                <span className={styles.navBadge}>{pendingPayments > 9 ? '9+' : pendingPayments}</span>
-              )}
-              {item.path === '/admin/repurchase-sales' && pendingRepurchasePayments > 0 && (
-                <span className={styles.navBadge}>{pendingRepurchasePayments > 9 ? '9+' : pendingRepurchasePayments}</span>
-              )}
-            </NavLink>
-          ))}
+        <nav className={styles.navMenu} aria-label="Admin navigation">
+          {NAV_GROUPS.map((group) => {
+            const hasActive = group.items.some((item) => isPathActive(item.path));
+            const isOpen = hasActive || !collapsedGroups[group.key];
+            const groupPending = group.items.reduce((sum, item) => sum + (item.badge ? badgeFor(item.badge) : 0), 0);
+            const listId = `admin-nav-${group.key}`;
+
+            return (
+              <div key={group.key} className={styles.navGroup}>
+                <button
+                  type="button"
+                  className={styles.navGroupHeader}
+                  onClick={() => toggleGroup(group.key)}
+                  aria-expanded={isOpen}
+                  aria-controls={listId}
+                  disabled={hasActive}
+                  title={hasActive ? undefined : isOpen ? `Collapse ${group.title}` : `Expand ${group.title}`}
+                >
+                  <span>{group.title}</span>
+                  {!isOpen && groupPending > 0 && <span className={styles.navGroupDot} aria-label={`${groupPending} pending`} />}
+                  {!hasActive && (
+                    <FiChevronDown
+                      className={`${styles.navGroupChevron} ${isOpen ? '' : styles.navGroupChevronClosed}`}
+                      aria-hidden="true"
+                    />
+                  )}
+                </button>
+
+                {isOpen && (
+                  <div id={listId} className={styles.navGroupItems}>
+                    {group.items.map((item) => {
+                      const Icon = item.icon;
+                      const count = item.badge ? badgeFor(item.badge) : 0;
+                      return (
+                        <NavLink
+                          key={item.path}
+                          to={item.path}
+                          onClick={() => setSidebarOpen(false)}
+                          className={({ isActive }) =>
+                            `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`
+                          }
+                        >
+                          <Icon className={styles.navIcon} aria-hidden="true" />
+                          <span className={styles.navLabel}>{item.label}</span>
+                          {count > 0 && (
+                            <span className={styles.navBadge}>{count > 9 ? '9+' : count}</span>
+                          )}
+                        </NavLink>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
 
         {/* Sidebar Footer with Admin Profile & Account Dropdown */}
