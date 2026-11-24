@@ -3,24 +3,30 @@
 // products (by product ID) it dispatched to which members, and the remaining
 // balance in units and KBP. Backed by /api/admin/franchise-inventory.
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './AdminInsights.module.css';
-import { formatINR, formatNum, formatDate, statusBadgeClass } from './adminInsightsUtils';
+import { formatINR, formatNum, formatDate } from './adminInsightsUtils';
 
 const ENTRY_TYPES = [
-  { value: 'LIFT', label: 'Lift', hint: 'Franchise takes stock from the company' },
-  { value: 'DISPATCH', label: 'Dispatch', hint: 'Franchise gives a product to a member' },
-  { value: 'RETURN', label: 'Return', hint: 'Franchise sends unsold stock back' }
+  { value: 'LIFT', label: 'Assign stock', hint: 'Give products from company stock to this franchise to sell.' },
+  { value: 'SALE', label: 'Sale', hint: 'Record a sale on the franchise\'s behalf. The franchise earns its sale commission.' },
+  { value: 'DISPATCH', label: 'Dispatch', hint: 'Franchise hands a product to a member without a sale (no commission).' },
+  { value: 'RETURN', label: 'Return', hint: 'Franchise sends unsold stock back to the company.' }
 ];
+
+const TYPE_LABEL = { LIFT: 'ASSIGNED', SALE: 'SALE', DISPATCH: 'DISPATCH', RETURN: 'RETURN' };
+
+const typeBadge = (type) => (type === 'LIFT' ? styles.badgeGreen : type === 'SALE' ? styles.badgeTeal : type === 'RETURN' ? styles.badge : styles.badgeAmber);
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-const emptyForm = () => ({ type: 'LIFT', productId: '', qty: '1', memberId: '', reference: '', note: '', entryDate: today() });
+const emptyForm = () => ({ type: 'LIFT', productId: '', qty: '1', memberId: '', customerName: '', customerPhone: '', reference: '', note: '', entryDate: today() });
 
-const StockEntryModal = ({ franchise, products, balances, onClose, onSaved }) => {
+const StockEntryModal = ({ franchise, products, balances, commissionRate, initialType = 'LIFT', onClose, onSaved }) => {
   const { showNotification } = useNotification();
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(() => ({ ...emptyForm(), type: initialType }));
   const [saving, setSaving] = useState(false);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -82,6 +88,22 @@ const StockEntryModal = ({ franchise, products, balances, onClose, onSaved }) =>
               <input id="se-member" className={styles.input} placeholder="KFR123456" value={form.memberId} onChange={set('memberId')} required />
             </div>
           )}
+          {form.type === 'SALE' && (
+            <>
+              <div className={styles.field}>
+                <label htmlFor="se-buyer">Buyer Member ID (if a member)</label>
+                <input id="se-buyer" className={styles.input} placeholder="KFR123456" value={form.memberId} onChange={set('memberId')} />
+              </div>
+              <div className={styles.field}>
+                <label htmlFor="se-cname">Or customer name</label>
+                <input id="se-cname" className={styles.input} maxLength={120} value={form.customerName} onChange={set('customerName')} required={!form.memberId.trim()} />
+              </div>
+              <div className={styles.field}>
+                <label htmlFor="se-cphone">Customer phone</label>
+                <input id="se-cphone" className={styles.input} maxLength={20} inputMode="tel" value={form.customerPhone} onChange={set('customerPhone')} />
+              </div>
+            </>
+          )}
           <div className={styles.field}>
             <label htmlFor="se-ref">Reference / invoice no.</label>
             <input id="se-ref" className={styles.input} maxLength={120} value={form.reference} onChange={set('reference')} />
@@ -96,6 +118,9 @@ const StockEntryModal = ({ franchise, products, balances, onClose, onSaved }) =>
           <div className={styles.notice} style={{ marginTop: 12, marginBottom: 0 }}>
             {qty} × {product.name} = <strong>{formatNum(product.kbp * qty)} KBP</strong> · {formatINR(product.ksp * qty)}.
             {' '}This franchise currently holds <strong>{balance}</strong> unit(s) of this product.
+            {form.type === 'SALE' && (
+              <> Commission to franchise: <strong>{formatINR(product.ksp * qty * commissionRate)}</strong> ({(commissionRate * 100).toFixed(2).replace(/\.00$/, '')}%).</>
+            )}
             {form.type !== 'LIFT' && qty > balance && <span className={styles.negative}> More than the franchise holds.</span>}
           </div>
         )}
@@ -123,6 +148,13 @@ const AdminFranchiseInventoryPage = () => {
   const [page, setPage] = useState(1);
   const [products, setProducts] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState('LIFT');
+  const navigate = useNavigate();
+
+  const openModal = (type) => {
+    setModalType(type);
+    setModalOpen(true);
+  };
 
   const fetchOverview = useCallback(async () => {
     try {
@@ -161,7 +193,11 @@ const AdminFranchiseInventoryPage = () => {
   }, []);
 
   const handleVoid = async (entry) => {
-    const reason = window.prompt(`Void this ${entry.type.toLowerCase()} of ${entry.qty} × ${entry.productName}?\n\nEnter a reason:`);
+    const label = (TYPE_LABEL[entry.type] || entry.type).toLowerCase();
+    const commissionNote = entry.type === 'SALE' && entry.commissionStatus === 'CREDITED'
+      ? `\n\nThe ₹${entry.commissionAmount} commission paid for this sale will be taken back from the franchise's Income wallet.`
+      : '';
+    const reason = window.prompt(`Void this ${label} entry: ${entry.qty} × ${entry.productName}?${commissionNote}\n\nEnter a reason:`);
     if (reason === null) return;
     try {
       await api.post(`/api/admin/franchise-inventory/entries/${entry._id}/void`, { reason });
@@ -183,17 +219,32 @@ const AdminFranchiseInventoryPage = () => {
         <div>
           <h1 className={styles.pageTitle}>Franchise Inventory</h1>
           <p className={styles.pageSubtitle}>
-            Stock each franchise has lifted from the company, the products it has dispatched to members (by product
-            ID), and what it still holds — in units and KBP.
+            Assign products to a franchise, then track what it sells (it earns a commission on every sale), what it
+            hands out to members, and what it still holds — by product ID, in units and KBP.
           </p>
         </div>
       </div>
 
+      <div className={styles.notice}>
+        Franchise sale commission is currently <strong>{((overview.saleCommissionRate || 0) * 100).toFixed(2).replace(/\.00$/, '')}%</strong> of
+        the sale value (KSP × quantity), credited to the franchise's Income wallet when a sale is recorded.
+        {' '}<button type="button" className={styles.linkBtn} onClick={() => navigate('/admin/settings')}>Change in Settings → Franchise Commissions</button>
+      </div>
+
       <div className={styles.cardGrid}>
         <div className={styles.card}>
-          <span className={styles.cardLabel}>All franchises · lifted</span>
+          <span className={styles.cardLabel}>Assigned to franchises</span>
           <span className={styles.cardValue}>{formatNum(overview.totals.liftedKBP)} KBP</span>
           <span className={styles.cardHint}>{formatNum(overview.totals.liftedQty)} unit(s)</span>
+        </div>
+        <div className={styles.card}>
+          <span className={styles.cardLabel}>Sold by franchises</span>
+          <span className={styles.cardValue}>{formatINR(overview.totals.soldKSP)}</span>
+          <span className={styles.cardHint}>{formatNum(overview.totals.soldQty)} unit(s) · {formatNum(overview.totals.soldKBP)} KBP</span>
+        </div>
+        <div className={styles.card}>
+          <span className={styles.cardLabel}>Sale commission paid</span>
+          <span className={`${styles.cardValue} ${styles.positive}`}>{formatINR(overview.totals.commission)}</span>
         </div>
         <div className={styles.card}>
           <span className={styles.cardLabel}>Dispatched to members</span>
@@ -239,7 +290,10 @@ const AdminFranchiseInventoryPage = () => {
                   <h2 className={styles.panelTitle} style={{ marginBottom: 2 }}>{selected.member?.fullName}</h2>
                   <span className={styles.muted} style={{ fontSize: 13 }}>{selected.member?.memberId} · {selected.member?.phoneNumber || ''}</span>
                 </div>
-                <button type="button" className={styles.btnPrimary} onClick={() => setModalOpen(true)}>+ New entry</button>
+                <div className={styles.headerActions}>
+                  <button type="button" className={styles.btn} onClick={() => openModal('SALE')}>Record sale</button>
+                  <button type="button" className={styles.btnPrimary} onClick={() => openModal('LIFT')}>+ Assign products</button>
+                </div>
               </div>
             )}
 
@@ -249,19 +303,23 @@ const AdminFranchiseInventoryPage = () => {
               <>
                 <div className={styles.cardGrid}>
                   <div className={styles.card}>
-                    <span className={styles.cardLabel}>Lifted</span>
+                    <span className={styles.cardLabel}>Assigned</span>
                     <span className={styles.cardValue}>{formatNum(t.liftedKBP)} KBP</span>
                     <span className={styles.cardHint}>{formatNum(t.liftedQty)} unit(s)</span>
                   </div>
                   <div className={styles.card}>
-                    <span className={styles.cardLabel}>Dispatched</span>
-                    <span className={styles.cardValue}>{formatNum(t.dispatchedKBP)} KBP</span>
-                    <span className={styles.cardHint}>{formatNum(t.dispatchedQty)} unit(s)</span>
+                    <span className={styles.cardLabel}>Sold</span>
+                    <span className={styles.cardValue}>{formatINR(t.soldKSP)}</span>
+                    <span className={styles.cardHint}>{formatNum(t.soldQty)} unit(s) · {formatNum(t.soldKBP)} KBP</span>
                   </div>
                   <div className={styles.card}>
-                    <span className={styles.cardLabel}>Returned</span>
-                    <span className={styles.cardValue}>{formatNum(t.returnedKBP)} KBP</span>
-                    <span className={styles.cardHint}>{formatNum(t.returnedQty)} unit(s)</span>
+                    <span className={styles.cardLabel}>Commission earned</span>
+                    <span className={`${styles.cardValue} ${styles.positive}`}>{formatINR(t.commission)}</span>
+                  </div>
+                  <div className={styles.card}>
+                    <span className={styles.cardLabel}>Dispatched / Returned</span>
+                    <span className={styles.cardValue}>{formatNum(t.dispatchedQty)} / {formatNum(t.returnedQty)}</span>
+                    <span className={styles.cardHint}>unit(s)</span>
                   </div>
                   <div className={`${styles.card} ${styles.cardAccent}`}>
                     <span className={styles.cardLabel}>Remaining balance</span>
@@ -279,8 +337,8 @@ const AdminFranchiseInventoryPage = () => {
                       <thead>
                         <tr>
                           <th>Product ID</th><th>Product</th>
-                          <th className={styles.num}>Lifted</th><th className={styles.num}>Dispatched</th><th className={styles.num}>Returned</th>
-                          <th className={styles.num}>Balance</th><th className={styles.num}>Balance KBP</th>
+                          <th className={styles.num}>Assigned</th><th className={styles.num}>Sold</th><th className={styles.num}>Dispatched</th><th className={styles.num}>Returned</th>
+                          <th className={styles.num}>Balance</th><th className={styles.num}>Balance KBP</th><th className={styles.num}>Commission</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -289,10 +347,12 @@ const AdminFranchiseInventoryPage = () => {
                             <td className={styles.strong}>{p._id.productId}</td>
                             <td>{p.productName}</td>
                             <td className={styles.num}>{formatNum(p.liftedQty)}</td>
+                            <td className={styles.num}>{formatNum(p.soldQty)}</td>
                             <td className={styles.num}>{formatNum(p.dispatchedQty)}</td>
                             <td className={styles.num}>{formatNum(p.returnedQty)}</td>
                             <td className={`${styles.num} ${styles.strong}`}>{formatNum(p.balanceQty)}</td>
                             <td className={styles.num}>{formatNum(p.balanceKBP)}</td>
+                            <td className={styles.num}>{formatINR(p.commission)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -324,19 +384,37 @@ const AdminFranchiseInventoryPage = () => {
                         <thead>
                           <tr>
                             <th>Date</th><th>Type</th><th>Product ID</th><th>Product</th><th className={styles.num}>Qty</th>
-                            <th className={styles.num}>KBP</th><th>Member</th><th>Reference</th><th />
+                            <th className={styles.num}>KBP</th><th className={styles.num}>Value</th><th>Member / customer</th>
+                            <th className={styles.num}>Commission</th><th>Reference</th><th />
                           </tr>
                         </thead>
                         <tbody>
                           {detail.entries.map((en) => (
                             <tr key={en._id} className={en.voided ? styles.rowVoided : ''} title={en.voided ? `Voided: ${en.voidReason}` : en.note || ''}>
                               <td>{formatDate(en.entryDate)}</td>
-                              <td><span className={en.type === 'RETURN' ? styles.badgeTeal : statusBadgeClass(styles, en.type)}>{en.type}</span></td>
+                              <td>
+                                <span className={typeBadge(en.type)}>{TYPE_LABEL[en.type] || en.type}</span>
+                                {en.recordedByRole === 'FRANCHISE' && <span className={styles.muted} style={{ fontSize: 11, marginLeft: 6 }}>by franchise</span>}
+                              </td>
                               <td className={styles.strong}>{en.productId}</td>
                               <td>{en.productName}</td>
                               <td className={styles.num}>{formatNum(en.qty)}</td>
                               <td className={styles.num}>{formatNum(en.totalKBP)}</td>
-                              <td>{en.memberId ? <span className={styles.memberCell}><strong>{en.memberName}</strong><span>{en.memberId}</span></span> : <span className={styles.muted}>—</span>}</td>
+                              <td className={styles.num}>{formatINR(en.totalKSP)}</td>
+                              <td>
+                                {en.memberId ? (
+                                  <span className={styles.memberCell}><strong>{en.memberName}</strong><span>{en.memberId}</span></span>
+                                ) : en.customerName ? (
+                                  <span className={styles.memberCell}><strong>{en.customerName}</strong><span>{en.customerPhone || 'Customer'}</span></span>
+                                ) : <span className={styles.muted}>—</span>}
+                              </td>
+                              <td className={styles.num}>
+                                {en.type === 'SALE' ? (
+                                  <span className={en.commissionStatus === 'CREDITED' ? styles.positive : en.commissionStatus === 'FAILED' ? styles.negative : styles.muted}>
+                                    {formatINR(en.commissionAmount)}{en.commissionStatus !== 'CREDITED' ? ` · ${en.commissionStatus}` : ''}
+                                  </span>
+                                ) : <span className={styles.muted}>—</span>}
+                              </td>
                               <td className={styles.muted}>{en.reference || '—'}</td>
                               <td>{!en.voided && <button type="button" className={styles.linkDanger} onClick={() => handleVoid(en)}>Void</button>}</td>
                             </tr>
@@ -362,6 +440,8 @@ const AdminFranchiseInventoryPage = () => {
           franchise={selected}
           products={products}
           balances={detail.products}
+          commissionRate={overview.saleCommissionRate || 0}
+          initialType={modalType}
           onClose={() => setModalOpen(false)}
           onSaved={() => { setModalOpen(false); fetchDetail(); fetchOverview(); }}
         />

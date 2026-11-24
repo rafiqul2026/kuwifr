@@ -20,7 +20,9 @@ const FranchiseStockEntrySchema = new mongoose.Schema(
     franchiseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Franchise', required: true, index: true },
     franchiseUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
 
-    type: { type: String, enum: ['LIFT', 'DISPATCH', 'RETURN'], required: true, index: true },
+    // SALE: franchise sells a product (to a member or a walk-in customer) and
+    // earns FRANCHISE_SALE_COMMISSION on it. Reduces stock like DISPATCH.
+    type: { type: String, enum: ['LIFT', 'DISPATCH', 'SALE', 'RETURN'], required: true, index: true },
 
     // RepurchaseProduct.id (the stable slug, e.g. "kfr-p01") — the product ID
     // shown everywhere in the admin panel.
@@ -42,6 +44,20 @@ const FranchiseStockEntrySchema = new mongoose.Schema(
     memberUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null, index: true },
     memberId: { type: String, default: null, trim: true },
     memberName: { type: String, default: null, trim: true },
+
+    // SALE only: walk-in customer (when the buyer isn't a member).
+    customerName: { type: String, default: '', trim: true, maxlength: 120 },
+    customerPhone: { type: String, default: '', trim: true, maxlength: 20 },
+
+    // SALE only: commission credited to the franchise for this sale.
+    commissionRate: { type: Number, default: 0, min: 0, max: 1 },
+    commissionAmount: { type: Number, default: 0, min: 0 },
+    commissionStatus: { type: String, enum: ['NONE', 'CREDITED', 'FAILED', 'REVERSED'], default: 'NONE' },
+    incomeTransactionId: { type: mongoose.Schema.Types.ObjectId, ref: 'IncomeTransaction', default: null },
+
+    // Who entered the row: an admin, the franchise itself, or an admin
+    // using "Login as Member" on the franchise's account.
+    recordedByRole: { type: String, enum: ['ADMIN', 'FRANCHISE', 'ADMIN_AS_FRANCHISE'], default: 'ADMIN' },
 
     reference: { type: String, default: '', trim: true, maxlength: 120 },
     note: { type: String, default: '', trim: true, maxlength: 500 },

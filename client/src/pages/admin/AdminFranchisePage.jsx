@@ -157,7 +157,7 @@ export default function AdminFranchisePage() {
 
     try {
       setIsGranting(true);
-      const res = await api.post('/api/admin/franchise/grant', {
+      const res = await api.post('/api/franchise/admin/grant', {
         memberId: selectedGrantMember.memberId,
         note: grantNote.trim()
       });

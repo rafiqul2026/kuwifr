@@ -69,6 +69,12 @@ const WalletTransactionSchema = new mongoose.Schema({
       'RANK_SALARY',
       'FUND_SALARY',
       'FUND_INCOME',
+      // Franchise income. The two overrides were missing here, so every
+      // franchise override credit failed validation and was recorded as a
+      // FAILED IncomeTransaction instead of reaching the wallet.
+      'FRANCHISE_ACTIVATION_OVERRIDE',
+      'FRANCHISE_KBP_OVERRIDE',
+      'FRANCHISE_SALE_COMMISSION',
       'SALARY',
       'TDS_REFUND',
       'WITHDRAWAL',

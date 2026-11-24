@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './FranchisePage.module.css';
+import FranchiseStockSection from './FranchiseStockSection';
 
 const formatINR = (val) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(val) || 0);
@@ -195,6 +196,8 @@ const FranchisePage = () => {
           <span className={styles.statHelp}>Activation / Lifetime KBP</span>
         </div>
       </div>
+
+      <FranchiseStockSection />
 
       <div className={styles.territorySection}>
         <div className={styles.sectionHeader}>

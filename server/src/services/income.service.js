@@ -746,7 +746,7 @@ class IncomeService {
         grossAmount,
         capAdjustment: grossAmount,
         creditedAmount: 0,
-        walletType: ['REFERRAL_INCOME', 'MATCHING_INCOME', 'LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3', 'FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE'].includes(type) ? 'INCOME' : 'REPURCHASE',
+        walletType: ['REFERRAL_INCOME', 'MATCHING_INCOME', 'LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3', 'FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE', 'FRANCHISE_SALE_COMMISSION'].includes(type) ? 'INCOME' : 'REPURCHASE',
         walletId: fallbackWallet._id,
         status: 'FAILED',
         processedAt: new Date(),
@@ -773,7 +773,7 @@ class IncomeService {
   async creditIncome(userId, amount, type, sourceId, sourceModel, kbp, rate, metadata = {}) {
     if (amount <= 0) return null;
 
-    const walletType = ['REFERRAL_INCOME', 'MATCHING_INCOME', 'LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3', 'FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE'].includes(type) ? 'INCOME' : 'REPURCHASE';
+    const walletType = ['REFERRAL_INCOME', 'MATCHING_INCOME', 'LEADERSHIP_INCOME_L1', 'LEADERSHIP_INCOME_L2', 'LEADERSHIP_INCOME_L3', 'FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE', 'FRANCHISE_SALE_COMMISSION'].includes(type) ? 'INCOME' : 'REPURCHASE';
     const isDeferred = IncomeService.DEFERRED_SETTLEMENT_TYPES.includes(type);
 
     try {

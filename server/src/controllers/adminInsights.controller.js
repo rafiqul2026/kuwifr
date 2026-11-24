@@ -16,12 +16,13 @@ const Withdrawal = require('../models/Withdrawal');
 const Wallet = require('../models/Wallet');
 const Order = require('../models/Order');
 const RepurchasePurchase = require('../models/RepurchasePurchase');
-const RepurchaseProduct = require('../models/RepurchaseProduct');
 const Franchise = require('../models/Franchise');
 const FranchiseStockEntry = require('../models/FranchiseStockEntry');
 const AuditLog = require('../models/AuditLog');
 const DownlineService = require('../services/downline.service');
 const SponsorChangeService = require('../services/sponsorChange.service');
+const FranchiseStock = require('../services/franchiseStock.service');
+const SettingsService = require('../services/settings.service');
 const { logAdminAction } = require('../utils/auditLogger');
 
 const ADMIN_ROLES = ['ADMIN', 'SUPER_ADMIN', 'admin', 'super_admin'];
@@ -90,7 +91,7 @@ const INCOME_STREAMS = [
   { key: 'downlineRepurchase', label: 'Downline Repurchase', types: ['REPURCHASE_DOWNLINE'] },
   { key: 'rankSalary', label: 'Rank Salary', types: ['RANK_SALARY'] },
   { key: 'fund', label: 'Fund', types: ['FUND_SALARY', 'FUND_INCOME'] },
-  { key: 'franchise', label: 'Franchise', types: ['FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE'] }
+  { key: 'franchise', label: 'Franchise', types: ['FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE', 'FRANCHISE_SALE_COMMISSION'] }
 ];
 
 const PAID_WITHDRAWAL = ['PROCESSED'];
@@ -461,52 +462,19 @@ const getMemberIncomeHistory = async (req, res, next) => {
 
 // ================================================ 3. FRANCHISE INVENTORY
 
-const stockBalancesFor = async (franchiseIds = null) => {
-  const match = { voided: false };
-  if (franchiseIds) match.franchiseId = { $in: franchiseIds };
-  return FranchiseStockEntry.aggregate([
-    { $match: match },
-    {
-      $group: {
-        _id: { franchiseId: '$franchiseId', productId: '$productId' },
-        productName: { $last: '$productName' },
-        liftedQty: { $sum: { $cond: [{ $eq: ['$type', 'LIFT'] }, '$qty', 0] } },
-        dispatchedQty: { $sum: { $cond: [{ $eq: ['$type', 'DISPATCH'] }, '$qty', 0] } },
-        returnedQty: { $sum: { $cond: [{ $eq: ['$type', 'RETURN'] }, '$qty', 0] } },
-        liftedKBP: { $sum: { $cond: [{ $eq: ['$type', 'LIFT'] }, '$totalKBP', 0] } },
-        dispatchedKBP: { $sum: { $cond: [{ $eq: ['$type', 'DISPATCH'] }, '$totalKBP', 0] } },
-        returnedKBP: { $sum: { $cond: [{ $eq: ['$type', 'RETURN'] }, '$totalKBP', 0] } },
-        liftedKSP: { $sum: { $cond: [{ $eq: ['$type', 'LIFT'] }, '$totalKSP', 0] } },
-        dispatchedKSP: { $sum: { $cond: [{ $eq: ['$type', 'DISPATCH'] }, '$totalKSP', 0] } },
-        returnedKSP: { $sum: { $cond: [{ $eq: ['$type', 'RETURN'] }, '$totalKSP', 0] } }
-      }
-    },
-    {
-      $addFields: {
-        balanceQty: { $subtract: ['$liftedQty', { $add: ['$dispatchedQty', '$returnedQty'] }] },
-        balanceKBP: { $subtract: ['$liftedKBP', { $add: ['$dispatchedKBP', '$returnedKBP'] }] },
-        balanceKSP: { $subtract: ['$liftedKSP', { $add: ['$dispatchedKSP', '$returnedKSP'] }] }
-      }
-    },
-    { $sort: { '_id.productId': 1 } }
-  ]);
-};
-
-const sumStock = (rows) => rows.reduce((t, r) => {
-  for (const k of ['liftedQty', 'dispatchedQty', 'returnedQty', 'balanceQty', 'liftedKBP', 'dispatchedKBP', 'returnedKBP', 'balanceKBP', 'liftedKSP', 'dispatchedKSP', 'balanceKSP']) {
-    t[k] = (t[k] || 0) + (r[k] || 0);
-  }
-  return t;
-}, {});
+const ENTRY_LABELS = { LIFT: 'Stock assignment', DISPATCH: 'Dispatch', SALE: 'Sale', RETURN: 'Return' };
 
 /** Franchise list with stock totals — the Inventory page's left column. */
 const getFranchiseInventoryOverview = async (req, res, next) => {
   try {
-    const franchises = await Franchise.find({ status: { $in: ['APPROVED', 'REVOKED'] } })
-      .populate('userId', 'memberId fullName phoneNumber status')
-      .sort({ status: 1, decidedAt: -1 })
-      .lean();
-    const balances = await stockBalancesFor();
+    const [franchises, balances, rates] = await Promise.all([
+      Franchise.find({ status: { $in: ['APPROVED', 'REVOKED'] } })
+        .populate('userId', 'memberId fullName phoneNumber status')
+        .sort({ status: 1, decidedAt: -1 })
+        .lean(),
+      FranchiseStock.stockBalancesFor(),
+      SettingsService.getFranchise()
+    ]);
     const byFranchise = new Map();
     for (const b of balances) {
       const key = String(b._id.franchiseId);
@@ -517,9 +485,12 @@ const getFranchiseInventoryOverview = async (req, res, next) => {
       _id: f._id,
       status: f.status,
       member: f.userId,
-      totals: sumStock(byFranchise.get(String(f._id)) || [])
+      totals: FranchiseStock.sumStock(byFranchise.get(String(f._id)) || [])
     }));
-    res.json({ success: true, data: { franchises: rows, totals: sumStock(balances) } });
+    res.json({
+      success: true,
+      data: { franchises: rows, totals: FranchiseStock.sumStock(balances), saleCommissionRate: rates.saleCommissionRate || 0 }
+    });
   } catch (error) {
     next(error);
   }
@@ -534,7 +505,7 @@ const getFranchiseInventory = async (req, res, next) => {
     if (!franchise) return res.status(404).json({ success: false, message: 'Franchise not found.' });
 
     const entryMatch = { franchiseId: franchise._id };
-    if (['LIFT', 'DISPATCH', 'RETURN'].includes(req.query.type)) entryMatch.type = req.query.type;
+    if (FranchiseStock.TYPES.includes(req.query.type)) entryMatch.type = req.query.type;
     if (req.query.productId) entryMatch.productId = String(req.query.productId).trim();
     const range = parseDateRange(req.query);
     if (range) entryMatch.entryDate = range;
@@ -542,123 +513,62 @@ const getFranchiseInventory = async (req, res, next) => {
 
     const { page, limit, skip } = pageParams(req.query, 50);
     const [products, entries, total] = await Promise.all([
-      stockBalancesFor([franchise._id]),
+      FranchiseStock.stockBalancesFor([franchise._id]),
       FranchiseStockEntry.find(entryMatch).sort({ entryDate: -1, createdAt: -1 }).skip(skip).limit(limit)
         .populate('createdBy', 'fullName email').lean(),
       FranchiseStockEntry.countDocuments(entryMatch)
     ]);
 
-    res.json({ success: true, data: { franchise, products, totals: sumStock(products), entries, total, page, limit } });
+    res.json({ success: true, data: { franchise, products, totals: FranchiseStock.sumStock(products), entries, total, page, limit } });
   } catch (error) {
     next(error);
   }
 };
 
-const productBalance = async (franchiseId, productId) => {
-  const [row] = await stockBalancesFor([franchiseId]).then((rows) => rows.filter((r) => r._id.productId === productId));
-  return row ? row.balanceQty : 0;
-};
-
-/** POST — record a LIFT, DISPATCH or RETURN. */
+/** POST — admin records an assignment (LIFT), DISPATCH, SALE or RETURN. */
 const createFranchiseStockEntry = async (req, res, next) => {
   try {
     const { franchiseId } = req.params;
-    const type = String(req.body.type || '').toUpperCase();
-    const productId = String(req.body.productId || '').trim();
-    const qty = Number(req.body.qty);
-
     if (!mongoose.isValidObjectId(franchiseId)) return res.status(400).json({ success: false, message: 'Invalid franchise id.' });
-    if (!['LIFT', 'DISPATCH', 'RETURN'].includes(type)) return res.status(400).json({ success: false, message: 'Type must be Lift, Dispatch or Return.' });
-    if (!productId) return res.status(400).json({ success: false, message: 'Choose a product.' });
-    if (!Number.isInteger(qty) || qty < 1 || qty > 100000) return res.status(400).json({ success: false, message: 'Quantity must be a whole number from 1 to 100000.' });
-
     const franchise = await Franchise.findById(franchiseId).lean();
     if (!franchise) return res.status(404).json({ success: false, message: 'Franchise not found.' });
-    if (franchise.status !== 'APPROVED' && type === 'LIFT') {
-      return res.status(400).json({ success: false, message: 'Stock can only be lifted by an approved franchise.' });
-    }
 
-    const product = await RepurchaseProduct.findOne({ id: productId }).lean();
-    if (!product) return res.status(404).json({ success: false, message: `Product ${productId} not found.` });
-
-    let member = null;
-    if (type === 'DISPATCH') {
-      const ref = String(req.body.memberId || '').trim();
-      if (!ref) return res.status(400).json({ success: false, message: 'Enter the Member ID the product was dispatched to.' });
-      member = await SponsorChangeService.findByMemberId(ref);
-      if (!member) return res.status(404).json({ success: false, message: `Member ${ref} not found.` });
-    }
-
-    let entryDate = new Date();
-    if (req.body.entryDate) {
-      const d = new Date(req.body.entryDate);
-      if (Number.isNaN(d.getTime()) || d > new Date(Date.now() + 86400000)) {
-        return res.status(400).json({ success: false, message: 'Invalid entry date.' });
-      }
-      entryDate = d;
-    }
-
-    // Company warehouse stock moves with LIFT (out) / RETURN (back in), when tracked.
-    let companyStockAdjusted = false;
-    if (type === 'LIFT' && product.stock !== null && product.stock !== undefined) {
-      const updated = await RepurchaseProduct.findOneAndUpdate(
-        { _id: product._id, stock: { $gte: qty } },
-        { $inc: { stock: -qty } },
-        { new: true }
-      );
-      if (!updated) {
-        return res.status(400).json({ success: false, message: `Only ${product.stock} unit(s) of ${product.name} left in company stock.` });
-      }
-      companyStockAdjusted = true;
-    }
-
-    const entry = await FranchiseStockEntry.create({
-      franchiseId: franchise._id,
-      franchiseUserId: franchise.userId,
-      type,
-      productId: product.id,
-      productName: product.name,
-      qty,
-      kbpPerUnit: product.kbp || 0,
-      kspPerUnit: product.ksp || 0,
-      totalKBP: round2((product.kbp || 0) * qty),
-      totalKSP: round2((product.ksp || 0) * qty),
-      memberUserId: member?._id || null,
-      memberId: member?.memberId || null,
-      memberName: member?.fullName || null,
-      reference: String(req.body.reference || '').trim().slice(0, 120),
-      note: String(req.body.note || '').trim().slice(0, 500),
-      entryDate,
-      companyStockAdjusted,
-      createdBy: req.user._id
+    const entry = await FranchiseStock.createEntry({
+      franchise,
+      type: req.body.type,
+      productId: req.body.productId,
+      qty: req.body.qty,
+      memberRef: req.body.memberId,
+      customerName: req.body.customerName,
+      customerPhone: req.body.customerPhone,
+      reference: req.body.reference,
+      note: req.body.note,
+      entryDate: req.body.entryDate,
+      createdBy: req.user._id,
+      recordedByRole: 'ADMIN'
     });
-
-    // DISPATCH / RETURN can't take a franchise below zero. Checked after the
-    // write so two simultaneous entries can never both slip through.
-    if (type !== 'LIFT') {
-      const balance = await productBalance(franchise._id, product.id);
-      if (balance < 0) {
-        await FranchiseStockEntry.deleteOne({ _id: entry._id });
-        return res.status(400).json({
-          success: false,
-          message: `Not enough ${product.name} with this franchise. Available: ${balance + qty} unit(s).`
-        });
-      }
-      if (type === 'RETURN' && product.stock !== null && product.stock !== undefined) {
-        await RepurchaseProduct.updateOne({ _id: product._id }, { $inc: { stock: qty } });
-        await FranchiseStockEntry.updateOne({ _id: entry._id }, { $set: { companyStockAdjusted: true } });
-      }
-    }
 
     await logAdminAction({
       req,
-      action: `FRANCHISE_STOCK_${type}`,
+      action: `FRANCHISE_STOCK_${entry.type}`,
       module: 'PRODUCTS',
       targetId: entry._id,
-      newData: { franchiseId: String(franchise._id), productId: product.id, qty, memberId: member?.memberId || null }
+      newData: {
+        franchiseId: String(franchise._id),
+        productId: entry.productId,
+        qty: entry.qty,
+        memberId: entry.memberId || null,
+        commission: entry.commissionAmount || 0
+      }
     });
 
-    res.status(201).json({ success: true, message: `${type.charAt(0)}${type.slice(1).toLowerCase()} of ${qty} × ${product.name} recorded.`, data: entry });
+    let message = `${ENTRY_LABELS[entry.type]} of ${entry.qty} × ${entry.productName} recorded.`;
+    if (entry.type === 'SALE') {
+      message += entry.commissionStatus === 'CREDITED'
+        ? ` ₹${entry.commissionAmount} commission credited to the franchise.`
+        : entry.commissionStatus === 'FAILED' ? ' Commission could not be credited — check Income History.' : '';
+    }
+    res.status(201).json({ success: true, message, data: entry });
   } catch (error) {
     next(error);
   }
@@ -667,51 +577,17 @@ const createFranchiseStockEntry = async (req, res, next) => {
 /** POST — void a stock entry (kept for the audit trail, excluded from balances). */
 const voidFranchiseStockEntry = async (req, res, next) => {
   try {
-    const { entryId } = req.params;
-    if (!mongoose.isValidObjectId(entryId)) return res.status(400).json({ success: false, message: 'Invalid entry id.' });
-    const reason = String(req.body.reason || '').trim();
-    if (reason.length < 3) return res.status(400).json({ success: false, message: 'Give a reason for voiding this entry.' });
-
-    const entry = await FranchiseStockEntry.findOneAndUpdate(
-      { _id: entryId, voided: false },
-      { $set: { voided: true, voidedAt: new Date(), voidedBy: req.user._id, voidReason: reason.slice(0, 300) } },
-      { new: true }
-    );
-    if (!entry) return res.status(404).json({ success: false, message: 'Entry not found or already voided.' });
-
-    // Voiding a LIFT removes stock from the franchise — refuse if it's already been dispatched.
-    if (entry.type === 'LIFT') {
-      const balance = await productBalance(entry.franchiseId, entry.productId);
-      if (balance < 0) {
-        await FranchiseStockEntry.updateOne({ _id: entry._id }, { $set: { voided: false, voidedAt: null, voidedBy: null, voidReason: '' } });
-        return res.status(400).json({
-          success: false,
-          message: 'This lift has already been partly dispatched. Void the dispatches first, or record a Return instead.'
-        });
-      }
-    }
-
-    // Undo the company-stock movement this entry made.
-    if (entry.companyStockAdjusted) {
-      const delta = entry.type === 'LIFT' ? entry.qty : entry.type === 'RETURN' ? -entry.qty : 0;
-      if (delta) {
-        await RepurchaseProduct.updateOne(
-          { id: entry.productId, stock: { $ne: null }, ...(delta < 0 ? { stock: { $gte: -delta } } : {}) },
-          { $inc: { stock: delta } }
-        );
-      }
-    }
-
+    const entry = await FranchiseStock.voidEntry({ entryId: req.params.entryId, reason: req.body.reason, voidedBy: req.user._id });
     await logAdminAction({
       req,
       action: 'FRANCHISE_STOCK_VOID',
       module: 'PRODUCTS',
       targetId: entry._id,
-      previousData: { type: entry.type, productId: entry.productId, qty: entry.qty },
-      newData: { reason }
+      previousData: { type: entry.type, productId: entry.productId, qty: entry.qty, commission: entry.commissionAmount || 0 },
+      newData: { reason: entry.voidReason }
     });
-
-    res.json({ success: true, message: 'Entry voided.', data: entry });
+    const reversed = entry.type === 'SALE' && entry.commissionStatus === 'REVERSED' ? ` ₹${entry.commissionAmount} commission taken back.` : '';
+    res.json({ success: true, message: `Entry voided.${reversed}`, data: entry });
   } catch (error) {
     next(error);
   }
@@ -828,7 +704,7 @@ const buildFranchiseReportRow = async (franchise, range, stockByFranchise) => {
       { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: '$totalKSP' }, kbp: { $sum: '$totalKBP' } } }
     ]),
     IncomeTransaction.aggregate([
-      { $match: { userId, status: 'CREDITED', type: { $in: ['FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE'] }, ...createdInRange } },
+      { $match: { userId, status: 'CREDITED', type: { $in: ['FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE', 'FRANCHISE_SALE_COMMISSION'] }, ...createdInRange } },
       { $group: { _id: '$type', total: { $sum: '$creditedAmount' } } }
     ]),
     IncomeTransaction.aggregate([
@@ -868,17 +744,23 @@ const buildFranchiseReportRow = async (franchise, range, stockByFranchise) => {
     income: {
       activationOverride: round2(inc.get('FRANCHISE_ACTIVATION_OVERRIDE')),
       kbpOverride: round2(inc.get('FRANCHISE_KBP_OVERRIDE')),
-      franchiseTotal: round2((inc.get('FRANCHISE_ACTIVATION_OVERRIDE') || 0) + (inc.get('FRANCHISE_KBP_OVERRIDE') || 0)),
+      saleCommission: round2(inc.get('FRANCHISE_SALE_COMMISSION')),
+      franchiseTotal: round2(
+        (inc.get('FRANCHISE_ACTIVATION_OVERRIDE') || 0) + (inc.get('FRANCHISE_KBP_OVERRIDE') || 0) + (inc.get('FRANCHISE_SALE_COMMISSION') || 0)
+      ),
       allIncomeLifetime: round2(incomeAllTime[0]?.total)
     },
     payouts: { paid: wd(PAID_WITHDRAWAL), pending: wd(PENDING_WITHDRAWAL) },
     stock: {
       liftedQty: stock.liftedQty || 0,
       dispatchedQty: stock.dispatchedQty || 0,
+      soldQty: stock.soldQty || 0,
       returnedQty: stock.returnedQty || 0,
       balanceQty: stock.balanceQty || 0,
       liftedKBP: stock.liftedKBP || 0,
       dispatchedKBP: stock.dispatchedKBP || 0,
+      soldKBP: stock.soldKBP || 0,
+      soldKSP: round2(stock.soldKSP),
       balanceKBP: stock.balanceKBP || 0,
       balanceKSP: round2(stock.balanceKSP)
     }
@@ -901,13 +783,16 @@ const getFranchiseReports = async (req, res, next) => {
             _id: '$franchiseId',
             liftedQty: { $sum: { $cond: [{ $eq: ['$type', 'LIFT'] }, '$qty', 0] } },
             dispatchedQty: { $sum: { $cond: [{ $eq: ['$type', 'DISPATCH'] }, '$qty', 0] } },
+            soldQty: { $sum: { $cond: [{ $eq: ['$type', 'SALE'] }, '$qty', 0] } },
             returnedQty: { $sum: { $cond: [{ $eq: ['$type', 'RETURN'] }, '$qty', 0] } },
             liftedKBP: { $sum: { $cond: [{ $eq: ['$type', 'LIFT'] }, '$totalKBP', 0] } },
-            dispatchedKBP: { $sum: { $cond: [{ $eq: ['$type', 'DISPATCH'] }, '$totalKBP', 0] } }
+            dispatchedKBP: { $sum: { $cond: [{ $eq: ['$type', 'DISPATCH'] }, '$totalKBP', 0] } },
+            soldKBP: { $sum: { $cond: [{ $eq: ['$type', 'SALE'] }, '$totalKBP', 0] } },
+            soldKSP: { $sum: { $cond: [{ $eq: ['$type', 'SALE'] }, '$totalKSP', 0] } }
           }
         }
       ]),
-      stockBalancesFor()
+      FranchiseStock.stockBalancesFor()
     ]);
     const stockByFranchise = new Map();
     for (const s of stockRange) stockByFranchise.set(String(s._id), { ...s });
@@ -947,6 +832,9 @@ const getFranchiseReports = async (req, res, next) => {
         { label: 'Pending Payout (₹)', get: (r) => r.payouts.pending },
         { label: 'Stock Lifted (units)', get: (r) => r.stock.liftedQty },
         { label: 'Stock Dispatched (units)', get: (r) => r.stock.dispatchedQty },
+        { label: 'Stock Sold (units)', get: (r) => r.stock.soldQty },
+        { label: 'Stock Sales Value (₹)', get: (r) => r.stock.soldKSP },
+        { label: 'Sale Commission (₹)', get: (r) => r.income.saleCommission },
         { label: 'Stock Balance (units)', get: (r) => r.stock.balanceQty },
         { label: 'Stock Balance (KBP)', get: (r) => r.stock.balanceKBP }
       ], rows);

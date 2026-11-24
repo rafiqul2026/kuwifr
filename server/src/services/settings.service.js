@@ -17,7 +17,7 @@ const DEFAULT_COMPENSATION = {
     unlockLevelsByDirects: [2, 4, 6, 8, 10, 12, 14, 15]
   },
   withdrawal: { minAmount: 500, adminChargeRate: 0.05, serviceChargeRate: 0.05, tdsRate: 0.05, stopWithdrawals: false, stopWithdrawalsMessage: 'Withdrawals are temporarily paused. Please check back later.' },
-  franchise: { kspRate: 0.10, kbpLifetimeRate: 0.01 }
+  franchise: { kspRate: 0.10, kbpLifetimeRate: 0.01, saleCommissionRate: 0.10 }
 };
 
 const CACHE_TTL_MS = 15000; // short TTL: cheap enough to re-read often, but avoids a

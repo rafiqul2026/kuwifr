@@ -41,7 +41,10 @@ const IncomeTransactionSchema = new mongoose.Schema({
       // order (ongoing team-volume override). See income.service.js
       // #processFranchiseOverrides.
       'FRANCHISE_ACTIVATION_OVERRIDE',
-      'FRANCHISE_KBP_OVERRIDE'
+      'FRANCHISE_KBP_OVERRIDE',
+      // Commission a franchise earns on each product sale it records from
+      // stock the admin assigned to it. See services/franchiseSale.service.js.
+      'FRANCHISE_SALE_COMMISSION'
     ],
     required: true,
     index: true
@@ -56,7 +59,7 @@ const IncomeTransactionSchema = new mongoose.Schema({
   },
   sourceModel: {
     type: String,
-    enum: ['Order', 'User', 'Referral', 'BinaryNode', 'Withdrawal'],
+    enum: ['Order', 'User', 'Referral', 'BinaryNode', 'Withdrawal', 'FranchiseStockEntry'],
     required: true
   },
 

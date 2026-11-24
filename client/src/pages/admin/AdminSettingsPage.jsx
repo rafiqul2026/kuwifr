@@ -46,7 +46,8 @@ const COMPENSATION_DEFAULTS = {
   },
   franchise: {
     kspRate: 0.10,
-    kbpLifetimeRate: 0.01
+    kbpLifetimeRate: 0.01,
+    saleCommissionRate: 0.10
   }
 };
 
@@ -1438,6 +1439,20 @@ const AdminSettingsPage = () => {
                       value={pctToDisplay(settings.compensation.franchise.kbpLifetimeRate)}
                       onChange={(e) => handleCompChange('franchise', 'kbpLifetimeRate', displayToPct(e.target.value))}
                     />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label>Franchise Product Sale Commission (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={pctToDisplay(settings.compensation.franchise.saleCommissionRate ?? 0)}
+                      onChange={(e) => handleCompChange('franchise', 'saleCommissionRate', displayToPct(e.target.value))}
+                    />
+                    <small style={{ color: '#737373', fontSize: 12 }}>
+                      Paid on every product a franchise sells from its assigned stock, as a % of the sale value (KSP × quantity).
+                    </small>
                   </div>
                 </div>
                 {renderSaveBar('franchise', 'Franchise Commissions')}

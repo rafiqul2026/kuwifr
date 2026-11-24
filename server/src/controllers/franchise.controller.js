@@ -8,6 +8,9 @@ const Notification = require('../models/Notification');
 const DownlineService = require('../services/downline.service');
 const SettingsService = require('../services/settings.service');
 const { getBusinessDayStart } = require('../utils/businessDate');
+const FranchiseStock = require('../services/franchiseStock.service');
+const FranchiseStockEntry = require('../models/FranchiseStockEntry');
+const RepurchaseProduct = require('../models/RepurchaseProduct');
 
 // ============ MEMBER-SIDE ============
 
@@ -93,11 +96,11 @@ const getMyFranchiseDashboard = async (req, res, next) => {
 
     const [todayAgg, totalAgg] = await Promise.all([
       IncomeTransaction.aggregate([
-        { $match: { userId: franchise.userId, type: { $in: ['FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE'] }, status: 'CREDITED', createdAt: { $gte: todayStart } } },
+        { $match: { userId: franchise.userId, type: { $in: ['FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE', 'FRANCHISE_SALE_COMMISSION'] }, status: 'CREDITED', createdAt: { $gte: todayStart } } },
         { $group: { _id: null, total: { $sum: '$creditedAmount' } } }
       ]),
       IncomeTransaction.aggregate([
-        { $match: { userId: franchise.userId, type: { $in: ['FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE'] }, status: 'CREDITED' } },
+        { $match: { userId: franchise.userId, type: { $in: ['FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE', 'FRANCHISE_SALE_COMMISSION'] }, status: 'CREDITED' } },
         { $group: { _id: null, total: { $sum: '$creditedAmount' } } }
       ])
     ]);
@@ -394,11 +397,11 @@ const getFranchiseOverviewAdmin = async (req, res, next) => {
       Wallet.findOne({ userId: targetUserId }).lean(),
       Withdrawal.find({ userId: targetUserId }).sort({ createdAt: -1 }).limit(50).lean(),
       IncomeTransaction.aggregate([
-        { $match: { userId: targetUserId, type: { $in: ['FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE'] }, status: 'CREDITED' } },
+        { $match: { userId: targetUserId, type: { $in: ['FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE', 'FRANCHISE_SALE_COMMISSION'] }, status: 'CREDITED' } },
         { $group: { _id: null, total: { $sum: '$creditedAmount' } } }
       ]),
       IncomeTransaction.aggregate([
-        { $match: { userId: targetUserId, type: { $in: ['FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE'] }, status: 'CREDITED', createdAt: { $gte: getBusinessDayStart() } } },
+        { $match: { userId: targetUserId, type: { $in: ['FRANCHISE_ACTIVATION_OVERRIDE', 'FRANCHISE_KBP_OVERRIDE', 'FRANCHISE_SALE_COMMISSION'] }, status: 'CREDITED', createdAt: { $gte: getBusinessDayStart() } } },
         { $group: { _id: null, total: { $sum: '$creditedAmount' } } }
       ])
     ]);
@@ -424,7 +427,115 @@ const getFranchiseOverviewAdmin = async (req, res, next) => {
   }
 };
 
+// ============ FRANCHISE STOCK & SALES (member-side) ============
+
+/**
+ * GET /api/franchise/stock
+ * The franchise's assigned stock (product-wise balance), its sale commission
+ * rate, and its recent sales with the commission earned on each.
+ */
+const getMyFranchiseStock = async (req, res, next) => {
+  try {
+    const userId = req.userId || req.user?._id;
+    const franchise = await Franchise.findOne({ userId, status: 'APPROVED' }).lean();
+    if (!franchise) {
+      return res.status(403).json({ success: false, message: 'You are not an approved franchise.' });
+    }
+
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = 20;
+    const salesMatch = { franchiseId: franchise._id, type: 'SALE' };
+
+    const [products, sales, salesTotal, rates, catalog] = await Promise.all([
+      FranchiseStock.stockBalancesFor([franchise._id]),
+      FranchiseStockEntry.find(salesMatch)
+        .sort({ entryDate: -1, createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .select('productId productName qty totalKSP totalKBP memberId memberName customerName customerPhone commissionAmount commissionStatus commissionRate reference entryDate voided voidReason recordedByRole')
+        .lean(),
+      FranchiseStockEntry.countDocuments(salesMatch),
+      SettingsService.getFranchise(),
+      RepurchaseProduct.find({}).select('id name images ksp kbp mrp').lean()
+    ]);
+
+    const imageById = new Map(catalog.map((p) => [p.id, p.images?.[0]?.url || null]));
+    res.json({
+      success: true,
+      data: {
+        saleCommissionRate: rates.saleCommissionRate || 0,
+        products: products.map((p) => ({
+          productId: p._id.productId,
+          productName: p.productName,
+          image: imageById.get(p._id.productId) || null,
+          kspPerUnit: catalog.find((c) => c.id === p._id.productId)?.ksp || 0,
+          assignedQty: p.liftedQty,
+          soldQty: p.soldQty,
+          dispatchedQty: p.dispatchedQty,
+          returnedQty: p.returnedQty,
+          balanceQty: p.balanceQty,
+          balanceKBP: p.balanceKBP,
+          commission: p.commission
+        })),
+        totals: FranchiseStock.sumStock(products),
+        sales,
+        salesTotal,
+        page,
+        pages: Math.max(1, Math.ceil(salesTotal / limit))
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/franchise/sales
+ * The franchise records a sale from its assigned stock. Commission is
+ * credited to its Income wallet immediately. Only SALE is allowed here —
+ * assigning/returning stock is admin-only.
+ */
+const recordMyFranchiseSale = async (req, res, next) => {
+  try {
+    const userId = req.userId || req.user?._id;
+    const franchise = await Franchise.findOne({ userId, status: 'APPROVED' }).lean();
+    if (!franchise) {
+      return res.status(403).json({ success: false, message: 'You are not an approved franchise.' });
+    }
+
+    const entry = await FranchiseStock.createEntry({
+      franchise,
+      type: 'SALE',
+      productId: req.body.productId,
+      qty: req.body.qty,
+      memberRef: req.body.memberId,
+      customerName: req.body.customerName,
+      customerPhone: req.body.customerPhone,
+      reference: req.body.reference,
+      note: req.body.note,
+      entryDate: req.body.entryDate,
+      createdBy: req.impersonatedBy || userId,
+      recordedByRole: req.impersonatedBy ? 'ADMIN_AS_FRANCHISE' : 'FRANCHISE'
+    });
+
+    const commissionMsg = entry.commissionStatus === 'CREDITED'
+      ? ` ₹${entry.commissionAmount.toLocaleString('en-IN')} commission added to your Income wallet.`
+      : entry.commissionStatus === 'FAILED'
+        ? ' Your commission could not be credited right now. It is recorded for the admin team to resolve.'
+        : '';
+    res.status(201).json({
+      success: true,
+      message: `Sale of ${entry.qty} × ${entry.productName} recorded.${commissionMsg}`,
+      data: entry
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
+  getMyFranchiseStock,
+  recordMyFranchiseSale,
   applyForFranchise,
   getMyFranchiseStatus,
   getMyFranchiseDashboard,

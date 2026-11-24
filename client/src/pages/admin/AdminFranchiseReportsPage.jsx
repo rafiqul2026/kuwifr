@@ -197,10 +197,12 @@ const AdminFranchiseReportsPage = () => {
                           <dl className={styles.kv}>
                             <dt>Activation override</dt><dd>{formatINR(r.income.activationOverride)}</dd>
                             <dt>KBP override</dt><dd>{formatINR(r.income.kbpOverride)}</dd>
+                            <dt>Product sale commission</dt><dd>{formatINR(r.income.saleCommission)}</dd>
                             <dt>All income (lifetime)</dt><dd>{formatINR(r.income.allIncomeLifetime)}</dd>
                           </dl>
                           <dl className={styles.kv}>
-                            <dt>Stock lifted</dt><dd>{formatNum(r.stock.liftedQty)} · {formatNum(r.stock.liftedKBP)} KBP</dd>
+                            <dt>Stock assigned</dt><dd>{formatNum(r.stock.liftedQty)} · {formatNum(r.stock.liftedKBP)} KBP</dd>
+                            <dt>Sold</dt><dd>{formatNum(r.stock.soldQty)} · {formatINR(r.stock.soldKSP)}</dd>
                             <dt>Dispatched</dt><dd>{formatNum(r.stock.dispatchedQty)} · {formatNum(r.stock.dispatchedKBP)} KBP</dd>
                             <dt>Returned</dt><dd>{formatNum(r.stock.returnedQty)}</dd>
                             <dt>Balance value</dt><dd>{formatINR(r.stock.balanceKSP)}</dd>

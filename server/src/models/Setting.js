@@ -130,7 +130,10 @@ const settingSchema = new mongoose.Schema(
       // Franchise commissions.
       franchise: {
         kspRate: { type: Number, default: 0.10, min: 0, max: 1 },
-        kbpLifetimeRate: { type: Number, default: 0.01, min: 0, max: 1 }
+        kbpLifetimeRate: { type: Number, default: 0.01, min: 0, max: 1 },
+        // Commission a franchise earns on each product it sells from stock the
+        // admin assigned to it, as a share of the sale value (KSP x qty).
+        saleCommissionRate: { type: Number, default: 0.10, min: 0, max: 1 }
       }
     }
   },
