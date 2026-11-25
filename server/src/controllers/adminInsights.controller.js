@@ -24,6 +24,7 @@ const SponsorChangeService = require('../services/sponsorChange.service');
 const FranchiseStock = require('../services/franchiseStock.service');
 const SettingsService = require('../services/settings.service');
 const { logAdminAction } = require('../utils/auditLogger');
+const { sendCsv } = require('../utils/csv');
 
 const ADMIN_ROLES = ['ADMIN', 'SUPER_ADMIN', 'admin', 'super_admin'];
 const CSV_ROW_LIMIT = 20000;
@@ -62,22 +63,6 @@ const parseDateRange = (query) => {
     }
   }
   return Object.keys(range).length ? range : null;
-};
-
-const csvCell = (v) => {
-  if (v === null || v === undefined) return '';
-  let s = String(v);
-  // Neutralise spreadsheet formula injection.
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-};
-
-const sendCsv = (res, filename, columns, rows) => {
-  const lines = [columns.map((c) => csvCell(c.label)).join(',')];
-  for (const r of rows) lines.push(columns.map((c) => csvCell(typeof c.get === 'function' ? c.get(r) : r[c.key])).join(','));
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-  res.send(`﻿${lines.join('\r\n')}`);
 };
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;

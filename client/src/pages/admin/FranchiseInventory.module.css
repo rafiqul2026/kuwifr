@@ -680,7 +680,7 @@
   background: #fafaf8;
 }
 
-.cardStat span {
+.cardStat > span {
   display: block;
   font-size: 10.5px;
   font-weight: 700;
@@ -689,7 +689,7 @@
   color: var(--faint);
 }
 
-.cardStat b {
+.cardStat > b {
   display: block;
   margin-top: 2px;
   font-size: 15px;
@@ -1186,4 +1186,239 @@
   white-space: normal;
   min-width: 150px;
   max-width: 240px;
+}
+
+/* ---------- Franchise Panel (member side) ---------- */
+.panelRoot {
+  composes: page;
+  padding: 0;
+  margin: 28px 0 28px;
+}
+
+.panelTabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 16px;
+  border-radius: 14px;
+  background: #f1efea;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.panelTabs::-webkit-scrollbar {
+  display: none;
+}
+
+.panelTab {
+  flex: 1 0 auto;
+  height: 40px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #525252;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.panelTab:hover {
+  color: var(--ink);
+}
+
+.panelTabActive {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.panelTab:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: -2px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.filters .search {
+  flex: 1 1 220px;
+  height: 40px;
+  min-width: 0;
+}
+
+.dateInput {
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.dateSep {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.metaLine {
+  margin: 0 0 10px 2px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.metaLine b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.catalogGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.productCard {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.productImg {
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  object-fit: cover;
+  background: #f4f3ef;
+  display: grid;
+  place-items: center;
+  color: var(--faint);
+  font-size: 28px;
+}
+
+.productBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px 14px;
+  flex: 1;
+}
+
+.priceRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.price {
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #fafaf8;
+  text-align: center;
+}
+
+.price span {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.price b {
+  display: block;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mrpStrike {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.linkBtn {
+  border: none;
+  background: none;
+  padding: 4px 2px;
+  color: var(--teal);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.linkBtn:hover {
+  text-decoration: underline;
+}
+
+.billSheet {
+  font-size: 13.5px;
+}
+
+.billGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.billLabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 3px;
+}
+
+@media (max-width: 760px) {
+  .panelTab {
+    flex: 0 0 auto;
+    padding: 0 14px;
+  }
+
+  .filters .search {
+    flex-basis: 100%;
+  }
+
+  .dateInput {
+    flex: 1 1 calc(50% - 16px);
+    min-width: 0;
+  }
+
+  .dateSep {
+    display: none;
+  }
+
+  .filters > .tabs {
+    flex: 1 1 auto;
+    order: 3;
+  }
+
+  .filters > .btn {
+    order: 4;
+  }
+
+  .catalogGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .billGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

@@ -23,6 +23,15 @@ router.get('/territory', auth, franchiseController.getMyFranchiseTerritory);
 router.get('/stock', auth, franchiseController.getMyFranchiseStock);
 router.post('/sales', auth, franchiseController.recordMyFranchiseSale);
 
+// Franchise Panel reports (own franchise only) — see franchisePanel.controller.js
+const panel = require('../controllers/franchisePanel.controller');
+router.get('/panel/received', auth, panel.getReceived);
+router.get('/panel/sales', auth, panel.getSales);
+router.get('/panel/deliveries', auth, panel.getDeliveries);
+router.get('/panel/bills', auth, panel.getBills);
+router.get('/panel/bills/:id', auth, panel.getBill);
+router.get('/panel/catalog', auth, panel.getCatalog);
+
 // ============ ADMIN ROUTES (mounted at /api/admin/franchise) ============
 router.get('/admin', auth, adminAuth, franchiseController.getFranchiseApplicationsAdmin);
 router.post('/admin/grant', auth, adminAuth, franchiseController.grantFranchiseAdmin);

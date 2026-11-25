@@ -452,33 +452,43 @@ const getMyFranchiseStock = async (req, res, next) => {
         .sort({ entryDate: -1, createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
-        .select('productId productName qty totalKSP totalKBP memberId memberName customerName customerPhone commissionAmount commissionStatus commissionRate reference entryDate voided voidReason recordedByRole')
+        .select('productId productName qty totalKSP totalKBP memberId memberName customerName customerPhone commissionAmount commissionStatus commissionRate reference entryDate createdAt voided voidReason recordedByRole')
         .lean(),
       FranchiseStockEntry.countDocuments(salesMatch),
       SettingsService.getFranchise(),
       RepurchaseProduct.find({}).select('id name images ksp kbp mrp').lean()
     ]);
 
-    const imageById = new Map(catalog.map((p) => [p.id, p.images?.[0]?.url || null]));
+    const catalogById = new Map(catalog.map((p) => [p.id, p]));
     res.json({
       success: true,
       data: {
         saleCommissionRate: rates.saleCommissionRate || 0,
-        products: products.map((p) => ({
-          productId: p._id.productId,
-          productName: p.productName,
-          image: imageById.get(p._id.productId) || null,
-          kspPerUnit: catalog.find((c) => c.id === p._id.productId)?.ksp || 0,
-          assignedQty: p.liftedQty,
-          soldQty: p.soldQty,
-          dispatchedQty: p.dispatchedQty,
-          returnedQty: p.returnedQty,
-          balanceQty: p.balanceQty,
-          balanceKBP: p.balanceKBP,
-          commission: p.commission
-        })),
+        products: products.map((p) => {
+          const c = catalogById.get(p._id.productId);
+          return {
+            productId: p._id.productId,
+            productName: p.productName,
+            image: c?.images?.[0]?.url || null,
+            mrpPerUnit: c?.mrp ?? null,
+            kspPerUnit: c?.ksp || 0,
+            kbpPerUnit: c?.kbp || 0,
+            assignedQty: p.liftedQty,
+            assignedKSP: p.liftedKSP,
+            assignedKBP: p.liftedKBP,
+            soldQty: p.soldQty,
+            soldKSP: p.soldKSP,
+            soldKBP: p.soldKBP,
+            dispatchedQty: p.dispatchedQty,
+            returnedQty: p.returnedQty,
+            balanceQty: p.balanceQty,
+            balanceKSP: p.balanceKSP,
+            balanceKBP: p.balanceKBP,
+            commission: p.commission
+          };
+        }),
         totals: FranchiseStock.sumStock(products),
-        sales,
+        sales: sales.map((s) => ({ ...s, billNumber: FranchiseStock.billNumberFor(s) })),
         salesTotal,
         page,
         pages: Math.max(1, Math.ceil(salesTotal / limit))

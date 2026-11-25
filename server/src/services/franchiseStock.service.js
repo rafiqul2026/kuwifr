@@ -309,4 +309,16 @@ const voidEntry = async ({ entryId, reason, voidedBy }) => {
   return entry;
 };
 
-module.exports = { stockBalancesFor, sumStock, productBalance, createEntry, voidEntry, TYPES };
+/**
+ * Bill number for a SALE entry, e.g. FS-261124-3F09A2. Derived from the entry's
+ * own creation date and id, so every sale (including ones recorded before bill
+ * numbers existed) has a stable, unique number without a migration.
+ */
+const billNumberFor = (entry) => {
+  const d = new Date(entry.createdAt || entry.entryDate || Date.now());
+  const ist = new Date(d.getTime() + 330 * 60000);
+  const yymmdd = ist.toISOString().slice(2, 10).replace(/-/g, '');
+  return `FS-${yymmdd}-${String(entry._id).slice(-6).toUpperCase()}`;
+};
+
+module.exports = { stockBalancesFor, sumStock, productBalance, createEntry, voidEntry, billNumberFor, TYPES };
