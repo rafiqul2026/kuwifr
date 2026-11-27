@@ -28,6 +28,8 @@ import {
   FiDownload
 } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
+import useFranchiseMembership from "../../hooks/useFranchiseMembership";
+import heroStyles from "../../pages/member/FranchiseHero.module.css";
 import { useInstallApp } from "../../utils/pwaInstall";
 import InstallAppHelpModal from "../common/InstallAppHelpModal";
 import styles from "./MemberLayout.module.css";
@@ -85,6 +87,7 @@ const MemberLayout = () => {
   const [packageDropdownOpen, setPackageDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const { user, logout, impersonation, stopImpersonation } = useAuth();
+  const { isFranchise } = useFranchiseMembership();
   const [returningToAdmin, setReturningToAdmin] = useState(false);
 
   const handleReturnToAdmin = async () => {
@@ -253,7 +256,10 @@ const MemberLayout = () => {
 
           <div className={styles.userInfo}>
             <span className={styles.userName}>{user?.fullName || "Member"}</span>
-            <span className={styles.userRole}>ID: {user?.memberId || "KFR------"}</span>
+            <span className={styles.userRole}>
+              {isFranchise && <span className={heroStyles.badge} style={{ marginRight: 6 }}>👑 Franchise Partner</span>}
+              ID: {user?.memberId || "KFR------"}
+            </span>
           </div>
 
           <button type="button" className={styles.logoutBtn} onClick={handleLogout}>
@@ -294,6 +300,7 @@ const MemberLayout = () => {
               <span className={styles.sidebarUserRole}>
                 {user?.memberId ? `ID: ${user.memberId}` : "Active Member"}
               </span>
+              {isFranchise && <span className={heroStyles.badge} style={{ marginTop: 4, alignSelf: 'flex-start' }}>👑 Franchise Partner</span>}
             </div>
           </div>
 

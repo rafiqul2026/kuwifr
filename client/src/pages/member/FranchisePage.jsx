@@ -4,12 +4,16 @@ import api from '../../services/api';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './FranchisePage.module.css';
 import FranchisePanel from './FranchisePanel';
+import FranchiseHero, { FranchiseCongrats } from './FranchiseHero';
+import heroStyles from './FranchiseHero.module.css';
+import { useAuth } from '../../context/AuthContext';
 
 const formatINR = (val) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(val) || 0);
 
 const FranchisePage = () => {
   const { showNotification } = useNotification();
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState(null); // Franchise doc, or null if never applied
@@ -161,13 +165,14 @@ const FranchisePage = () => {
   // ============ APPROVED ============
   return (
     <div className={styles.pageContainer}>
-      <div className={styles.headerRow}>
-        <div className={styles.headerTitleWrap}>
-          <span className={styles.pillBadge}>🏢 Franchise Network</span>
-          <h1 className={styles.pageTitle}>Franchise Dashboard</h1>
-          <p className={styles.pageSubtitle}>Your territory is your full downline network — overrides are credited automatically on every real order placed within it.</p>
-        </div>
-      </div>
+      <FranchiseCongrats franchiseId={status?._id} name={user?.fullName} />
+      <FranchiseHero
+        user={user}
+        partner={dashboard?.partner}
+        rates={dashboard?.rates}
+        territoryMembers={dashboard?.territoryStats?.totalMembers}
+        onCertificateBlocked={() => showNotification('Allow pop-ups for this site to open your certificate.', 'warning')}
+      />
 
       <div className={styles.statsGrid}>
         <div className={styles.statCard}>
@@ -190,10 +195,12 @@ const FranchisePage = () => {
           <span className={styles.statLabel}>Franchise Income (Lifetime)</span>
           <h2 className={styles.statValue}>{formatINR(dashboard?.franchiseIncome?.total)}</h2>
         </div>
-        <div className={styles.statCard}>
-          <span className={styles.statLabel}>Your Rates</span>
-          <h2 className={styles.statValue}>{((dashboard?.rates?.kspRate || 0) * 100).toFixed(1)}% / {((dashboard?.rates?.kbpLifetimeRate || 0) * 100).toFixed(1)}%</h2>
-          <span className={styles.statHelp}>Activation / Lifetime KBP</span>
+        <div className={`${styles.statCard} ${heroStyles.goldStat}`}>
+          <span className={styles.statLabel}>Your Commission</span>
+          <div className={heroStyles.rateLine}>
+            <span><b>{((dashboard?.rates?.kspRate || 0) * 100).toFixed(1).replace(/\.0$/, '')}%</b>Activation</span>
+            <span><b>{((dashboard?.rates?.saleCommissionRate || 0) * 100).toFixed(1).replace(/\.0$/, '')}%</b>Product sales</span>
+          </div>
         </div>
       </div>
 

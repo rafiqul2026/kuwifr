@@ -12,6 +12,22 @@ const FranchiseStock = require('../services/franchiseStock.service');
 const FranchiseStockEntry = require('../models/FranchiseStockEntry');
 const RepurchaseProduct = require('../models/RepurchaseProduct');
 
+const BinaryNode = require('../models/BinaryNode');
+
+/**
+ * Each member's own (package) KBP, from BinaryNode: totalKBP counts the
+ * member's own KBP plus everything below them, so own = total - left - right.
+ * User.totalKBP is never written by any activation path, which is why the
+ * franchise screens used to show "Territory KBP: 0".
+ */
+const ownKbpByUser = async (userIds) => {
+  const nodes = await BinaryNode.find({ userId: { $in: userIds } }).select('userId totalKBP leftVolume rightVolume').lean();
+  return new Map(nodes.map((n) => [
+    String(n.userId),
+    Math.max(0, (n.totalKBP || 0) - (n.leftVolume || 0) - (n.rightVolume || 0))
+  ]));
+};
+
 // ============ MEMBER-SIDE ============
 
 /**
@@ -90,7 +106,18 @@ const getMyFranchiseDashboard = async (req, res, next) => {
     ]);
 
     const territoryActive = territory.filter((m) => String(m.status).toUpperCase() === 'ACTIVE').length;
-    const territoryKbp = territory.reduce((sum, m) => sum + (Number(m.totalKBP) || 0), 0);
+    const kbpByUser = await ownKbpByUser(territory.map((m) => m._id));
+    const territoryKbp = [...kbpByUser.values()].reduce((sum, v) => sum + v, 0);
+
+    // "Partner No." — this franchise's position by approval date among all
+    // approved franchises (1 = first franchise on the platform).
+    const partnerNumber = 1 + await Franchise.countDocuments({
+      status: 'APPROVED',
+      $or: [
+        { decidedAt: { $lt: franchise.decidedAt || franchise.createdAt } },
+        { decidedAt: franchise.decidedAt || franchise.createdAt, _id: { $lt: franchise._id } }
+      ]
+    });
 
     const todayStart = getBusinessDayStart();
 
@@ -119,7 +146,14 @@ const getMyFranchiseDashboard = async (req, res, next) => {
           total: totalAgg[0]?.total || wallet?.franchiseIncome || 0,
           lifetimeWalletTotal: wallet?.franchiseIncome || 0
         },
-        rates
+        partner: {
+          number: partnerNumber,
+          code: `KF-${String(partnerNumber).padStart(4, '0')}`,
+          since: franchise.decidedAt || franchise.createdAt
+        },
+        // The lifetime-KBP rate is intentionally not shown on the franchise
+        // dashboard (business request); it still applies as configured.
+        rates: { kspRate: rates.kspRate, saleCommissionRate: rates.saleCommissionRate }
       }
     });
   } catch (error) {
@@ -139,17 +173,19 @@ const getMyFranchiseTerritory = async (req, res, next) => {
     const { search, page = 1, limit = 25 } = req.query;
     let territory = await DownlineService.getFullDownline(userId);
 
-    if (search && search.trim()) {
-      const re = new RegExp(search.trim(), 'i');
-      territory = territory.filter((m) => re.test(m.fullName || '') || re.test(m.memberId || '') || re.test(m.email || ''));
+    if (search && String(search).trim()) {
+      const needle = String(search).trim().toLowerCase();
+      territory = territory.filter((m) => [m.fullName, m.memberId, m.email].some((v) => (v || '').toLowerCase().includes(needle)));
     }
 
     const currentPage = Math.max(1, parseInt(page, 10) || 1);
-    const pageLimit = Math.max(1, parseInt(limit, 10) || 25);
+    const pageLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 25));
     const total = territory.length;
-    const paged = territory
+    const pagedRaw = territory
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice((currentPage - 1) * pageLimit, currentPage * pageLimit);
+    const kbpByUser = await ownKbpByUser(pagedRaw.map((m) => m._id));
+    const paged = pagedRaw.map((m) => ({ ...m, totalKBP: kbpByUser.get(String(m._id)) || 0 }));
 
     res.json({
       success: true,
@@ -413,7 +449,7 @@ const getFranchiseOverviewAdmin = async (req, res, next) => {
         territoryStats: {
           totalMembers: territory.length,
           activeMembers: territory.filter((m) => String(m.status).toUpperCase() === 'ACTIVE').length,
-          totalKbp: territory.reduce((sum, m) => sum + (Number(m.totalKBP) || 0), 0)
+          totalKbp: [...(await ownKbpByUser(territory.map((m) => m._id))).values()].reduce((sum, v) => sum + v, 0)
         },
         franchiseIncome: {
           today: todayAgg[0]?.total || 0,

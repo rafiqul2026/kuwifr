@@ -6,6 +6,8 @@ import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../hooks/useNotification';
 import styles from './DashboardPage.module.css';
+import heroStyles from './FranchiseHero.module.css';
+import useFranchiseMembership from '../../hooks/useFranchiseMembership';
 
 // Member-side "skip/close" for the notification bar (docx follow-up: "so
 // member can skip or close the notification, for comfortable use of the
@@ -71,6 +73,7 @@ const formatISTClock = (date) => {
  */
 const DashboardPage = () => {
   const { user } = useAuth();
+  const { isFranchise, since: franchiseSince } = useFranchiseMembership();
   const { showNotification } = useNotification();
 
   const [stats, setStats] = useState(null);
@@ -418,6 +421,22 @@ const DashboardPage = () => {
             </button>
           </div>
         </header>
+
+        {isFranchise && (
+          <section className={heroStyles.dashBanner} aria-label="Franchise partner">
+            <span className={heroStyles.dashSeal} aria-hidden="true">👑</span>
+            <div className={heroStyles.dashText}>
+              <strong>Official KUWIFR Franchise Partner</strong>
+              <span>
+                {franchiseSince ? `Partner since ${new Date(franchiseSince).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })} · ` : ''}
+                Manage your stock, sales and bills in your Franchise Panel.
+              </span>
+            </div>
+            <Link to="/member/franchise" className={heroStyles.dashBtn} style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>
+              Open Franchise Panel →
+            </Link>
+          </section>
+        )}
 
         {/* Hero Greeting Card — gradient welcome banner with role/status
             pill, "member since" date, a context-aware CTA, and inline

@@ -1,0 +1,426 @@
+/* client/src/pages/member/FranchiseHero.module.css
+   The "you are a KUWIFR Franchise Partner" treatment: hero banner, partner
+   card, congratulations banner, and the dashboard/sidebar partner badges. */
+
+.hero {
+  --gold: #e8c26a;
+  --gold-deep: #b8892d;
+  --gold-soft: rgba(232, 194, 106, 0.16);
+
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: center;
+  padding: 28px 30px;
+  margin-bottom: 20px;
+  border-radius: 22px;
+  color: #ffffff;
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgba(232, 194, 106, 0.28) 0%, rgba(232, 194, 106, 0) 45%),
+    radial-gradient(90% 120% at 0% 100%, rgba(0, 160, 150, 0.35) 0%, rgba(0, 160, 150, 0) 55%),
+    linear-gradient(135deg, #0b3d3a 0%, #0f5752 45%, #0a2f2d 100%);
+  box-shadow: 0 18px 40px rgba(10, 47, 45, 0.28);
+  isolation: isolate;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 18px 18px;
+  mask-image: linear-gradient(90deg, transparent 0%, #000 60%);
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(232, 194, 106, 0.8), rgba(232, 194, 106, 0) 40%, rgba(232, 194, 106, 0.5));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.ribbon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--gold) 0%, #f5dc9c 50%, var(--gold) 100%);
+  color: #3d2a05;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  box-shadow: 0 4px 14px rgba(232, 194, 106, 0.35);
+}
+
+.crown {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  font-size: 13px;
+}
+
+.heroTitle {
+  margin: 14px 0 6px;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  line-height: 1.15;
+}
+
+.heroTitle span {
+  background: linear-gradient(90deg, #ffffff 0%, #f5dc9c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.heroText {
+  margin: 0;
+  max-width: 560px;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.perks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.perk {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 12.5px;
+  color: #ffffff;
+}
+
+.perk b {
+  color: var(--gold);
+}
+
+/* Partner card (right side) */
+.card {
+  position: relative;
+  width: 260px;
+  padding: 18px 18px 16px;
+  border-radius: 18px;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04));
+  border: 1px solid rgba(232, 194, 106, 0.55);
+  backdrop-filter: blur(6px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  text-align: left;
+}
+
+.cardSeal {
+  position: absolute;
+  top: -14px;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #f8e3a8, var(--gold) 55%, var(--gold-deep));
+  color: #3d2a05;
+  font-size: 22px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3), 0 0 0 3px rgba(232, 194, 106, 0.25);
+}
+
+.cardLabel {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.cardCode {
+  display: block;
+  margin: 2px 0 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--gold);
+}
+
+.cardName {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cardMeta {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.certBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 38px;
+  margin-top: 14px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--gold) 0%, #f5dc9c 100%);
+  color: #3d2a05;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.12s ease, transform 0.12s ease;
+}
+
+.certBtn:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.certBtn:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Congratulations banner (shown once) */
+.congrats {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, #fff8e6 0%, #fdf1cf 100%);
+  border: 1px solid #f0d58e;
+  color: #5c4108;
+  overflow: hidden;
+  animation: congratsIn 0.5s ease;
+}
+
+.congratsIcon {
+  flex-shrink: 0;
+  font-size: 30px;
+}
+
+.congrats strong {
+  display: block;
+  font-size: 15px;
+}
+
+.congrats p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #7a5a14;
+}
+
+.congratsClose {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(92, 65, 8, 0.08);
+  color: #5c4108;
+  cursor: pointer;
+}
+
+.confetti {
+  position: absolute;
+  top: -10px;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  opacity: 0.9;
+  animation: fall 2.6s ease-in forwards;
+  pointer-events: none;
+}
+
+@keyframes fall {
+  to { transform: translateY(120px) rotate(540deg); opacity: 0; }
+}
+
+@keyframes congratsIn {
+  from { opacity: 0; transform: translateY(-6px); }
+}
+
+/* Stat cards with a gold accent, used on the franchise dashboard */
+.goldStat {
+  position: relative;
+  border-color: #f0d58e !important;
+  background: linear-gradient(160deg, #fffdf6 0%, #ffffff 60%) !important;
+}
+
+.goldStat::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  border-radius: 3px 0 0 3px;
+  background: linear-gradient(180deg, #e8c26a, #b8892d);
+}
+
+.rateLine {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.rateLine span {
+  font-size: 12px;
+  color: #737373;
+}
+
+.rateLine b {
+  display: block;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1c2a2a;
+  letter-spacing: -0.3px;
+}
+
+/* Main-dashboard banner */
+.dashBanner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  color: #ffffff;
+  background:
+    radial-gradient(80% 160% at 100% 0%, rgba(232, 194, 106, 0.35) 0%, rgba(232, 194, 106, 0) 50%),
+    linear-gradient(120deg, #0b3d3a 0%, #0f5752 100%);
+  border: 1px solid rgba(232, 194, 106, 0.6);
+  box-shadow: 0 10px 26px rgba(10, 47, 45, 0.22);
+  position: relative;
+  z-index: 1;
+}
+
+.dashSeal {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #f8e3a8, #e8c26a 55%, #b8892d);
+  font-size: 20px;
+}
+
+.dashText {
+  min-width: 0;
+}
+
+.dashText strong {
+  display: block;
+  font-size: 15px;
+  color: #f5dc9c;
+}
+
+.dashText span {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.dashBtn {
+  margin-left: auto;
+  flex-shrink: 0;
+  height: 38px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #e8c26a 0%, #f5dc9c 100%);
+  color: #3d2a05;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Small badge next to the member's name (header + sidebar) */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e8c26a 0%, #f5dc9c 100%);
+  color: #3d2a05;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  line-height: 1.6;
+  vertical-align: middle;
+}
+
+@media (max-width: 860px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 22px 18px;
+    border-radius: 18px;
+  }
+
+  .heroTitle {
+    font-size: 24px;
+  }
+
+  .card {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .dashBanner {
+    flex-wrap: wrap;
+  }
+
+  .dashBtn {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .congrats,
+  .confetti {
+    animation: none;
+  }
+
+  .confetti {
+    display: none;
+  }
+}
