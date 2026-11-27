@@ -386,3 +386,19 @@
     width: 100%;
   }
 }
+/* KYC chip doubles as a link to Admin > KYC Requests */
+.kycChipBtn {
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.kycChipBtn:hover {
+  filter: brightness(0.95);
+  text-decoration: underline;
+}
+
+.kycChipBtn:focus-visible {
+  outline: 2px solid #008080;
+  outline-offset: 2px;
+}

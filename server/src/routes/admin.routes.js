@@ -601,7 +601,9 @@ router.post('/alerts/clear-all', adminAlertsController.clearAll);
 router.post('/alerts/:id/dismiss', adminAlertsController.dismissAlert);
 
 router.get('/kyc', adminController.getPendingKYC);
+router.get('/kyc/counts', adminController.getKYCCounts);
 router.post('/kyc/review', adminController.reviewKYC);
+router.post('/kyc/bulk-verify', adminController.bulkVerifyKYC);
 router.put('/kyc/:id', adminController.reviewKYC);
 
 router.post('/wallet/adjust', adminController.adjustWallet);

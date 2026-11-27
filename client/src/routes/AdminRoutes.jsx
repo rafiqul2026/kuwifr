@@ -44,6 +44,7 @@ import AdminIncomePayoutsPage from '../pages/admin/AdminIncomePayoutsPage';
 import AdminFranchiseInventoryPage from '../pages/admin/AdminFranchiseInventoryPage';
 import AdminFranchiseReportsPage from '../pages/admin/AdminFranchiseReportsPage';
 import AdminSponsorChangePage from '../pages/admin/AdminSponsorChangePage';
+import AdminKycPage from '../pages/admin/AdminKycPage';
 
 const AdminRoutes = () => {
   return (
@@ -94,6 +95,7 @@ const AdminRoutes = () => {
         <Route path="franchise-inventory" element={<AdminFranchiseInventoryPage />} />
         <Route path="franchise-reports" element={<AdminFranchiseReportsPage />} />
         <Route path="sponsor-change" element={<AdminSponsorChangePage />} />
+        <Route path="kyc" element={<AdminKycPage />} />
 
         {/* Catch-all fallback */}
         <Route path="*" element={<Navigate to="dashboard" replace />} />

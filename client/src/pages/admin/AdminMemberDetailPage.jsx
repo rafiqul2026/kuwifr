@@ -138,9 +138,15 @@ const AdminMemberDetailPage = () => {
             <span className={`${styles.statusChip} ${styles['status_' + (user.status || 'INACTIVE')]}`}>
               {user.status || 'INACTIVE'}
             </span>
-            <span className={`${styles.kycChip} ${styles['kyc_' + (user.kyc?.status || 'NOT_SUBMITTED')]}`}>
+            <button
+              type="button"
+              className={`${styles.kycChip} ${styles.kycChipBtn} ${styles['kyc_' + (user.kyc?.status || 'NOT_SUBMITTED')]}`}
+              onClick={() => navigate(`/admin/kyc?status=${user.kyc?.status || 'NOT_SUBMITTED'}&q=${encodeURIComponent(user.memberId || '')}`)}
+              title={user.kyc?.status === 'PENDING' ? 'Review and verify this KYC' : 'Open in KYC Requests'}
+            >
               KYC: {(user.kyc?.status || 'NOT_SUBMITTED').replace(/_/g, ' ')}
-            </span>
+              {user.kyc?.status !== 'VERIFIED' && <span aria-hidden="true"> · Review →</span>}
+            </button>
           </div>
           <p className={styles.contactLine}>{user.email} · {user.phoneNumber || 'No phone on file'}</p>
         </div>

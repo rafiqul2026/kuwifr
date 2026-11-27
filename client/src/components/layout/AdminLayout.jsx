@@ -33,7 +33,8 @@ import {
   FiShuffle,
   FiArchive,
   FiPieChart,
-  FiDollarSign
+  FiDollarSign,
+  FiUserCheck
 } from 'react-icons/fi';
 import styles from './AdminLayout.module.css';
 
@@ -54,6 +55,7 @@ const NAV_GROUPS = [
     title: 'Members & Network',
     items: [
       { label: 'Members', path: '/admin/members', icon: FiUsers },
+      { label: 'KYC Requests', path: '/admin/kyc', icon: FiUserCheck, badge: 'kyc' },
       { label: 'KBP Report', path: '/admin/kbp-report', icon: FiLayers },
       { label: 'Sponsor Change', path: '/admin/sponsor-change', icon: FiShuffle },
       { label: 'Ranks', path: '/admin/ranks', icon: FiAward }
@@ -124,6 +126,7 @@ const AdminLayout = () => {
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   const [pendingPayments, setPendingPayments] = useState(0);
   const [pendingRepurchasePayments, setPendingRepurchasePayments] = useState(0);
+  const [pendingKyc, setPendingKyc] = useState(0);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { showNotification } = useNotification ? useNotification() : { showNotification: () => {} };
@@ -179,6 +182,7 @@ const AdminLayout = () => {
     if (badgeKey === 'payments') return pendingPayments;
     if (badgeKey === 'repurchase') return pendingRepurchasePayments;
     if (badgeKey === 'alerts') return unreadAlerts;
+    if (badgeKey === 'kyc') return pendingKyc;
     return 0;
   };
 
@@ -238,6 +242,22 @@ const AdminLayout = () => {
     const interval = setInterval(fetchPendingRepurchasePayments, 60000);
     return () => clearInterval(interval);
   }, [fetchPendingRepurchasePayments]);
+
+  // Pending KYC submissions — sidebar badge on KYC Requests.
+  const fetchPendingKyc = useCallback(async () => {
+    try {
+      const res = await api.get('/api/admin/kyc/counts');
+      if (res.data?.success) setPendingKyc(res.data.data?.PENDING || 0);
+    } catch (err) {
+      // Non-critical — badge just stays at its last known count.
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPendingKyc();
+    const interval = setInterval(fetchPendingKyc, 60000);
+    return () => clearInterval(interval);
+  }, [fetchPendingKyc]);
 
   const handleLogout = async () => {
     await logout();

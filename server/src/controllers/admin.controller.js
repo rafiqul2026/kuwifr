@@ -329,27 +329,55 @@ const activateMemberWithPackage = async (req, res, next) => {
   }
 };
 
+// ============ KYC REVIEW (Admin > KYC Requests) ============
+
+const KYC_STATUSES = ['PENDING', 'VERIFIED', 'REJECTED', 'NOT_SUBMITTED'];
+const KYC_ADMIN_ROLES = ['ADMIN', 'SUPER_ADMIN', 'admin', 'super_admin'];
+
+// A member with no kyc sub-document at all counts as NOT_SUBMITTED.
+const kycStatusMatch = (status) => (status === 'NOT_SUBMITTED'
+  ? { $or: [{ 'kyc.status': 'NOT_SUBMITTED' }, { 'kyc.status': { $exists: false } }, { 'kyc.status': null }] }
+  : { 'kyc.status': status });
+
+/**
+ * GET /api/admin/kyc?status=PENDING&q=&page=
+ * KYC submissions by status, newest first, with documents for review.
+ */
 const getPendingKYC = async (req, res, next) => {
   try {
-    const { page = 1, limit = 20, status = 'PENDING' } = req.query;
-    const pageNum = Math.max(1, parseInt(page, 10));
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
-    const skip = (pageNum - 1) * limitNum;
+    const status = KYC_STATUSES.includes(String(req.query.status || '').toUpperCase())
+      ? String(req.query.status).toUpperCase()
+      : 'PENDING';
+    const pageNum = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+
+    const filter = { role: { $nin: KYC_ADMIN_ROLES }, ...kycStatusMatch(status) };
+    const q = String(req.query.q || '').trim();
+    if (q) {
+      const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      filter.$and = [{ $or: [{ memberId: rx }, { fullName: rx }, { email: rx }, { phoneNumber: rx }, { 'kyc.panNumber': rx }] }];
+    }
+
+    const sort = status === 'PENDING' ? { 'kyc.submittedAt': 1 } // oldest waiting first
+      : status === 'VERIFIED' ? { 'kyc.verifiedAt': -1 }
+        : status === 'NOT_SUBMITTED' ? { createdAt: -1 }
+          : { 'kyc.submittedAt': -1 };
 
     const [users, total] = await Promise.all([
-      User.find({ 'kyc.status': status })
-        .select('fullName email phoneNumber memberId kyc createdAt')
+      User.find(filter)
+        .select('fullName email phoneNumber memberId status kyc createdAt sponsorId')
         .populate('sponsorId', 'fullName memberId')
-        .sort({ 'kyc.submittedAt': -1 })
-        .skip(skip)
+        .sort(sort)
+        .skip((pageNum - 1) * limitNum)
         .limit(limitNum)
         .lean(),
-      User.countDocuments({ 'kyc.status': status })
+      User.countDocuments(filter)
     ]);
 
     res.json({
       success: true,
       data: {
+        status,
         submissions: users || [],
         pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) || 1 }
       }
@@ -359,27 +387,133 @@ const getPendingKYC = async (req, res, next) => {
   }
 };
 
+/** GET /api/admin/kyc/counts — members per KYC status (tab badges + sidebar). */
+const getKYCCounts = async (req, res, next) => {
+  try {
+    const base = { role: { $nin: KYC_ADMIN_ROLES } };
+    const [pending, verified, rejected, notSubmitted] = await Promise.all([
+      User.countDocuments({ ...base, ...kycStatusMatch('PENDING') }),
+      User.countDocuments({ ...base, ...kycStatusMatch('VERIFIED') }),
+      User.countDocuments({ ...base, ...kycStatusMatch('REJECTED') }),
+      User.countDocuments({ ...base, ...kycStatusMatch('NOT_SUBMITTED') })
+    ]);
+    res.json({ success: true, data: { PENDING: pending, VERIFIED: verified, REJECTED: rejected, NOT_SUBMITTED: notSubmitted } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const notifyKycDecision = async (userId, status, reason) => {
+  try {
+    const Notification = require('../models/Notification');
+    await Notification.create(status === 'VERIFIED'
+      ? {
+        userId, type: 'SYSTEM', priority: 'HIGH', title: 'Your KYC is verified ✅',
+        message: 'Your KYC has been verified by KUWIFR. You can now use all account features, including withdrawals.',
+        icon: '✅', color: '#16a34a', action: '/member/profile/kyc', actionLabel: 'View KYC'
+      }
+      : {
+        userId, type: 'SYSTEM', priority: 'HIGH', title: 'Your KYC needs attention',
+        message: `Your KYC was not approved: ${reason}. Please upload clear documents again.`,
+        icon: '⚠️', color: '#dc2626', action: '/member/profile/kyc', actionLabel: 'Re-submit KYC'
+      });
+  } catch (err) {
+    console.error(`KYC notification failed for ${userId}:`, err.message);
+  }
+};
+
+/**
+ * Applies one KYC decision. Uses a targeted update (not user.save()) so
+ * unrelated validation on older member records can never block it.
+ */
+const applyKycDecision = async ({ req, user, status, reason, manual }) => {
+  const now = new Date();
+  const set = {
+    'kyc.status': status,
+    'kyc.verifiedAt': status === 'VERIFIED' ? now : null,
+    'kyc.rejectionReason': status === 'REJECTED' ? reason : ''
+  };
+  if (!user.kyc?.submittedAt && status === 'VERIFIED') set['kyc.submittedAt'] = now;
+  await User.updateOne({ _id: user._id }, { $set: set });
+
+  await logAdminAction({
+    req,
+    action: status === 'VERIFIED' ? 'KYC_VERIFIED' : 'KYC_REJECTED',
+    module: 'MEMBERS',
+    targetId: user._id,
+    previousData: { kycStatus: user.kyc?.status || 'NOT_SUBMITTED' },
+    newData: { memberId: user.memberId, kycStatus: status, reason: reason || null, manual: !!manual }
+  });
+  await notifyKycDecision(user._id, status, reason);
+};
+
+/**
+ * POST /api/admin/kyc/review  { userId, status: VERIFIED|REJECTED, rejectionReason }
+ * PUT  /api/admin/kyc/:id     (same body)
+ * Verifying a member who never submitted documents is allowed ("manual
+ * verification") and recorded as such in the audit log.
+ */
 const reviewKYC = async (req, res, next) => {
   try {
-    const { userId, status, rejectionReason } = req.body;
-    const targetId = req.params.id || userId;
+    const targetId = req.params.id || req.body.userId;
+    const status = String(req.body.status || '').toUpperCase();
+    const reason = String(req.body.rejectionReason || '').trim().slice(0, 300);
 
-    const user = await User.findById(targetId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'Member not found' });
+    if (!mongoose.isValidObjectId(targetId)) {
+      return res.status(400).json({ success: false, message: 'Invalid member.' });
+    }
+    if (!['VERIFIED', 'REJECTED'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Status must be VERIFIED or REJECTED.' });
+    }
+    if (status === 'REJECTED' && reason.length < 3) {
+      return res.status(400).json({ success: false, message: 'Give the member a reason for rejecting their KYC.' });
     }
 
-    if (!user.kyc) user.kyc = {};
-    user.kyc.status = status;
-    user.kyc.verifiedAt = status === 'VERIFIED' ? new Date() : null;
-    user.kyc.rejectionReason = status === 'REJECTED' ? rejectionReason || 'Documents rejected' : '';
+    const user = await User.findById(targetId).select('memberId fullName role kyc').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Member not found.' });
+    if (KYC_ADMIN_ROLES.includes(user.role)) {
+      return res.status(400).json({ success: false, message: 'Admin accounts do not need KYC.' });
+    }
+    const current = user.kyc?.status || 'NOT_SUBMITTED';
+    if (current === status) {
+      return res.status(200).json({ success: true, message: `${user.fullName}'s KYC is already ${status.toLowerCase()}.`, data: { kyc: user.kyc } });
+    }
+    if (status === 'REJECTED' && current === 'NOT_SUBMITTED') {
+      return res.status(400).json({ success: false, message: 'This member has not submitted KYC documents yet.' });
+    }
 
-    await user.save();
+    await applyKycDecision({ req, user, status, reason, manual: current !== 'PENDING' });
 
     res.json({
       success: true,
-      message: `KYC status marked as ${status}`,
-      data: { kyc: user.kyc }
+      message: status === 'VERIFIED'
+        ? `KYC verified for ${user.fullName} (${user.memberId}). They have been notified.`
+        : `KYC rejected for ${user.fullName} (${user.memberId}). They have been asked to re-submit.`,
+      data: { kycStatus: status }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** POST /api/admin/kyc/bulk-verify { userIds: [] } — verify several PENDING submissions at once. */
+const bulkVerifyKYC = async (req, res, next) => {
+  try {
+    const ids = Array.isArray(req.body.userIds) ? req.body.userIds.filter((id) => mongoose.isValidObjectId(id)) : [];
+    if (ids.length === 0) return res.status(400).json({ success: false, message: 'Select at least one member.' });
+    if (ids.length > 100) return res.status(400).json({ success: false, message: 'Verify at most 100 members at a time.' });
+
+    const users = await User.find({ _id: { $in: ids }, role: { $nin: KYC_ADMIN_ROLES }, 'kyc.status': 'PENDING' })
+      .select('memberId fullName role kyc')
+      .lean();
+    for (const user of users) {
+      await applyKycDecision({ req, user, status: 'VERIFIED', reason: '', manual: false });
+    }
+    const skipped = ids.length - users.length;
+    res.json({
+      success: true,
+      message: `KYC verified for ${users.length} member(s).${skipped ? ` ${skipped} skipped (no longer pending).` : ''}`,
+      data: { verified: users.length, skipped }
     });
   } catch (error) {
     next(error);
@@ -862,6 +996,8 @@ module.exports = {
   deleteMember,
   activateMemberWithPackage,
   getPendingKYC,
+  getKYCCounts,
+  bulkVerifyKYC,
   reviewKYC,
   adjustWallet,
   initializeSystem
