@@ -38,7 +38,10 @@ const printCertificate = ({ name, memberId, code, since }) => {
   .cell.left { text-align: left; }
   .cell.left div + div { margin-top: 12px; }
   .cell.sign { text-align: center; }
-  .signSpace { height: 44px; }
+  .signArea { position: relative; height: 92px; }
+  /* Company seal stamped beside the signature, slightly askew like a real stamp. */
+  .signSeal { position: absolute; left: 2%; bottom: -4px; width: 104px; height: auto; transform: rotate(-12deg); opacity: 0.88; mix-blend-mode: multiply; }
+  .signImg { position: absolute; right: 6%; bottom: -6px; width: 150px; height: auto; mix-blend-mode: multiply; }
   .signLine { border-top: 1px solid #1c2a2a; margin: 0 auto 6px; width: 85%; }
   .signTitle { display: block; font-size: 15px; font-weight: 700; color: #1c2a2a; letter-spacing: 0.5px; }
   .signFor { display: block; margin-top: 2px; font-size: 12px; color: #0f5752; letter-spacing: 2px; text-transform: uppercase; }
@@ -60,10 +63,13 @@ const printCertificate = ({ name, memberId, code, since }) => {
     </div>
     <div class="cell"><div class="seal">👑</div></div>
     <div class="cell sign">
-      <div class="signSpace"></div>
+      <div class="signArea">
+        <img class="signSeal" src="${origin}/certificate/seal.png" alt="KUWIFR Services Pvt. Ltd. seal" />
+        <img class="signImg" src="${origin}/certificate/signature.png" alt="Authorised signature" />
+      </div>
       <div class="signLine"></div>
       <span class="signTitle">Authorised Signatory</span>
-      <span class="signFor">For KUWIFR</span>
+      <span class="signFor">For KUWIFR Services Pvt. Ltd.</span>
     </div>
   </div>
 </div></div>${AUTO_PRINT_SCRIPT}</body></html>`);
